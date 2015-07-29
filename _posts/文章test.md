@@ -1,9 +1,11 @@
 ---
-layout: none
-title: 测试
+layout: article
+title: 给不同阶段的自己
 date: 2015-07-12 17:10:50
+tags: 感触
+categories: 随便写写
+published: true
 ---
-
 
 *关于readyState。是不是一定会出现4状态。abort会是几状态？*
 ```javascript
