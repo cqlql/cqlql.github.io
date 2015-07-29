@@ -1,0 +1,14 @@
+name: CSS森林(CSS Forest)
+description: 一个页面仔的成长之路
+url: http://blog.cssforest.org
+author: GhostZhang
+github: ghostzhang
+qq: 22168741
+email: Ghostzhang@cssforest.org
+linkedin: ghostzhang
+paginate: 100
+pygments: true
+safe: true
+permalink: /:year/:month/:day/:title.html
+published: false
+file: http://blog.cssforest.org/file
