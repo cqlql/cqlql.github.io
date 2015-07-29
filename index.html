@@ -3,7 +3,13 @@ layout: index
 title: CSSForest.org
 ---
 
-<h2 class="none">文章列表</h2>
-{% for post in paginator.posts %}
-{{ post.url }}
-{% endfor %}
+
+
+ {% for post in paginator.posts %}
+-	{% capture y %}{{ date:"%Y" }}{% endcapture %}
+-	<p>{{ post.content }}</p>
+ 	<p>{{ post.title }}</p>
+ 	<p>{{ post.url }}</p>
+ 	<p>{{ post.date | date:"%Y-%m-%d" }}</p>
+ 	<p>{{ date:"%Y-%m-%d" }}</p>
+ {% endfor %}
