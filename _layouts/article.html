@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+	<head>
+	{% include header.html %}
+	</head>
+	<body>
+		<div id="container">
+			<header class="main-header">
+			  {% include nav.html %}
+			</header>
+			<main id="content" role="main">
+				<article>
+		　　　　{{ content }}
+                </article>
+				<section>
+                    <h2 class="none">评论列表</h2>
+				<!-- 多说评论框 start -->
+					<div class="ds-thread" data-thread-key="{{ page.id }}" data-title="{{ page.title }}" data-url="{{ site.url }}{{ page.url }}"></div>
+				<!-- 多说评论框 end -->
+				</section>
+			</main>
+			{% include footer.html %}
+		</div>
+	</body>
+</html>
