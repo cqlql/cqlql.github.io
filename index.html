@@ -6,10 +6,6 @@ title: Cqlql.GitHub.io
 
 
  {% for post in paginator.posts %}
- 
-<!-- -	<p>{{ post.content }}</p> -->
- 	<p>{{ post.title }}</p>
- 	<p>{{ post.url }}</p>
- 	<p>{{ post.date | date:"%Y-%m-%d" }}</p>
+ 	<p><a href="{{ post.url }}">{{ post.title }}</a>{{ post.date | date:"%Y-%m-%d" }}</p>
  	<p>{{ date:"%Y-%m-%d" }}</p>
  {% endfor %}
