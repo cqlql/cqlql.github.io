@@ -8,11 +8,3 @@ title: cqlql.org
 首页内容{{ date:"%Y-%m-%d" }}
 
 
-
-
-{% for post in paginator.posts %}
-	<p>{{ post.title }}</p>
-	<p>{{ post.url }}</p>
-	<p>{{ post.date | date:"%Y-%m-%d" }}</p>
-	<p>{{ date:"%Y-%m-%d" }}</p>
-{% endfor %}
