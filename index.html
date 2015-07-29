@@ -6,8 +6,8 @@ title: CSSForest.org
 
 
  {% for post in paginator.posts %}
--	{% capture y %}{{ date:"%Y" }}{% endcapture %}
--	<p>{{ post.content }}</p>
+	{% capture y %}{{ date:"%Y" }}{% endcapture %}
+<!-- -	<p>{{ post.content }}</p> -->
  	<p>{{ post.title }}</p>
  	<p>{{ post.url }}</p>
  	<p>{{ post.date | date:"%Y-%m-%d" }}</p>
