@@ -1,5 +1,6 @@
 ---
-title: 文章test
+layout: none
+title: 测试
 date: 2015-07-12 17:10:50
 ---
 
