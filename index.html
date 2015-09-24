@@ -3,11 +3,11 @@ layout: index
 title: Cqlql.GitHub.io
 ---
 {% for member in site.data.members %}
-<li>
+<p>
     <a href="https://github.com/{{ member.github }}">
         {{ member.name }}
     </a>
-</li>
+</p>
 {% endfor %}
 
  {% for post in site.posts %}
