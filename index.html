@@ -2,11 +2,12 @@
 layout: index
 title: Cqlql.GitHub.io
 ---
-{% for member in site.data.members %}
+{% for workInfo in site.data.works %}
 <p>
-    <a href="https://github.com/{{ member.github }}">
-        {{ member.name }}
+    <a href="/demo/{{ workInfo.pathName }}>
+        {{ workInfo.name }}
     </a>
+    {{ workInfo.date }}
 </p>
 {% endfor %}
 
