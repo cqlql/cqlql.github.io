@@ -1,0 +1,32 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+	<meta charset="UTF-8">
+	<title>滚动条宽度获取</title>
+
+	<style>
+		#info{
+			color: red;
+		}
+	</style>
+</head>
+<body>
+	<p>使用原生js</p>
+	<p>
+		<b>兼容性：</b>
+		ie6+、chrome、firefox
+	</p>
+	<p>
+		<button id="btn">取当前浏览器滚动条宽度</button> <b>当前浏览器滚动条宽度：</b><b id="info">?</b> px
+	</p>
+	
+    <script src="../../js/common.js"></script>
+	<script>
+
+	document.getElementById('btn').onclick = function(argument) {
+		var eDiv = document.getElementById('info');
+		eDiv.innerHTML = common.getScrollWidth();
+	};
+	</script>
+</body>
+</html>

@@ -1,0 +1,178 @@
+﻿
+body{margin:0;}
+ul{list-style-type:none;padding:0;margin:0;}
+
+.full-box {
+    position:absolute;
+    top:0;
+    bottom:0;
+    width:100%;
+    overflow:hidden;
+}
+.full-box .win {
+    height:100%;
+    /*overflow:hidden;*/
+}
+.full-box .items{
+    /*position:absolute;
+    top:0;
+    bottom:0;
+    width:100%;*/
+    height:100%;
+}
+
+.full-box .items li {
+    height:100%;
+    overflow:hidden;
+    background:#333;
+    position:relative;
+    
+}
+.full-box .items img {
+    display:block;
+}
+
+.full-box .btns{
+    position:absolute;
+    top:0;
+    right:10px;
+}
+
+.full-box .btns li{
+    width:10px;
+    height:10px;
+    border:1px solid #fff;
+    border-radius:50%;
+    margin:10px 0;
+}
+.full-box .btns li.active {
+    background:#fff;
+}
+
+.full-box .big-btn {
+    position: absolute;
+    left: 50%;
+    bottom: 70px;
+    background: #fff;
+    color: #ff6100;
+    padding: 8px 0;
+    box-shadow: 0 2px 0 rgba(0, 0, 0, 0.3);
+    border-radius: 22px;
+    font-weight: bold;
+    font-size: 22px;
+    width: 160px;
+    margin-left: -80px;
+    text-align: center;
+    text-decoration: none;
+}
+
+
+.full-box .big-btn:active {
+    box-shadow: none;
+    bottom: 69px;
+}
+
+.full-box .arrows {
+    width: 20px;
+    height: 21px;
+    background: url(imgs/arrows.png) no-repeat 0 0;
+    position: absolute;
+    right: 10px;
+    bottom: 30px;
+    background-size: 20px auto;
+
+    -webkit-animation-name: arrowsAnime;
+    animation-name: arrowsAnime;
+    -webkit-animation-duration: 1s;
+    animation-duration: 1s;
+    -webkit-animation-timing-function: cubic-bezier(0, 0.68, 0.62, 1.32);
+    animation-timing-function: cubic-bezier(0, 0.68, 0.62, 1.32);
+    -webkit-animation-iteration-count: infinite;
+    animation-iteration-count: infinite;
+    -webkit-animation-direction: normal;
+    animation-direction: normal;
+}
+
+@-webkit-keyframes arrowsAnime {
+    from {
+        -webkit-transform: translate3d(0,20px,0);
+        transform: translate3d(0,20px,0);
+        opacity: 0;
+    }
+
+    60% {
+        -webkit-transform: translate3d(0,10px,0);
+        transform: translate3d(0,10px,0);
+        opacity: 1;
+    }
+
+    to {
+        -webkit-transform: translate3d(0,0px,0);
+        transform: translate3d(0,0px,0);
+        opacity: 0;
+    }
+}
+
+@keyframes arrowsAnime {
+    from {
+        -webkit-transform: translate3d(0,20px,0);
+        transform: translate3d(0,20px,0);
+        opacity: 0;
+    }
+
+    60% {
+        -webkit-transform: translate3d(0,10px,0);
+        transform: translate3d(0,10px,0);
+        opacity: 1;
+    }
+
+    to {
+        -webkit-transform: translate3d(0,0px,0);
+        transform: translate3d(0,0px,0);
+        opacity: 0;
+    }
+}
+
+.full-box .wx-info {
+    position:absolute;
+    top:0;
+    width:100%;
+    height:100%;
+    background:rgba(0, 0, 0, 0.8);
+    display:none;
+}
+.full-box .wx-info img {
+    width:100%;
+}
+
+@media (max-width: 360px) {
+
+    .full-box .big-btn {
+     
+        bottom: 60px;
+        background: #fff;
+        padding: 6px 0;
+        box-shadow: 0 2px 0 rgba(0, 0, 0, 0.3);
+        font-size: 20px;
+        width: 130px;
+        margin-left: -65px;
+    }
+    .full-box .big-btn:active {
+        box-shadow: none;
+        bottom: 59px;
+    }
+    /*.full-box .arrows {
+        width: 30px;
+        height: 31px;
+        background-size: 30px auto;
+        margin-left: -13px;
+    }*/
+}
+
+
+#info {
+    color:#fff;
+    position:absolute;
+    top:0;
+    z-index:123;
+}

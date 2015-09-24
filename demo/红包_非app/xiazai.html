@@ -1,0 +1,349 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <title>数学π</title>
+    <meta charset="UTF-8">
+    <meta content="width=device-width,initial-scale=1.0,user-scalable=no" name="viewport" />
+    <style>
+        body {
+            background:#fef5ab;
+            margin:0;
+        }
+
+        .main {
+            position:relative;
+        }
+        .main>img{
+            width:100%;
+        }
+        .main .download{
+            position: absolute;
+    top: 59%;
+    left: 26%;
+    right: 26%;
+    /*padding-top: 15%;*/
+        }
+        .main .download a {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    font-size: 14px;
+    color: #fff;
+        padding: 9% 0;
+    text-align: center;
+    background: #ff4242;
+    border-radius: 6px;
+        }
+        .main .list {
+position: absolute;
+    top: 76%;
+    left: 3%;
+    right: 3%;
+    padding-top: 33%;
+        }
+        .main .list .win{
+            position: absolute;
+            top:0;
+            left:0;
+            height:100%;
+            width:100%;
+            font-size:14px;
+            overflow:hidden;
+
+        }
+        .main .list .win th {
+                text-align: left;
+            font-weight: normal;
+            color: #7c6211;
+            padding: 4px 10px;
+        }
+         .main .list .win td {
+                color: #f33;
+        }
+
+         .main .wx-info {
+            position:fixed;
+            top:0;
+            width:100%;
+            height:100%;
+            background:rgba(0, 0, 0, 0.8);
+            display:none;
+        }
+        .main .wx-info img {
+            width:100%;
+        }
+        .main table {
+            width:100%;
+        }
+    </style>
+</head>
+
+
+<body>
+    <div class="main">
+        <img src="imgs/bjz.png" />
+        <div class="download">
+            <a>立即下载</a>
+        </div>
+        <div class="list">
+            <div class="win">
+                <table>
+                    <tbody>
+                        <tr>
+                            <th style="color:red">数据获取中...</th>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="wx-info">
+            <img src="imgs/info.png" />
+        </div>
+    </div>
+    <script>
+        "use strict";
+        var c = {};
+
+        c.each = function (arr, fn) {
+            for (var i = 0, len = arr.length; i < len; i++) {
+                if (fn(i, arr[i], len) === false) {
+                    break;
+                }
+            }
+        };
+
+        c.deviceName = function () {
+            var names = ['Android', 'iPhone'],
+                userAgent = window.navigator.userAgent,
+                deviceName = '';
+
+
+            c.each(names, function (i, n) {
+
+                if (userAgent.indexOf(n) > -1) {
+                    deviceName = n;
+                    return false;
+                }
+
+            });
+
+            return deviceName;
+
+        }();
+
+        c.ajax = function (params) {
+
+            function onReadystatechange() {
+                if (xhr.readyState === 4) {
+
+                    if (xhr.status === 200) {
+                        success(xhr.responseText);
+                    }
+                    else {
+                        error(xhr, xhr.status, arguments);
+                    }
+
+                    complete();
+                }
+            }
+
+            var
+                url = params.url,
+                type = params.type || 'get',
+                success = params.success || function () { },
+                error = params.error || function () { },
+                complete = params.complete || function () { },
+
+                xhr = new XMLHttpRequest();
+
+            xhr.addEventListener('readystatechange', onReadystatechange, false);
+
+            xhr.open(type, url);
+
+            xhr.send();
+
+            return xhr;
+        };
+
+        c.bindClick = function (elem, fn) {
+            var
+                touchcancel,
+                outmoded = c.deviceName === 'iPhone';
+
+            if (outmoded) {
+                elem.addEventListener('touchend', touchend);
+                elem.addEventListener('touchstart', touchstart);
+                elem.addEventListener('touchmove', touchmove);
+            }
+            else {
+                elem.addEventListener('click', fn);
+            }
+
+            return function () {
+                if (outmoded) {
+                    elem.removeEventListener('touchend', touchend);
+                    elem.removeEventListener('touchstart', touchstart);
+                    elem.removeEventListener('touchmove', touchmove);
+                }
+                else {
+                    elem.removeEventListener('click', fn);
+                }
+            };
+
+            function touchend(e) {
+                if (touchcancel) return;
+                fn.call(this, e);
+            }
+            function touchstart() {
+                touchcancel = false;
+            }
+            function touchmove() {
+                touchcancel = true;
+            }
+        };
+
+        listShow();
+
+        downloadBtnInit();
+
+        // 自动滚动效果
+        function scrollAnime() {
+            var
+               eShowWin = document.querySelector('.win')
+                , winHeight = eShowWin.children[0].clientHeight
+
+                , duration
+                , eStyle;
+
+            if (winHeight <= eShowWin.clientHeight) {
+                return;
+            }
+
+            // 每秒滚动20px。计算需要多少秒
+            duration = (winHeight / 20).toFixed(2);
+
+            eStyle = document.createElement('style');
+
+            eStyle.innerHTML = '.main table {\
+-webkit-animation-name:a;\
+animation-name:a;\
+-webkit-animation-duration:' + duration + 's;\
+animation-duration:' + duration + 's;\
+-webkit-animation-timing-function:linear;\
+animation-timing-function:linear;\
+-webkit-animation-iteration-count:infinite;\
+animation-iteration-count:infinite;\
+-webkit-animation-direction:normal;\
+animation-direction:normal;\
+}\
+@keyframes a{0%{\
+transform:translate3d(0,0,0);}100%{\
+transform:translate3d(0,-' + winHeight + 'px,0);}}\
+@-webkit-keyframes a{0%{\
+-webkit-transform:translate3d(0,0,0);\
+-webkit-transform:translate3d(0,-' + winHeight + 'px,0);}}';
+
+            eShowWin.innerHTML += eShowWin.innerHTML;
+
+            document.body.appendChild(eStyle);
+        }
+
+        // 红包用户列表
+        function listShow() {
+            var eContBox = document.querySelector('tbody');
+            c.ajax({
+                url: '/event/awards.json',
+                success: function (d) {
+                    var html = '';
+
+                    d = JSON.parse(d);
+
+                    if (d && d.length) {
+                        d.forEach(function (n) {
+                            html += '<tr><th>' + n.info + '</th><td>' + n.money + '</td></tr>';
+                        });
+                        eContBox.innerHTML = html;
+                        scrollAnime();
+                    }
+                    else {
+                        eContBox.innerHTML = '<tr><th style="color:red">数据获取失败</th></tr>';
+                    }
+                }
+            });
+        }
+
+        // 下载按钮
+        function downloadBtnInit() {
+            var eBtn = document.querySelector('a'),
+                eWXInfo = document.querySelector('.wx-info'),
+                appVersion = navigator.appVersion;
+
+            var isWX = /micromessenger/i.test(appVersion);
+
+            if (appVersion.indexOf('iPhone') > -1 || appVersion.indexOf('iPad') > -1) {
+
+                if (isWX) {
+                    eWXInfo.innerHTML = '<img src="imgs/ios.png" />';
+
+                    c.bindClick(eBtn, function () {
+
+                        _czc.push(["_trackEvent", "下载页-红包-数学π", "下载", "微信弹窗下载提示-iPhone"]);
+
+                        eWXInfo.style.display = 'block';
+                    });
+                }
+                else {
+                    eBtn.href = "itms-services://?action=download-manifest&url=https://dn-shendu.qbox.me/AnanasMath.plist";
+
+                    c.bindClick(eBtn, function () {
+                        _czc.push(["_trackEvent", "下载页-红包-数学π", "下载", "下载-iPhone"]);
+                    });
+                }
+            }
+            else if (appVersion.indexOf('Android') > -1) {
+
+                if (isWX) {
+                    c.bindClick(eBtn, function () {
+
+                        _czc.push(["_trackEvent", "下载页-红包-数学π", "下载", "微信弹窗下载提示-Android"]);
+
+                        eWXInfo.style.display = 'block';
+                    });
+
+                    eWXInfo.innerHTML = '<img src="imgs/info.png" />';
+                }
+                else {
+                    eBtn.href = "http://pi.shendupeiban.com/mobile/androidMath.apk";
+
+                    c.bindClick(eBtn, function () {
+                        _czc.push(["_trackEvent", "下载页-红包-数学π", "下载", "下载-Android"]);
+                    });
+                }
+            }
+            else {
+                eBtn.href = "http://pi.shendupeiban.com/mobile/androidMath.apk";
+                console.log(123);
+                c.bindClick(eBtn, function () {
+                    _czc.push(["_trackEvent", "下载页-红包-数学π", "下载", "下载-PC"]);
+                });
+            }
+
+            c.bindClick(eWXInfo, function () {
+                eWXInfo.style.display = 'none';
+            });
+        }
+
+    </script>
+
+    <script type="text/javascript">
+        var cnzz_protocol = (("https:" == document.location.protocol) ? " https://" : " http://"); document.write(unescape("%3Cspan style='display:none;' id='cnzz_stat_icon_1255661342'%3E%3C/span%3E%3Cscript src='" + cnzz_protocol + "s11.cnzz.com/z_stat.php%3Fid%3D1255661342' type='text/javascript'%3E%3C/script%3E"));
+        //声明_czc对象:
+        var _czc = _czc || [];
+        //绑定siteid，请用您的siteid替换下方"XXXXXXXX"部分
+        _czc.push(["_setAccount", "1255661342"]);
+    </script>
+
+</body>
+
+</html>
