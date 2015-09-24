@@ -12,7 +12,7 @@ x
 </p>
 {% endfor %}
 
- {% for post in site.posts %}
+ {% for post in paginator.posts %}
  	<p><a href="{{ post.url }}">{{ post.title }}</a>{{ post.date | date:"%Y-%m-%d" }}</p>
  	<p>{{ date:"%Y-%m-%d" }}</p>
  {% endfor %}
