@@ -13,8 +13,7 @@ title: Cqlql.GitHub.io
 {% endfor %}
 
  {% for post in paginator.posts %}
- 	<p><a href="/demo/{{ post.pathName }}">{{ post.title }}</a>{{ post.date | date:"%Y-%m-%d" }}</p>
- 	<p>{{ date:"%Y-%m-%d" }}</p>
+ 	<p><a href="/demo/{{ post.path }}">{{ post.title }}</a>{{ post.date | date:"%Y-%m-%d" }}</p>
  {% endfor %}
 
 <div class="pagination">
