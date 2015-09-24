@@ -3,8 +3,12 @@ layout: index
 title: Cqlql.GitHub.io
 ---
 
+# array = [1,2,3,4,5,6]
 
-xx
+  {% for item in array limit:2 offset:2 %}
+    {{ item }}
+  {% endfor %} 
+
  {% for post in site.posts %}
  	<p><a href="{{ post.url }}">{{ post.title }}</a>{{ post.date | date:"%Y-%m-%d" }}</p>
  	<p>{{ date:"%Y-%m-%d" }}</p>
