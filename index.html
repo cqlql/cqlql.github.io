@@ -3,12 +3,12 @@ layout: index
 title: Cqlql.GitHub.io
 ---
 x
-{% for workInfo in site.data.works %}
+{% for work in site.data.works %}
 <p>
-    <a href="/demo/{{ workInfo.pathName }}">
-        {{ workInfo.name }}
+    <a href="/demo/{{ work.pathName }}">
+        {{ work.name }}
     </a>
-    {{ workInfo.date }}
+    {{ work.date }}
 </p>
 {% endfor %}
 
