@@ -2,11 +2,13 @@
 layout: index
 title: Cqlql.GitHub.io
 ---
-{% assign array = [1,2,3,4,5,6] %}
-
-  {% for item in array %}
-    {{ item }}
-  {% endfor %} 
+{% for member in site.data.members %}
+<li>
+    <a href="https://github.com/{{ member.github }}">
+        {{ member.name }}
+    </a>
+</li>
+{% endfor %}
 
  {% for post in site.posts %}
  	<p><a href="{{ post.url }}">{{ post.title }}</a>{{ post.date | date:"%Y-%m-%d" }}</p>
