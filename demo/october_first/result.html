@@ -1,0 +1,239 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <title></title>
+    <meta charset="UTF-8">
+    <meta content="width=device-width,initial-scale=1.0,user-scalable=no" name="viewport" />
+
+    <style>
+        body {
+            margin: 0;
+            background: #f5f5f5;
+            color: #333;
+            font: 16px/1.4 arial,SimSun,\5b8b\4f53,tahoma,Srial,helvetica;
+        }
+
+        header {
+            padding-top: 40%;
+            background: url('imgs/form-top.png') no-repeat;
+            background-size: 100% auto;
+        }
+
+        .button {
+            border: 0;
+            color: #fff;
+            font-size: 16px;
+            background-color: #16B3ED;
+            border-radius: 5px;
+        }
+
+        .button:active {
+            background-color: #16B3ED;
+            color: #0880D7;
+            text-shadow: 0 1px 0 rgba(255, 255, 255, 0.3);
+            text-decoration: none;
+            -webkit-transition-duration: 0s;
+            transition-duration: 0s;
+            -webkit-box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn-box {
+            padding: 0 16px;
+        }
+
+        .btn-box .button {
+            display: block;
+            width: 100%;
+            text-align: center;
+            padding: 10px 0;
+            text-decoration: none;
+        }
+
+        .result-page .avatar {
+            padding: 0 100px;
+        }
+
+        .result-page .top {
+            padding: 24px 0;
+            background: url(imgs/logo.png) no-repeat 96% center;
+            background-size: auto 36%;
+        }
+
+        .result-page .img {
+            padding-top: 100%;
+        }
+
+        .result-page .title {
+            color: #666;
+            font-weight: bold;
+            padding-top: 22px;
+        }
+
+        .result-page .title b {
+            color: #16B3ED;
+        }
+
+        .result-page .txt {
+            color: #999;
+            padding: 34px 50px;
+        }
+
+        .wx-info {
+            position: fixed;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: none;
+        }
+
+        .wx-info img {
+            width: 100%;
+        }
+    </style>
+
+</head>
+<body>
+    <div class="result-page">
+        <div class="top"></div>
+        <div class="avatar">
+            <div class="img" style="">
+            </div>
+            <div class="title">
+                <b>anne</b>最适合在波西米亚后花园的厚椅垫做白日梦
+            </div>
+        </div>
+
+        <div class="txt">醒醒吧，老师布置的作业做完了么？梦是要做的，可终归还是要交作业是不？</div>
+
+        <div class="btn-box">
+            <a class="button">提交给小π老师卜卦</a>
+        </div>
+        <div class="wx-info">
+            <img src="imgs/info.png" />
+        </div>
+    </div>
+
+    <script>
+        var c = {};
+
+        c.each = function (arr, fn) {
+            for (var i = 0, len = arr.length; i < len; i++) {
+                if (fn(i, arr[i], len) === false) {
+                    break;
+                }
+            }
+        };
+
+        c.deviceName = function () {
+            var names = ['Android', 'iPhone'],
+                userAgent = window.navigator.userAgent,
+                deviceName = '';
+
+
+            c.each(names, function (i, n) {
+
+                if (userAgent.indexOf(n) > -1) {
+                    deviceName = n;
+                    return false;
+                }
+
+            });
+
+            return deviceName;
+
+        }();
+
+        c.bindClick = function (elem, fn) {
+            var
+                touchcancel,
+                outmoded = c.deviceName === 'iPhone';
+
+            if (outmoded) {
+                elem.addEventListener('touchend', touchend);
+                elem.addEventListener('touchstart', touchstart);
+                elem.addEventListener('touchmove', touchmove);
+            }
+            else {
+                elem.addEventListener('click', fn);
+            }
+
+            return function () {
+                if (outmoded) {
+                    elem.removeEventListener('touchend', touchend);
+                    elem.removeEventListener('touchstart', touchstart);
+                    elem.removeEventListener('touchmove', touchmove);
+                }
+                else {
+                    elem.removeEventListener('click', fn);
+                }
+            };
+
+            function touchend(e) {
+                if (touchcancel) return;
+                fn.call(this, e);
+            }
+            function touchstart() {
+                touchcancel = false;
+            }
+            function touchmove() {
+                touchcancel = true;
+            }
+        };
+
+        function getValue(name) {
+            var reg = new RegExp(name + '=([^&]*)'),
+                v = reg.exec(location.href);
+            return v ? v[1] : v;
+        }
+
+        var eBtn = document.querySelector('a'),
+            eWXInfo = document.querySelector('.wx-info'),
+            appVersion = navigator.appVersion,
+            eTitle = document.querySelector('.title'),
+            eTxt = document.querySelector('.txt'),
+            eImg = document.querySelector('.img'),
+            name =decodeURIComponent(getValue('name')),
+            content =decodeURIComponent( getValue('content')),
+            pic = getValue('pic'),
+            des =decodeURIComponent( getValue('des'));
+
+        eTitle.innerHTML = '<b>' + name + '</b>' + content;
+        eTxt.innerHTML = des;
+        eImg.style.background = 'url(' + pic + ') no-repeat';
+        eImg.style.backgroundSize = '100% auto';
+
+        var isWX = /micromessenger/i.test(appVersion);
+
+        if (isWX) {
+            c.bindClick(eBtn, function () {
+
+                _czc.push(["_trackEvent", "十一活动-分享页", "分享", "弹出分享提示-微信"]);
+
+                eWXInfo.style.display = 'block';
+            });
+        }
+        else {
+            c.bindClick(eBtn, function () {
+                _czc.push(["_trackEvent", "十一活动-分享页", "分享", "弹出分享提示"]);
+
+                eWXInfo.style.display = 'block';
+            });
+        }
+
+        c.bindClick(eWXInfo, function () {
+            eWXInfo.style.display = 'none';
+        });
+    </script>
+    <script type="text/javascript">
+        var cnzz_protocol = (("https:" == document.location.protocol) ? " https://" : " http://"); document.write(unescape("%3Cspan style='display:none;' id='cnzz_stat_icon_1255661342'%3E%3C/span%3E%3Cscript src='" + cnzz_protocol + "s11.cnzz.com/z_stat.php%3Fid%3D1255661342' type='text/javascript'%3E%3C/script%3E"));
+        //声明_czc对象:
+        var _czc = _czc || [];
+        //绑定siteid，请用您的siteid替换下方"XXXXXXXX"部分
+        _czc.push(["_setAccount", "1255661342"]);
+    </script>
+
+</body>
+
+</html>
