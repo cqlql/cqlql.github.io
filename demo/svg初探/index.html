@@ -1,6 +1,6 @@
 ﻿---
 layout: index
-title: Cqlql.GitHub.io
+title: 标签
 ---
 
 
@@ -11,7 +11,16 @@ title: Cqlql.GitHub.io
 	<title>Document</title>
 </head>
 <body>-->
-    {{ site.path }}
+<div id='tag_cloud'>
+    9	{% for tag in site.tags %}
+    ce7be41@ghostzhangRevert "更新"
+    ghostzhang authored on 16 Sep 2014
+    10	<a href="#{{ tag[0] }}" title="{{ tag[0] }}" rel="{{ tag[1].size }}">{{ tag[0] }}</a>
+    464ac5d@ghostzhang更新样式
+    ghostzhang authored on 16 Sep 2014
+    11	{% endfor %}
+    12
+</div>
     <div style="width:110px;height:110px;">
         <!--<svg id="piechart" height="100%" width="100%" viewBox="0 0 1 1">
             <circle cx="0.5" cy="0.5" r="0.5" fill="#ddd"></circle>
