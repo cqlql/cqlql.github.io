@@ -3,4 +3,9 @@ pygments: true
 safe: true
 published: false
 include: [/tags]
-JEKYLL_ENV: production jekyll build
+defaults:
+  -
+    scope:
+      path: "" # an empty string here means all files in the project
+    values:
+      layout: "default"
