@@ -2,3 +2,4 @@ paginate: 2
 pygments: true
 safe: true
 published: false
+include: [/tags]
