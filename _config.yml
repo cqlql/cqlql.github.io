@@ -1,12 +1,7 @@
 name: CSS森林(CSS Forest)
 description: 一个页面仔的成长之路
-url: http://cqlql.github.io
-author: cqlql
-github: cqlql
 qq: 22168741
-linkedin: cqlql
 paginate: 2
 pygments: true
 safe: true
-permalink: /:year/:month/:day/:title.html
 published: false
