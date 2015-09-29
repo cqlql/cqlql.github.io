@@ -3,3 +3,4 @@ pygments: true
 safe: true
 published: false
 include: [/tags]
+JEKYLL_ENV: production jekyll build
