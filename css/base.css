@@ -1,0 +1,29 @@
+﻿@charset "utf-8";
+
+/*#region 重置 css*/
+body,select{margin:0;}
+p,input,td,textarea,ul,dl,dt,dd,menu{padding:0;margin:0;}
+h1,h2,h3,h4,h5,h6{margin:0;font-size:inherit;font-weight:normal;}
+ul{list-style-type:none;}
+body{color:#333;font:12px/1.4 arial,SimSun,\5b8b\4f53,tahoma,Srial,helvetica;}
+table{border-collapse:collapse;}
+img{border:0\9;} /*ie*/
+
+a{color:#333;text-decoration:none;}
+input,textarea{outline:none;}
+
+/*#endregion*/
+
+/*#region 公共 */
+
+.cf{clear:both;}
+
+.ff_st,.ff_st a{font-family:SimSun,\5B8B\4F53;}
+.ff_wryh,.ff_wryh a{font-family:Microsoft Yahei,\5FAE\8F6F\96C5\9ED1;}
+
+/*hide*/
+.hide{display:none;}
+.hide0 {opacity:0;filter:alpha(opacity=0);}
+
+/*#endregion */
+

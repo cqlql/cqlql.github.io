@@ -2,10 +2,3 @@ paginate: 2
 pygments: true
 safe: true
 published: false
-include: [/tags]
-defaults:
-  -
-    scope:
-      path: "" # an empty string here means all files in the project
-    values:
-      layout: "default"
