@@ -3,18 +3,23 @@ layout: index
 title: Cqlql.GitHub.io
 ---
 
-{% for work in site.data.works %}
-<p>
-    <a href="/demo/{{ work.pathName }}">
-        {{ work.name }}
-    </a>
-    {{ work.date }}
-</p>
-{% endfor %}
 
- {% for post in paginator.posts %}
- 	<p><a href="/demo/{{ post.pathname }}">{{ post.title }}</a>{{ post.date | date:"%Y-%m-%d" }}</p>
- {% endfor %}
+
+
+    <ul class="list">
+        {% for post in paginator.posts %}
+
+        <li>
+            <a href="/demo/{{ post.pathname }}">
+                <span class="time">{{ post.date | date:"%Y-%m-%d" }}</span>
+                <div class="title">
+                    {{ post.title }}
+                </div>
+            </a>
+        </li>
+        {% endfor %}
+    </ul>
+
 
 <div class="pagination">
     {% if paginator.previous_page %}

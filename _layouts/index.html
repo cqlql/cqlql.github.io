@@ -1,19 +1,37 @@
 ﻿<!DOCTYPE html>
-<html>
+<html lang="zh-CN">
 
-  <head>
-    <meta charset='utf-8'>
-    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+<head>
+    <meta charset="UTF-8">
     <meta name="description" content="Cqlql.GitHub.io : blog">
-    
+
     <title>Cqlql.GitHub.io</title>
-  </head>
 
-  <body>
-      <header>
-          前端
-      </header>
-{{ content }}
+    <link href="css/base.css" rel="stylesheet" />
+    <link href="css/main.css" rel="stylesheet" />
+    <link href="css/index.css" rel="stylesheet" />
+</head>
 
-  </body>
+<body>
+    <!-- header s -->
+    <header>
+        <div class="top wrap">
+            <a href="" class="logo">html+</a>
+        </div>
+        <menu>
+            <ul class="wrap">
+                <li>
+                    <a href="" class="active">首页</a>
+                </li>
+                <li>
+                    <a href="">关于</a>
+                </li>
+            </ul>
+        </menu>
+    </header>
+    <!-- header e -->
+
+    <div class="content wrap">{{ content }}</div>
+
+</body>
 </html>

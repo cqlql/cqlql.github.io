@@ -1,0 +1,46 @@
+﻿
+
+
+header {
+    background-color: #333;
+}
+header .top {
+    height: 50px;
+}
+header .logo {
+    color:#fff;
+    font-size:24px;
+    padding: 6px 4px;
+    display:block;
+}
+
+.wrap {
+    width:900px;
+    margin:0 auto;
+}
+
+/*#region menu */
+
+menu {
+
+    height:30px;
+    background:#0077c6;
+}
+menu li {
+    float:left;
+}
+menu li a {
+    display: block;
+    height: 30px;
+    font-size: 14px;
+    line-height: 28px;
+    color: #fff;
+    padding: 0 10px;
+    font-weight:bold;
+}
+menu li a.active {
+    background:#fff;
+    color: #0077c6;
+}
+/*#endregion */
+
