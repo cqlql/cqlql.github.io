@@ -15,8 +15,15 @@ xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9 http://www.sitem
 		<lastmod>2014-09-29</lastmod>
 		<changefreq>daily</changefreq>
 		<priority>0.5</priority>
-	</url>{% for post in site.posts %}
-	<url>{% unless post.link %}
+	</url>
+  <url>
+    <loc>http://cqlql.github.io/demo/october_first</loc>
+    <lastmod>2014-09-29</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.5</priority>
+  </url>
+  {% for post in site.posts %}
+  <url>{% unless post.link %}
 		<loc>http://cqlql.github.io/demo/{{ post.pathname }}/</loc>
 		<lastmod>{{ post.date | date:"%Y-%m-%d" }}</lastmod>
 		<changefreq>daily</changefreq>
