@@ -23,7 +23,7 @@ xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9 http://www.sitem
     <priority>0.5</priority>
   </url>
   <url>
-    <loc>http://cqlql.github.io/demo/%E5%9B%BE%E7%89%87%E5%B9%BB%E7%81%AF/</loc>
+    <loc>http://cqlql.github.io/demo/picture_show/</loc>
     <lastmod>2014-09-29</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
