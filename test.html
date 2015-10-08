@@ -9,14 +9,16 @@ site.url
     {{ site.url }}
 </p>
 
+
 {% for post in site.posts %}
-<url>
+<div>
     {% unless post.link %}
-    <loc>{{ site.url }}{{ post.url }}</loc>
-    <lastmod>{{ post.date | date:"%Y-%m-%d" }}</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.5</priority>{% endunless %}
-</url>{% endfor %}
+    <p>{{ post.link }}</p>
+    <p>{{ post.url }}</p>
+    <p>{{ post.date | date:"%Y-%m-%d" }}</p>
+    <p>daily</p>
+    <p>0.5</p>{% endunless %}
+</div>{% endfor %}
 
     <ul class="list">
         {% for post in paginator.posts %}
