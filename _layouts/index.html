@@ -13,7 +13,6 @@
 </head>
 
 <body>
-    <!-- header s -->
     <header>
         <div class="top wrap">
             <a href="" class="logo">html+</a>
@@ -24,12 +23,11 @@
                     <a href="" class="active">首页</a>
                 </li>
                 <li>
-                    <a href="/demo/{{ paginator.posts[0].pathname }}">{{ paginator.posts[0].title }}</a>
+                    <a href="{{ site.url }}/demo/{{ paginator.posts[0].pathname }}">{{ paginator.posts[0].title }}</a>
                 </li>
             </ul>
         </menu>
     </header>
-    <!-- header e -->
 
     <div class="content wrap">{{ content }}</div>
 
