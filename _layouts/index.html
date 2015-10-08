@@ -24,8 +24,7 @@
                     <a href="" class="active">首页</a>
                 </li>
                 <li>
-                    {% post=paginator.posts[0] %}
-                    <a href="/demo/{{ post.pathname }}">{{ post.title }}</a>
+                    <a href="/demo/{{ paginator.posts[0].pathname }}">{{ paginator.posts[0].title }}</a>
                 </li>
             </ul>
         </menu>
