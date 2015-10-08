@@ -274,14 +274,14 @@
     
     (function () {
 
-        $('div').eq(0).circleProgress({
+        $('#box').eq(0).circleProgress({
             current: 7,
             totals:10,
             name: 'xxx'
         });
      
         setTimeout(function () {
-            $('div').eq(0).circleProgress({
+            $('#box').eq(0).circleProgress({
                 current: 0,
                 totals: 10,
                 name: 'xxx'
