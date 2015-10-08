@@ -1,0 +1,48 @@
+---
+layout: index
+title: Cqlql.GitHub.io
+---
+
+
+site.url
+<p>
+    {{ site.url }}
+</p>
+
+{% for post in site.posts %}
+<url>
+    {% unless post.link %}
+    <loc>{{ site.url }}{{ post.url }}</loc>
+    <lastmod>{{ post.date | date:"%Y-%m-%d" }}</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.5</priority>{% endunless %}
+</url>{% endfor %}
+
+    <ul class="list">
+        {% for post in paginator.posts %}
+
+        <li>
+            <a href="/demo/{{ post.pathname }}">
+                <span class="time">{{ post.date | date:"%Y-%m-%d" }}</span>
+                <div class="title">
+                    {{ post.title }}
+                </div>
+            </a>
+        </li>
+        {% endfor %}
+    </ul>
+
+
+<div class="pagination">
+    {% if paginator.previous_page %}
+    <a href="{{ paginator.previous_page_path }}" class="previous">Previous</a>
+    {% else %}
+    <span class="previous">Previous</span>
+    {% endif %}
+    <span class="page_number ">Page: {{ paginator.page }} of {{ paginator.total_pages }}</span>
+    {% if paginator.next_page %}
+    <a href="{{ paginator.next_page_path }}" class="next">Next</a>
+    {% else %}
+    <span class="next ">Next</span>
+    {% endif %}
+</div>
