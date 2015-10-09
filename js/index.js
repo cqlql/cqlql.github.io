@@ -4,7 +4,7 @@
 console.log(c.pager);
 
 var ePager = document.getElementById('pager')
-, pageData = ePager.getAttribute('data-page');
+, pageData = ePager.getAttribute('data-page').split(',');
 
 
 ePager.innerHTML = getHtml({
