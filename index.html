@@ -20,7 +20,10 @@ title: Cqlql.GitHub.io
         {% endfor %}
     </ul>
 
-
+<div>previous_page{{ paginator.previous_page }}</div>
+<div>per_page{{ paginator.per_page }}</div>
+<div>total_posts{{ paginator.total_posts }}</div>
+<div>previous_page_path{{ paginator.previous_page_path }}</div>
 <div class="pagination">
     {% if paginator.previous_page %}
     <a href="{{ paginator.previous_page_path }}" class="previous">Previous</a>
