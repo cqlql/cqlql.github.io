@@ -1,11 +1,7 @@
 "use strict";
 
-
-console.log(c.pager);
-
 var ePager = document.getElementById('pager')
 , pageData = ePager.getAttribute('data-page').split(',');
-
 
 ePager.innerHTML = c.pager.getHtml({
     pageData: [pageData[0], pageData[1], pageData[2]],//当前页，数据总条数，每页显示数
@@ -14,11 +10,8 @@ ePager.innerHTML = c.pager.getHtml({
     //sideBtnNum: 2,//可选
     prevTxt: '&lt;',//可选
     nextTxt: '&gt;'//可选
-    ,buildBtnHref: function (page) {
-
-        if (page === 1) {
-            return '/'
-        }
+    , buildBtnHref: function (page) {
+        if (page === 1) return '/'
         return 'page' + page;
     }
 });

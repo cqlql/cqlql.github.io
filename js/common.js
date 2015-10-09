@@ -95,7 +95,7 @@
                     txt = options.txt !== undefined ? options.txt : options.page,
                     btnTagName = 'a',
                     cssName = trim(options.cssName + (page == tPage ? ' ' + activeCssName : '')),
-                    url = buildBtnHref(page);
+                    url = buildBtnHref(tPage);
 
                 url = 'href="' + url + '"';
 
