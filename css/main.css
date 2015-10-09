@@ -49,7 +49,7 @@ menu li a.active {
 /*#region 翻页 */
 
 .pager {
-    text-align: center;
+    /*text-align: center;*/
     padding-top: 10px;
 }
 

@@ -13,7 +13,7 @@
 
 .list .time{
     float:left;
-        padding: 8px;
+    padding: 14px 2px 0 10px;
 }
 .list li {
     padding:2px 0
