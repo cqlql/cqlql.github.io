@@ -41,6 +41,9 @@
                 baseUrl = params.baseUrl ? params.baseUrl : false,//可选。默认为false。表示值为javascript:; 且pageUrl 无效。
                 pageUrl = params.pageUrl ? params.pageUrl : '?page=',
 
+                //可选
+                buildBtnHref = params.buildBtnHref ? params.buildBtnHref : function (page) { return baseUrl ? baseUrl + pageUrl + page : 'javascript:;'; },
+
                 //主要按钮 数量。..之间的按钮 包括..
                 //可选 。默认5
                 mainBtnNum = params.mainBtnNum ? params.mainBtnNum : 5,
@@ -86,6 +89,20 @@
                 return str.replace(/(^[\s\uFEFF]*)|(\s*$)/g, "");
             }
 
+            function getBtnHtml(options) {
+
+                var tPage = options.page,
+                    txt = options.txt !== undefined ? options.txt : options.page,
+                    btnTagName = 'a',
+                    cssName = trim(options.cssName + (page == tPage ? ' ' + activeCssName : '')),
+                    url = buildBtnHref(page);
+
+                url = 'href="' + url + '"';
+
+                if (hasCssName('disabled', cssName) || hasCssName(activeCssName, cssName)) url = '';
+                return '<' + btnTagName + ' class="' + cssName + '" ' + url + ' data-page="' + tPage + '">' + txt + '</' + btnTagName + '>'
+            }
+
             function build() {
                 var
                     prevBtn = '',
@@ -96,22 +113,9 @@
 
                     mainBtn = '',
 
-                    btnTagName = 'a',
-
                     i;
 
-                function getBtnHtml(options) {
-
-                    var tPage = options.page,
-                        txt = options.txt !== undefined ? options.txt : options.page,
-                        cssName = trim(options.cssName + (page == tPage ? ' ' + activeCssName : '')),
-                        url = baseUrl ? baseUrl + pageUrl + tPage : 'javascript:;';
-
-                    url = 'href="' + url + '"';
-
-                    if (hasCssName('disabled', cssName) || hasCssName(activeCssName, cssName)) url = '';
-                    return '<' + btnTagName + ' class="' + cssName + '" ' + url + ' data-page="' + tPage + '">' + txt + '</' + btnTagName + '>'
-                }
+                
 
                 //不出现省略情况。即  按钮数>=总页数
                 if (sideBtnNum * 2 + mainBtnNum >= pageCount) {
