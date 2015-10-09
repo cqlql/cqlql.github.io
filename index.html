@@ -6,19 +6,21 @@ title: Cqlql.GitHub.io
 
 
 
-    <ul class="list">
-        {% for post in paginator.posts %}
+<ul class="list">
+    {% for post in paginator.posts %}
 
-        <li>
-            <a href="/demo/{{ post.pathname }}">
-                <span class="time">{{ post.date | date:"%Y-%m-%d" }}</span>
-                <div class="title">
-                    {{ post.title }}
-                </div>
-            </a>
-        </li>
-        {% endfor %}
-    </ul>
+    <li>
+        <a href="/demo/{{ post.pathname }}">
+            <span class="time">{{ post.date | date:"%Y-%m-%d" }}</span>
+            <div class="title">
+                {{ post.title }}
+            </div>
+        </a>
+    </li>
+    {% endfor %}
+</ul>
+
+<div class="pager" id="pager" data-page="{{ paginator.page }}|{{ paginator.total_posts }}|{{ paginator.per_page }}"></div>
 
 <div>previous_page{{ paginator.previous_page }}</div>
 <div>per_page{{ paginator.per_page }}</div>
@@ -37,3 +39,5 @@ title: Cqlql.GitHub.io
     <span class="next ">Next</span>
     {% endif %}
 </div>
+
+<script src="../js/index.js"></script>
