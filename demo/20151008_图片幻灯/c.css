@@ -78,7 +78,7 @@ input,textarea{outline:none;}
     height:100%;
 }
 .picture_show .p_show.loading {
-    background:#f1f1f1 url(/images/load/loading3.gif) no-repeat center center;
+    background:#f1f1f1 url(/images/loading/loading2.gif) no-repeat center center;
 }
 
 .picture_show.layout2 .l_l,
@@ -123,7 +123,7 @@ input,textarea{outline:none;}
     
 }
 .picture_show .p_sel.loading {
-    background:url(/images/load/loading2.gif) no-repeat center center;
+    background:url(/images/loading/loading2.gif) no-repeat center center;
 }
 .picture_show .p_sel img {
     display:block;
