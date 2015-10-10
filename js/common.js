@@ -1,7 +1,110 @@
+
+/*
+* 公共js库
+* author:陈桥黎
+* date:2015-10-09
+* updateDate:2015-10-10
+*/
+
+
 "use strict";
 (function () {
 
     var c = {};
+
+    //#region 根据class名 获取后代元素
+    //兼容性：所有浏览器
+    c.getElementsByClassName = function (claName, obj) {
+         
+        obj = obj || document;
+
+        if (obj.getElementsByClassName) {
+            return obj.getElementsByClassName(claName);
+        }
+        
+        //某元素的 所有后代
+        var objs = obj.getElementsByTagName("*"),
+
+            array = new Array();
+
+        //过滤
+        for (var i = 0, len = objs.length; i < len; i++) {
+            if (objs[i].className === claName) array.push(objs[i]);
+        }
+
+        return array;
+    }
+    //#endregion
+
+    //#region 紧邻同辈元素 获取
+    /**
+    紧邻同辈元素 获取
+        获取某节点 紧邻的 上或下 单个 同辈元素节点
+
+    @param nodeObj [node]  节点对象，一般为元素节点
+    @param * prevORnext [bool] 能代表真假的任意值，默认是假，即下一个，否则上一个
+
+    @return [node] 元素节点 或者为 null
+
+    @compatibility 所有浏览器
+    */
+
+    c.siblingElement = function (nodeObj, prevORnext) {
+
+        var prevORnextStr = prevORnext ? "previousSibling" : "nextSibling";
+
+        do {
+            nodeObj = nodeObj[prevORnextStr];
+            if (nodeObj === null) return null;
+        } while (nodeObj.nodeType !== 1)
+
+        return nodeObj;
+    };
+
+    //#endregion
+
+    //#region [坐标] 元素 相对 于内容窗口 
+    c.offsetXY = function (elem) {
+        var x = 0,
+            y = 0;
+        do {
+            x += elem.offsetLeft;
+            y += elem.offsetTop;
+
+            elem = elem.offsetParent;
+        } while (elem);
+        return { top: y, left: x };
+    };
+    //#endregion
+
+    //#region [坐标] 起始元素到目标元素
+    /**
+    起始元素到目标上级元素坐标
+    @@ relativeXY
+    @example
+        var xy = c.relativeXY(initial, target);
+    @param initial [element]  起始元素
+    @param target [element] 目标元素，需是起始元素的上级，且必须为参照元素
+    @return [obj] xy坐标
+    @raise
+        target必须为参照元素
+    */
+
+    c.relativeXY = function (initial, target) {
+
+        var x = 0, y = 0, _target = initial;
+
+        while (_target !== target) {
+            x += _target.offsetLeft;
+            y += _target.offsetTop;
+
+            _target = _target.offsetParent;
+        }
+
+        return { x: x, y: y };
+    };
+
+    //#endregion
 
     //#region 翻页
     c.pager = (function () {
@@ -293,7 +396,6 @@
         };
     })();
     //#endregion
-
 
     window.c = window.common = c;
 
