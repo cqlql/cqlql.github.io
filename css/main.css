@@ -1,5 +1,8 @@
 ﻿
-
+body,
+body a {
+    font-family:Microsoft Yahei,\5FAE\8F6F\96C5\9ED1;
+}
 
 header {
     background-color: #333;
@@ -53,9 +56,8 @@ menu li a.active {
 }
 
 .pager a {
-    width: 28px;
-    height: 28px;
-    line-height: 28px;
+    width: 24px;
+    height: 24px;
     text-align: center;
     border: 1px solid #ccc;
     color: #666;
@@ -65,20 +67,16 @@ menu li a.active {
     font-family: "Microsoft YaHei";
     margin-right: 8px;
     background-color: #fff;
-    line-height: 26px;
+    line-height: 22px;
 }
 
 .pager a:hover {
-    text-shadow: 1px 1px 1px #ccc;
-    box-shadow: 0 0 1px #ccc;
-    border: 1px solid #a5d24a;
-    box-shadow: 0 0 5px #a5d24a;
+    border: 1px solid #75AF00;
 }
 
 .pager a.disabled:hover,
 .pager a.disabled {
     text-shadow: none;
-    box-shadow: 0 0 1px #EEE;
     border: 1px solid #DADADA;
     background: #F5F5F5;
     color: #DADADA;
@@ -94,9 +92,9 @@ menu li a.active {
 }
 
 .pager a.active {
-    background-color: #cde69c;
-    color: #638421;
-    border: 1px solid #a5d24a;
+    background-color: #84C700;
+    color: #FFFFFF;
+    border: 1px solid #639400;
     cursor: default;
 }
 
@@ -143,6 +141,6 @@ menu li a.active {
 .pager .prev,
 .pager .next {
     font-size: 18px;
-    line-height: 24px;
+    line-height: 20px;
 }
 /*#endregion */
