@@ -1,11 +1,9 @@
-﻿<hr />
+---
+layout: index
+title: Cqlql.GitHub.io
+---
 
-<p>layout: index</p>
-
-<h2>title: Cqlql.GitHub.io</h2>
-
-<p><link href="c.css" rel="stylesheet" /></p>
-
+<link href="c.css" rel="stylesheet" />
 <div class="picture_slide img_scroll picture_show layout2" id="imageView" style="padding-top: 20px;">
     <div class="p_show loading"></div>
     <div class="show_img_con hide">
@@ -27,7 +25,5 @@
     <a class="p_arrow l" href="javascript:;"><span></span><i></i></a>
     <a class="p_arrow" href="javascript:;"><span></span><i></i></a>
 </div>
-
 <script src="jquery.js"></script>
-
 <script src="j.js"></script>
