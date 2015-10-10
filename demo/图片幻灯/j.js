@@ -845,7 +845,7 @@ common.easingBuild = function () {
                         jShow.animate({ height: imgCss.height });
 
                         jArrows.height(imgCss.height);
-                        console.log(imgCss.height + ":=====");
+
                         sizeData[index] = size;
 
                         arrowHandle.update(imgCss.height);
