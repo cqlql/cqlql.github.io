@@ -1,0 +1,187 @@
+
+
+
+.tree-s1 {
+    font: 16px/1 Microsoft Yahei,\5FAE\8F6F\96C5\9ED1;
+    /* padding: 10px 20px 40px; */
+}
+.tree-s1 .item {
+     padding:2px 4px; 
+    /*border-left:1px solid #333;*/
+    position:relative;
+}
+
+.tree-s1 .list {
+    padding: 0 0 0 17px;
+    /*border-left:1px solid #aaa;*/
+}
+
+.tree-s1 .f {
+    display:inline-block;
+    width: 17px;
+    /* height: 15px; */
+    vertical-align: middle;
+}
+.tree-s1 b {
+    display:block;
+    border: 1px solid #ADCA7A;
+    padding: 1px;
+    /* width: 10px; */    
+    /* height: 10px; */
+    background: #ADCA7A;
+}
+
+.tree-s1 .item.show b {
+    border-color: #B3B3B3;
+    background: #B3B3B3;
+}
+.tree-s1 .item b:hover{
+	border-color: #6AA600;
+    background:#6AA600;
+}
+.tree-s1 s {
+    display:block;
+    position:relative;
+    width: 13px;
+    height: 13px;
+    
+}
+.tree-s1 s::before {
+    
+
+    content:"";
+    
+    /* display:block; */
+    
+    position:absolute;
+    top:0;
+    left:0;
+    width:50%;
+    height:100%;
+
+    border-right: 1px solid #fff;
+
+    margin-left: -0.5px;
+}
+.tree-s1 s::after {
+    content:"";
+
+    position: absolute;    top: 0;    left: 0;
+    width: 100%;
+    height:50%;
+    border-bottom: 1px solid #fff;
+
+    margin-top: -0.5px;
+
+}
+.tree-s1 input {
+    vertical-align: middle;
+    
+    height: 18px;    
+    width: 18px;
+    /* border-radius: 0px; */
+    /* border: 1px solid #333; */
+}
+.tree-s1 span {
+    vertical-align: middle;
+    
+}
+.tree-s1 a{
+    vertical-align: middle;
+    color:#999;
+     margin:0 0 0 10px!important;
+}
+.tree-s1 .have{
+    color:#8c1;
+}
+.tree-s1 .have:hover {
+    text-decoration:underline;
+}
+.tree-s1 .item > * {
+    margin-right: 8px;
+    
+}
+
+.tree-s1 .item > i {
+    display:none;
+}
+.tree-s1 .item.show s::before {
+    display:none;
+}
+
+
+.tree-s1 .item + .list {
+    display:none;
+}
+.tree-s1 .item.show + .list {
+    display:block;
+}
+
+.tree-s1 .item:hover{
+    background:#099;
+    color:#fff;
+}
+.tree-s1 .item:hover a{
+    color:#ccc;
+}
+.tree-s1 .item:hover .have{
+    color:#af0;
+}
+
+
+
+.import-knowledge {
+      padding: 10px 20px 40px;
+}
+
+.import-knowledge .sel-row {
+    font-size:14px;
+    padding: 0 0 10px 0;
+}
+.import-knowledge .sel-row span {
+    font-size:14px;
+    color: #F87678;
+      
+    padding-left: 24px;
+}
+.import-knowledge .tree-row {
+    position:relative;
+    min-height:100px;
+    background: #F2F9FF;
+    max-height: 300px;
+    overflow: auto;
+    padding: 4px 0;
+}
+
+.import-knowledge .tree-row.loading::after {
+    content:"";
+    width:100%;
+    height:100%;
+    position:absolute;
+    left:0;
+    top:0;
+    background: rgba(255, 255, 255, 0.4) url(../../images/loading/loading2.gif) no-repeat center center;
+}
+
+/*#region °´Å¥×é 1 */
+.btns-s1 {
+
+    text-align:center;
+    
+
+    padding-top: 20px;
+
+}
+.btns-s1 button{
+
+    padding: 4px 40px;
+    
+
+    margin: 0 6px;
+    
+
+    font-size: 16px;
+
+}
+
+/*#endregion */

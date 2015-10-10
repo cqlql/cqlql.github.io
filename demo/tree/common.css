@@ -1,0 +1,327 @@
+
+
+/*#region 重置 */
+/*a {text-decoration:none;}*/
+
+/*input,textarea {
+    outline: none;
+}*/
+
+/*body,a{color:#333;font:12px/1.5 arial,SimSun,\5b8b\4f53,tahoma,Srial,helvetica;}*/
+
+/*table{border-collapse:collapse;}*/
+/*td {padding: 0;}*/
+
+input,textarea{outline:none;}
+/*#endregion */
+
+/*#region 公共全局 */
+
+.hide { display: none; }
+
+/*#endregion */
+
+/*#region 按钮*/
+.button {
+    background: #78bcaf;
+    border: 0;
+    color: #fff;
+    font-size: 14px;
+    text-align: center;
+    font-family: Microsoft Yahei,\5FAE\8F6F\96C5\9ED1;
+    padding: 4px 10px;
+    border-radius: 4px;
+    text-overflow: ellipsis;  white-space: nowrap;
+    
+    display: inline-block;
+    height: auto;
+    line-height: inherit;
+}
+
+/*input.button{
+    line-height:18px;
+}*/
+
+.button:hover {
+    background: #4FA696;
+}
+
+.button:active {
+    color: #1D594D;
+    text-shadow: 0px 1px 0px rgba(255, 255, 255, 0.26);
+    box-shadow: inset 0px 1px 3px rgba(0, 0, 0, 0.4), 0 0 0 #FFF;
+}
+
+.button.s2 {
+    background: #adca7a;
+}
+
+.button.s2:hover {
+    background: #7EBE0D;
+}
+
+.button.s2:active {
+    color: #007906;
+}
+
+.button.red {
+    background: #f87678;
+}
+
+.button.red:hover {
+    background: #FF5B5D;
+}
+
+.button.red:active {
+    color: #A90002;
+}
+
+.button.gray {
+    background: #8a8a8a;
+}
+
+.button.gray:hover {
+    background: #757575;
+}
+
+.button.gray:active {
+    color: #000;
+}
+
+/*失效*/
+.button.disabled,
+.button.disabled:hover,
+.button.disabled:active {
+    background-color: #eeeeee;
+    border: 1px solid #bbb;
+    border-radius: 2px;
+    color: #ccc;
+    text-align: center;   
+    text-shadow: none;
+    cursor: default;
+    box-shadow: none;
+}
+
+/*加载中*/
+.button.loading,
+.button.loading:hover,
+.button.loading:active {
+    box-shadow: 0 1px 1px #E7E7E7 inset;
+    color: #E4E4E4;
+    color: rgba(228, 228, 228, 0.00);
+    text-shadow: none;
+    background: #E4E4E4 url(images/load/loading1.gif) center center no-repeat;
+    position: relative;
+}
+
+/*常用尺寸 1*/
+.button.use1 {
+    padding: 8px 28px;
+}
+/*常用尺寸 2*/
+.button.use2 {
+    border-radius: 0;
+    padding: 8px 18px;
+    margin-right: 30px;
+    vertical-align: middle;
+}
+/*#endregion*/
+
+/*#region a元素 风格*/
+
+/*保留风格，只增加移入效果*/
+.a_type1:hover {
+    text-decoration: underline;
+}
+
+.a_type2:hover {
+    color: #c9191c;
+    text-decoration: underline;
+}
+
+/*网站主色*/
+.a_type3 {
+    color: #c9191c;
+}
+
+.a_type3:hover {
+    text-decoration: underline;
+}
+
+/*灰色*/
+.a_type4 {
+    color: #999;
+}
+
+.a_type4:hover {
+    text-decoration: underline;
+}
+
+/*红色*/
+.a_type5 {
+    color: #c00;
+}
+
+.a_type5:hover {
+    text-decoration: underline;
+}
+
+/*#endregion*/
+
+/*#region 字体颜色 */
+
+.f_c1 {
+    color: #c00;
+}
+/*.f_c2 {
+    color: #c00;
+}*/
+
+/*#endregion */
+
+/*#region 输入框风格 */
+
+/*文本框*/
+.text_s1 input[type=text]{
+    border: 1px solid #e9e9e9;
+    margin: 0px;
+    padding: 0px 5px;
+    font-size: 14px;
+
+    height: 30px;
+    line-height: 30px;
+}
+
+.select_s1 select {
+    border: 1px solid #e9e9e9;
+    margin: 0px;
+    padding: 0px 5px;
+    font-size: 14px;
+    height:28px;
+}
+
+/*自适应 文本框*/
+
+.adaptive_text {
+    border: 1px solid #e9e9e9;
+    
+    padding: 2px 6px;
+    height: 26px;
+}
+.adaptive_text div {
+    height: 100%;
+
+}
+.adaptive_text input,
+.adaptive_text textarea{
+    width:100%;
+    height: 100%;
+    padding: 0;
+    border: none;
+    display: block;
+}
+/*#endregion */
+
+
+/*#region 弹窗 */
+
+.popup{
+	position:fixed;
+	top:0;
+	left: 0;
+	width:100%;
+	height:100%;
+    font-family:Microsoft Yahei,\5FAE\8F6F\96C5\9ED1;          
+	z-index: 1;
+}
+.popup .bg{
+	background: #FFF;
+	position:absolute;
+
+	width: 100%;
+	height:100%;
+
+	opacity: 0.4;
+	filter:alpha(opacity=70);
+
+}
+.popup .win {
+    background:#fff;
+    position:absolute;
+    left:100px;
+    top:40px;
+    width:430px;
+}
+.popup .con {
+    border: 1px solid #eee;
+            
+}
+.popup .top {
+    height: 34px;
+    padding: 0 0 0 10px;
+    cursor:default;
+    background-color: #f87678;
+    /* cursor: move; */
+}
+.popup .top_m {
+    /* border-bottom: 1px solid #e7e7e7; */
+    /* text-align: center; */
+    font: 14px/36px Microsoft Yahei,\5FAE\8F6F\96C5\9ED1;           
+    color: #fff;
+}
+.popup .top b {
+    font: 22px/24px SimSun,\5B8B\4F53;
+    position: absolute;
+    top: 5px;
+    right: 6px;
+    width: 26px;
+    height: 26px;
+    background: url(icon_close.png) no-repeat center center;
+    color: #fff;
+    cursor: pointer;
+    /*display:none;*/
+}
+.popup .top b:hover {
+    background-color:#c00;
+}
+
+.popup .fn {
+    min-height: 140px;
+}
+.popup.loading .fn{
+    background: url(../../images/loading/loading2.gif) no-repeat center center;
+}
+
+/*.popup .fn {
+    padding: 0 18px;
+}*/
+
+/*确认框*/
+.confirm_box .des {
+    height: 86px;
+    font-size: 15px;
+    padding: 38px 0 0 30px;
+    /* line-height: 25px; */
+}
+.confirm_box .des i{
+    float: left;
+    margin-top: -7px;
+    background: url('images/a.png') no-repeat -4px -3px;
+	width: 32px;
+	height: 32px;
+    margin-right: 14px;
+}
+.confirm_box .btns {
+    padding: 0 0 30px 0;
+    text-align: center;
+}
+.confirm_box .btns a {
+    padding: 5px 30px;
+    margin-left: 14px;
+}
+/*end*/
+
+/*#endregion */
+
+
+
