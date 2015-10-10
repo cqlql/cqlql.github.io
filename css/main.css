@@ -65,9 +65,6 @@ menu li a.active {
     font-family: "Microsoft YaHei";
     margin-right: 8px;
     background-color: #fff;
-    -webkit-transition: .3s all linear;
-    -moz-transition: .3s all linear;
-    transition: .3s all linear;
     line-height: 26px;
 }
 
