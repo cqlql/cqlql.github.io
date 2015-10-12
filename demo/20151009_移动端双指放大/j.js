@@ -187,9 +187,9 @@ function ImageZoom(ele) {
         yLen = Math.abs(touche1.pageY - touche2.pageY);
 
         if (touche1.pageX < touche2.pageX) {
-            centerX = touche1.pageX + xLen / 2;
+            centerX = touche1.pageX - ele.offsetTop + xLen / 2;
         } else {
-            centerX = touche2.pageX + xLen / 2;
+            centerX = touche2.pageX - ele.offsetTop + xLen / 2;
         }
 
         if (touche1.pageY < touche2.pageY) {
