@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title></title>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+        
+    <style type="text/css">
+
+        .picture_show {
+            position:absolute;  
+            background:#bfe4ff;
+            /*
+            top:80px;
+            left:10px;
+            right:10px;
+            */
+            overflow:hidden;
+        }
+        .picture_show .win {
+            width:100%;
+            height:100%;
+        } .picture_show .img_w {
+            position: absolute;
+            background: #85cbff;
+        }
+        .picture_show .img_w * {
+            position:relative;
+        } 
+        .picture_show .img_w img {
+            width: 100%;
+            height: 100%;
+        }
+        .picture_show ul a.active {
+            background:#ffd800;
+        }
+        /*.picture_show .img_w b {
+            position:absolute;
+            left:50%;
+            top:50%;
+            border:1px solid #fff;
+        }*/
+
+        .thumb_w {
+            width: 250px;
+            height: 200px;
+            position: absolute;
+            right: 10px;
+            top: 10px;
+            overflow: hidden;
+            background: #bfe4ff;
+            border: 2px solid #ffd800;
+        }
+        .thumb_w b {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 20px;
+            height: 20px;
+            overflow:hidden;
+            border:2px solid #fff;
+        }
+        /*.thumb_w b img{
+            display:none;
+            
+        }*/ 
+        .thumb_w .t_img_w {
+            opacity: 0.3;
+            filter: alpha(opacity=30);
+        }
+
+    </style>  
+
+    <script src="../js/plugin/jquery-1.11.0.js"></script>
+    <script src="picture_show.js"></script>
+
+</head>
+<body>
+    <div class="picture_show">
+        <div class="win">
+            <ul>
+                <li><a class="active" id="p_rotate" href="javascript:;">360</a></li>
+
+                <li><a id="p_drag" href="javascript:;">拖拽图片</a></li>
+            </ul>
+            <a href="">全屏</a>
+
+            <div class="img_w">
+                <img src="images/121041_720x480.jpg" />
+
+            </div>
+        </div>
+        <div class="thumb_w">
+            <b></b>
+        </div>
+    </div>
+
+</body>
+</html>

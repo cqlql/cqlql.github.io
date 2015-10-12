@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title></title>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+
+    <link href="../css/base.css" rel="stylesheet" />   
+    <style type="text/css">
+
+        a {
+            text-decoration: none;
+        }
+
+        /*#region 图片旋转展示 */
+
+        .rotate_img_show {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            overflow: hidden;
+        }
+
+        .rotate_img_show.rotate {
+            cursor: url(openhand360.cur),e-resize;
+        }
+
+        .rotate_img_show.rotate.active {
+            cursor: url(closedhand360.cur),e-resize;
+        }
+
+        .rotate_img_show.drag {
+            cursor: url(openhand.cur),move;
+        }
+
+        .rotate_img_show.drag.active {
+            cursor: url(closedhand.cur),move;
+        }
+
+        .rotate_img_show .r_bg {
+            background: #000;
+            width: 100%;
+            height: 100%;
+        }
+
+        .rotate_img_show .r_main {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        .rotate_img_show .r_win {
+            width: 100%;
+            height: 100%;
+        }
+
+        .rotate_img_show .r_img_box {
+            position: absolute;
+        }
+
+        .rotate_img_show .r_img_box * {
+            position: relative;
+        }
+
+        .rotate_img_show .r_img_box img {
+            width: 100%;
+            height: 100%;
+        }
+
+        .rotate_img_show .r_thumb {
+            width: 250px;
+            height: 200px;
+            position: absolute;
+            right: 10px;
+            top: 10px;
+            overflow: hidden;
+            background: #000;
+            border: 2px solid #ffd800;
+            display: none;
+        }
+
+        .rotate_img_show .r_thumb b {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 20px;
+            height: 20px;
+            overflow: hidden;
+            border: 2px solid #fff;
+            cursor:move;
+        }
+
+        .rotate_img_show .r_thumb .r_imgwin {
+            opacity: 0.3;
+            filter: alpha(opacity=30);
+        }
+
+        .rotate_img_show .r_btn {
+            position: absolute;
+            bottom: 5px;
+            left: 50%;
+            width: 0;
+        }
+
+        .rotate_img_show .r_btn .r_b {
+            width: 400px;
+            margin-left: -180px;
+            background: rgba(0, 0, 0, 0.4);
+            height: 60px;
+            filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='#a0000000',endColorstr='#a0000000',GradientType=1);
+        }
+
+        :root .rotate_img_show .r_btn .r_b {
+            filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='#00000000',endColorstr='#00000000',GradientType=1);
+        }
+
+        .rotate_img_show .r_btn a {
+            color: #ccc;
+            display: block;
+            margin: 0 22px;
+            font: 14px 'Microsoft Yahei';
+            text-align: center;
+            width: 56px;
+        }
+
+        .rotate_img_show .r_btn li {
+            position: relative;
+            float: left;
+        }
+
+        .rotate_img_show .r_btn li:before {
+            content: "";
+            position: absolute;
+            top: 0px;
+            left: 0px;
+            height: 62px;
+            width: 1px;
+            background: url(l_line.png);
+        }
+
+        .rotate_img_show .r_btn li:first-child:before {
+            display: none;
+        }
+
+        .rotate_img_show .r_btn a:before {
+            content: "";
+            display: block;
+            margin: 0 auto;
+            height: 36px;
+            width: 36px;
+            background: url(360show.png) -1px -72px no-repeat;
+        }
+
+        .rotate_img_show .r_btn a.r_b2:before {
+            background-position-x: -111px;
+        }
+
+        .rotate_img_show .r_btn a.r_b3:before {
+            background-position-x: -221px;
+        }
+
+        .rotate_img_show .r_btn a.r_b4:before {
+            background-position-x: -315px;
+        }
+
+        .rotate_img_show .r_btn a.active {
+            color: #c9191c;
+        }
+
+        .rotate_img_show .r_btn a.active:before {
+            background-position-y: -1px;
+        }
+        /*#endregion */
+
+    </style>  
+
+    <script src="../js/plugin/jquery-1.11.0.js1"></script>
+    <script src="jquery.js"></script>
+    <script src="picture_show2.js"></script>
+
+</head>
+<body>
+    <a href="javascript:;">展示</a>
+
+
+</body>
+</html>

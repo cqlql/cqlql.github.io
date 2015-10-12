@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title></title>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0,user-scalable=no" name="viewport" />
+    <link href="base.css" rel="stylesheet" />   
+    <style type="text/css">
+
+        #info {
+            width:100px;
+            height:100px;
+            background:#aaa;
+            position:absolute;
+            left:0;
+            top:0;
+        }
+    </style>  
+    <script src="jquery.js"></script>
+    <script src="core.js"></script>
+    <script src="common.js"></script>
+
+    <script>    
+        $(function () {
+            var jBox = $('#info'),
+                curXY = {
+                    left: 0,
+                    top: 0
+                },
+                beforeXy;
+
+            var oneTouchDrag = function (jElem, onMove, onDown, onUp) {
+                var jDom = $(document.body),
+                    startTouche;
+
+                function end(e) {
+                    var touches = e.originalEvent.touches;
+                    if (touches.length === 0) {
+                        if (onUp) onUp();
+
+                        jDom.off(eveFn);//解除所有事件
+                    }
+                }
+
+                function down(e) {
+                    if (onDown) onDown(e);
+
+                    startTouche = e.originalEvent.touches[0];
+
+                    jDom.on(eveFn);
+
+                    return false;
+                }
+
+                function start(e) {
+                    var touches = e.originalEvent.touches;
+
+                    if (touches.length === 1) {
+                        down(e);
+                    }
+                }
+
+                var eveFn = {
+                    touchmove: function (e) {
+
+                        var touches = e.originalEvent.touches;
+
+                        if (touches.length === 1) {
+
+                            var moveTouche = e.originalEvent.touches[0],
+                              pageX = moveTouche.pageX - startTouche.pageX,
+                              pageY = moveTouche.pageY - startTouche.pageY;
+
+                            onMove({ left: pageX, top: pageY });
+                        }
+                    },
+                    touchend: end
+                };
+
+                jElem.on({
+                    touchstart: start
+                });
+            };
+
+
+            oneTouchDrag(jBox, function (xy) {
+                var _xy = {
+                    left: beforeXy.left + xy.left,
+                    top: beforeXy.top + xy.top
+                }
+
+                curXY = _xy;
+                console.log(curXY);
+                jBox.css(curXY);
+            }, function () {
+                beforeXy = curXY;
+            });
+        });
+    </script>
+
+</head>
+<body>
+
+    <div id="info"></div>
+</body>
+</html>

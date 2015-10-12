@@ -1,0 +1,132 @@
+@charset "utf-8";
+
+/*#region 重置 css*/
+body,select{margin:0;}
+p,input,td,textarea,ul,dl,dt,dd{padding:0;margin:0;}
+h1,h2,h3,h4,h5{margin:0;font-size:inherit;font-weight:normal;}
+ul{list-style-type:none;}
+body,button,input,select,textarea{font:12px/1.5 arial,SimSun,\5b8b\4f53,tahoma,Srial,helvetica;}
+img{border:0\9;}
+/*#endregion*/
+
+/*#region 所有公共 */
+
+.fl{float:left;}
+.fr{float:right;}
+.cf{clear:both;}
+
+/*padding*/
+.pt10{padding-top:10px;}
+
+/*margin*/
+.mt10{margin-top:10px;}
+.mr10{margin-right:10px;}
+.ml10{margin-left:10px;}
+
+/*wh*/
+.h10{height:10px;}
+.h25 {height:25px;}
+.h100{height:100px;}
+.w100{width:100px;}
+
+/*font*/
+.fs14 {font-size:14px;}
+.fs16 {font-size:16px;}
+.fs18 {font-size:18px;}
+
+.fc3{color:#333;}
+.fc6{color:#666;}
+.fc9{color:#999;}
+.fc00{color:#c00;}
+
+.fwb{font-weight:bold;}
+
+.ff_st,.ff_st a{font-family:SimSun,\5B8B\4F53;}
+.ff_wryh,.ff_wryh a{font-family:Microsoft Yahei,\5FAE\8F6F\96C5\9ED1;}
+
+/*hide*/
+.hide{display:none;}
+.hide0 {opacity:0;filter:alpha(opacity=0);}
+
+/*#endregion */
+
+/*#region 当前项目 公共 */
+a {text-decoration:none;}
+input,textarea{outline:none;}
+table{border-collapse:collapse;}
+/*#endregion */
+
+/**/
+
+/*#region 布局 - 中部主体自适应，侧边先加载。只能有一侧 */
+
+/*
+布局1
+
+@html结构
+<div class="layout1">
+    <div class="ly_l">
+        当前是左侧 class 改为ly_r 即为右侧
+    </div>
+    <div class="ly_bd">
+        主体内容
+    </div>
+</div>
+*/
+
+.layout1 .ly_l {
+    float:left;
+}
+.layout1 .ly_r {
+    float:right;
+}
+.layout1 .ly_bd {
+    overflow:hidden;
+}
+
+
+
+/*#endregion */
+
+/*#region 布局 - 中部主体自适应 先加载。可有两侧 */
+
+/*
+@html结构
+
+<div class="layout2 wrap">
+    <div class="l_m">
+        <div class="l_bd">
+            主体内容
+        </div>
+    </div>
+    <div class="l_l">
+        左侧内容
+    </div>
+    <div class="l_r">
+        右侧内容
+    </div>
+</div>
+    
+    */
+.layout2 .l_m {
+    float: left;
+    width: 100%;
+}
+.layout2 .l_l {
+    float: left;
+    width: 200px;
+    height:50px;
+    margin-left: -100%;
+}
+.layout2 .l_r {
+    width: 220px;
+    height:50px;
+    float: left;
+    margin-left: -220px;
+}
+.layout2 .l_bd {
+    height:50px;
+    margin:0 220px 0 200px;
+}
+
+/*#endregion */
