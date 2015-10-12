@@ -1239,7 +1239,7 @@ $(function () {
         
         $('#clickShow').click(function () {
             imgRotateShow.popWin();
-        }).show();
+        }).css('display','inline-block');
 
         imgRotateShow.setPathData(pathData);
 
