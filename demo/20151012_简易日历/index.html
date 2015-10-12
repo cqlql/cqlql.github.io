@@ -2,57 +2,60 @@
 layout: index
 title: 简易日历
 ---
+<style>
+    .content {
+        padding: 10px 0;
+    }
 
-    <style>
-        .content {
-            padding: 10px 0;
-        }
-        tbody .normal:hover {
-            background:#ddd;
-            
-        }
-        tbody .normal.active {
-            background:red;
-            color:#fff;
-        }
-        
-    </style>
-    <table id="calendarTd">
-        <thead>
-            <tr>
-                <td colspan="7">
-                    
-                    <select>
-                        <option>2015</option>
-                    </select>
-                    <select>
-                        <option>一月</option>
-                        <option>二月</option>
-                        <option>三月</option>
-                        <option>四月</option>
-                        <option>五月</option>
-                        <option>六月</option>
-                        <option>七月</option>
-                        <option>八月</option>
-                        <option>九月</option>
-                        <option>十月</option>
-                        <option>十一月</option>
-                        <option>十二月</option>
-                    </select>
-                    <a href="javascript:;">今天</a>
-                </td>
-            </tr>
-            <tr>
-                <td>日</td>
-                <td>一</td>
-                <td>二</td>
-                <td>三</td>
-                <td>四</td>
-                <td>五</td>
-                <td>六</td>
-            </tr>
-        </thead>
-        <tbody></tbody>
-    </table>
+    td {
+        padding: 4px 8px;
+    }
 
-    <script src="main.js"></script>
+    tbody .normal:hover {
+        background: #ddd;
+    }
+
+    tbody .normal.active {
+        background: red;
+        color: #fff;
+    }
+</style>
+<table id="calendarTd">
+    <thead>
+        <tr>
+            <td colspan="7">
+
+                <select>
+                    <option>2015</option>
+                </select>
+                <select>
+                    <option>一月</option>
+                    <option>二月</option>
+                    <option>三月</option>
+                    <option>四月</option>
+                    <option>五月</option>
+                    <option>六月</option>
+                    <option>七月</option>
+                    <option>八月</option>
+                    <option>九月</option>
+                    <option>十月</option>
+                    <option>十一月</option>
+                    <option>十二月</option>
+                </select>
+                <a href="javascript:;">今天</a>
+            </td>
+        </tr>
+        <tr>
+            <td>日</td>
+            <td>一</td>
+            <td>二</td>
+            <td>三</td>
+            <td>四</td>
+            <td>五</td>
+            <td>六</td>
+        </tr>
+    </thead>
+    <tbody></tbody>
+</table>
+
+<script src="main.js"></script>

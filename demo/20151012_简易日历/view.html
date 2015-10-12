@@ -5,23 +5,30 @@
     <meta charset="UTF-8">
     <link href="../../css/base.css" rel="stylesheet" />
 </head>
-<body>
+<body class="content">
     <style>
+        .content {
+            padding: 10px 0;
+        }
+
+        td {
+            padding: 4px 8px;
+        }
+
         tbody .normal:hover {
-            background:#ddd;
-            
+            background: #ddd;
         }
+
         tbody .normal.active {
-            background:red;
-            color:#fff;
+            background: red;
+            color: #fff;
         }
-        
     </style>
     <table id="calendarTd">
         <thead>
             <tr>
                 <td colspan="7">
-                    
+
                     <select>
                         <option>2015</option>
                     </select>
@@ -57,5 +64,7 @@
 
     <script src="main.js"></script>
 </body>
+
+
 
 </html>
