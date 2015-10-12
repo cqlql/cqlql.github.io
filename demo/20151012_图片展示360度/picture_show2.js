@@ -851,7 +851,7 @@ function imgRotateShow() {
     //按钮功能
     function btnHandle() {
         var btns, curI, dragInterfac,
-            urlPR = '/themes/enterprise/images/rotate_pic/';
+            urlPR = '';
 
         function upBtnShow() {
 
