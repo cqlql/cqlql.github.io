@@ -88,6 +88,36 @@ core.validExcu = function () {
 };
 //#endregion
 
+//#region 图片加载2
+/*
+** 图片加载2
+二次调用讲覆盖之前的
+
+参数--
+1：图片url
+2：加载完 后执行，返回当前图片dom
+3：错误执行
+
+*/
+core.imgLoad2 = (function () {
+    var ready, err;
+    return function (src, f, f2) {
+        var img = new Image();
+        ready = f;
+        img.onload = function () {
+            if (f === ready) ready(img);
+        };
+        if (f2) {
+            err = f2;
+            img.onerror = function () {
+                if (f2 === err) err();
+            };
+        }
+        img.src = src;
+    };
+})();
+//#endregion
+
 var common = {};
 //#region 自动3d旋转
 /*
@@ -1192,20 +1222,50 @@ function imgRotateShow() {
 }
 
 $(function () {
+    
     window.wJq = $(window);
     window.bJq = $(document.body);
 
     imgRotateShow = imgRotateShow();
 
     var pathData = [{ thumb: "images/1/121041_720x480.jpg", path: "images/1/121041_720x480.jpg", size: [668, 480] }, { thumb: "images/1/121042_720x480.jpg", path: "images/1/121042_720x480.jpg" }, { thumb: "images/1/121043_720x480.jpg", path: "images/1/121043_720x480.jpg" }, { thumb: "images/1/121044_720x480.jpg", path: "images/1/121044_720x480.jpg" }, { thumb: "images/1/121045_720x480.jpg", path: "images/1/121045_720x480.jpg" }, { thumb: "images/1/121046_720x480.jpg", path: "images/1/121046_720x480.jpg" }, { thumb: "images/1/121047_720x480.jpg", path: "images/1/121047_720x480.jpg" }, { thumb: "images/1/121048_720x480.jpg", path: "images/1/121048_720x480.jpg" }, { thumb: "images/1/121049_720x480.jpg", path: "images/1/121049_720x480.jpg" }, { thumb: "images/1/121050_720x480.jpg", path: "images/1/121050_720x480.jpg" }, { thumb: "images/1/121051_720x480.jpg", path: "images/1/121051_720x480.jpg" }, { thumb: "images/1/121052_720x480.jpg", path: "images/1/121052_720x480.jpg" }, { thumb: "images/1/121053_720x480.jpg", path: "images/1/121053_720x480.jpg" }, { thumb: "images/1/121054_720x480.jpg", path: "images/1/121054_720x480.jpg" }, { thumb: "images/1/121055_720x480.jpg", path: "images/1/121055_720x480.jpg" }, { thumb: "images/1/121056_720x480.jpg", path: "images/1/121056_720x480.jpg" }, { thumb: "images/1/121057_720x480.jpg", path: "images/1/121057_720x480.jpg" }, { thumb: "images/1/121058_720x480.jpg", path: "images/1/121058_720x480.jpg" }, { thumb: "images/1/121059_720x480.jpg", path: "images/1/121059_720x480.jpg" }, { thumb: "images/1/121060_720x480.jpg", path: "images/1/121060_720x480.jpg" }, { thumb: "images/1/121061_720x480.jpg", path: "images/1/121061_720x480.jpg" }, { thumb: "images/1/121062_720x480.jpg", path: "images/1/121062_720x480.jpg" }, { thumb: "images/1/121063_720x480.jpg", path: "images/1/121063_720x480.jpg" }, { thumb: "images/1/121064_720x480.jpg", path: "images/1/121064_720x480.jpg" }, { thumb: "images/1/121065_720x480.jpg", path: "images/1/121065_720x480.jpg" }, { thumb: "images/1/121066_720x480.jpg", path: "images/1/121066_720x480.jpg" }, { thumb: "images/1/121067_720x480.jpg", path: "images/1/121067_720x480.jpg" }, { thumb: "images/1/121068_720x480.jpg", path: "images/1/121068_720x480.jpg" }, { thumb: "images/1/121069_720x480.jpg", path: "images/1/121069_720x480.jpg" }, { thumb: "images/1/121070_720x480.jpg", path: "images/1/121070_720x480.jpg" }, { thumb: "images/1/121071_720x480.jpg", path: "images/1/121071_720x480.jpg" }, { thumb: "images/1/121072_720x480.jpg", path: "images/1/121072_720x480.jpg" }, { thumb: "images/1/121073_720x480.jpg", path: "images/1/121073_720x480.jpg" }, { thumb: "images/1/121074_720x480.jpg", path: "images/1/121074_720x480.jpg" }, { thumb: "images/1/121075_720x480.jpg", path: "images/1/121075_720x480.jpg" }, { thumb: "images/1/121076_720x480.jpg", path: "images/1/121076_720x480.jpg" }, { thumb: "images/1/121077_720x480.jpg", path: "images/1/121077_720x480.jpg" }, { thumb: "images/1/121078_720x480.jpg", path: "images/1/121078_720x480.jpg" }, { thumb: "images/1/121079_720x480.jpg", path: "images/1/121079_720x480.jpg" }, { thumb: "images/1/121080_720x480.jpg", path: "images/1/121080_720x480.jpg" }, { thumb: "images/1/121081_720x480.jpg", path: "images/1/121081_720x480.jpg" }, { thumb: "images/1/121082_720x480.jpg", path: "images/1/121082_720x480.jpg" }, { thumb: "images/1/121083_720x480.jpg", path: "images/1/121083_720x480.jpg" }, { thumb: "images/1/121084_720x480.jpg", path: "images/1/121084_720x480.jpg" }, { thumb: "images/1/121085_720x480.jpg", path: "images/1/121085_720x480.jpg" }, { thumb: "images/1/121086_720x480.jpg", path: "images/1/121086_720x480.jpg" }, { thumb: "images/1/121087_720x480.jpg", path: "images/1/121087_720x480.jpg" }, { thumb: "images/1/121088_720x480.jpg", path: "images/1/121088_720x480.jpg" }, { thumb: "images/1/121089_720x480.jpg", path: "images/1/121089_720x480.jpg" }, { thumb: "images/1/121090_720x480.jpg", path: "images/1/121090_720x480.jpg" }, { thumb: "images/1/121091_720x480.jpg", path: "images/1/121091_720x480.jpg" }, { thumb: "images/1/121092_720x480.jpg", path: "images/1/121092_720x480.jpg" }, { thumb: "images/1/121093_720x480.jpg", path: "images/1/121093_720x480.jpg" }, { thumb: "images/1/121094_720x480.jpg", path: "images/1/121094_720x480.jpg" }, { thumb: "images/1/121095_720x480.jpg", path: "images/1/121095_720x480.jpg" }, { thumb: "images/1/121096_720x480.jpg", path: "images/1/121096_720x480.jpg" }, { thumb: "images/1/121097_720x480.jpg", path: "images/1/121097_720x480.jpg" }, { thumb: "images/1/121098_720x480.jpg", path: "images/1/121098_720x480.jpg" }, { thumb: "images/1/121099_720x480.jpg", path: "images/1/121099_720x480.jpg" }, { thumb: "images/1/121100_720x480.jpg", path: "images/1/121100_720x480.jpg" }];
-    imgRotateShow.setPathData(pathData);
-    $('a').click(function () {
+
+    var i = 0,
+        jInfo = $('#info');;
+
+    imgsLoad();
+
+    function finish() {
+        
+        $('#clickShow').click(function () {
+            imgRotateShow.popWin();
+        }).show();
+
+        imgRotateShow.setPathData(pathData);
+
         imgRotateShow.popWin();
-    });
 
-    imgRotateShow.popWin();
+    }
 
-    
+    function imgsLoad() {
+        core.imgLoad2(pathData[i].thumb, function () {
+            jInfo.html('资源加载'+(i + 1) +'/'+ pathData.length);
+
+            if (i + 1 === pathData.length) {
+                finish();
+                jInfo.remove();
+                return;
+            }
+
+            imgsLoad();
+
+
+            i++;
+        });
+
+
+
+    }
 
     //var data = '[';
     //for (var i = 0; i < 60; i++) {
@@ -1213,4 +1273,6 @@ $(function () {
     //    data += 'path:"images/1/1210' + (41 + i) + '_720x480.jpg"},';
     //}
     //data += ']';
+
+    
 });
