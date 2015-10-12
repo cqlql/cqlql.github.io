@@ -4,6 +4,11 @@ body a {
     font-family:Microsoft Yahei,\5FAE\8F6F\96C5\9ED1;
 }
 
+.wrap {
+    width:1000px;
+    margin:0 auto;
+}
+
 header {
     background-color: #333;
 }
@@ -17,10 +22,10 @@ header .logo {
     display:block;
 }
 
-.wrap {
-    width:1000px;
-    margin:0 auto;
+.content {
+    position:relative;
 }
+
 
 /*#region menu */
 
@@ -46,8 +51,6 @@ menu li a.active {
     color: #0077c6;
 }
 /*#endregion */
-
-
 
 /*#region 翻页 */
 

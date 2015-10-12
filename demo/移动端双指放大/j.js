@@ -1,5 +1,79 @@
 ﻿"use strict";
 
+var c = {};
+
+//#region css加前缀
+/*
+
+type: 
+    0 或不给, 减号连接,真正的 css属性名 
+    1, 驼峰, 适用直接给style赋值
+例子
+cssTransform = c.addPrefix('transform')
+*/
+c.addPrefix = function (cssAttr, type) {
+    var cssPrefixes = ["ms", "moz", "webkit"],
+        style = document.body.style,
+        _cssAttr = cssAttr.charAt(0).toUpperCase() + cssAttr.substr(1);
+
+    if (style[cssAttr] !== undefined) {
+
+        return cssAttr;
+    }
+    for (var i = cssPrefixes.length, newAttr, cssPf; i--;) {
+
+        cssPf = cssPrefixes[i];
+        newAttr = cssPf + _cssAttr;
+
+        if (style[newAttr] !== undefined) {
+
+            return type ? newAttr : '-' + cssPf + '-' + cssAttr;
+        }
+    }
+};
+
+//#endregion
+
+//#region 取 css属性名，有前缀的
+/*
+ * 单例模式，取过后的属性将保存，下次节省效率
+ * 
+ */
+
+c.getCssAttrName = function () {
+    var obj = {};
+    return function (name) {
+        var styleName = obj[name];
+
+        if (styleName === undefined) {
+            styleName = obj[name] = c.addPrefix(name);
+        }
+
+
+        return styleName;
+    }
+}();
+
+//#endregion
+
+//#region 设置 css 组
+
+// 组
+c.setCss = function (ele, group) {
+    for (var k in group) {
+        ele.style.setProperty(k, group[k]);
+    }
+};
+
+// 单个 
+c.setCssSingle = function (ele, name, val) {
+    ele.style.setProperty(c.getCssAttrName(name), val);
+};
+
+//#endregion
+
+///////////////
+
 var eB, eImg,
 	imgX, imgY,
 	single,
