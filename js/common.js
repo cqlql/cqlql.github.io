@@ -3,7 +3,9 @@
 * 公共js库
 * author:陈桥黎
 * date:2015-10-09
-* updateDate:2015-10-10
+* 
+* updateDate:2015-10-13
+*   增加新功能
 */
 
 
@@ -395,6 +397,161 @@
             commonAjax: commonAjax
         };
     })();
+    //#endregion
+
+    //#region 事件绑定/解除
+
+    // pc
+    c.eventBind = function (target, types, listener) {
+        var fnName,
+            typePrefix;
+        if (window.addEventListener) {
+        
+            fnName = 'addEventListener';
+            typePrefix = '';
+        }
+        else{
+            fnName = 'attachEvent';
+            typePrefix = 'on';
+        }
+        
+
+        if (typeof types === 'string') {
+            target[fnName](typePrefix + types, listener);
+        }
+        else {
+            for (var k in types) {
+                target[fnName](typePrefix + k, types[k]);
+            }
+        }
+
+        //if (addEventListener) {
+        //    target.addEventListener(types, listener);
+        //}
+        //else {
+        //    target.attachEvent('on' + types, listener);
+        //}
+    };
+    c.eventUnBind = function (target, types, listener) {
+        //if (removeEventListener) {
+        //    target.removeEventListener(types, listener);
+        //}
+        //else {
+        //    target.detachEvent('on' + types, listener);
+        //}
+
+        var fnName,
+            typePrefix;
+        if (window.removeEventListener) {
+
+            fnName = 'removeEventListener';
+            typePrefix = '';
+        }
+        else {
+            fnName = 'detachEvent';
+            typePrefix = 'on';
+        }
+
+
+        if (typeof types === 'string') {
+            target[fnName](typePrefix + types, listener);
+        }
+        else {
+            for (var k in types) {
+                target[fnName](typePrefix + k, types[k]);
+            }
+        }
+    };
+
+    //#endregion
+
+
+    //#region 拖动基础
+
+    c.drag = 1 ?
+    // pc
+    function (eDrag, onMove, onDown, onUp) {
+        var isIE678 = !-[1, ],
+            eDom = document;
+
+        c.eventBind(eDrag, 'mousedown', down);
+
+        function down(e) {
+
+            supportPageXY(e);
+
+            if (onDown) onDown(e);
+
+            //IE678 执行捕捉 来 避免 图片文字等默认选择事件
+            if (isIE678) eDrag.setCapture();
+
+            var eveFn = {
+                mousemove: function (eve) {
+                    supportPageXY(eve);
+
+                    onMove({ left: eve.pageX - e.pageX, top: eve.pageY - e.pageY, event: eve });
+                },
+                mouseup: function () {
+                    if (onUp) onUp();
+
+                    if (isIE678) eDrag.releaseCapture();
+
+                    c.eventUnBind(document, eveFn);//解除所有事件
+                }
+            };
+
+            c.eventBind(document, eveFn);
+
+            return false;
+        }
+
+        // 解决 ie678 不支持 pageX pageY 问题
+        function supportPageXY(e) {
+
+            if (isIE678) {
+                e.pageX = document.documentElement.scrollLeft + e.clientX;
+                e.pageY = document.documentElement.scrollTop + e.clientY;
+            }
+
+        }
+
+    } :
+    // 移动端
+    function (eDrag, onMove, onDown, onUp) {
+        var startY, isStart;
+
+        eDrag.addEventListener('touchstart', function (e) {
+            isStart = true;
+
+            if (onDown(e) === false) {
+                isStart = false;
+            }
+            else {
+                var touche = e.touches[0];
+
+
+                startY = touche.pageY;
+            }
+
+        });
+
+        eDrag.addEventListener('touchmove', function (e) {
+            if (isStart) {
+                var touche = e.touches[0],
+                    moveY = touche.pageY - startY;
+
+                onMove(0, moveY, e);
+            }
+        });
+
+        eDrag.addEventListener('touchend', function (e) {
+            if (isStart) {
+                onUp(e);
+            }
+        });
+
+    };
+
     //#endregion
 
     window.c = window.common = c;

@@ -1,0 +1,80 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <title></title>
+    <meta charset="UTF-8">
+    <meta content="width=device-width,initial-scale=1.0,user-scalable=no" name="viewport" />
+    <link href="http://localhost:11035/css/common.css" rel="stylesheet" />
+</head>
+<body>
+    <style>
+
+     .listening-filling .row {
+     min-height:30px; 
+     padding-bottom: 12px;
+}   
+.listening-filling .row .num {
+    min-height:30px;
+    line-height: 2;
+    width: 24px;
+    font-size: 18px;
+}
+
+.listening-filling .row .r-con {
+    padding-bottom: 16px;
+}
+.listening-filling .row .s-num {
+    float: left;
+    padding: 4px 3px 0;
+}
+
+
+.listening-filling .row .in-b {
+    overflow:hidden;
+}
+.listening-filling .row .in-b .in {
+    position:relative;
+}
+.listening-filling .row .in-p {
+    height:24px;
+    padding: 4px;
+    border:1px solid #d9d9d9;
+    background:#fff;
+    border-radius: 4px;
+}
+.listening-filling .row .in-b input {
+    border:0;
+    width:100%;
+    font-size:16px;
+    position: relative;
+    z-index: 1;
+}
+.listening-filling .row .in-p.disabled {
+    background-color: #EBEBE4;
+}
+.listening-filling .row .in-p.disabled input{
+    background-color: #EBEBE4;
+}
+
+    </style>
+
+    <div class="listening-filling">
+        <div class="top">
+
+        </div>
+        <div class="bottom">
+            <div class="row w">
+                <div class="s-num">51.</div>
+                <div class="in-b">
+                    <div class="in">
+                        <div class="in-p"><input type="text" value=""></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="mid-btn"></div>
+    </div>
+
+</body>
+
+</html>
