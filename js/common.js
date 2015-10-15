@@ -465,6 +465,76 @@
 
     //#endregion
 
+    //#region 速率计算
+    c.Velocity = function () {
+
+        var startTime,
+            moveTimesArr = [],
+            target = this;
+
+        function getSustainTimes() {
+            return (new Date()).getTime() - startTime;
+        }
+
+        //速率计时
+        this.start = function () {
+            moveTimesArr = [[0, 0]];
+            startTime = (new Date()).getTime();
+        };
+        this.end = function () {
+            var lastIndex = moveTimesArr.length - 1;
+
+            if (lastIndex < 1) return 0;
+
+            //间隔时间
+            var intervalTime = getSustainTimes() - moveTimesArr[lastIndex][0];
+
+            //有惯性情况。间隔时间
+            if (intervalTime < 200) {
+                // 滑动情况一般不会超过50毫秒。如果不够敏感，不应调节这里。条件end 返回的值，往小里调
+
+                return (moveTimesArr[0][1] - moveTimesArr[lastIndex][1]) / intervalTime * 1000;
+            }
+                //无惯性
+            else {
+                return 0;
+            }
+        };
+
+        this.change = function (val) {
+
+            moveTimesArr.unshift([getSustainTimes(), val]);
+
+            if (moveTimesArr.length > 4) moveTimesArr.length = 4;
+        };
+    };
+    //#endregion
+
+    //#region 减动画核心
+
+    c.StripingReduce = function () {
+        var stopId;
+        this.start = function (to, fn) {
+            var times = 20,
+            vel = to;
+
+            function back() {
+                vel = parseFloat((vel * .8).toFixed(2));
+
+                fn(vel);
+
+                if (Math.abs(vel) > 0.1) stopId = setTimeout(back, times);
+            }
+
+            stopId = setTimeout(back, times);
+        }
+
+        this.stop = function () {
+            clearTimeout(stopId);
+        };
+    };
+
+    //#endregion
 
     //#region 拖动基础
 

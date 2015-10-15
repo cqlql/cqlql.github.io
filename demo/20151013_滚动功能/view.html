@@ -13,16 +13,27 @@
         }
 
         .box {
-            width:300px;
-            height:600px;
+            /*width:400px;*/
+            height:200px;
             background-color:#ddd;
             overflow:hidden;
         }
         .box .cont {
-            width:280px;
-            margin-left:10px;
+            height:200px;
+            width:2800px;
+            /*margin-left:10px;*/
             position:relative;
             font-size:18px;
+        }
+
+        .scroll-bar {
+            height:14px;
+            background:#bbb;
+        }
+        .scroll-bar b{
+            position:absolute;
+            height:14px;
+            background:#009AE6;
         }
     </style>
 
@@ -179,6 +190,10 @@
 
 
         </div>
+    </div>
+
+    <div id="scrollBar" class="scroll-bar">
+        <b></b>
     </div>
 
     <script src="main.js"></script>
