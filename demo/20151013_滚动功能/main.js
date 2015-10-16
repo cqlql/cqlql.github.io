@@ -187,14 +187,16 @@ function ScrollBar(params) {
     });
     c.eventBind(eBox, 'mousedown', function (e) {
         var v;
-        if ((type === 'left' ? e.pageX : e.pageY) < jBar.offset()[type]) {
-            v = curConO + boxS;
-        }
-        else {
-            v = curConO - boxS;
-        }
 
-        moveBar(v);
+
+        //if ((type === 'left' ? e.pageX : e.pageY) < jBar.offset()[type]) {
+        //    v = curConO + boxS;
+        //}
+        //else {
+        //    v = curConO - boxS;
+        //}
+
+        //moveBar(v);
 
         if (e.cancelable) e.preventDefault();
         return false;
