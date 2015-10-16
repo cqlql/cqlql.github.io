@@ -547,7 +547,7 @@
         c.eventBind(eDrag, 'mousedown', down);
 
         function down(e) {
-
+            
             supportPageXY(e);
 
             if (onDown) onDown(e);
@@ -572,6 +572,7 @@
 
             c.eventBind(document, eveFn);
 
+            if (e.cancelable) e.preventDefault();
             return false;
         }
 
@@ -622,6 +623,44 @@
 
     };
 
+    //#endregion
+
+    //#region 滚轮
+    /*
+    core.mouseWheel(jMainBox[0], function (e) {
+        var pre;
+        if (e.wheelDelta) //前120 ，后-120
+            pre = e.wheelDelta > 0;
+        else //firefox
+            pre = e.detail < 0;
+    
+        if (pre) {
+            //*往上滚
+        } else {
+            //*往下滚
+        }
+    
+        //阻止滚动条滚动
+        if (e.cancelable) e.preventDefault();
+        return false;
+    });
+    */
+    c.mouseWheel = function (dom, f) {
+        if (dom.addEventListener) {
+            if (dom.onmousewheel === undefined) dom.addEventListener('DOMMouseScroll', f, false);//firefox
+            else dom.addEventListener('mousewheel', f, false);
+        } else {
+            dom.attachEvent('onmousewheel', f);//ie678
+        }
+    };
+    c.removeMouseWheel = function (dom, f) {
+        if (dom.addEventListener) {
+            if (dom.onmousewheel === undefined) dom.removeEventListener('DOMMouseScroll', f, false);//firefox
+            else dom.removeEventListener('mousewheel', f, false);
+        } else {
+            dom.detachEvent('onmousewheel', f);//ie678
+        }
+    };
     //#endregion
 
     window.c = window.common = c;

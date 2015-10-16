@@ -4,9 +4,10 @@
     <title></title>
     <meta charset="UTF-8">
     <link href="../../css/base.css" rel="stylesheet" />
+    <link href="../../css/main.css" rel="stylesheet" />
     <script src="../../js/common.js"></script>
 </head>
-<body class="content">
+<body class="content wrap">
     <style>
         .content {
             padding: 10px 0;
@@ -14,34 +15,52 @@
 
         .box {
             /*width:400px;*/
-            height:200px;
-            background-color:#ddd;
-            overflow:hidden;
+                margin: 2px 4px 0;
+            height: 200px;
+            background-color: #ddd;
+            overflow: hidden;
         }
+
         .box .cont {
-            height:200px;
-            width:2800px;
+            height: 200px;
+            width: 2800px;
             /*margin-left:10px;*/
-            position:relative;
-            font-size:18px;
+            position: relative;
+            font-size: 18px;
         }
 
         .scroll-bar {
-            height:14px;
-            background:#bbb;
+            height: 14px;
+            background: #bbb;
+            position:relative;
+            margin-top:2px;
         }
-        .scroll-bar b{
-            position:absolute;
-            height:14px;
-            background:#009AE6;
+
+        .scroll-bar b {
+            position: absolute;
+            height: 14px;
+            background: #009AE6;
+        }
+
+
+        a {
+            color:blue;
         }
     </style>
 
+
+
+    <h1>横向带滚动条</h1>
+    <p>
+        横向滚动，能根据容器宽度变化来调整，滚动条可内容分离
+    </p>
+    <div id="scrollBar1" class="scroll-bar">
+        <b></b>
+    </div>
     <div class="box" id="demo1">
 
         <div class="cont">
-
-            为天地立心，为生民立命，为往圣继绝学，为万世开太平。
+            为天地立心，为生民立命，为往圣继绝学，<a href="">可跳转，跳转不与拖动冲突</a>为万世开太平。
             ————北宋大儒张载
             PS： 横渠四句，一语道尽天下儒者的最高理想啊········
 
@@ -192,11 +211,10 @@
         </div>
     </div>
 
-    <div id="scrollBar" class="scroll-bar">
-        <b></b>
-    </div>
+    
 
     <script src="main.js"></script>
+
 </body>
 
 
