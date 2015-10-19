@@ -21,19 +21,15 @@
         </div>
         <menu>
             <ul class="wrap">
-                {% unless page.id %}
+                {% if page.url=='/index.html' %}
                 <li>
                     <a href="/" class="active">首页</a>
                 </li>
-                {% endunless %}
-                {% if page.id %}
+                {% else %}
                 <li>
                     <a href="/">返回首页</a>
                 </li>
                 {% endif %}
-                <li>
-                    {{ page.url }}
-                </li>
             </ul>
         </menu>
     </header>
