@@ -8,8 +8,19 @@
 *   增加新功能
 */
 
-
 "use strict";
+
+window.requestAnimFrame = (function () {
+    return window.requestAnimationFrame ||
+        window.webkitRequestAnimationFrame ||
+        window.mozRequestAnimationFrame ||
+        window.oRequestAnimationFrame ||
+        window.msRequestAnimationFrame ||
+        function (callback, element) {
+            window.setTimeout(callback, 15);
+        };
+})();
+
 (function () {
 
     var c = {};
@@ -536,6 +547,88 @@
 
     //#endregion
 
+    //#region 动态动画效果
+    /*
+    **动态动画效果
+    目标位置 随便都可以改变的动画效果
+    
+
+    /*
+    *** 版本2
+    //创建
+    var anime = new c.changeAnime(function (v) {
+        side_follow.css('top', v);
+    });
+    
+    //停止动画
+    anime.stop();
+    
+    //开始动画
+    anime.start(100);//方式1 。只有目标位置
+    anime.start(100,0);//方式2。目标位置，初始位置
+    
+    //取状态
+    anime.getState();
+    */
+    c.changeAnime = function (change, rate) {
+
+        var o = this,
+
+            //开关。 是否进行中。true 进行中
+            sw = false;
+
+        rate = rate ? rate : .2;
+
+        function lastExcu() {
+
+            sw = false;
+        }
+
+        function start(to, cur) {
+
+            function baseExcu() {
+
+                var len = rate * (o.to - o.cur);
+
+                o.cur += len;
+
+                //最后一次
+                if (Math.abs(o.to - o.cur) < 1) {
+                    o.cur = o.to;
+
+                    lastExcu();
+                }
+
+                change(o.cur);
+
+                if (sw) window.requestAnimFrame(baseExcu);
+            }
+
+            o.to = to;
+            o.cur = cur ? cur : o.cur;
+
+            if (sw) return;
+
+            sw = true;
+
+            window.requestAnimFrame(baseExcu);
+        }
+
+        function stop() {
+            sw = false;
+        }
+
+        this.start = start;
+        this.stop = stop;
+        this.cur = 0;
+        this.to = 0;
+
+        this.getState = function () {
+            return sw;
+        };
+    };
+    //#endregion
+
     //#region 拖动基础
 
     c.drag = 1 ?
@@ -572,6 +665,9 @@
 
             c.eventBind(document, eveFn);
 
+            
+            if (e.stopPropagation) e.stopPropagation();
+            else e.cancelBubble = true;
             if (e.cancelable) e.preventDefault();
             return false;
         }
