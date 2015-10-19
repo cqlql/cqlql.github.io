@@ -1,4 +1,4 @@
-"use strict";
+﻿"use strict";
 
 
 demo1();
@@ -25,9 +25,17 @@ function demo1() {
         barBoxWH: eBarBox.clientWidth
     });
 
+    var is = 0;
     document.getElementById('btn1').onclick = function () {
-        eBox.style.width = '400px';
-        eBarBox.style.width = '400px';
+        if (is) {
+            eBox.style.width = '1000px';
+            eBarBox.style.width = '1000px';
+        }
+        else {
+            eBox.style.width = '400px';
+            eBarBox.style.width = '400px';
+        }
+        
         scrollBar.update({
             boxWH: eBox.clientWidth,
             contWH: eCont.clientWidth,
