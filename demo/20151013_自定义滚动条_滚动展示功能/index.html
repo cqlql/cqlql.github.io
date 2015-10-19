@@ -1,13 +1,9 @@
-﻿<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <title></title>
-    <meta charset="UTF-8">
-    <link href="../../css/base.css" rel="stylesheet" />
-    <link href="../../css/main.css" rel="stylesheet" />
-    <script src="../../js/common.js"></script>
-</head>
-<body class="content wrap">
+﻿---
+layout: index
+title: 自定义滚动条_滚动展示功能
+---
+    <link href="main.css" rel="stylesheet" />
+
     <style>
         .content {
             padding: 10px 0;
@@ -21,7 +17,7 @@
 
         .des {
             font-size: 16px;
-            color:grey;
+            color: grey;
         }
 
         .box {
@@ -80,7 +76,6 @@
             color: blue;
         }
     </style>
-
 
 
     <h1>横向+内容滚动+滚动条</h1>
@@ -562,12 +557,12 @@
     </div>
 
     <h1>案例</h1>
-    <div class="bottom_roll_show">
+    <div class="bottom_roll_show" id="demo4">
         <div class="tit">往期回顾</div>
         <div class="sw">
             <ul style="width: 2088px;">
                 <li>
-                    <div class="i_b"><img src="../images/福利/test.jpg" alt=""></div>
+                    <div class="i_b"><img src="" alt=""></div>
                     <div class="des">2013春夏美味马卡龙穿上身</div>
                 </li>
                 <li>
@@ -603,16 +598,10 @@
                     <div class="des">2013春夏美味马卡龙穿上身</div>
                 </li>
             </ul>
-            <div class="sb"><b style="width: 670.253px;"></b></div>
+            <div class="sb"><b></b></div>
         </div>
-        <a class="close" href="javascript:;"></a>
+        <a class="close" href="javascript:;">✖</a>
     </div>
-
 
     <script src="main.js"></script>
 
-</body>
-
-
-
-</html>
