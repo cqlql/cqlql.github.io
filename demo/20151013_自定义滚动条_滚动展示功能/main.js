@@ -30,10 +30,12 @@ function demo1() {
         if (is) {
             eBox.style.width = '1000px';
             eBarBox.style.width = '1000px';
+            is = 0;
         }
         else {
             eBox.style.width = '400px';
             eBarBox.style.width = '400px';
+            is = 1;
         }
         
         scrollBar.update({
