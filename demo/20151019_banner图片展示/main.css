@@ -1,1 +1,87 @@
 
+
+
+.banner-show {
+    width:800px;
+    height:450px;
+    position: relative;
+    margin:0 auto;
+}
+
+/*加载中情况*/
+.banner-show.loading {
+    background: #F1F1F1 url(../images/loader/loading6.gif) no-repeat center center;
+}
+.banner-show .list {
+    height:450px;
+}
+.banner-show .list li {
+    height: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+    display: none;
+}
+
+.banner-show .btns {
+    position: absolute;
+    right: 8px;
+    bottom: 8px;
+    z-index: 1;
+}
+
+.banner-show .btns a {
+    float: left;
+    width: 10px;
+    height: 10px;
+    background: #ccc;
+    margin-left: 5px;
+}
+
+.banner-show .btns a.active {
+    background: #B81D23;
+}
+
+/*移动情况*/
+/*.banner-show .win {
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+}
+
+.banner-show .win .list li {
+    float: left;
+    position: relative;
+    display: block;
+    overflow: hidden;
+}*/
+
+
+/*箭头*/
+.banner-show .arrows {
+    position:absolute;
+    top: 130px;
+    right:0;
+    width:38px;
+    height:105px;
+    background: #000 url(arrows.png) -42px 0;
+    z-index: 1;
+    /*display:none;*/
+    opacity:.4;
+    filter:alpha(opacity=40);
+}
+.banner-show .arrows.l {
+    left:0;
+    background-position:0 0;
+}
+/*.banner-show:hover .arrows{
+    display:block;
+    opacity:.4;
+    filter:alpha(opacity=40);
+}*/
+
+.banner-show .arrows:hover{
+    opacity:.6;
+    filter:alpha(opacity=60);
+}
+
