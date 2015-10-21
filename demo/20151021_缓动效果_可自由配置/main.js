@@ -2,10 +2,7 @@
 
 
 var eBox1 = document.getElementById('demo1'),
-    anime = new c.easingBuild();
-
-
-var a = new common.easingBuild();
+    a = new c.EasingBuild();
 
 a.setCurParams({
     w: 100
