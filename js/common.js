@@ -35,28 +35,39 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
     };
     //#endregion
             
-    //#region 根据class名 获取后代元素
+    //#region class 相关
+
+    c.hasClass = function (element,className) {
+        return (' ' + element.className + ' ').indexOf(' ' + className+' ') > -1;
+
+        return element.className.indexOf(className) > -1;
+    };
+
+    // 获取后代元素
     //兼容性：所有浏览器
-    c.getElementsByClassName = function (claName, obj) {
-         
+    c.getElementsByClassName = function (className, obj) {
+
         obj = obj || document;
 
         if (obj.getElementsByClassName) {
-            return obj.getElementsByClassName(claName);
+            return obj.getElementsByClassName(className);
         }
-        
-        //某元素的 所有后代
-        var objs = obj.getElementsByTagName("*"),
 
-            array = new Array();
+        return c.filtrateElementsByClassName(className, obj.getElementsByTagName("*"));
+    }
+
+    // 过滤 元素集合
+    c.filtrateElementsByClassName = function (className, elements) {
+
+        var array = new Array();
 
         //过滤
-        for (var i = 0, len = objs.length; i < len; i++) {
-            if (objs[i].className === claName) array.push(objs[i]);
+        for (var i = 0, len = elements.length; i < len; i++) {
+            if (c.hasClass(elements[i], className)) array.push(elements[i]);
         }
 
         return array;
-    }
+    };
     //#endregion
 
     //#region 紧邻同辈元素 获取
@@ -484,134 +495,10 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
     //#region 动画效果 可 自由配置
 
     /*
-    使用举例：
-    var dom = $('div'),
-        go = new c.easingBuild();
-    
-    //excu的参数说明: 反复执行的函数，起始位置，目标位置，用时(毫秒)(可选，默认400)，缓动算法(可选，默认swing)，到达目标位置时回调(可选)
-    go.excu(function (v) {
-        dom.css('-webkit-transform', 'rotateZ(' + v + 'deg)');
-        dom.css('left', v);
-    }, 0, 1000, 1000, 'easeInOutQuint');
-    
-    */
-    c.easingBuild = function () {
-
-        var stopId;
-
-        //params: 反复执行的函数，起始位置，目标位置，用时(毫秒)，缓动算法，到达目标位置时回调
-        function excu(excu, start, end, speed, easing, callBack) {
-
-            var
-                speed = (speed === undefined ? 400 : speed),
-
-                t = 0,//当前起始次数
-                time = 20,//帧间隔
-                d = speed / time,//总次数
-
-                length = end - start; //要走的总长度
-
-            stop();
-            run();
-
-            function run() {
-                if (t < d) {
-                    t++;
-
-                    excu(Math.ceil(c.easing[easing ? easing : 'swing'](undefined, t, start, length, d)));
-
-                    stopId = setTimeout(run, time);
-                }
-                else {
-                    excu(end);
-
-                    stopId = undefined;
-
-                    callBack && callBack();
-                }
-            }
-        }
-
-        function stop() {
-            if (stopId !== undefined) {
-                clearTimeout(stopId);
-                stopId = undefined;
-            }
-        }
-
-        this.excu = excu;
-        this.stop = stop;
-    };
-
-    c.easingBuild = function () {
-        var stopId
-            , currStart=0
-        ;
-
-        this.excu = excu;
-        this.stop = stop;
-
-        function excu(params) {
-            var
-                excu = params.excu
-                , start = c.paramUn(params.start, currStart)
-                , end = params.end
-                , speed = params.speed
-                , easing = params.easing
-                , callBack = params.callBack
-
-                , speed = (speed === undefined ? 400 : speed)
-                , t = 0//当前起始次数
-                , time = 20//帧间隔
-                , d = speed / time//总次数
-                , length = end - start; //要走的总长度
-            ;
-
-            stop();
-
-            run();
-
-            function run() {
-
-                if (t < d) {
-                    t++;
-
-                    currStart = Math.ceil(c.easing[easing ? easing : 'swing'](undefined, t, start, length, d));
-
-                    excu(currStart);
-
-                    stopId = setTimeout(run, time);
-                }
-                else {
-                    currStart = end;
-
-                    excu(currStart);
-
-                    stopId = undefined;
-
-                    callBack && callBack();
-                }
-            }
-
-        }
-
-        function stop() {
-            if (stopId !== undefined) {
-                clearTimeout(stopId);
-                stopId = undefined;
-            }
-        }
-    };
-
-    //#endregion
-
-    //#region 动画效果 可 自由配置
-
-    /*
 
         切记，传入参数必须是number类型
         
-       var a = new common.easingBuild();
+       var a = new common.EasingBuild();
     
         a.curParams = {
             w: 100
@@ -631,7 +518,7 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
         });
     
     */
-    c.easingBuild = function (params) {
+    c.EasingBuild = function (params) {
         var
             that = this,
 
@@ -663,6 +550,8 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
                 start[key] = curParams[key];
             });
 
+            run();
+
             function run() {
                 var to = {},
                     cur;
@@ -692,8 +581,6 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
                     callBack();
                 }
             }
-
-            run();
         }
 
         function setCurParams(params) {
@@ -875,6 +762,31 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
             }
         }
     };
+
+    //#endregion
+
+    //#region 根据某后代元素(事件元素)，判断是否发生在某祖先元素范围内
+    /*
+   模版功能：
+
+   function getAncestorElement(eventElem) {
+       cb(eventElem);
+       function cb(that) {
+           if (that === eBox) {
+               return;
+           }
+           if (that.classList.contains('m-tit')) {
+               // do something
+               return;
+           }
+           if (that.tagName === 'A' && that.parentElement.classList.contains('i-header')) {
+               return;
+           }
+           cb(that.parentElement);
+       }
+   }
+
+    */
 
     //#endregion
 
