@@ -19,14 +19,19 @@ function bannerFade(params) {
     
     if (isInitShow !== false) initShow(isInitShow);
 
-    bannerArrowsHandle({
+    new BannerArrowsHandle({
         eArrows :c.filtrateElementsByClassName('arrows', eBox.children)
         ,length: length
-        , change: toChange
+        , change: go
         , currIndex: currIndex
     });
 
-    function toChange(index) {
+    bannerBtnsHandle({
+        eBox: c.filtrateElementsByClassName('btns', eBox.children)[0]
+        , length: length
+    });
+
+    function go(index) {
 
         fadeIn(index);
         fadeOut(currIndex);
@@ -70,7 +75,7 @@ function bannerFade(params) {
 
 }
 
-function bannerArrowsHandle(params) {
+function BannerArrowsHandle(params) {
     var
         eBox = params.eBox
         , eArrows = params.eArrows
@@ -86,6 +91,10 @@ function bannerArrowsHandle(params) {
     c.eventBind(eArrows[1], 'click', function (e) {
         arrowEvent(e, 1);
     });
+
+    this.go = function (index) {
+        currIndex = index;
+    };
 
     function arrowEvent(e, isRight) {
         var index = currIndex;
@@ -109,5 +118,30 @@ function bannerArrowsHandle(params) {
 
             change(index);
         }
+    }
+}
+
+function bannerBtnsHandle(params) {
+    var eBox = params.eBox
+        , length = params.length
+
+        ,html=''
+    ;
+
+    for (var i = 0; i < length; i++) {
+        html += '<a href="javascript:;" data-index="' + i + '"></a>';
+    }
+
+    eBox.innerHTML = html;
+
+
+    c.eventBind(eBox, 'click', function (e) {
+
+
+        console.log(e.target.getAttribute('data-index'));
+    });
+
+    function go() {
+
     }
 }

@@ -35,12 +35,12 @@
     float: left;
     width: 10px;
     height: 10px;
-    background: #ccc;
+    background: #fff;
     margin-left: 5px;
 }
 
 .banner-show .btns a.active {
-    background: #B81D23;
+    background: #49FF00;
 }
 
 /*ÒÆ¶¯Çé¿ö*/
