@@ -10,21 +10,31 @@
 
 "use strict";
 
-window.requestAnimFrame = (function () {
+window.requestAnimationFrame  = (function () {
     return window.requestAnimationFrame ||
         window.webkitRequestAnimationFrame ||
         window.mozRequestAnimationFrame ||
         window.oRequestAnimationFrame ||
         window.msRequestAnimationFrame ||
         function (callback, element) {
-            window.setTimeout(callback, 15);
+            return window.setTimeout(callback, 1000/60);
         };
 })();
+window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAnimationFrame || window.clearTimeout;
 
 (function () {
 
     var c = {};
 
+    /// 基础
+
+    //#region 为定义参数处理
+    //非空\未定义 情况 默认值 处理
+    c.paramUn = function (value, def) {
+        return value === undefined ? def : value;
+    };
+    //#endregion
+            
     //#region 根据class名 获取后代元素
     //兼容性：所有浏览器
     c.getElementsByClassName = function (claName, obj) {
@@ -117,297 +127,6 @@ window.requestAnimFrame = (function () {
         return { x: x, y: y };
     };
 
-    //#endregion
-
-    //#region 翻页
-    c.pager = (function () {
-
-        /*
-        翻页基本
-    
-        pageData: [1, 200, 10],//当前页，数据总条数，每页显示数
-        normalCssName: 'num_page',//可选
-        prevCssName: 'num_page prev_page',//可选
-        nextCssName: 'num_page next_page mr20',//可选
-        activeCssName:'active',//可选。默认active
-        noShow: true,//可选
-        baseUrl: '/',//可选。默认为false。表示值为javascript:; 这种情况，pageUrl也可不选，即使选了也无效。
-        pageUrl: '/page/',//可选。默认 '?page='。如果baseUrl为false，pageUrl选了也无效
-        mainBtnNum: 5,//可选
-        sideBtnNum: 1,//可选
-        prevTxt: '«',//可选
-        nextTxt: '»'//可选
-    
-        */
-        function getHtml(params) {
-
-            var
-                //可选
-                normalCssName = params.normalCssName ? params.normalCssName : '',
-                prevCssName = params.prevCssName ? params.prevCssName : '',
-                nextCssName = params.nextCssName ? params.nextCssName : '',
-                activeCssName = params.activeCssName ? params.activeCssName : 'active',
-
-                //是否 显示 上下 页 按钮。true 表示不显示。
-                //可选。默认 false
-                noShow = params.noShow ? params.noShow : false,
-
-                //url
-                //可选。 
-                baseUrl = params.baseUrl ? params.baseUrl : false,//可选。默认为false。表示值为javascript:; 且pageUrl 无效。
-                pageUrl = params.pageUrl ? params.pageUrl : '?page=',
-
-                //可选
-                buildBtnHref = params.buildBtnHref ? params.buildBtnHref : function (page) { return baseUrl ? baseUrl + pageUrl + page : 'javascript:;'; },
-
-                //主要按钮 数量。..之间的按钮 包括..
-                //可选 。默认5
-                mainBtnNum = params.mainBtnNum ? params.mainBtnNum : 5,
-
-                //两侧按钮数量。因为对称，只需指定一侧，且必须大于等于1。等于1 的情况就是 第一页，和最后一页
-                //可选。默认1
-                sideBtnNum = params.sideBtnNum ? params.sideBtnNum : 1,
-
-                //上/下一个按钮 内容
-                //可选。 
-                prevTxt = params.prevTxt !== undefined ? params.prevTxt : '«',
-                nextTxt = params.nextTxt !== undefined ? params.nextTxt : '»',
-
-                //点点 按钮 内容
-                //可选。 
-                omitTxt = params.omitTxt ? params.omitTxt : '..',
-
-                //当前页
-                page = params.pageData[0] * 1,
-
-                //总条数
-                count = params.pageData[1] * 1,
-
-                //每页显示数
-                pageSize = params.pageData[2] * 1,
-
-                //总页数
-                pageCount = Math.ceil(count / pageSize);
-            ;
-
-            function hasCssName(targetName, cssName) {
-
-                targetName = ' ' + targetName + ' ';
-                cssName = ' ' + cssName + ' ';
-
-                if (cssName.indexOf(targetName) > -1) return true;
-
-                return false;
-            }
-
-            function trim(str) {
-                // 用正则表达式将前后空格  用空字符串替代。  
-                return str.replace(/(^[\s\uFEFF]*)|(\s*$)/g, "");
-            }
-
-            function getBtnHtml(options) {
-
-                var tPage = options.page,
-                    txt = options.txt !== undefined ? options.txt : options.page,
-                    btnTagName = 'a',
-                    cssName = trim(options.cssName + (page == tPage ? ' ' + activeCssName : '')),
-                    url = buildBtnHref(tPage);
-
-                url = 'href="' + url + '"';
-
-                if (hasCssName('disabled', cssName) || hasCssName(activeCssName, cssName)) url = '';
-                return '<' + btnTagName + ' class="' + cssName + '" ' + url + ' data-page="' + tPage + '">' + txt + '</' + btnTagName + '>'
-            }
-
-            function build() {
-                var
-                    prevBtn = '',
-                    nextBtn = '',
-
-                    leftSideBtn = '',
-                    rightSideBtn = '',
-
-                    mainBtn = '',
-
-                    i;
-
-                
-
-                //不出现省略情况。即  按钮数>=总页数
-                if (sideBtnNum * 2 + mainBtnNum >= pageCount) {
-                    for (i = 0; i < pageCount; i++) {
-                        mainBtn += getBtnHtml({
-                            cssName: normalCssName,
-                            page: i + 1
-                        });
-                    }
-                }
-                    //有省略情况
-                else {
-
-                    //** 两侧 按钮 html
-                    for (i = 0; i < sideBtnNum; i++) {
-                        leftSideBtn += getBtnHtml({
-                            cssName: normalCssName,
-                            page: i + 1
-
-                        });
-                    }
-                    for (i = sideBtnNum; i--;) {
-                        rightSideBtn += getBtnHtml({
-                            cssName: normalCssName,
-                            page: pageCount - i
-                        });
-                    }
-
-                    //** 主要 按钮 html
-                    //左边没省略情况 当然 右边就有省略 
-                    if (page <= sideBtnNum + Math.ceil(mainBtnNum / 2)) {
-                        for (i = 0; i < mainBtnNum - 1; i++) {
-                            mainBtn += getBtnHtml({
-                                cssName: normalCssName,
-                                page: sideBtnNum + i + 1
-                            });
-                        }
-                        mainBtn += getBtnHtml({
-                            cssName: normalCssName,
-                            txt: omitTxt,
-                            page: sideBtnNum + mainBtnNum
-                        });
-                    }
-                        //右边没省略情况 当然 左边边就有省略
-                    else if (page > pageCount - sideBtnNum - Math.ceil(mainBtnNum / 2)) {
-                        mainBtn += getBtnHtml({
-                            cssName: normalCssName,
-                            txt: omitTxt,
-                            page: pageCount - sideBtnNum - mainBtnNum + 1
-                        });
-                        for (i = mainBtnNum - 1; i--;) {
-                            mainBtn += getBtnHtml({
-                                cssName: normalCssName,
-                                page: pageCount - sideBtnNum - i
-                            });
-                        }
-                    }
-                        //两边都有省略
-                    else {
-                        mainBtn += getBtnHtml({
-                            cssName: normalCssName,
-                            txt: omitTxt,
-                            page: page - Math.ceil(mainBtnNum / 2) + 1
-                        });
-
-                        for (i = 0; i < mainBtnNum - 2; i++) {
-                            mainBtn += getBtnHtml({
-                                cssName: normalCssName,
-                                page: page - Math.floor((mainBtnNum - 2) / 2) + i
-                            });
-                        }
-                        mainBtn += getBtnHtml({
-                            cssName: normalCssName,
-                            txt: omitTxt,
-                            page: page + Math.ceil(mainBtnNum / 2) - 1
-                        });
-                    }
-                }
-
-                //上一页
-                prevBtn = (page === 1 && noShow) ? '' : getBtnHtml({
-                    cssName: prevCssName + (page == 1 ? ' disabled' : ' enable'),
-                    page: page - 1,
-                    txt: prevTxt
-                });
-
-                //下一页
-                nextBtn = (page === pageCount && noShow) ? '' : getBtnHtml({
-                    cssName: nextCssName + (page === pageCount ? ' disabled' : ' enable'),
-                    page: page + 1,
-                    txt: nextTxt
-                });
-
-                return prevBtn + leftSideBtn + mainBtn + rightSideBtn + nextBtn;
-            }
-
-            //** 初始
-            //只有一页情况
-            if (pageCount < 1) return '';
-
-            return build();
-        }
-
-        function commonAjax(jPageBox, pageData, getData, partial) {
-            if (jPageBox.length === 0) return;
-
-            pageData.page = pageData.page * 1;
-            partial = partial === 1 ? 1 : 0;
-
-            var
-                jBtns,
-                jTxt,//页 输入框
-                pageCount = Math.ceil(pageData.total / pageData.pageSize);
-
-            if (pageCount <= 0) {
-                jPageBox.html('');
-                return;
-            }
-            else if (pageCount === 1) {
-
-            }
-
-            jPageBox.html(getHtml({
-                pageData: [pageData.page + partial, pageData.total, pageData.pageSize],//当前页，数据总条数，每页显示数
-                prevCssName: 'prev',//可选
-                nextCssName: 'next',//可选
-                sideBtnNum: 2,//可选
-                prevTxt: '&lt;',//可选
-                nextTxt: '&gt;'//可选
-            }) + '<span>跳转到：<input type="text" class="page_input" value="' + (pageData.page + partial) + '"/></span><a href="javascript:;" class="go">GO</a>');
-
-            jTxt = $(jPageBox[0].getElementsByTagName('input')[0]);
-
-            jTxt.ENTER(function () {
-                goPage();
-            });
-
-            jBtns = jPageBox.children().click(function () {
-                var jBtn = $(this);
-
-                if (jBtn.hasClass('go')) {
-                    goPage();
-                    return;
-                }
-                if (jBtn.hasClass('disabled') || jBtn.hasClass('active') || this.tagName === 'SPAN') return;
-
-                if (!jBtn.hasClass('prev') && !jBtn.hasClass('next')) {
-                    jBtns.eq(pageData.page).removeClass('active');
-                    jBtn.addClass('active');
-                }
-                getData(jBtn.attr('data-page') - partial);
-            });
-
-            function goPage() {
-                var num = $.trim(jTxt.val());
-
-                if (isNaN(num)) {
-                    common.msg('请输入数字');
-                }
-                else if (num > pageCount) {
-                    common.msg('当前只有' + pageCount + '页');
-                }
-                else if (num == pageData.page + partial) {
-                    common.msg('当前就是第' + num + '页');
-                }
-                else {
-                    getData(num - partial);
-                }
-            }
-        }
-
-        return {
-            getHtml: getHtml,
-            commonAjax: commonAjax
-        };
-    })();
     //#endregion
 
     //#region 事件绑定/解除
@@ -601,7 +320,7 @@ window.requestAnimFrame = (function () {
 
                 change(o.cur);
 
-                if (sw) window.requestAnimFrame(baseExcu);
+                if (sw) window.requestAnimationFrame (baseExcu);
             }
 
             o.to = to;
@@ -611,7 +330,7 @@ window.requestAnimFrame = (function () {
 
             sw = true;
 
-            window.requestAnimFrame(baseExcu);
+            window.requestAnimationFrame (baseExcu);
         }
 
         function stop() {
@@ -626,6 +345,379 @@ window.requestAnimFrame = (function () {
         this.getState = function () {
             return sw;
         };
+    };
+    //#endregion
+
+    //#region 缓动算法
+    c.easing = {
+        def: 'easeOutQuad',
+        swing: function (x, t, b, c, d) {
+            return common.easing[common.easing.def](x, t, b, c, d);
+        },
+        easeInQuad: function (x, t, b, c, d) {
+            return c * (t /= d) * t + b;
+        },
+        easeOutQuad: function (x, t, b, c, d) {
+            return -c * (t /= d) * (t - 2) + b;
+        },
+        easeInOutQuad: function (x, t, b, c, d) {
+            if ((t /= d / 2) < 1) return c / 2 * t * t + b;
+            return -c / 2 * ((--t) * (t - 2) - 1) + b;
+        },
+        easeInCubic: function (x, t, b, c, d) {
+            return c * (t /= d) * t * t + b;
+        },
+        easeOutCubic: function (x, t, b, c, d) {
+            return c * ((t = t / d - 1) * t * t + 1) + b;
+        },
+        easeInOutCubic: function (x, t, b, c, d) {
+            if ((t /= d / 2) < 1) return c / 2 * t * t * t + b;
+            return c / 2 * ((t -= 2) * t * t + 2) + b;
+        },
+        easeInQuart: function (x, t, b, c, d) {
+            return c * (t /= d) * t * t * t + b;
+        },
+        easeOutQuart: function (x, t, b, c, d) {
+            return -c * ((t = t / d - 1) * t * t * t - 1) + b;
+        },
+        easeInOutQuart: function (x, t, b, c, d) {
+            if ((t /= d / 2) < 1) return c / 2 * t * t * t * t + b;
+            return -c / 2 * ((t -= 2) * t * t * t - 2) + b;
+        },
+        easeInQuint: function (x, t, b, c, d) {
+            return c * (t /= d) * t * t * t * t + b;
+        },
+        easeOutQuint: function (x, t, b, c, d) {
+            return c * ((t = t / d - 1) * t * t * t * t + 1) + b;
+        },
+        easeInOutQuint: function (x, t, b, c, d) {
+            if ((t /= d / 2) < 1) return c / 2 * t * t * t * t * t + b;
+            return c / 2 * ((t -= 2) * t * t * t * t + 2) + b;
+        },
+        easeInSine: function (x, t, b, c, d) {
+            return -c * Math.cos(t / d * (Math.PI / 2)) + c + b;
+        },
+        easeOutSine: function (x, t, b, c, d) {
+            return c * Math.sin(t / d * (Math.PI / 2)) + b;
+        },
+        easeInOutSine: function (x, t, b, c, d) {
+            return -c / 2 * (Math.cos(Math.PI * t / d) - 1) + b;
+        },
+        easeInExpo: function (x, t, b, c, d) {
+            return (t == 0) ? b : c * Math.pow(2, 10 * (t / d - 1)) + b;
+        },
+        easeOutExpo: function (x, t, b, c, d) {
+            return (t == d) ? b + c : c * (-Math.pow(2, -10 * t / d) + 1) + b;
+        },
+        easeInOutExpo: function (x, t, b, c, d) {
+            if (t == 0) return b;
+            if (t == d) return b + c;
+            if ((t /= d / 2) < 1) return c / 2 * Math.pow(2, 10 * (t - 1)) + b;
+            return c / 2 * (-Math.pow(2, -10 * --t) + 2) + b;
+        },
+        easeInCirc: function (x, t, b, c, d) {
+            return -c * (Math.sqrt(1 - (t /= d) * t) - 1) + b;
+        },
+        easeOutCirc: function (x, t, b, c, d) {
+            return c * Math.sqrt(1 - (t = t / d - 1) * t) + b;
+        },
+        easeInOutCirc: function (x, t, b, c, d) {
+            if ((t /= d / 2) < 1) return -c / 2 * (Math.sqrt(1 - t * t) - 1) + b;
+            return c / 2 * (Math.sqrt(1 - (t -= 2) * t) + 1) + b;
+        },
+        easeInElastic: function (x, t, b, c, d) {
+            var s = 1.70158; var p = 0; var a = c;
+            if (t == 0) return b; if ((t /= d) == 1) return b + c; if (!p) p = d * .3;
+            if (a < Math.abs(c)) { a = c; var s = p / 4; }
+            else var s = p / (2 * Math.PI) * Math.asin(c / a);
+            return -(a * Math.pow(2, 10 * (t -= 1)) * Math.sin((t * d - s) * (2 * Math.PI) / p)) + b;
+        },
+        easeOutElastic: function (x, t, b, c, d) {
+            var s = 1.70158; var p = 0; var a = c;
+            if (t == 0) return b; if ((t /= d) == 1) return b + c; if (!p) p = d * .3;
+            if (a < Math.abs(c)) { a = c; var s = p / 4; }
+            else var s = p / (2 * Math.PI) * Math.asin(c / a);
+            return a * Math.pow(2, -10 * t) * Math.sin((t * d - s) * (2 * Math.PI) / p) + c + b;
+        },
+        easeInOutElastic: function (x, t, b, c, d) {
+            var s = 1.70158; var p = 0; var a = c;
+            if (t == 0) return b; if ((t /= d / 2) == 2) return b + c; if (!p) p = d * (.3 * 1.5);
+            if (a < Math.abs(c)) { a = c; var s = p / 4; }
+            else var s = p / (2 * Math.PI) * Math.asin(c / a);
+            if (t < 1) return -.5 * (a * Math.pow(2, 10 * (t -= 1)) * Math.sin((t * d - s) * (2 * Math.PI) / p)) + b;
+            return a * Math.pow(2, -10 * (t -= 1)) * Math.sin((t * d - s) * (2 * Math.PI) / p) * .5 + c + b;
+        },
+        easeInBack: function (x, t, b, c, d, s) {
+            if (s == undefined) s = 1.70158;
+            return c * (t /= d) * t * ((s + 1) * t - s) + b;
+        },
+        easeOutBack: function (x, t, b, c, d, s) {
+            if (s == undefined) s = 1.70158;
+            return c * ((t = t / d - 1) * t * ((s + 1) * t + s) + 1) + b;
+        },
+        easeInOutBack: function (x, t, b, c, d, s) {
+            if (s == undefined) s = 1.70158;
+            if ((t /= d / 2) < 1) return c / 2 * (t * t * (((s *= (1.525)) + 1) * t - s)) + b;
+            return c / 2 * ((t -= 2) * t * (((s *= (1.525)) + 1) * t + s) + 2) + b;
+        },
+        easeInBounce: function (x, t, b, c, d) {
+            return c - jQuery.easing.easeOutBounce(x, d - t, 0, c, d) + b;
+        },
+        easeOutBounce: function (x, t, b, c, d) {
+            if ((t /= d) < (1 / 2.75)) {
+                return c * (7.5625 * t * t) + b;
+            } else if (t < (2 / 2.75)) {
+                return c * (7.5625 * (t -= (1.5 / 2.75)) * t + .75) + b;
+            } else if (t < (2.5 / 2.75)) {
+                return c * (7.5625 * (t -= (2.25 / 2.75)) * t + .9375) + b;
+            } else {
+                return c * (7.5625 * (t -= (2.625 / 2.75)) * t + .984375) + b;
+            }
+        },
+        easeInOutBounce: function (x, t, b, c, d) {
+            if (t < d / 2) return jQuery.easing.easeInBounce(x, t * 2, 0, c, d) * .5 + b;
+            return jQuery.easing.easeOutBounce(x, t * 2 - d, 0, c, d) * .5 + c * .5 + b;
+        }
+    };
+    //#endregion
+
+    //#region 动画效果 可 自由配置
+
+    /*
+    使用举例：
+    var dom = $('div'),
+        go = new c.easingBuild();
+    
+    //excu的参数说明: 反复执行的函数，起始位置，目标位置，用时(毫秒)(可选，默认400)，缓动算法(可选，默认swing)，到达目标位置时回调(可选)
+    go.excu(function (v) {
+        dom.css('-webkit-transform', 'rotateZ(' + v + 'deg)');
+        dom.css('left', v);
+    }, 0, 1000, 1000, 'easeInOutQuint');
+    
+    */
+    c.easingBuild = function () {
+
+        var stopId;
+
+        //params: 反复执行的函数，起始位置，目标位置，用时(毫秒)，缓动算法，到达目标位置时回调
+        function excu(excu, start, end, speed, easing, callBack) {
+
+            var
+                speed = (speed === undefined ? 400 : speed),
+
+                t = 0,//当前起始次数
+                time = 20,//帧间隔
+                d = speed / time,//总次数
+
+                length = end - start; //要走的总长度
+
+            stop();
+            run();
+
+            function run() {
+                if (t < d) {
+                    t++;
+
+                    excu(Math.ceil(c.easing[easing ? easing : 'swing'](undefined, t, start, length, d)));
+
+                    stopId = setTimeout(run, time);
+                }
+                else {
+                    excu(end);
+
+                    stopId = undefined;
+
+                    callBack && callBack();
+                }
+            }
+        }
+
+        function stop() {
+            if (stopId !== undefined) {
+                clearTimeout(stopId);
+                stopId = undefined;
+            }
+        }
+
+        this.excu = excu;
+        this.stop = stop;
+    };
+
+    c.easingBuild = function () {
+        var stopId
+            , currStart=0
+        ;
+
+        this.excu = excu;
+        this.stop = stop;
+
+        function excu(params) {
+            var
+                excu = params.excu
+                , start = c.paramUn(params.start, currStart)
+                , end = params.end
+                , speed = params.speed
+                , easing = params.easing
+                , callBack = params.callBack
+
+                , speed = (speed === undefined ? 400 : speed)
+                , t = 0//当前起始次数
+                , time = 20//帧间隔
+                , d = speed / time//总次数
+                , length = end - start; //要走的总长度
+            ;
+
+            stop();
+
+            run();
+
+            function run() {
+
+                if (t < d) {
+                    t++;
+
+                    currStart = Math.ceil(c.easing[easing ? easing : 'swing'](undefined, t, start, length, d));
+
+                    excu(currStart);
+
+                    stopId = setTimeout(run, time);
+                }
+                else {
+                    currStart = end;
+
+                    excu(currStart);
+
+                    stopId = undefined;
+
+                    callBack && callBack();
+                }
+            }
+
+        }
+
+        function stop() {
+            if (stopId !== undefined) {
+                clearTimeout(stopId);
+                stopId = undefined;
+            }
+        }
+    };
+
+    //#endregion
+
+    //#region 动画效果 可 自由配置
+
+    /*
+
+        切记，传入参数必须是number类型
+        
+       var a = new common.easingBuild();
+    
+        a.curParams = {
+            w: 100
+        };
+        a.excu({
+            x: 600,
+            y: 90,
+            w: 600
+        }, {
+            go: function (to) {
+    
+                //div1.style.left = to.x + 'px';
+                //div1.style.top = to.y + 'px';
+                div1.style.width = to.w + 'px';
+            },
+            speed: 600
+        });
+    
+    */
+    c.easingBuild = function (params) {
+        var
+            that = this,
+
+            curParams = {},
+
+            stopId = null;
+
+        function excu(params, options) {
+
+            var
+                go = options.go,
+
+                speed = options.speed === undefined ? 400 : options.speed,
+                easing = options.easing === undefined ? 'swing' : options.easing,
+                callBack = options.callBack === undefined ? function () { } : options.callBack,
+
+                start = {},
+
+                t = 0,//当前起始次数
+                time = 16,//帧间隔
+                d = speed / time;//总次数
+
+            stop();
+
+            c.each(params, function (key,value) {
+                if (curParams[key] === undefined) {
+                    curParams[key] = 0;
+                }
+                start[key] = curParams[key];
+            });
+
+            function run() {
+                var to = {},
+                    cur;
+
+                if (t < d) {
+                    t++;
+
+                    c.each(params, function (key, value) {
+                        cur = start[key];
+                        to[key] = c.easing[easing](null, t, cur, value - cur, d);
+                        curParams[key] = to[key];
+                    });
+
+                    go(to);
+
+                    stopId = requestAnimationFrame(run, time);
+                }
+                else {
+                    go(params);
+
+                    c.each(params, function (key, value) {
+                        curParams[key] = params[key];
+                    });
+
+                    stopId = null;
+
+                    callBack();
+                }
+            }
+
+            run();
+        }
+
+        function setCurParams(params) {
+
+            for (var name in params) {
+                curParams[name] = params[name];
+            }
+        }
+
+        function stop() {
+            if (stopId !== null) {
+                cancelAnimationFrame(stopId);
+                stopId = null;
+            }
+        }
+
+        this.excu = excu;
+        this.setCurParams = setCurParams;
+        this.stop = stop;
+        this.getCurParams = function () {
+            console.log(curParams);
+        };
+
+        //setCurParams(params);
     };
     //#endregion
 
@@ -757,6 +849,326 @@ window.requestAnimFrame = (function () {
             dom.detachEvent('onmousewheel', f);//ie678
         }
     };
+    //#endregion
+
+    //#region each 循环
+
+    // 带length的集合对象、纯对象
+    // fn 中 返回false 将跳出
+    c.each = function (obj, fn) {
+        var
+            key,
+            len = obj.length;
+
+        if (len === undefined) {
+            for (key in obj) {
+                if (fn(key, obj[key]) === false) {
+                    break;
+                }
+            }
+        }
+        else {
+            for (key = 0; key < len; key++) {
+                if (fn(key, obj[key], len) === false) {
+                    break;
+                }
+            }
+        }
+    };
+
+    //#endregion
+
+    /// 功能
+
+    //#region 翻页
+    c.pager = (function () {
+
+        /*
+        翻页基本
+    
+        pageData: [1, 200, 10],//当前页，数据总条数，每页显示数
+        normalCssName: 'num_page',//可选
+        prevCssName: 'num_page prev_page',//可选
+        nextCssName: 'num_page next_page mr20',//可选
+        activeCssName:'active',//可选。默认active
+        noShow: true,//可选
+        baseUrl: '/',//可选。默认为false。表示值为javascript:; 这种情况，pageUrl也可不选，即使选了也无效。
+        pageUrl: '/page/',//可选。默认 '?page='。如果baseUrl为false，pageUrl选了也无效
+        mainBtnNum: 5,//可选
+        sideBtnNum: 1,//可选
+        prevTxt: '«',//可选
+        nextTxt: '»'//可选
+    
+        */
+        function getHtml(params) {
+
+            var
+                //可选
+                normalCssName = params.normalCssName ? params.normalCssName : '',
+                prevCssName = params.prevCssName ? params.prevCssName : '',
+                nextCssName = params.nextCssName ? params.nextCssName : '',
+                activeCssName = params.activeCssName ? params.activeCssName : 'active',
+
+                //是否 显示 上下 页 按钮。true 表示不显示。
+                //可选。默认 false
+                noShow = params.noShow ? params.noShow : false,
+
+                //url
+                //可选。 
+                baseUrl = params.baseUrl ? params.baseUrl : false,//可选。默认为false。表示值为javascript:; 且pageUrl 无效。
+                pageUrl = params.pageUrl ? params.pageUrl : '?page=',
+
+                //可选
+                buildBtnHref = params.buildBtnHref ? params.buildBtnHref : function (page) { return baseUrl ? baseUrl + pageUrl + page : 'javascript:;'; },
+
+                //主要按钮 数量。..之间的按钮 包括..
+                //可选 。默认5
+                mainBtnNum = params.mainBtnNum ? params.mainBtnNum : 5,
+
+                //两侧按钮数量。因为对称，只需指定一侧，且必须大于等于1。等于1 的情况就是 第一页，和最后一页
+                //可选。默认1
+                sideBtnNum = params.sideBtnNum ? params.sideBtnNum : 1,
+
+                //上/下一个按钮 内容
+                //可选。 
+                prevTxt = params.prevTxt !== undefined ? params.prevTxt : '«',
+                nextTxt = params.nextTxt !== undefined ? params.nextTxt : '»',
+
+                //点点 按钮 内容
+                //可选。 
+                omitTxt = params.omitTxt ? params.omitTxt : '..',
+
+                //当前页
+                page = params.pageData[0] * 1,
+
+                //总条数
+                count = params.pageData[1] * 1,
+
+                //每页显示数
+                pageSize = params.pageData[2] * 1,
+
+                //总页数
+                pageCount = Math.ceil(count / pageSize);
+            ;
+
+            function hasCssName(targetName, cssName) {
+
+                targetName = ' ' + targetName + ' ';
+                cssName = ' ' + cssName + ' ';
+
+                if (cssName.indexOf(targetName) > -1) return true;
+
+                return false;
+            }
+
+            function trim(str) {
+                // 用正则表达式将前后空格  用空字符串替代。  
+                return str.replace(/(^[\s\uFEFF]*)|(\s*$)/g, "");
+            }
+
+            function getBtnHtml(options) {
+
+                var tPage = options.page,
+                    txt = options.txt !== undefined ? options.txt : options.page,
+                    btnTagName = 'a',
+                    cssName = trim(options.cssName + (page == tPage ? ' ' + activeCssName : '')),
+                    url = buildBtnHref(tPage);
+
+                url = 'href="' + url + '"';
+
+                if (hasCssName('disabled', cssName) || hasCssName(activeCssName, cssName)) url = '';
+                return '<' + btnTagName + ' class="' + cssName + '" ' + url + ' data-page="' + tPage + '">' + txt + '</' + btnTagName + '>'
+            }
+
+            function build() {
+                var
+                    prevBtn = '',
+                    nextBtn = '',
+
+                    leftSideBtn = '',
+                    rightSideBtn = '',
+
+                    mainBtn = '',
+
+                    i;
+
+
+
+                //不出现省略情况。即  按钮数>=总页数
+                if (sideBtnNum * 2 + mainBtnNum >= pageCount) {
+                    for (i = 0; i < pageCount; i++) {
+                        mainBtn += getBtnHtml({
+                            cssName: normalCssName,
+                            page: i + 1
+                        });
+                    }
+                }
+                    //有省略情况
+                else {
+
+                    //** 两侧 按钮 html
+                    for (i = 0; i < sideBtnNum; i++) {
+                        leftSideBtn += getBtnHtml({
+                            cssName: normalCssName,
+                            page: i + 1
+
+                        });
+                    }
+                    for (i = sideBtnNum; i--;) {
+                        rightSideBtn += getBtnHtml({
+                            cssName: normalCssName,
+                            page: pageCount - i
+                        });
+                    }
+
+                    //** 主要 按钮 html
+                    //左边没省略情况 当然 右边就有省略 
+                    if (page <= sideBtnNum + Math.ceil(mainBtnNum / 2)) {
+                        for (i = 0; i < mainBtnNum - 1; i++) {
+                            mainBtn += getBtnHtml({
+                                cssName: normalCssName,
+                                page: sideBtnNum + i + 1
+                            });
+                        }
+                        mainBtn += getBtnHtml({
+                            cssName: normalCssName,
+                            txt: omitTxt,
+                            page: sideBtnNum + mainBtnNum
+                        });
+                    }
+                        //右边没省略情况 当然 左边边就有省略
+                    else if (page > pageCount - sideBtnNum - Math.ceil(mainBtnNum / 2)) {
+                        mainBtn += getBtnHtml({
+                            cssName: normalCssName,
+                            txt: omitTxt,
+                            page: pageCount - sideBtnNum - mainBtnNum + 1
+                        });
+                        for (i = mainBtnNum - 1; i--;) {
+                            mainBtn += getBtnHtml({
+                                cssName: normalCssName,
+                                page: pageCount - sideBtnNum - i
+                            });
+                        }
+                    }
+                        //两边都有省略
+                    else {
+                        mainBtn += getBtnHtml({
+                            cssName: normalCssName,
+                            txt: omitTxt,
+                            page: page - Math.ceil(mainBtnNum / 2) + 1
+                        });
+
+                        for (i = 0; i < mainBtnNum - 2; i++) {
+                            mainBtn += getBtnHtml({
+                                cssName: normalCssName,
+                                page: page - Math.floor((mainBtnNum - 2) / 2) + i
+                            });
+                        }
+                        mainBtn += getBtnHtml({
+                            cssName: normalCssName,
+                            txt: omitTxt,
+                            page: page + Math.ceil(mainBtnNum / 2) - 1
+                        });
+                    }
+                }
+
+                //上一页
+                prevBtn = (page === 1 && noShow) ? '' : getBtnHtml({
+                    cssName: prevCssName + (page == 1 ? ' disabled' : ' enable'),
+                    page: page - 1,
+                    txt: prevTxt
+                });
+
+                //下一页
+                nextBtn = (page === pageCount && noShow) ? '' : getBtnHtml({
+                    cssName: nextCssName + (page === pageCount ? ' disabled' : ' enable'),
+                    page: page + 1,
+                    txt: nextTxt
+                });
+
+                return prevBtn + leftSideBtn + mainBtn + rightSideBtn + nextBtn;
+            }
+
+            //** 初始
+            //只有一页情况
+            if (pageCount < 1) return '';
+
+            return build();
+        }
+
+        function commonAjax(jPageBox, pageData, getData, partial) {
+            if (jPageBox.length === 0) return;
+
+            pageData.page = pageData.page * 1;
+            partial = partial === 1 ? 1 : 0;
+
+            var
+                jBtns,
+                jTxt,//页 输入框
+                pageCount = Math.ceil(pageData.total / pageData.pageSize);
+
+            if (pageCount <= 0) {
+                jPageBox.html('');
+                return;
+            }
+            else if (pageCount === 1) {
+
+            }
+
+            jPageBox.html(getHtml({
+                pageData: [pageData.page + partial, pageData.total, pageData.pageSize],//当前页，数据总条数，每页显示数
+                prevCssName: 'prev',//可选
+                nextCssName: 'next',//可选
+                sideBtnNum: 2,//可选
+                prevTxt: '&lt;',//可选
+                nextTxt: '&gt;'//可选
+            }) + '<span>跳转到：<input type="text" class="page_input" value="' + (pageData.page + partial) + '"/></span><a href="javascript:;" class="go">GO</a>');
+
+            jTxt = $(jPageBox[0].getElementsByTagName('input')[0]);
+
+            jTxt.ENTER(function () {
+                goPage();
+            });
+
+            jBtns = jPageBox.children().click(function () {
+                var jBtn = $(this);
+
+                if (jBtn.hasClass('go')) {
+                    goPage();
+                    return;
+                }
+                if (jBtn.hasClass('disabled') || jBtn.hasClass('active') || this.tagName === 'SPAN') return;
+
+                if (!jBtn.hasClass('prev') && !jBtn.hasClass('next')) {
+                    jBtns.eq(pageData.page).removeClass('active');
+                    jBtn.addClass('active');
+                }
+                getData(jBtn.attr('data-page') - partial);
+            });
+
+            function goPage() {
+                var num = $.trim(jTxt.val());
+
+                if (isNaN(num)) {
+                    common.msg('请输入数字');
+                }
+                else if (num > pageCount) {
+                    common.msg('当前只有' + pageCount + '页');
+                }
+                else if (num == pageData.page + partial) {
+                    common.msg('当前就是第' + num + '页');
+                }
+                else {
+                    getData(num - partial);
+                }
+            }
+        }
+
+        return {
+            getHtml: getHtml,
+            commonAjax: commonAjax
+        };
+    })();
     //#endregion
 
     window.c = window.common = c;

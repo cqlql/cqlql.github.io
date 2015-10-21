@@ -1,0 +1,55 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <title></title>
+    <meta charset="UTF-8">
+    <link href="../../css/base.css" rel="stylesheet" />
+    <link href="../../css/main.css" rel="stylesheet" />
+    <script src="../../js/common.js"></script>
+    
+</head>
+<body class="content wrap">
+    
+
+    <style>
+
+        .content {
+            padding:10px 0;
+        }
+
+        #demo1 {
+            width:100px;
+            height:100px;
+            background:#309040;
+            position:relative;
+        }
+
+        input {
+            width:60px;
+        }
+
+        p {
+            padding:6px 0 0;
+        }
+    </style>
+    
+    <div id="demo1"></div>
+    <!--<p>
+        <button onclick="test()">test</button>
+    </p>-->
+    <p>
+        <button onclick="toWidth(c.siblingElement(this).value)">width</button>
+        <input type="text" value="300" />
+    </p>
+    <p>
+        <button onclick="toLeft(c.siblingElement(this).value)">left</button>
+        <input type="text" value="100" />
+    </p>
+    <p>
+        <button onclick="toWidthAndLeft(c.siblingElement(this))">width + left</button>
+        <input type="text" value="600,600" />
+    </p>
+    <script src="main.js"></script>
+</body>
+
+</html>
