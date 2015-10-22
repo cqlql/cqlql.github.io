@@ -15,7 +15,7 @@
 .banner-show .list {
     height:450px;
 }
-.banner-show .list li {
+.banner-show.fade .list li {
     height: 100%;
     position: absolute;
     top: 0;
@@ -24,6 +24,22 @@
     z-index:0;
 }
 
+
+/*移动情况*/
+/*.banner-show .win {
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+}
+
+.banner-show .win .list li {
+    float: left;
+    position: relative;
+    display: block;
+    overflow: hidden;
+}*/
+
+/*按钮*/
 .banner-show .btns {
     position: absolute;
     right: 8px;
@@ -43,37 +59,34 @@
     background: #49FF00;
 }
 
-/*移动情况*/
-/*.banner-show .win {
-    height: 100%;
-    width: 100%;
-    overflow: hidden;
-}
-
-.banner-show .win .list li {
-    float: left;
-    position: relative;
-    display: block;
-    overflow: hidden;
-}*/
-
 
 /*箭头*/
 .banner-show .arrows {
     position:absolute;
-    top: 130px;
+    top: 186px;
     right:0;
     width:38px;
-    height:105px;
-    background: #000 url(arrows.png) -42px 0;
+    height: 56px;
+    background: #000;
     z-index: 1;
-    /*display:none;*/
+    font-family: arial;
+    font-size: 40px;
+    text-align: center;
     opacity:.4;
     filter:alpha(opacity=40);
+    /*display:none;*/
 }
 .banner-show .arrows.l {
     left:0;
     background-position:0 0;
+}
+.banner-show .arrows:after {
+    content:'>';
+    display:block;
+    color:#fff;
+}
+.banner-show .arrows.l:after {
+    content:'<';
 }
 /*.banner-show:hover .arrows{
     display:block;

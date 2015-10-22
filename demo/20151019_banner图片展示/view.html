@@ -8,9 +8,23 @@
     <script src="../../js/common.js"></script>
 </head>
 <body class="content wrap">
-
+    <style>
+        .content {
+            padding: 10px 0;
+        }
+    </style>
     <link href="main.css" rel="stylesheet" />
-    <div class="banner-show" id="fadeDemo">
+    <div class="banner-show fade hide" id="fadeDemo">
+        <ul class="list">
+            <li>
+                <img data-src="imgs/1.jpg" width="800" />
+            </li>
+            <li><img data-src="imgs/2.jpg" width="800" /></li>
+            <li><img data-src="imgs/3.jpg" width="800" /></li>
+        </ul>
+    </div>
+
+    <div class="banner-show" id="moveDemo">
         <ul class="list">
             <li>
                 <img src="imgs/1.jpg" width="800" />
@@ -18,9 +32,6 @@
             <li><img src="imgs/2.jpg" width="800" /></li>
             <li><img src="imgs/3.jpg" width="800" /></li>
         </ul>
-        <a class="arrows l" href="javascript:;"></a>
-        <a class="arrows" href="javascript:;"></a>
-        <div class="btns"></div>
     </div>
 
     <div id="info"></div>

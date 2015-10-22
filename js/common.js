@@ -52,7 +52,7 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
     };
 
     c.removeClass = function (element, className) {
-        if (!element.classList) {
+        if (element.classList) {
             element.classList.remove(className);
         }
         else {
@@ -94,7 +94,42 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
         return str.replace(/(^[\s\uFEFF]*)|(\s*$)/g, '');
     };
     //#endregion
+
+    //#region 追加元素
+    /*
+    返回添加的元素
+
+    单个情况 直接返回元素
+
+    多个情况 返回元素集合
     
+    */
+    c.appendChildHtml = function (eBox, html) {
+        var eE = document.createElement('div'),
+            newChils=[],
+            chils,len;
+
+        eE.innerHTML = html;
+
+        chils = eE.children;
+
+        len = chils.length;
+
+        if (len > 1) {
+
+            for (var i = 0, that; i < len; i++) {
+                that = chils[0]
+                eBox.appendChild(that);
+                newChils.push(that)
+            }
+
+            return newChils;
+        }
+
+        return chils[0];
+    };
+
+    //#endregion
 
     //#region 紧邻同辈元素 获取
     /**
