@@ -124,7 +124,7 @@ function ContScroll(params) {
     c.drag(eBox, function (xy) {
 
         xy = xy[type];
-        console.log(xy);
+
         velocity.change(xy);
         
         change(tempContXY + xy);
@@ -142,14 +142,13 @@ function ContScroll(params) {
         
     }, function () {
         stripingReduce.start(velocity.end() / 70, function (v) {
-            changeByInertialDrag(currContXY + v);
+            change(currContXY + v);
         });
     });
 
     c.eventBind(eBox, 'click', function (e) {
         if (isDrag) {
-            if (e.cancelable) e.preventDefault();
-            return false;
+            e.preventDefault();
         }
     });
 
@@ -205,7 +204,7 @@ function ContScroll(params) {
     // 非惯性移动
     function moveCont(v) {
         var isScroll;//true表示 自定义的滚动条可 滚动，系统的不能滚动
-        
+
         if (v < maxXY) v = maxXY;
         else if (v > 0) v = 0;
 
@@ -226,17 +225,6 @@ function ContScroll(params) {
         return isScroll;
     }
 
-    // 惯性移动情况调用
-    function changeByInertialDrag(v) {
-        if (v < maxXY) v = maxXY;
-        else if (v > 0) v = 0;
-
-        eCont.style[moveAttrName] = v + 'px';
-
-        currContXY = v;
-
-        that.change(currContXY);
-    }
 }
 
 
@@ -268,8 +256,8 @@ function ScrollBar(params) {
     c.drag(eBar, function (xy) {
         
         xy = xy[type];
-        
-        moveBar(tempXY + xy);
+
+        change(tempXY + xy);
 
     }, function (e) {
         tempXY = currXY;
@@ -285,10 +273,9 @@ function ScrollBar(params) {
             v = -boxWH ;
         }
 
-        moveBar(-v / moveR + currXY);
+        change(-v / moveR + currXY);
 
-        if (e.cancelable) e.preventDefault();
-        return false;
+        e.preventDefault();
     });
 
     contScroll.change = function (v) {
@@ -321,12 +308,12 @@ function ScrollBar(params) {
 
         moveR = (contWH - boxWH) / maxXY;
 
+        eBar.style[typeSize] = barWH + 'px';
+
         contScroll.update({
             boxWH: boxWH,
             contWH: contWH
         });
-
-        eBar.style[typeSize] = barWH + 'px';
     }
 
     function moveBar(v) {
@@ -334,9 +321,15 @@ function ScrollBar(params) {
         else if (v < 0) v = 0;
         
         eBar.style[moveAttrName] = v + 'px';
+        
+        currXY = v;
+    }
+
+    function change(v) {
+       
+        moveBar(v);
 
         contScroll.moveCont(-v * moveR);
-
-        currXY = v;
+        
     }
 }

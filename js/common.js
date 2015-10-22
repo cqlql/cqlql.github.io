@@ -38,10 +38,28 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
     //#region class 相关
 
     c.hasClass = function (element,className) {
-        return (' ' + element.className + ' ').indexOf(' ' + className+' ') > -1;
-
-        return element.className.indexOf(className) > -1;
+        return (' ' + element.className + ' ').indexOf(' ' +c.trim( className)+' ') > -1;
     };
+
+    c.addClass = function (element, className) {
+
+        if (element.classList) {
+            element.classList.add(className);
+        }
+        else if (c.hasClass(element, className) === false) {
+            element.className = c.trim((element.className + ' ' + className).replace(/\s{2,}/g, ' '));
+        }
+    };
+
+    c.removeClass = function (element, className) {
+        if (!element.classList) {
+            element.classList.remove(className);
+        }
+        else {
+            element.className = (' ' + element.className + ' ').replace(' ' + c.trim(className) + ' ', '');
+        }
+    };
+
 
     // 获取后代元素
     //兼容性：所有浏览器
@@ -69,6 +87,14 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
         return array;
     };
     //#endregion
+
+    //#region 去两头空格
+    // \uFEFF 为出现在开头的特殊字符
+    c.trim = function (str) {
+        return str.replace(/(^[\s\uFEFF]*)|(\s*$)/g, '');
+    };
+    //#endregion
+    
 
     //#region 紧邻同辈元素 获取
     /**
@@ -147,23 +173,57 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
         var fnName,
             typePrefix;
         if (window.addEventListener) {
-        
+
             fnName = 'addEventListener';
             typePrefix = '';
         }
-        else{
+        else {
             fnName = 'attachEvent';
             typePrefix = 'on';
         }
-        
+
 
         if (typeof types === 'string') {
-            target[fnName](typePrefix + types, listener);
+            //target[fnName](typePrefix + types, listener);
+            target[fnName](typePrefix + types, eventFn(listener));
         }
         else {
             for (var k in types) {
-                target[fnName](typePrefix + k, types[k]);
+                //target[fnName](typePrefix + k, types[k]);
+                target[fnName](typePrefix + k, eventFn(types[k]));
             }
+        }
+
+        function eventFn(listener) {
+
+            listener.base_date_realListener = function (e) {
+
+                var event = {
+                    pageX: e.pageX === undefined ? document.documentElement.scrollLeft + e.clientX : e.pageX
+                    , pageY: e.pageY === undefined ? document.documentElement.scrollTop + e.clientY : e.pageY
+                    , offsetX: e.offsetX
+                    , offsetY: e.offsetY
+                    , originalEvent: e
+                    , target: e.target || e.srcElement
+                    , preventDefault: function () {
+                        if (e.cancelable) e.preventDefault();
+                        else e.returnValue = false;
+                    }
+                    , stopPropagation: function () {
+                        if (e.stopPropagation) e.stopPropagation();
+                        else e.cancelBubble = true;
+                    }
+                };
+
+                if (listener(event) === false) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                }
+
+            };
+
+            return listener.base_date_realListener;
+
         }
 
         //if (addEventListener) {
@@ -195,11 +255,11 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
 
 
         if (typeof types === 'string') {
-            target[fnName](typePrefix + types, listener);
+            target[fnName](typePrefix + types, listener.base_date_realListener);
         }
         else {
             for (var k in types) {
-                target[fnName](typePrefix + k, types[k]);
+                target[fnName](typePrefix + k, types[k].base_date_realListener);
             }
         }
     };
@@ -619,8 +679,6 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
         c.eventBind(eDrag, 'mousedown', down);
 
         function down(e) {
-            
-            supportPageXY(e);
 
             if (onDown) onDown(e);
 
@@ -629,7 +687,6 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
 
             var eveFn = {
                 mousemove: function (eve) {
-                    supportPageXY(eve);
 
                     onMove({ left: eve.pageX - e.pageX, top: eve.pageY - e.pageY, event: eve });
                 },
@@ -643,22 +700,8 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
             };
 
             c.eventBind(document, eveFn);
-
             
-            if (e.stopPropagation) e.stopPropagation();
-            else e.cancelBubble = true;
-            if (e.cancelable) e.preventDefault();
             return false;
-        }
-
-        // 解决 ie678 不支持 pageX pageY 问题
-        function supportPageXY(e) {
-
-            if (isIE678) {
-                e.pageX = document.documentElement.scrollLeft + e.clientX;
-                e.pageY = document.documentElement.scrollTop + e.clientY;
-            }
-
         }
 
     } :
@@ -873,17 +916,12 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
                 return false;
             }
 
-            function trim(str) {
-                // 用正则表达式将前后空格  用空字符串替代。  
-                return str.replace(/(^[\s\uFEFF]*)|(\s*$)/g, "");
-            }
-
             function getBtnHtml(options) {
 
                 var tPage = options.page,
                     txt = options.txt !== undefined ? options.txt : options.page,
                     btnTagName = 'a',
-                    cssName = trim(options.cssName + (page == tPage ? ' ' + activeCssName : '')),
+                    cssName = c.trim(options.cssName + (page == tPage ? ' ' + activeCssName : '')),
                     url = buildBtnHref(tPage);
 
                 url = 'href="' + url + '"';
@@ -1059,7 +1097,7 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
             });
 
             function goPage() {
-                var num = $.trim(jTxt.val());
+                var num = c.trim(jTxt.val());
 
                 if (isNaN(num)) {
                     common.msg('请输入数字');

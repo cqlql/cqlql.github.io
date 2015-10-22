@@ -121,12 +121,19 @@ function BannerArrowsHandle(params) {
     }
 }
 
-function bannerBtnsHandle(params) {
+function BannerBtnsHandle(params) {
     var eBox = params.eBox
+        , eBtns = eBox.children
         , length = params.length
 
+        , isInitShow = c.paramUn(0, params.isInitShow)
+
+        , currIndex
+        
         ,html=''
     ;
+
+    initShow(isInitShow);
 
     for (var i = 0; i < length; i++) {
         html += '<a href="javascript:;" data-index="' + i + '"></a>';
@@ -136,12 +143,32 @@ function bannerBtnsHandle(params) {
 
 
     c.eventBind(eBox, 'click', function (e) {
+        if (e.target.tagName === 'A') {
+            var index = e.target.getAttribute('data-index');
 
+            if (index == currIndex) return;
 
-        console.log(e.target.getAttribute('data-index'));
+            go(index);
+
+            change();
+        }
     });
 
-    function go() {
+    this.change = change;
 
+    function go(index) {
+        c.removeClass(eBtns[currIndex], 'active');
+        c.addClass(eBtns[index], 'active');
+        
+        currIndex = index;
+    }
+
+    function change() {
+
+    }
+
+    function initShow(index) {
+        go(index);
+        currIndex = index;
     }
 }
