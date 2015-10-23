@@ -1,0 +1,75 @@
+
+body,body a{
+    font-size:14px;
+}
+
+.evaluating-report {
+    position:fixed;
+    left:0;
+    right:0;
+    top:0;
+    bottom:0;
+    width:100%;
+    background: -webkit-linear-gradient(top, #7edcff,#4abae2 50%, #16a3d8);
+    
+}
+.evaluating-report img {
+    position:absolute;
+    top:0;
+    left:0;
+    width:100%;
+    height:100%;
+}
+
+
+.report-none .img-box {
+    padding: 18% 12% 0;
+}
+.report-none .img-box div{
+    padding-bottom:74%;
+    position:relative;
+}
+
+.report-none .des{
+    color:#1680a8;
+    font-size:17px;
+    padding: 6% 9% 0;
+}
+.report-none .lookto {
+    padding: 2% 9% 0;
+}
+.report-none .lookto a{
+    font-size:15px;
+    color:#fff;
+}
+
+/****/
+
+.report-one {
+    
+}
+
+.report-one .evaluate {
+    color:#fff;
+    font-size:16px;
+    padding: 5% 4% 0;
+}
+
+.report-one .score-box {
+    padding: 3% 22% 0
+
+    /*background:url()*/
+}
+.report-one .score-box .img {
+    padding-bottom:100%;
+    position:relative;
+}
+
+.report-one .img-box {
+    padding: 18% 10% 0;
+}
+.report-one .img-box div{
+    padding-bottom:65%;
+    position:relative;
+}
+

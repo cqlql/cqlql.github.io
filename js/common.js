@@ -91,6 +91,7 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
     //#region 去两头空格
     // \uFEFF 为出现在开头的特殊字符
     c.trim = function (str) {
+        if (str.trim) return str.trim();
         return str.replace(/(^[\s\uFEFF]*)|(\s*$)/g, '');
     };
     //#endregion
@@ -106,8 +107,8 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
     */
     c.appendChildHtml = function (eBox, html) {
         var eE = document.createElement('div'),
-            newChils=[],
-            chils,len;
+            newChild = [],
+            chils, len;
 
         eE.innerHTML = html;
 
@@ -120,13 +121,17 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
             for (var i = 0, that; i < len; i++) {
                 that = chils[0]
                 eBox.appendChild(that);
-                newChils.push(that)
+                newChild.push(that)
             }
 
-            return newChils;
+            return newChild;
         }
 
-        return chils[0];
+        newChild = chils[0];
+
+        eBox.appendChild(newChild);
+
+        return newChild;
     };
 
     //#endregion
