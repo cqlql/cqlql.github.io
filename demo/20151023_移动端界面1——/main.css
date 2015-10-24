@@ -1,75 +1,224 @@
 
-body,body a{
-    font-size:14px;
+body, body a {
+    font-size: 14px;
 }
 
 .evaluating-report {
-    position:fixed;
-    left:0;
-    right:0;
-    top:0;
-    bottom:0;
-    width:100%;
-    background: -webkit-linear-gradient(top, #7edcff,#4abae2 50%, #16a3d8);
-    
+    position: fixed;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 100%;
+    /*background: -webkit-linear-gradient(top, #7edcff,#4abae2 50%, #16a3d8);*/
 }
+
 .evaluating-report img {
-    position:absolute;
-    top:0;
-    left:0;
-    width:100%;
-    height:100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
 }
 
 
 .report-none .img-box {
     padding: 18% 12% 0;
 }
-.report-none .img-box div{
-    padding-bottom:74%;
-    position:relative;
+
+.report-none .img-box div {
+    padding-bottom: 74%;
+    position: relative;
 }
 
-.report-none .des{
-    color:#1680a8;
-    font-size:17px;
+.report-none .des {
+    color: #1680a8;
+    font-size: 17px;
     padding: 6% 9% 0;
 }
+
 .report-none .lookto {
     padding: 2% 9% 0;
 }
-.report-none .lookto a{
-    font-size:15px;
-    color:#fff;
+
+.report-none .lookto a {
+    font-size: 15px;
+    color: #fff;
+}
+/****/
+
+.evaluating-report.loading {
+    background:rgba(0, 0, 0, 0.6) url(imgs/loading.gif) no-repeat center center;
+}
+.evaluating-report > div {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: -webkit-linear-gradient(top, #7edcff,#4abae2 50%, #16a3d8);
+    background: linear-gradient(top, #7edcff,#4abae2 50%, #16a3d8);
+
+    -webkit-transform: translate3d(0px, -100%, 0px);
+    transform: translate3d(0px, -100%, 0px);
+    opacity:0;
 }
 
 /****/
+/*#region 评测报告ONE */
 
 .report-one {
-    
 }
 
 .report-one .evaluate {
-    color:#fff;
-    font-size:16px;
+    color: #fff;
+    font-size: 1.15em;
+    font-size: 4.6vw;
     padding: 5% 4% 0;
+
+    -webkit-transition: 0.6s;
+    transition: 0.6s;
 }
 
 .report-one .score-box {
-    padding: 3% 22% 0
+    margin: 3% 24% 0;
+    position: relative;
 
-    /*background:url()*/
+    -webkit-transition: 0.6s;
+    transition: 0.6s;
 }
+
 .report-one .score-box .img {
-    padding-bottom:100%;
-    position:relative;
+    padding-bottom: 100%;
+    position: relative;
+    background:url(imgs/ordinary-circle.png) no-repeat;
+    background-size:100%;
+}
+
+.report-one .score-box .main {
+    position: absolute;
+    top: 14%;
+    bottom: 14%;
+    left: 14%;
+    right: 14%;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.14);
+}
+
+.report-one .score-box .main p {
+    color: #a09e9f;
+    padding-top: 24%;
+    text-align: center;
+    font-size: 5vw;
+}
+
+.report-one .score-box .main .c {
+    background: #d4effa;
+    position: absolute;
+    top: 5%;
+    bottom: 5%;
+    left: 5%;
+    right: 5%;
+    border-radius: 50%;
+}
+
+.report-one .score-box .main b {
+    color: #17b3ec;
+    font-size: 2.4em;
+    font-size: 12vw;
+}
+
+.report-one .score-des {
+    color: #1680a8;
+    text-align: center;
+    font-size: 1.15em;
+    font-size: 4.6vw;
+    padding: 1% 0 0;
+
+    -webkit-transition: 0.6s;
+    transition: 0.6s;
+}
+
+.report-one .score-des .cont {
+    font-size: 1.15em;
+    font-size: 5vw;
+    padding: 1% 0 0;
+}
+
+.report-one .score-des .cont span {
+    color: #fae043;
 }
 
 .report-one .img-box {
-    padding: 18% 10% 0;
-}
-.report-one .img-box div{
-    padding-bottom:65%;
-    position:relative;
+    padding: 3% 12% 0;
+
+    -webkit-transition: 0.6s;
+    transition: 0.6s;
 }
 
+.report-one .img-box div {
+    padding-bottom: 65%;
+    position: relative;
+    background:url(imgs/ordinary.png) no-repeat;
+    background-size:100%;
+}
+/*差*/
+.report-one.bad .score-box .main b{
+    color: #ff6160;
+}
+.report-one.bad .score-box .img {
+    background:url(imgs/bad-circle.png) no-repeat;
+    background-size:100%;
+}
+.report-one.bad .img-box div {
+    background:url(imgs/bad.png) no-repeat;
+    background-size:100%;
+}
+/*一般*/
+.report-one.ordinary .score-box .img {
+    background:url(imgs/ordinary-circle.png) no-repeat;
+    background-size:100%;
+}
+.report-one.ordinary .img-box div {
+    background:url(imgs/bad.png) no-repeat;
+    background-size:100%;
+}
+/*优*/
+.report-one.good .score-box .img {
+    background:url(imgs/good-circle.png) no-repeat;
+    background-size:100%;
+}
+.report-one.good .img-box div {
+    background:url(imgs/good.png) no-repeat;
+    background-size:100%;
+}
+
+/*动画*/
+.report-one.before .evaluate {
+    -webkit-transform:scale(0.4,0.4);
+    opacity:0;
+}
+.report-one.before .score-box {
+    -webkit-transform:scale(0.4,0.4) rotate(90deg);
+    opacity:0;
+}
+.report-one.before .score-des {
+    -webkit-transform:scale(0.4,0.4) translate3d(0,-100px,0);
+    opacity:0;
+}
+.report-one.before .img-box {
+    -webkit-transform:scale(0.4,0.4) translate3d(0,0,-100px);
+    opacity:0;
+}
+
+@media (max-height: 560px) {
+    .report-one .score-box {
+        margin: 3% 28% 0;
+    }
+
+    .report-one .img-box {
+        padding: 3% 20% 0;
+    }
+}
+
+/*#endregion */

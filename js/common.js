@@ -600,9 +600,9 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
         
        var a = new common.EasingBuild();
     
-        a.curParams = {
+        a.setCurParams({
             w: 100
-        };
+        });
         a.excu({
             x: 600,
             y: 90,
