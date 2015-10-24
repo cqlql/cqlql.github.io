@@ -19,7 +19,7 @@
 
     //#region 拖动基础
     c.drag = function (eDrag, onMove, onDown, onUp, otherParams) {
-        var startY;
+        var startY,isDrag;
 
         eDrag.addEventListener('touchstart', function (e) {
 
@@ -27,19 +27,25 @@
 
             startY = touche.pageY;
 
-            onDown();
+            isDrag = onDown() === false ? false : true;
 
         });
 
         eDrag.addEventListener('touchmove', function (e) {
-            var touche = e.touches[0],
-                moveY = touche.pageY - startY;
+            if (isDrag) {
+                var touche = e.touches[0],
+                    moveY = touche.pageY - startY;
 
-            onMove(0, moveY, e);
+                onMove(0, moveY, e);
+            }
 
         });
 
-        eDrag.addEventListener('touchend', onUp);
+        eDrag.addEventListener('touchend', function (e) {
+            if (isDrag) {
+                onUp(e);
+            }
+        });
 
     };
     //#endregion
@@ -387,10 +393,11 @@ var eBox = document.querySelector('.evaluating-report')
     , cssTransform = c.getCssAttrName('transform')
 
     , goAnime = new c.EasingBuild()
-
+    , isAnime
 ;
 
 c.drag(eBox, function (x, y, e) {
+
     currentY = y;
 
     yVel.change(y);
@@ -400,6 +407,9 @@ c.drag(eBox, function (x, y, e) {
     e.preventDefault();
 
 }, function () {
+    if (isAnime) return false;
+    isAnime = 1;
+
     yVel.start();
 
     prevIndex = currIndex === 0 ? count - 1 : currIndex-1;
@@ -470,12 +480,6 @@ function moveY(y) {
     prevItem.style.opacity = moveParams.opacity;
     nextItem.style.opacity = moveParams.opacity;
 
-    //if (y > 0) {
-    //    moveItem = prevItem;
-    //}
-    //else {
-    //    moveItem = nextItem;
-    //}
 }
 
 function getMoveParams(y) {
@@ -540,6 +544,9 @@ function changeBottom() {
             prevItem.style.opacity = to.o;
             currItem.style.setProperty(cssTransform, 'translate3d(0,0,' + to.s + 'px)');
         },
+        callBack: function () {
+            isAnime = 0;
+        },
         speed: 400
     });
     setTimeout(function () { prevItem.classList.remove('before'); }, 100);
@@ -570,6 +577,9 @@ function changeTop() {
             nextItem.style.setProperty(cssTransform, 'translate3d(0,' + to.y + 'px,0)');
             nextItem.style.opacity = to.o;
             currItem.style.setProperty(cssTransform, 'translate3d(0,0,' + to.s + 'px)');
+        },
+        callBack:function () {
+            isAnime = 0;
         },
         speed: 400
     });
@@ -615,6 +625,9 @@ function inplace() {
             moveItem.style.setProperty(cssTransform, 'translate3d(0,' + to.y + 'px,0)');
             moveItem.style.opacity = to.o;
             currItem.style.setProperty(cssTransform, 'translate3d(0,0,' + to.s + 'px)');
+        },
+        callBack: function () {
+            isAnime = 0;
         },
         speed: 400
     });
