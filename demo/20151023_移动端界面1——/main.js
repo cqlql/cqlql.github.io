@@ -386,8 +386,6 @@ var eBox = document.querySelector('.evaluating-report')
     , cssTransition = c.getCssAttrName('transition')
     , cssTransform = c.getCssAttrName('transform')
 
-    //, moveAnime = new c.changeAnime(moveY)
-
     , goAnime = new c.EasingBuild()
 
 ;
@@ -398,7 +396,6 @@ c.drag(eBox, function (x, y, e) {
     yVel.change(y);
 
     moveY(y);
-    //moveAnime.start(y);
 
     e.preventDefault();
 
@@ -421,8 +418,6 @@ c.drag(eBox, function (x, y, e) {
     prevItem.style.zIndex = 1;
     nextItem.style.zIndex = 1;
     currItem.style.zIndex = 0;
-
-    //moveAnime.cur = 0;
 
 }, function () {
 
@@ -489,7 +484,7 @@ function getMoveParams(y) {
         proportion = Math.abs(y / boxH).toFixed(2)
 
         , move = y / 2 + y
-        , opacity = proportion * 4
+        , opacity = proportion * 2
         //, scale = 1 - proportion / 4
         , scale = -proportion * boxH;
 
@@ -523,14 +518,11 @@ function initShow() {
 function changeBottom() {
     var index = currIndex - 1
         , moveParams = getMoveParams(currentY)
-        //, moveParams = getMoveParams(moveAnime.cur)
         ;
 
     if (index < 0) index = count - 1;
 
     change(index);
-
-    //moveAnime.stop();
 
     goAnime.setCurParams({
         y: moveParams.move - boxH,
@@ -550,21 +542,18 @@ function changeBottom() {
         },
         speed: 400
     });
-    setTimeout(function () { prevItem.classList.remove('before'); }, 200);
+    setTimeout(function () { prevItem.classList.remove('before'); }, 100);
 }
 
 function changeTop() {
     var index = currIndex + 1
         , moveParams = getMoveParams(currentY)
 
-    //, moveParams = getMoveParams(moveAnime.cur)
         ;
 
     if (index >= count) index = 0;
 
     change(index);
-
-    //moveAnime.stop();
 
     goAnime.setCurParams({
         y: moveParams.move + boxH,
@@ -585,7 +574,7 @@ function changeTop() {
         speed: 400
     });
 
-    setTimeout(function () { nextItem.classList.remove('before'); }, 200);
+    setTimeout(function () { nextItem.classList.remove('before'); }, 100);
 
 }
 
@@ -598,29 +587,27 @@ function change(index) {
 
 function inplace() {
 
-    if (currentY > 0) {
-        moveItem = prevItem;
-    }
-    else {
-        moveItem = nextItem;
-    }
+    var moveParams = getMoveParams(currentY),
+        moveItem,
+        h;
 
-    var 
-        moveParams = getMoveParams(currentY)
-        //, moveParams = getMoveParams(moveAnime.cur)
-    ;
-
-
-    //moveAnime.stop();
+        if (currentY > 0) {
+            moveItem = prevItem;
+            h = -boxH;
+        }
+        else {
+            moveItem = nextItem;
+            h = boxH;
+        }
 
     goAnime.setCurParams({
-        y: moveParams.move + (currentY > 0 ? -boxH : boxH),
+        y: moveParams.move + h,
         o: moveParams.opacity,
         s: moveParams.scale
     });
 
     goAnime.excu({
-        y: currentY > 0 ? -boxH : boxH,
+        y: h,
         o: 1,
         s: 0
     }, {
@@ -632,6 +619,6 @@ function inplace() {
         speed: 400
     });
 
-    setTimeout(function () { moveItem.classList.remove('before'); }, 200);
+    setTimeout(function () { moveItem.classList.remove('before'); }, 100);
 }
 
