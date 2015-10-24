@@ -437,11 +437,26 @@ function initShow() {
 }
 
 function moveY(y) {
+    var proportion,
+        opacity,
+        scale;
+
+    y = y / 4 + y;
+
+    proportion = Math.abs(y / boxH).toFixed(2);
+    opacity = proportion * 2;
+    scale = 1 - proportion/4;
 
     prevItem.style.zIndex = 1;
     nextItem.style.zIndex = 1;
     prevItem.style.setProperty(cssTransform, 'translate3d(0,' + (y - boxH) + 'px,0)');
     nextItem.style.setProperty(cssTransform, 'translate3d(0,' + (y + boxH) + 'px,0)');
+    prevItem.style.opacity = opacity;
+    nextItem.style.opacity = opacity;
+
+    
+    currItem.style.setProperty(cssTransform, 'scale(' + scale + ',' + scale + ')');
+
 
     //goAnime.excu({
     //    x: 600,
@@ -504,3 +519,4 @@ function change(index) {
 function inplace() {
     //anime();
 }
+

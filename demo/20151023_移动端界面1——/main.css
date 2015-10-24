@@ -10,7 +10,7 @@ body, body a {
     top: 0;
     bottom: 0;
     width: 100%;
-    /*background: -webkit-linear-gradient(top, #7edcff,#4abae2 50%, #16a3d8);*/
+    background:#000;
 }
 
 .evaluating-report img {
