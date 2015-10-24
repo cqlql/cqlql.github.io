@@ -13,124 +13,6 @@
         },
         easeOutQuad: function (x, t, b, c, d) {
             return -c * (t /= d) * (t - 2) + b;
-        },
-        easeInOutQuad: function (x, t, b, c, d) {
-            if ((t /= d / 2) < 1) return c / 2 * t * t + b;
-            return -c / 2 * ((--t) * (t - 2) - 1) + b;
-        },
-        easeInCubic: function (x, t, b, c, d) {
-            return c * (t /= d) * t * t + b;
-        },
-        easeOutCubic: function (x, t, b, c, d) {
-            return c * ((t = t / d - 1) * t * t + 1) + b;
-        },
-        easeInOutCubic: function (x, t, b, c, d) {
-            if ((t /= d / 2) < 1) return c / 2 * t * t * t + b;
-            return c / 2 * ((t -= 2) * t * t + 2) + b;
-        },
-        easeInQuart: function (x, t, b, c, d) {
-            return c * (t /= d) * t * t * t + b;
-        },
-        easeOutQuart: function (x, t, b, c, d) {
-            return -c * ((t = t / d - 1) * t * t * t - 1) + b;
-        },
-        easeInOutQuart: function (x, t, b, c, d) {
-            if ((t /= d / 2) < 1) return c / 2 * t * t * t * t + b;
-            return -c / 2 * ((t -= 2) * t * t * t - 2) + b;
-        },
-        easeInQuint: function (x, t, b, c, d) {
-            return c * (t /= d) * t * t * t * t + b;
-        },
-        easeOutQuint: function (x, t, b, c, d) {
-            return c * ((t = t / d - 1) * t * t * t * t + 1) + b;
-        },
-        easeInOutQuint: function (x, t, b, c, d) {
-            if ((t /= d / 2) < 1) return c / 2 * t * t * t * t * t + b;
-            return c / 2 * ((t -= 2) * t * t * t * t + 2) + b;
-        },
-        easeInSine: function (x, t, b, c, d) {
-            return -c * Math.cos(t / d * (Math.PI / 2)) + c + b;
-        },
-        easeOutSine: function (x, t, b, c, d) {
-            return c * Math.sin(t / d * (Math.PI / 2)) + b;
-        },
-        easeInOutSine: function (x, t, b, c, d) {
-            return -c / 2 * (Math.cos(Math.PI * t / d) - 1) + b;
-        },
-        easeInExpo: function (x, t, b, c, d) {
-            return (t == 0) ? b : c * Math.pow(2, 10 * (t / d - 1)) + b;
-        },
-        easeOutExpo: function (x, t, b, c, d) {
-            return (t == d) ? b + c : c * (-Math.pow(2, -10 * t / d) + 1) + b;
-        },
-        easeInOutExpo: function (x, t, b, c, d) {
-            if (t == 0) return b;
-            if (t == d) return b + c;
-            if ((t /= d / 2) < 1) return c / 2 * Math.pow(2, 10 * (t - 1)) + b;
-            return c / 2 * (-Math.pow(2, -10 * --t) + 2) + b;
-        },
-        easeInCirc: function (x, t, b, c, d) {
-            return -c * (Math.sqrt(1 - (t /= d) * t) - 1) + b;
-        },
-        easeOutCirc: function (x, t, b, c, d) {
-            return c * Math.sqrt(1 - (t = t / d - 1) * t) + b;
-        },
-        easeInOutCirc: function (x, t, b, c, d) {
-            if ((t /= d / 2) < 1) return -c / 2 * (Math.sqrt(1 - t * t) - 1) + b;
-            return c / 2 * (Math.sqrt(1 - (t -= 2) * t) + 1) + b;
-        },
-        easeInElastic: function (x, t, b, c, d) {
-            var s = 1.70158; var p = 0; var a = c;
-            if (t == 0) return b; if ((t /= d) == 1) return b + c; if (!p) p = d * .3;
-            if (a < Math.abs(c)) { a = c; var s = p / 4; }
-            else var s = p / (2 * Math.PI) * Math.asin(c / a);
-            return -(a * Math.pow(2, 10 * (t -= 1)) * Math.sin((t * d - s) * (2 * Math.PI) / p)) + b;
-        },
-        easeOutElastic: function (x, t, b, c, d) {
-            var s = 1.70158; var p = 0; var a = c;
-            if (t == 0) return b; if ((t /= d) == 1) return b + c; if (!p) p = d * .3;
-            if (a < Math.abs(c)) { a = c; var s = p / 4; }
-            else var s = p / (2 * Math.PI) * Math.asin(c / a);
-            return a * Math.pow(2, -10 * t) * Math.sin((t * d - s) * (2 * Math.PI) / p) + c + b;
-        },
-        easeInOutElastic: function (x, t, b, c, d) {
-            var s = 1.70158; var p = 0; var a = c;
-            if (t == 0) return b; if ((t /= d / 2) == 2) return b + c; if (!p) p = d * (.3 * 1.5);
-            if (a < Math.abs(c)) { a = c; var s = p / 4; }
-            else var s = p / (2 * Math.PI) * Math.asin(c / a);
-            if (t < 1) return -.5 * (a * Math.pow(2, 10 * (t -= 1)) * Math.sin((t * d - s) * (2 * Math.PI) / p)) + b;
-            return a * Math.pow(2, -10 * (t -= 1)) * Math.sin((t * d - s) * (2 * Math.PI) / p) * .5 + c + b;
-        },
-        easeInBack: function (x, t, b, c, d, s) {
-            if (s == undefined) s = 1.70158;
-            return c * (t /= d) * t * ((s + 1) * t - s) + b;
-        },
-        easeOutBack: function (x, t, b, c, d, s) {
-            if (s == undefined) s = 1.70158;
-            return c * ((t = t / d - 1) * t * ((s + 1) * t + s) + 1) + b;
-        },
-        easeInOutBack: function (x, t, b, c, d, s) {
-            if (s == undefined) s = 1.70158;
-            if ((t /= d / 2) < 1) return c / 2 * (t * t * (((s *= (1.525)) + 1) * t - s)) + b;
-            return c / 2 * ((t -= 2) * t * (((s *= (1.525)) + 1) * t + s) + 2) + b;
-        },
-        easeInBounce: function (x, t, b, c, d) {
-            return c - jQuery.easing.easeOutBounce(x, d - t, 0, c, d) + b;
-        },
-        easeOutBounce: function (x, t, b, c, d) {
-            if ((t /= d) < (1 / 2.75)) {
-                return c * (7.5625 * t * t) + b;
-            } else if (t < (2 / 2.75)) {
-                return c * (7.5625 * (t -= (1.5 / 2.75)) * t + .75) + b;
-            } else if (t < (2.5 / 2.75)) {
-                return c * (7.5625 * (t -= (2.25 / 2.75)) * t + .9375) + b;
-            } else {
-                return c * (7.5625 * (t -= (2.625 / 2.75)) * t + .984375) + b;
-            }
-        },
-        easeInOutBounce: function (x, t, b, c, d) {
-            if (t < d / 2) return jQuery.easing.easeInBounce(x, t * 2, 0, c, d) * .5 + b;
-            return jQuery.easing.easeOutBounce(x, t * 2 - d, 0, c, d) * .5 + c * .5 + b;
         }
     };
     //#endregion
@@ -452,7 +334,7 @@
         this.setCurParams = setCurParams;
         this.stop = stop;
         this.getCurParams = function () {
-            console.log(curParams);
+
         };
 
         //setCurParams(params);
@@ -497,18 +379,14 @@ var eBox = document.querySelector('.evaluating-report')
     , yVel = new c.velocity()
     , currentY
     , currIndex,prevIndex,nextIndex
-    , currItem,prevItem,nextItem
+    , currItem,prevItem,nextItem,moveItem
     // 拖动情况 松开时 进行滑动的最大偏移值
     , offset = boxH / 3
-
-    ,prevY,nextY
 
     , cssTransition = c.getCssAttrName('transition')
     , cssTransform = c.getCssAttrName('transform')
 
-    , moveAnime = new c.changeAnime(function (v) {
-        moveY(v)
-    })
+    //, moveAnime = new c.changeAnime(moveY)
 
     , goAnime = new c.EasingBuild()
 
@@ -519,8 +397,8 @@ c.drag(eBox, function (x, y, e) {
 
     yVel.change(y);
 
-    moveAnime.start(y);
-    //moveY(currentY - (currIndex * boxH));
+    moveY(y);
+    //moveAnime.start(y);
 
     e.preventDefault();
 
@@ -544,9 +422,7 @@ c.drag(eBox, function (x, y, e) {
     nextItem.style.zIndex = 1;
     currItem.style.zIndex = 0;
 
-
-
-    moveAnime.cur = 0;
+    //moveAnime.cur = 0;
 
 }, function () {
 
@@ -589,6 +465,41 @@ c.drag(eBox, function (x, y, e) {
 
 initShow();
 
+function moveY(y) {
+    var moveParams = getMoveParams(y);
+
+    prevItem.style.setProperty(cssTransform, 'translate3d(0,' + (moveParams.move - boxH) + 'px,0)');
+    nextItem.style.setProperty(cssTransform, 'translate3d(0,' + (moveParams.move + boxH) + 'px,0)');
+    currItem.style.setProperty(cssTransform, 'translate3d(0,0,' + moveParams.scale + 'px)');
+
+    prevItem.style.opacity = moveParams.opacity;
+    nextItem.style.opacity = moveParams.opacity;
+
+    //if (y > 0) {
+    //    moveItem = prevItem;
+    //}
+    //else {
+    //    moveItem = nextItem;
+    //}
+}
+
+function getMoveParams(y) {
+
+    var
+        proportion = Math.abs(y / boxH).toFixed(2)
+
+        , move = y / 2 + y
+        , opacity = proportion * 4
+        //, scale = 1 - proportion / 4
+        , scale = -proportion * boxH;
+
+    return {
+        move: move
+        , opacity: opacity
+        , scale: scale
+    };
+}
+
 function initShow() {
 
     currIndex = 0;
@@ -609,52 +520,22 @@ function initShow() {
 
 }
 
-function moveY(y) {
-    var
-        move,
-        proportion,
-        opacity,
-        scale;
-
-    move = y / 2 + y;
-    proportion = Math.abs(y / boxH).toFixed(2);
-    opacity = proportion *4;
-    //scale = 1 - proportion / 4;
-    scale = -proportion * boxH;
-    console.log(scale);
-    prevY=move - boxH;
-    nextY=move + boxH;
-    
-    prevItem.style.setProperty(cssTransform, 'translate3d(0,' + prevY+ 'px,0)');
-    nextItem.style.setProperty(cssTransform, 'translate3d(0,' + nextY + 'px,0)');
-
-    prevItem.style.opacity = opacity;
-    nextItem.style.opacity = opacity;
-
-    //currItem.style.setProperty(cssTransform, 'scale(' + scale + ',' + scale + ')');
-    currItem.style.setProperty(cssTransform, 'translate3d(0,0,' + scale + 'px)');
-}
-
 function changeBottom() {
     var index = currIndex - 1
-        , y = moveAnime.cur
-        , move =y / 2 + y - boxH
-        , proportion = Math.abs(y/ boxH).toFixed(2)
-        , opacity = proportion * 4
-        //, scale = 1 - proportion / 4
-        , scale = -proportion * boxH
-    ;
+        , moveParams = getMoveParams(currentY)
+        //, moveParams = getMoveParams(moveAnime.cur)
+        ;
 
     if (index < 0) index = count - 1;
 
     change(index);
 
-    moveAnime.stop();
+    //moveAnime.stop();
 
     goAnime.setCurParams({
-        o:opacity,
-        y: move,
-        s: scale
+        y: moveParams.move - boxH,
+        o: moveParams.opacity,
+        s: moveParams.scale
     });
 
     goAnime.excu({
@@ -665,7 +546,6 @@ function changeBottom() {
         go: function (to) {
             prevItem.style.setProperty(cssTransform, 'translate3d(0,' + to.y + 'px,0)');
             prevItem.style.opacity = to.o;
-            //currItem.style.setProperty(cssTransform, 'scale(' + to.s + ',' + to.s + ')');
             currItem.style.setProperty(cssTransform, 'translate3d(0,0,' + to.s + 'px)');
         },
         speed: 400
@@ -675,24 +555,21 @@ function changeBottom() {
 
 function changeTop() {
     var index = currIndex + 1
-    , y = moveAnime.cur
-        , move = y / 2 + y + boxH
-        , proportion = Math.abs(y / boxH).toFixed(2)
-        , opacity = proportion * 4
-        //, scale = 1 - proportion / 4
-        , scale = -proportion * boxH
-    ;
+        , moveParams = getMoveParams(currentY)
+
+    //, moveParams = getMoveParams(moveAnime.cur)
+        ;
 
     if (index >= count) index = 0;
 
     change(index);
 
-    moveAnime.stop();
+    //moveAnime.stop();
 
     goAnime.setCurParams({
-        o: opacity,
-        y: move,
-        s: scale
+        y: moveParams.move + boxH,
+        o: moveParams.opacity,
+        s: moveParams.scale
     });
 
     goAnime.excu({
@@ -703,22 +580,13 @@ function changeTop() {
         go: function (to) {
             nextItem.style.setProperty(cssTransform, 'translate3d(0,' + to.y + 'px,0)');
             nextItem.style.opacity = to.o;
-            //currItem.style.setProperty(cssTransform, 'scale(' + to.s + ',' + to.s + ')');
             currItem.style.setProperty(cssTransform, 'translate3d(0,0,' + to.s + 'px)');
         },
         speed: 400
     });
+
     setTimeout(function () { nextItem.classList.remove('before'); }, 200);
 
-}
-
-function anime() {
-
-    //eMove.style.setProperty(cssTransition, '0.3s');
-
-    //setTimeout(function () {
-    //    moveY(-currIndex * boxH);
-    //}, 1);
 }
 
 function change(index) {
@@ -729,6 +597,41 @@ function change(index) {
 }
 
 function inplace() {
-    //anime();
+
+    if (currentY > 0) {
+        moveItem = prevItem;
+    }
+    else {
+        moveItem = nextItem;
+    }
+
+    var 
+        moveParams = getMoveParams(currentY)
+        //, moveParams = getMoveParams(moveAnime.cur)
+    ;
+
+
+    //moveAnime.stop();
+
+    goAnime.setCurParams({
+        y: moveParams.move + (currentY > 0 ? -boxH : boxH),
+        o: moveParams.opacity,
+        s: moveParams.scale
+    });
+
+    goAnime.excu({
+        y: currentY > 0 ? -boxH : boxH,
+        o: 1,
+        s: 0
+    }, {
+        go: function (to) {
+            moveItem.style.setProperty(cssTransform, 'translate3d(0,' + to.y + 'px,0)');
+            moveItem.style.opacity = to.o;
+            currItem.style.setProperty(cssTransform, 'translate3d(0,0,' + to.s + 'px)');
+        },
+        speed: 400
+    });
+
+    setTimeout(function () { moveItem.classList.remove('before'); }, 200);
 }
 
