@@ -555,7 +555,6 @@ function changeBottom() {
 function changeTop() {
     var index = currIndex + 1
         , moveParams = getMoveParams(currentY)
-
         ;
 
     if (index >= count) index = 0;
