@@ -419,16 +419,6 @@ c.drag(eBox, function (x, y, e) {
     currItem = eItems[currIndex];
     nextItem = eItems[nextIndex];
 
-    //prevItem.style.setProperty(cssTransform, 'translate3d(0,' + boxH + 'px,0)');
-    //nextItem.style.setProperty(cssTransform, 'translate3d(0,' + boxH + 'px,0)');
-
-    //prevItem.classList.add('before');
-    //nextItem.classList.add('before');
-
-    //prevItem.style.zIndex = 1;
-    //nextItem.style.zIndex = 1;
-    //currItem.style.zIndex = 0;
-
 }, function () {
 
     var vel = yVel.end();
@@ -501,12 +491,12 @@ function getMoveParams(y) {
 
 function initShow() {
 
-    currIndex = 0;
+    currIndex = 2;
     currItem = eItems[currIndex];
 
     eBox.classList.remove('loading');
 
-    currItem.style.setProperty(cssTransition, '0.4s');
+    //currItem.style.setProperty(cssTransition, '0.4s');
 
     setTimeout(function () {
         currItem.style.setProperty(cssTransform, 'translate3d(0,0,0)');
@@ -516,10 +506,6 @@ function initShow() {
             currItem.classList.remove('before');
         }, 100);
     }, 1);
-
-}
-
-function animeCallBack() {
 
 }
 

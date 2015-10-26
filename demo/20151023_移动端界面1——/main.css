@@ -224,3 +224,326 @@ body, body a {
 }
 
 /*#endregion */
+
+/*#region 评测报告TWO */
+
+
+.report-two {
+}
+
+.report-two .evaluate {
+    color: #fff;
+    font-size: 1.15em;
+    font-size: 4.6vw;
+    padding: 10% 0 0;
+    text-align:center;
+
+    -webkit-transition: 0.6s;
+    transition: 0.6s;
+}
+
+.report-two .time-des {
+    color: #1680a8;
+    text-align: center;
+    font-size: 1.15em;
+    font-size: 4.6vw;
+    padding: 1% 0 0;
+
+    -webkit-transition: 0.6s;
+    transition: 0.6s;
+}
+
+.report-two .time-des .d {
+    font-size: 1.15em;
+    font-size: 5vw;
+    padding: 1% 0 0;
+}
+
+.report-two .time-des span {
+    color: #fae043;
+}
+
+
+/*最快1*/
+
+.report-two.one1 .img-des {
+    margin: 4% 20% 0;
+    position: relative;
+
+    -webkit-transition: 0.6s;
+    transition: 0.6s;
+}
+.report-two.one1 .img-des div {
+    padding-bottom: 88%;
+    background:url(imgs/one1.png) no-repeat;
+    background-size:100%;
+}
+
+.report-two.one1 .img-bg {
+    /*padding: 3% 12% 0;*/
+    position: absolute;
+    bottom:0;
+    width:100%;
+    -webkit-transition: 0.6s;
+    transition: 0.6s;
+}
+
+.report-two.one1 .img-bg div {
+    padding-bottom: 62%;
+    
+    background:url(imgs/one1-bg.png) no-repeat;
+    background-size:100%;
+}
+
+/*最快1 - 动画*/
+.report-two.one1.before .evaluate {
+    -webkit-transform:scale(0.4,0.4);
+    opacity:0;
+}
+.report-two.one1.before .img-des {
+    -webkit-transform:scale(0.2,0.2) translate3d(-400px,-200px,0);
+    opacity:0;
+}
+.report-two.one1.before .time-des {
+    -webkit-transform:scale(0.4,0.4) translate3d(0,-100px,0);
+    opacity:0;
+}
+.report-two.one1.before .img-bg {
+    -webkit-transform:translate3d(0,100px,0);
+    opacity:0;
+}
+
+/*快2*/
+
+.report-two.one2 .img-des {
+    margin: 4% 32% 0;
+    position: relative;
+
+    -webkit-transition: 0.6s;
+    transition: 0.6s;
+}
+.report-two.one2 .img-des div {
+    padding-bottom: 162%;
+    background:url(imgs/one2.png) no-repeat;
+    background-size:100%;
+}
+
+.report-two.one2 .img-bg {
+    /*padding: 3% 12% 0;*/
+    position: absolute;
+    bottom:0;
+    width:100%;
+    -webkit-transition: 0.6s;
+    transition: 0.6s;
+}
+
+.report-two.one2 .img-bg div {
+    padding-bottom: 62%;
+    
+    background:url(imgs/one1-bg.png) no-repeat;
+    background-size:100%;
+}
+
+
+/*快2 - 动画*/
+.report-two.one2.before .evaluate {
+    -webkit-transform:scale(0.4,0.4) translate3d(0,200px,0);
+    opacity:0;
+}
+.report-two.one2.before .img-des {
+    -webkit-transform:scale(0.4,0.4) translate3d(0,1000px,0);
+    opacity:0;
+}
+.report-two.one2.before .time-des {
+    -webkit-transform:scale(0.4,0.4) translate3d(0,100px,0);
+    opacity:0;
+}
+.report-two.one2.before .img-bg {
+    -webkit-transform:translate3d(0,100px,0);
+    opacity:0;
+}
+
+/*一般*/
+
+.report-two.two1 .img-des {
+    margin: 18% 0 0 12%;
+    position: relative;
+
+    -webkit-transition: 0.6s;
+    transition: 0.6s;
+}
+.report-two.two1 .img-des div {
+    padding-bottom: 41.5%;
+    background:url(imgs/two1.png) no-repeat;
+    background-size:100%;
+}
+
+.report-two.two1 .img-bg {
+    /*padding: 3% 12% 0;*/
+    position: absolute;
+    bottom:0;
+    width:100%;
+    -webkit-transition: 0.6s;
+    transition: 0.6s;
+}
+
+.report-two.two1 .img-bg div {
+    padding-bottom: 62%;
+    
+    background:url(imgs/two1-bg.png) no-repeat;
+    background-size:100%;
+}
+.report-two.two1 .time-des {
+    padding: 4% 0 0;
+}
+.report-two.two1 .time-des span{
+    color:#fff;
+}
+
+/*一般1 - 动画*/
+.report-two.two1.before .evaluate {
+    -webkit-transform:scale(0.4,0.4) translate3d(200px,0,0);
+    opacity:0;
+}
+.report-two.two1.before .img-des {
+    -webkit-transform:scale(0.4,0.4) translate3d(1000px,0,0);
+    opacity:0;
+}
+.report-two.two1.before .time-des {
+    -webkit-transform:scale(0.4,0.4) translate3d(100px,0,0);
+    opacity:0;
+}
+.report-two.two1.before .img-bg {
+    -webkit-transform:translate3d(0,100px,0);
+    opacity:0;
+}
+
+/*一般2*/
+.report-two.two2 .img-des div {
+    background:url(imgs/two2.png) no-repeat;
+    background-size:100%;
+}
+
+/*慢*/
+.report-two.three1 .img-des {
+    margin: 6% 14% 0;
+    position: relative;
+
+    -webkit-transition: 0.6s;
+    transition: 0.6s;
+}
+.report-two.three1 .img-des div {
+    padding-bottom: 51.4%;
+    background:url(imgs/three1.png) no-repeat;
+    background-size:100%;
+}
+
+.report-two.three1 .img-bg {
+    /*padding: 3% 12% 0;*/
+    position: absolute;
+    bottom:0;
+    width:100%;
+    -webkit-transition: 0.6s;
+    transition: 0.6s;
+}
+
+.report-two.three1 .img-bg div {
+    padding-bottom: 62%;
+    
+    background:url(imgs/three1-bg.png) no-repeat;
+    background-size:100%;
+}
+.report-two.three1 .time-des {
+    padding: 12% 0 0;
+}
+.report-two.three1 .time-des span{
+    color:#fff;
+}
+/*慢 - 动画*/
+.report-two.three1.before .evaluate {
+    -webkit-transform:scale(0.4,0.4) translate3d(200px,0,0);
+    opacity:0;
+}
+.report-two.three1.before .img-des {
+    -webkit-transform:translate3d(100px,0,0);
+    opacity:0;
+}
+.report-two.three1.before .time-des {
+    -webkit-transform:scale(0.4,0.4) translate3d(100px,0,0);
+    opacity:0;
+}
+.report-two.three1.before .img-bg {
+    -webkit-transform:translate3d(0,100px,0);
+    opacity:0;
+}
+
+/*慢2*/
+.report-two.three2 .img-des div {
+    background:url(imgs/three2.png) no-repeat;
+    background-size:100%;
+}
+
+
+/*#endregion */
+
+/*#region 评测报告THREE */
+
+.report-three {
+
+
+}
+.report-three .top-txt{
+        color: #fff;
+    font-size: 1.15em;
+    font-size: 4.6vw;
+    padding: 10% 0 0;
+    text-align:center;
+
+    -webkit-transition: 0.6s;
+    transition: 0.6s;
+
+}
+
+.report-three thead td{
+
+
+}
+
+.report-three tbody td{
+
+
+}
+.report-three .img-ava {
+    margin: 3% 36% 0;
+    -webkit-transition: 0.6s;
+    transition: 0.6s;
+}
+.report-three .img-ava .img{
+    padding:4%;
+    border-radius:50%;
+    background: rgba(255, 255, 255, 0.3);
+}
+.report-three .img-ava .img div {
+    padding-bottom:100%;
+    position:relative;
+    border-radius:50%;
+}
+.report-three .img-ava .img img {
+    border-radius:50%;
+}
+.report-three .img-ava .txt {
+    font-size:16px;
+}
+.report-three .img-bg {
+    position: absolute;
+    bottom:0;
+    width:100%;
+    -webkit-transition: 0.6s;
+    transition: 0.6s;
+}
+.report-three .img-bg div {
+    padding-bottom: 62%; 
+    background:url(imgs/three1-bg.png) no-repeat;
+    background-size:100%;
+}
+/*#endregion */
