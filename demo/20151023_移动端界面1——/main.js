@@ -425,9 +425,9 @@ c.drag(eBox, function (x, y, e) {
     prevItem.classList.add('before');
     nextItem.classList.add('before');
 
-    prevItem.style.zIndex = 1;
-    nextItem.style.zIndex = 1;
-    currItem.style.zIndex = 0;
+    //prevItem.style.zIndex = 1;
+    //nextItem.style.zIndex = 1;
+    //currItem.style.zIndex = 0;
 
 }, function () {
 
