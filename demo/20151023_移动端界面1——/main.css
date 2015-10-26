@@ -57,8 +57,7 @@ body, body a {
     left: 0;
     width: 100%;
     height: 100%;
-    background: -webkit-linear-gradient(top, #7edcff,#4abae2 50%, #16a3d8);
-    background: linear-gradient(top, #7edcff,#4abae2 50%, #16a3d8);
+    
 
     -webkit-transform: translate3d(0px, -100%, 0px);
     transform: translate3d(0px, -100%, 0px);
@@ -70,6 +69,8 @@ body, body a {
 /*#region 评测报告ONE */
 
 .report-one {
+    background: -webkit-linear-gradient(top, #7edcff,#4abae2 50%, #16a3d8);
+    background: linear-gradient(top, #7edcff,#4abae2 50%, #16a3d8);
 }
 
 .report-one .evaluate {
@@ -229,6 +230,7 @@ body, body a {
 
 
 .report-two {
+    background:#16a3d8;
 }
 
 .report-two .evaluate {
@@ -265,7 +267,6 @@ body, body a {
 
 
 /*最快1*/
-
 .report-two.one1 .img-des {
     margin: 4% 20% 0;
     position: relative;
@@ -425,6 +426,9 @@ body, body a {
 }
 
 /*慢*/
+.report-two.three1 {
+    background:#16ccd7;
+}
 .report-two.three1 .img-des {
     margin: 6% 14% 0;
     position: relative;
@@ -489,11 +493,11 @@ body, body a {
 /*#region 评测报告THREE */
 
 .report-three {
-
+    background:#51cfff;
 
 }
 .report-three .top-txt{
-        color: #fff;
+    color: #fff;
     font-size: 1.15em;
     font-size: 4.6vw;
     padding: 10% 0 0;
@@ -503,15 +507,34 @@ body, body a {
     transition: 0.6s;
 
 }
-
+.report-three .tb {
+    padding: 8% 4% 0;
+    -webkit-transition: 0.6s;
+    transition: 0.6s;
+}
+.report-three table {
+    width:100%;
+    font-size: 1.15em;
+    font-size: 4.6vw;
+}
 .report-three thead td{
 
-
+    color:#005f85;
+    text-align:center;
 }
 
 .report-three tbody td{
+    text-align:center;
+}
+.report-three tbody div {
+color: #fff;
 
-
+    background: #25aee2;
+    border-radius: 4px;
+    padding: 4% 8%;
+    margin: 10% 8%;
+    display: inline-block;
+    
 }
 .report-three .img-ava {
     margin: 3% 36% 0;
@@ -522,6 +545,8 @@ body, body a {
     padding:4%;
     border-radius:50%;
     background: rgba(255, 255, 255, 0.3);
+    -webkit-transition: 0.6s;
+    transition: 0.6s;
 }
 .report-three .img-ava .img div {
     padding-bottom:100%;
@@ -532,7 +557,31 @@ body, body a {
     border-radius:50%;
 }
 .report-three .img-ava .txt {
-    font-size:16px;
+    width: 160%;
+    margin-left:-30%;
+    padding-top:10%;
+    color:#005f85;
+    text-align:center;
+    font-size: 1.15em;
+    font-size:4.6vw;
+    -webkit-transition: 0.6s;
+    transition: 0.6s;
+}
+.report-three .img-ava .txt span {
+    padding: 4% 0 2% 18%;
+    /*font-size:16px;*/
+    background:url(imgs/flag.png) no-repeat;
+    background-size:auto 100%;
+
+}
+.report-three .img-ava .txt::before {
+    /*content:"";
+    display:block;
+    width:39px;
+    height:52px;
+    padding-bottom:133%;
+    background:url(imgs/flag.png) no-repeat;
+    background-size:auto 100%;*/
 }
 .report-three .img-bg {
     position: absolute;
@@ -542,8 +591,80 @@ body, body a {
     transition: 0.6s;
 }
 .report-three .img-bg div {
-    padding-bottom: 62%; 
-    background:url(imgs/three1-bg.png) no-repeat;
+    padding-bottom: 68.9%; 
+    background:url(imgs/level-bg.png) no-repeat;
     background-size:100%;
+}
+.report-three .img-bg b {
+    position: absolute;
+    left: 40%;
+    bottom: 85%;
+    width: 100%;
+    padding-bottom: 10%;
+    background: url(imgs/flag2.png) no-repeat;
+    background-size: auto 100%;
+}
+.report-three.second .img-bg b {
+    left: 36%;
+    bottom: 72%;
+}
+.report-three.third .img-bg b {
+    left: 32%;
+    bottom: 55%;
+}
+.report-three.fourth .img-bg b {
+      left: 25%;
+    bottom: 30%;
+}
+
+/*动画*/
+.report-three.before .top-txt {
+    -webkit-transform:scale(0.4,0.4);
+    opacity:0;
+}
+.report-three.before .tb {
+    -webkit-transform:scale(0.4,0.4) translate3d(0,100px,0);
+    opacity:0;
+}
+/*.report-three.before .img-ava {
+    -webkit-transform:translate3d(0,0,100px);
+    opacity:0;
+}*/
+.report-three.before .img-ava .img {
+    -webkit-transform:scale(0,0);
+    opacity:0;
+}
+.report-three.before .img-ava .txt {
+    -webkit-transform:scale(0.4,0.4);
+    opacity:0;
+}
+.report-three.before .img-bg {
+    -webkit-transform:scale(1.4,1.4) translate3d(0,100px,0);
+    opacity:0;
+}
+/*#endregion */
+
+/*#region 评测报告FOURTH */
+
+.report-fourth {
+    background: -webkit-linear-gradient(top, #7edcff,#4abae2 50%, #16a3d8);
+    background: linear-gradient(top, #7edcff,#4abae2 50%, #16a3d8);
+}
+.report-fourth .top-txt{
+     color: #fff;
+    font-size: 1.15em;
+    font-size: 4.6vw;
+    padding: 10% 0 0;
+    text-align:center;
+
+    -webkit-transition: 0.6s;
+    transition: 0.6s;
+}
+.report-fourth .cont{
+
+}
+.report-fourth .cont li {
+    background:#0092cf;
+    float:left;
 }
 /*#endregion */
