@@ -419,11 +419,11 @@ c.drag(eBox, function (x, y, e) {
     currItem = eItems[currIndex];
     nextItem = eItems[nextIndex];
 
-    prevItem.style.setProperty(cssTransform, 'translate3d(0,' + boxH + 'px,0)');
-    nextItem.style.setProperty(cssTransform, 'translate3d(0,' + boxH + 'px,0)');
+    //prevItem.style.setProperty(cssTransform, 'translate3d(0,' + boxH + 'px,0)');
+    //nextItem.style.setProperty(cssTransform, 'translate3d(0,' + boxH + 'px,0)');
 
-    prevItem.classList.add('before');
-    nextItem.classList.add('before');
+    //prevItem.classList.add('before');
+    //nextItem.classList.add('before');
 
     //prevItem.style.zIndex = 1;
     //nextItem.style.zIndex = 1;
@@ -519,6 +519,10 @@ function initShow() {
 
 }
 
+function animeCallBack() {
+
+}
+
 function changeBottom() {
     var index = currIndex - 1
         , moveParams = getMoveParams(currentY)
@@ -546,10 +550,20 @@ function changeBottom() {
         },
         callBack: function () {
             isAnime = 0;
+
+            nextItem.style.setProperty(cssTransform, 'translate3d(0,' + boxH + 'px,0)');
+            currItem.style.setProperty(cssTransform, 'translate3d(0,' + boxH + 'px,0)');
+
+            nextItem.classList.add('before');
+            currItem.classList.add('before');
+
+            prevItem.style.zIndex = 0;
+            nextItem.style.zIndex = 1;
+            currItem.style.zIndex = 1;
         },
         speed: 400
     });
-    setTimeout(function () { prevItem.classList.remove('before'); }, 100);
+    setTimeout(function () { prevItem.classList.remove('before'); }, 50);
 }
 
 function changeTop() {
@@ -579,11 +593,21 @@ function changeTop() {
         },
         callBack:function () {
             isAnime = 0;
+
+            prevItem.style.setProperty(cssTransform, 'translate3d(0,' + boxH + 'px,0)');
+            currItem.style.setProperty(cssTransform, 'translate3d(0,' + boxH + 'px,0)');
+
+            prevItem.classList.add('before');
+            currItem.classList.add('before');
+
+            nextItem.style.zIndex = 0;
+            prevItem.style.zIndex = 1;
+            currItem.style.zIndex = 1;
         },
         speed: 400
     });
 
-    setTimeout(function () { nextItem.classList.remove('before'); }, 100);
+    setTimeout(function () { nextItem.classList.remove('before'); }, 50);
 
 }
 
@@ -631,6 +655,6 @@ function inplace() {
         speed: 400
     });
 
-    setTimeout(function () { moveItem.classList.remove('before'); }, 100);
+    setTimeout(function () { moveItem.classList.remove('before'); }, 50);
 }
 
