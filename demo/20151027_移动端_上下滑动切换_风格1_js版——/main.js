@@ -550,7 +550,7 @@ function changeBottom() {
         },
         speed: 400
     });
-    setTimeout(function () { prevItem.classList.remove('before'); }, 50);
+    //setTimeout(function () { prevItem.classList.remove('before'); }, 50);
 }
 
 function changeTop() {
@@ -642,6 +642,5 @@ function inplace() {
         speed: 400
     });
 
-    setTimeout(function () { moveItem.classList.remove('before'); }, 50);
 }
 
