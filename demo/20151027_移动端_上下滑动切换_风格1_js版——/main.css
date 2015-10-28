@@ -102,8 +102,6 @@ body, body a {
     font-size: 1.15em;
     font-size: 4.6vw;
     padding: 5% 4% 0;
-    -webkit-transition: 0.6s;
-    transition: 0.6s;
 }
 
 .report-one .score-box {

@@ -491,7 +491,7 @@ function getMoveParams(y) {
 
 function initShow() {
 
-    currIndex = 2;
+    currIndex = 0;
     currItem = eItems[currIndex];
 
     eBox.classList.remove('loading');

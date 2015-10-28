@@ -392,11 +392,18 @@ var eBox = document.querySelector('.evaluating-report')
     , cssTransition = c.getCssAttrName('transition')
     , cssTransform = c.getCssAttrName('transform')
 
+    // 当前滑动比例
+    , currProportion
+
     , goAnime = new c.EasingBuild()
     , isAnime
+
+    , itemAnimeOne = ItemAnimeOne()
 ;
 
 c.drag(eBox, function (x, y, e) {
+
+    currProportion = Math.abs(y / boxH).toFixed(2);
 
     currentY = y;
 
@@ -460,6 +467,50 @@ c.drag(eBox, function (x, y, e) {
 
 initShow();
 
+function ItemAnimeOne() {
+
+    var eItem = eItems[0]
+        , eOne = eItem.children[0]
+        , oneParams = {
+            s: 0.4,
+            o: 0
+        }
+        ,startParams = [{
+            s: 0.4,
+            o:0
+        }, {
+            s: 0.4,
+            r:90
+        }, {
+            s: 0.4,
+            y: -100
+        }, {
+            s: 0.4,
+            z: -100
+        }];
+
+        //eOne.style.setProperty(cssTransform, 'scale(' + oneParams.s + ',' + oneParams.s + ')');
+        //eOne.style.opacity = oneParams.o;
+
+        function go(p) {
+            var eOne = eItem.children[0]
+                //, oneParams = startParams[0]
+                , s = (1 - oneParams.s * p)
+            ;
+
+
+            //eOne.style.opacity = 1 - p;
+
+            //eOne.style.setProperty(cssTransform, 'scale(' + s + ',' + s + ')');
+
+
+        }
+
+    return {
+        go:go
+    }
+}
+
 function moveY(y) {
     var moveParams = getMoveParams(y);
 
@@ -482,6 +533,7 @@ function getMoveParams(y) {
         //, scale = 1 - proportion / 4
         , scale = -proportion * boxH;
 
+    console.log(proportion);
     return {
         move: move
         , opacity: opacity
@@ -489,25 +541,41 @@ function getMoveParams(y) {
     };
 }
 
+function getProportion(y) {
+    var proportion = Math.abs(y / boxH).toFixed(2);
+
+    return proportion;
+}
+
 function initShow() {
 
     currIndex = 0;
+
     currItem = eItems[currIndex];
 
     eBox.classList.remove('loading');
 
-    currItem.style.setProperty(cssTransition, '0.4s');
-    currItem.style.setProperty(cssTransform, 'translate3d(0,0,0)');
-    setTimeout(function () {
+    goAnime.setCurParams({
+        y:boxH,
+        o: 0,
+        s: -boxH/2
+    });
 
-        currItem.style.setProperty('opacity', '1');
+    goAnime.excu({
+        y:0,
+        o: 1,
+        s: 0
+    }, {
+        go: function (to) {
+            itemAnimeOne.go(getProportion(to.y));
+            currItem.style.opacity = to.o;
+            currItem.style.setProperty(cssTransform, 'translate3d(0,0,' + to.s + 'px)');
+        },
+        callBack: function () {
 
-        setTimeout(function () {
-            currItem.style.setProperty(cssTransition, '0s');
-            currItem.classList.remove('before');
-        }, 100);
-    }, 100);
-
+        },
+        speed: 400
+    });
 }
 
 function changeBottom() {
@@ -541,15 +609,13 @@ function changeBottom() {
             nextItem.style.setProperty(cssTransform, 'translate3d(0,' + boxH + 'px,0)');
             currItem.style.setProperty(cssTransform, 'translate3d(0,' + boxH + 'px,0)');
 
-            nextItem.classList.add('before');
-            currItem.classList.add('before');
-
-            prevItem.style.zIndex = 0;
-            nextItem.style.zIndex = 1;
-            currItem.style.zIndex = 1;
+            //prevItem.style.zIndex = 0;
+            //nextItem.style.zIndex = 1;
+            //currItem.style.zIndex = 1;
         },
         speed: 400
     });
+
     //setTimeout(function () { prevItem.classList.remove('before'); }, 50);
 }
 
@@ -584,17 +650,14 @@ function changeTop() {
             prevItem.style.setProperty(cssTransform, 'translate3d(0,' + boxH + 'px,0)');
             currItem.style.setProperty(cssTransform, 'translate3d(0,' + boxH + 'px,0)');
 
-            prevItem.classList.add('before');
-            currItem.classList.add('before');
-
-            nextItem.style.zIndex = 0;
-            prevItem.style.zIndex = 1;
-            currItem.style.zIndex = 1;
+            //nextItem.style.zIndex = 0;
+            //prevItem.style.zIndex = 1;
+            //currItem.style.zIndex = 1;
         },
         speed: 400
     });
 
-    setTimeout(function () { nextItem.classList.remove('before'); }, 50);
+    //setTimeout(function () { nextItem.classList.remove('before'); }, 50);
 
 }
 

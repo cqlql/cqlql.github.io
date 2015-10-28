@@ -74,7 +74,7 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
         return c.filtrateElementsByClassName(className, obj.getElementsByTagName("*"));
     }
 
-    // 过滤 元素集合
+    // 过滤 元素集合 根据className
     c.filtrateElementsByClassName = function (className, elements) {
 
         var array = new Array();
