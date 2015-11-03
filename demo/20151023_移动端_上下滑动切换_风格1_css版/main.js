@@ -19,7 +19,9 @@
 
     //#region 拖动基础
     c.drag = function (eDrag, onMove, onDown, onUp, otherParams) {
-        var startY,isDrag;
+        var startY, isDrag;
+
+        //onUp = onUp || function () {};
 
         eDrag.addEventListener('touchstart', function (e) {
 
@@ -27,24 +29,20 @@
 
             startY = touche.pageY;
 
-            isDrag = onDown() === false ? false : true;
+            isDrag = onDown(e) === false ? false : true;
 
         });
 
         eDrag.addEventListener('touchmove', function (e) {
-            if (isDrag) {
-                var touche = e.touches[0],
-                    moveY = touche.pageY - startY;
+            var touche = e.touches[0],
+                moveY = touche.pageY - startY;
 
-                onMove(0, moveY, e);
-            }
+            onMove(0, moveY, e);
 
         });
 
         eDrag.addEventListener('touchend', function (e) {
-            if (isDrag) {
-                onUp(e);
-            }
+            onUp(e);
         });
 
     };
@@ -392,11 +390,11 @@ var eBox = document.querySelector('.evaluating-report')
     , cssTransition = c.getCssAttrName('transition')
     , cssTransform = c.getCssAttrName('transform')
 
-    , goAnime = new c.EasingBuild()
     , isAnime
 ;
 
 c.drag(eBox, function (x, y, e) {
+    if (isAnime) return;
 
     currentY = y;
 
@@ -406,26 +404,23 @@ c.drag(eBox, function (x, y, e) {
 
     e.preventDefault();
 
-}, function () {
-    if (isAnime) return false;
-    isAnime = 1;
+}, function (e) {
+
+    if (isAnime || e.touches.length > 1) return;
+
+    currentY = 0;
 
     yVel.start();
 
-    prevIndex = currIndex === 0 ? count - 1 : currIndex-1;
-    nextIndex = currIndex === count - 1 ? 0 : currIndex+1;
+}, function (e) {
+    if (isAnime || e.touches.length > 1 || currentY === 0) return;
 
-    prevItem = eItems[prevIndex];
-    currItem = eItems[currIndex];
-    nextItem = eItems[nextIndex];
-
-}, function () {
+    isAnime = 1;
 
     var vel = yVel.end();
 
     //滑动情况
     if (Math.abs(vel) > 40) {
-
         if (vel < 0) {
             // 向下
             changeTop();
@@ -463,6 +458,13 @@ initShow();
 function moveY(y) {
     var moveParams = getMoveParams(y);
 
+    prevIndex = currIndex === 0 ? count - 1 : currIndex - 1;
+    nextIndex = currIndex === count - 1 ? 0 : currIndex + 1;
+
+    prevItem = eItems[prevIndex];
+    currItem = eItems[currIndex];
+    nextItem = eItems[nextIndex];
+
     prevItem.style.setProperty(cssTransform, 'translate3d(0,' + (moveParams.move - boxH) + 'px,0)');
     nextItem.style.setProperty(cssTransform, 'translate3d(0,' + (moveParams.move + boxH) + 'px,0)');
     currItem.style.setProperty(cssTransform, 'translate3d(0,0,' + moveParams.scale + 'px)');
@@ -496,46 +498,40 @@ function initShow() {
 
     eBox.classList.remove('loading');
 
-    //currItem.style.setProperty(cssTransition, '0.4s');
-
+    currItem.style.setProperty(cssTransition, '0.4s');
+    currItem.style.setProperty(cssTransform, 'translate3d(0,0,0)');
     setTimeout(function () {
-        currItem.style.setProperty(cssTransform, 'translate3d(0,0,0)');
+
         currItem.style.setProperty('opacity', '1');
+
         setTimeout(function () {
             currItem.style.setProperty(cssTransition, '0s');
             currItem.classList.remove('before');
         }, 100);
-    }, 1);
+    }, 100);
 
 }
 
 function changeBottom() {
-    var index = currIndex - 1
-        , moveParams = getMoveParams(currentY)
-        ;
+    var index = currIndex - 1;
 
     if (index < 0) index = count - 1;
 
     change(index);
 
-    goAnime.setCurParams({
-        y: moveParams.move - boxH,
-        o: moveParams.opacity,
-        s: moveParams.scale
-    });
+    prevItem.style.setProperty(cssTransition, '0.3s');
+    currItem.style.setProperty(cssTransition, '0.3s');
 
-    goAnime.excu({
-        y: 0,
-        o: 1,
-        s: -boxH
-    }, {
-        go: function (to) {
-            prevItem.style.setProperty(cssTransform, 'translate3d(0,' + to.y + 'px,0)');
-            prevItem.style.opacity = to.o;
-            currItem.style.setProperty(cssTransform, 'translate3d(0,0,' + to.s + 'px)');
-        },
-        callBack: function () {
-            isAnime = 0;
+    setTimeout(function () {
+
+        prevItem.style.setProperty(cssTransform, 'translate3d(0,0,0)');
+        prevItem.style.opacity = 1;
+        currItem.style.setProperty(cssTransform, 'translate3d(0,0,-' + boxH + 'px)');
+
+        setTimeout(function () {
+            prevItem.style.setProperty(cssTransition, '0s');
+            nextItem.style.setProperty(cssTransition, '0s');
+            currItem.style.setProperty(cssTransition, '0s');
 
             nextItem.style.setProperty(cssTransform, 'translate3d(0,' + boxH + 'px,0)');
             currItem.style.setProperty(cssTransform, 'translate3d(0,' + boxH + 'px,0)');
@@ -546,39 +542,35 @@ function changeBottom() {
             prevItem.style.zIndex = 0;
             nextItem.style.zIndex = 1;
             currItem.style.zIndex = 1;
-        },
-        speed: 400
-    });
+
+            isAnime = 0;
+        }, 600);
+    }, 1);
+
     setTimeout(function () { prevItem.classList.remove('before'); }, 50);
 }
 
 function changeTop() {
-    var index = currIndex + 1
-        , moveParams = getMoveParams(currentY)
-        ;
+    var index = currIndex + 1;
 
     if (index >= count) index = 0;
 
     change(index);
 
-    goAnime.setCurParams({
-        y: moveParams.move + boxH,
-        o: moveParams.opacity,
-        s: moveParams.scale
-    });
+    nextItem.style.setProperty(cssTransition, '0.3s');
+    currItem.style.setProperty(cssTransition, '0.3s');
 
-    goAnime.excu({
-        y: 0,
-        o: 1,
-        s: -boxH
-    }, {
-        go: function (to) {
-            nextItem.style.setProperty(cssTransform, 'translate3d(0,' + to.y + 'px,0)');
-            nextItem.style.opacity = to.o;
-            currItem.style.setProperty(cssTransform, 'translate3d(0,0,' + to.s + 'px)');
-        },
-        callBack:function () {
-            isAnime = 0;
+    setTimeout(function () {
+
+        nextItem.style.setProperty(cssTransform, 'translate3d(0,0,0)');
+        nextItem.style.opacity = 1;
+        currItem.style.setProperty(cssTransform, 'translate3d(0,0,-' + boxH + 'px)');
+
+        setTimeout(function () {
+
+            prevItem.style.setProperty(cssTransition, '0s');
+            nextItem.style.setProperty(cssTransition, '0s');
+            currItem.style.setProperty(cssTransition, '0s');
 
             prevItem.style.setProperty(cssTransform, 'translate3d(0,' + boxH + 'px,0)');
             currItem.style.setProperty(cssTransform, 'translate3d(0,' + boxH + 'px,0)');
@@ -589,12 +581,13 @@ function changeTop() {
             nextItem.style.zIndex = 0;
             prevItem.style.zIndex = 1;
             currItem.style.zIndex = 1;
-        },
-        speed: 400
-    });
+
+            isAnime = 0;
+
+        }, 600);
+    }, 1);
 
     setTimeout(function () { nextItem.classList.remove('before'); }, 50);
-
 }
 
 function change(index) {
@@ -610,37 +603,33 @@ function inplace() {
         moveItem,
         h;
 
-        if (currentY > 0) {
-            moveItem = prevItem;
-            h = -boxH;
-        }
-        else {
-            moveItem = nextItem;
-            h = boxH;
-        }
+    if (currentY > 0) {
+        moveItem = prevItem;
+        h = -boxH;
+    }
+    else {
+        moveItem = nextItem;
+        h = boxH;
+    }
 
-    goAnime.setCurParams({
-        y: moveParams.move + h,
-        o: moveParams.opacity,
-        s: moveParams.scale
-    });
+    moveItem.style.setProperty(cssTransition, '0.3s');
+    currItem.style.setProperty(cssTransition, '0.3s');
 
-    goAnime.excu({
-        y: h,
-        o: 1,
-        s: 0
-    }, {
-        go: function (to) {
-            moveItem.style.setProperty(cssTransform, 'translate3d(0,' + to.y + 'px,0)');
-            moveItem.style.opacity = to.o;
-            currItem.style.setProperty(cssTransform, 'translate3d(0,0,' + to.s + 'px)');
-        },
-        callBack: function () {
+    setTimeout(function () {
+
+        moveItem.style.setProperty(cssTransform, 'translate3d(0,' + h + 'px,0)');
+        moveItem.style.opacity = 1;
+        currItem.style.setProperty(cssTransform, 'translate3d(0,0,0)');
+
+        setTimeout(function () {
+
+            moveItem.style.setProperty(cssTransition, '0s');
+            currItem.style.setProperty(cssTransition, '0s');
+
             isAnime = 0;
-        },
-        speed: 400
-    });
 
-    setTimeout(function () { moveItem.classList.remove('before'); }, 50);
+        }, 300);
+    }, 1);
+
 }
 
