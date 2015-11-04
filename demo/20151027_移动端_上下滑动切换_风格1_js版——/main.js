@@ -19,7 +19,7 @@
 
     //#region 拖动基础
     c.drag = function (eDrag, onMove, onDown, onUp, otherParams) {
-        var startY,isDrag;
+        var startX, startY;
 
         eDrag.addEventListener('touchstart', function (e) {
 
@@ -27,24 +27,19 @@
 
             startY = touche.pageY;
 
-            isDrag = onDown() === false ? false : true;
+            onDown(e);
 
         });
 
         eDrag.addEventListener('touchmove', function (e) {
-            if (isDrag) {
-                var touche = e.touches[0],
-                    moveY = touche.pageY - startY;
+            var touche = e.touches[0],
+                moveY = touche.pageY - startY;
 
-                onMove(0, moveY, e);
-            }
-
+            onMove({ top: moveY, event: e });
         });
 
         eDrag.addEventListener('touchend', function (e) {
-            if (isDrag) {
-                onUp(e);
-            }
+            onUp(e);
         });
 
     };
@@ -377,7 +372,6 @@
     window.common = window.c = c;
 })();
 
-
 var eBox = document.querySelector('.evaluating-report')
     , eItems = eBox.children
     , count = eItems.length
@@ -398,23 +392,25 @@ var eBox = document.querySelector('.evaluating-report')
     , goAnime = new c.EasingBuild()
     , isAnime
 
-    , itemAnimeOne = ItemAnimeOne()
+    , ItemAnime1 = ItemAnime1()
 ;
 
-c.drag(eBox, function (x, y, e) {
+c.drag(eBox, function (params) {
 
-    currProportion = Math.abs(y / boxH).toFixed(2);
+    currentY = params.top;
 
-    currentY = y;
+    currProportion = Math.abs(currentY / boxH).toFixed(2);
 
-    yVel.change(y);
+    yVel.change(currentY);
 
-    moveY(y);
+    moveY(currentY);
 
-    e.preventDefault();
+    params.event.preventDefault();
 
 }, function () {
+
     if (isAnime) return false;
+
     isAnime = 1;
 
     yVel.start();
@@ -467,49 +463,106 @@ c.drag(eBox, function (x, y, e) {
 
 initShow();
 
-function ItemAnimeOne() {
+function ItemAnime1() {
 
     var eItem = eItems[0]
-        , eOne = eItem.children[0]
-        , oneParams = {
+        , e1 = eItem.children[0]
+        , e2 = eItem.children[1]
+        , e3 = eItem.children[2]
+        , e4 = eItem.children[3]
+        , params1 = {
             s: 0.4,
             o: 0
         }
-        ,startParams = [{
+        , params2 = {
             s: 0.4,
-            o:0
-        }, {
-            s: 0.4,
-            r:90
-        }, {
+            r: 90
+        }
+        , params3 = {
             s: 0.4,
             y: -100
-        }, {
+        }
+    ;
+
+    function go(p) {
+        var
+
+            s = (1 - params1.s * p)
+            , o = 1 - p
+            , r = params2.r * p
+        , y = params3.y * p
+        ;
+
+        e1.style.opacity = o;
+        e1.style.setProperty(cssTransform, 'scale(' + s + ',' + s + ')');
+
+        e2.style.opacity = o;
+        e2.style.setProperty(cssTransform, 'scale(' + s + ',' + s + ') rotate(' + r + 'deg)');
+        e3.style.setProperty(cssTransform, 'scale(' + s + ',' + s + ') translate3d(0,' + y + 'px,0)');
+        e4.style.setProperty(cssTransform, 'scale(' + s + ',' + s + ') translate3d(0,' + y + 'px,0)');
+
+
+    }
+
+    return {
+        go: go
+    }
+}
+
+function ItemAnime2() {
+
+    var eItem = eItems[1]
+        , e1 = eItem.children[0]
+        , e2 = eItem.children[1]
+        , e3 = eItem.children[2]
+        , e4 = eItem.children[3]
+        , params1 = {
             s: 0.4,
-            z: -100
-        }];
+            o: 0
+        }
+        , params2 = {
+            s: 0.2,
+            x: -400,
+            y:-200
+        }
+        , params3 = {
+            s: 0.4,
+            y: -100
+        }
+        , params4 = {
+            s: 0.4,
+            y: -100
+        }
+    ;
 
-        //eOne.style.setProperty(cssTransform, 'scale(' + oneParams.s + ',' + oneParams.s + ')');
-        //eOne.style.opacity = oneParams.o;
+    function go(p) {
+        var
 
-        function go(p) {
-            var eOne = eItem.children[0]
-                //, oneParams = startParams[0]
-                , s = (1 - oneParams.s * p)
+            s = (1 - params1.s * p)
+            , o = 1 - p
+            , s2 = (1 - params2.s * p)
+            , x2 = params2.x * p
+            , y2 = params2.y * p
+            , y3 = params3.y * p
             ;
 
+        e1.style.opacity = o;
+        e1.style.setProperty(cssTransform, 'scale(' + s + ',' + s + ')');
 
-            //eOne.style.opacity = 1 - p;
+        e2.style.opacity = o;
+        e2.style.setProperty(cssTransform, 'scale(' + s2 + ',' + s2 + ') translate3d(' + x2 + 'px,' + y2 + 'px,0)');
 
-            //eOne.style.setProperty(cssTransform, 'scale(' + s + ',' + s + ')');
+        e3.style.setProperty(cssTransform, 'scale(' + s + ',' + s + ') translate3d(0,' + y3 + 'px,0)');
+        e4.style.setProperty(cssTransform, 'scale(' + s + ',' + s + ') translate3d(0,' + y3 + 'px,0)');
 
 
-        }
+    }
 
     return {
         go:go
     }
 }
+
 
 function moveY(y) {
     var moveParams = getMoveParams(y);
@@ -567,7 +620,7 @@ function initShow() {
         s: 0
     }, {
         go: function (to) {
-            itemAnimeOne.go(getProportion(to.y));
+            ItemAnime1.go(getProportion(to.y));
             currItem.style.opacity = to.o;
             currItem.style.setProperty(cssTransform, 'translate3d(0,0,' + to.s + 'px)');
         },

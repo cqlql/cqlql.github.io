@@ -720,7 +720,7 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
 
         function down(e) {
 
-            if (onDown) onDown(e);
+            onDown(e);
 
             //IE678 执行捕捉 来 避免 图片文字等默认选择事件
             if (isIE678) eDrag.setCapture();
@@ -740,43 +740,35 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
             };
 
             c.eventBind(document, eveFn);
-            
+
             return false;
         }
 
     } :
     // 移动端
     function (eDrag, onMove, onDown, onUp) {
-        var startY, isStart;
+
+        var startX, startY;
 
         eDrag.addEventListener('touchstart', function (e) {
-            isStart = true;
 
-            if (onDown(e) === false) {
-                isStart = false;
-            }
-            else {
-                var touche = e.touches[0];
+            var touche = e.touches[0];
 
+            startY = touche.pageY;
 
-                startY = touche.pageY;
-            }
+            onDown(e);
 
         });
 
         eDrag.addEventListener('touchmove', function (e) {
-            if (isStart) {
-                var touche = e.touches[0],
-                    moveY = touche.pageY - startY;
+            var touche = e.touches[0],
+                moveY = touche.pageY - startY;
 
-                onMove(0, moveY, e);
-            }
+            onMove({ top: moveY, event: e });
         });
 
         eDrag.addEventListener('touchend', function (e) {
-            if (isStart) {
-                onUp(e);
-            }
+            onUp(e);
         });
 
     };

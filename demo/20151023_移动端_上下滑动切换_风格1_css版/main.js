@@ -19,9 +19,7 @@
 
     //#region 拖动基础
     c.drag = function (eDrag, onMove, onDown, onUp, otherParams) {
-        var startY, isDrag;
-
-        //onUp = onUp || function () {};
+        var startX, startY;
 
         eDrag.addEventListener('touchstart', function (e) {
 
@@ -29,7 +27,7 @@
 
             startY = touche.pageY;
 
-            isDrag = onDown(e) === false ? false : true;
+            onDown(e);
 
         });
 
@@ -37,8 +35,7 @@
             var touche = e.touches[0],
                 moveY = touche.pageY - startY;
 
-            onMove(0, moveY, e);
-
+            onMove({ top: moveY, event: e });
         });
 
         eDrag.addEventListener('touchend', function (e) {
@@ -390,32 +387,43 @@ var eBox = document.querySelector('.evaluating-report')
     , cssTransition = c.getCssAttrName('transition')
     , cssTransform = c.getCssAttrName('transform')
 
-    , isAnime
+    , isAnime,isDrag
 ;
 
-c.drag(eBox, function (x, y, e) {
-    if (isAnime) return;
+c.drag(eBox, function (params) {
+    
+    if (isAnime ||isDrag===false) return;
 
-    currentY = y;
+    currentY = params.top;
 
-    yVel.change(y);
+    yVel.change(currentY);
 
-    moveY(y);
+    moveY(currentY);
 
-    e.preventDefault();
+    params.event.preventDefault();
 
 }, function (e) {
 
     if (isAnime || e.touches.length > 1) return;
 
+    isDrag = true;
+
     currentY = 0;
+
+    prevIndex = currIndex === 0 ? count - 1 : currIndex - 1;
+    nextIndex = currIndex === count - 1 ? 0 : currIndex + 1;
+
+    prevItem = eItems[prevIndex];
+    currItem = eItems[currIndex];
+    nextItem = eItems[nextIndex];
 
     yVel.start();
 
 }, function (e) {
-    if (isAnime || e.touches.length > 1 || currentY === 0) return;
+    if (isAnime || e.touches.length > 1 || currentY === 0 || isDrag === false) return;
 
     isAnime = 1;
+    isDrag = false;
 
     var vel = yVel.end();
 
@@ -457,13 +465,6 @@ initShow();
 
 function moveY(y) {
     var moveParams = getMoveParams(y);
-
-    prevIndex = currIndex === 0 ? count - 1 : currIndex - 1;
-    nextIndex = currIndex === count - 1 ? 0 : currIndex + 1;
-
-    prevItem = eItems[prevIndex];
-    currItem = eItems[currIndex];
-    nextItem = eItems[nextIndex];
 
     prevItem.style.setProperty(cssTransform, 'translate3d(0,' + (moveParams.move - boxH) + 'px,0)');
     nextItem.style.setProperty(cssTransform, 'translate3d(0,' + (moveParams.move + boxH) + 'px,0)');

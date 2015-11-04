@@ -107,8 +107,6 @@ body, body a {
 .report-one .score-box {
     margin: 3% 24% 0;
     position: relative;
-    -webkit-transition: 0.6s;
-    transition: 0.6s;
 }
 
 .report-one .score-box .img {
@@ -157,8 +155,6 @@ body, body a {
     font-size: 1.15em;
     font-size: 4.6vw;
     padding: 1% 0 0;
-    -webkit-transition: 0.6s;
-    transition: 0.6s;
 }
 
 .report-one .score-des .cont {
@@ -173,8 +169,6 @@ body, body a {
 
 .report-one .img-box {
     padding: 3% 12% 0;
-    -webkit-transition: 0.6s;
-    transition: 0.6s;
 }
 
 .report-one .img-box div {
