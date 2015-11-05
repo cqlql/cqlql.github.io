@@ -1,0 +1,152 @@
+﻿@charset "utf-8";
+
+.mr20{
+	margin-right: 20px;
+}
+.ml14 {
+    margin-left:14px;
+}
+.fl {float: left;}
+.fr {float: right;}
+
+.wrap {
+    width: 1000px;
+    margin: 0 auto;
+}
+.top {
+    background:#aadbff;
+}
+.footer .f_copyright {
+    height: 38px;
+    color: #8c8c8c;
+    line-height: 40px;
+}
+
+.footer .f_copyright a {
+    color: #8c8c8c;
+	
+}
+.footer .f_copyright em{ font-family:Times New Roman}
+
+
+
+.header{
+	height: 45px;
+	width: 100%;
+    min-width:1000px;
+	background-color: #B81D23;
+	border-bottom: 3px solid #fff;
+}
+.header .logo{
+	padding-top: 8px;
+	padding-left: 25px;
+}
+
+.header .nav{
+	padding-top: 14px;
+	color: #fff;
+	float: left;
+}   
+.header .nav a{
+   color:#fff;
+   padding-bottom: 1px;
+   margin:0 8px;
+}
+.header .nav a:hover{
+	border-bottom: 1px solid #fff;
+}
+.header .r{
+	display: inline-block;
+	height: 45px;
+	line-height: 45px;
+	padding: 0 20px;
+    color:#fff;
+}
+.header .r.active{
+	background-color: #8b1c22;
+}
+.header a.r:hover {
+    text-decoration:underline;
+}
+/*#region 图片显示优化 - 加载中状态 */
+.imgFullShow,
+.imgFullShowMove,
+.imgDelayLoad,
+.imgLoading {
+    background: #F1F1F1 url(imgs/loading3.gif) no-repeat center center;
+}
+
+.imgFullShow *,
+.imgFullShowMove *,
+.imgDelayLoad *,
+.imgLoading * {
+    display: none !important;
+}
+/*#endregion */
+
+/**************/
+
+.picture_show {
+    height:400px;
+    overflow:hidden;
+    position:relative;
+
+}
+.banner_show.loading {
+    background: #F1F1F1 url(imgs/loading3.gif) no-repeat center center;
+}
+.picture_show li {
+    position:relative;
+    float:left;
+    height:100px;
+    overflow:hidden;
+}
+
+.picture_show li div {
+    position:absolute;
+    overflow:hidden;
+    background-color:#f1f1f1;
+}
+.picture_show li img {
+    width:100%;
+}
+.picture_show li span {
+    position: absolute;
+    left: 20px;
+    bottom: 12px;
+}
+.picture_show li span a {
+    color: #FFF;
+    font: 24px Microsoft Yahei,\5FAE\8F6F\96C5\9ED1;
+}
+.picture_show .p_arrows {
+    width:57px;
+    height:105px;
+    position:absolute;
+    top:40%;
+    right:0;
+    background: url('imgs/arrows.png') no-repeat -41px -92px
+
+}
+.picture_show .p_arrows.l {
+    left:0;
+    background-position:7px -92px
+}
+.picture_show .p_c_t {
+      position: absolute;
+  background: black;
+  background: rgba(0, 0, 0, 0.7);
+  width: 200px;
+  height: 80px;
+  left: 50%;
+  margin-left: -100px;
+  top: 40%;
+  z-index: 3;
+  color: white;
+  text-align: center;
+  line-height: 80px;
+  font-size: 30px;
+  font-family: "\5FAE\8F6F\96C5\9ED1", sans-serif;
+  border-radius: 10px;
+   display: none; 
+}
