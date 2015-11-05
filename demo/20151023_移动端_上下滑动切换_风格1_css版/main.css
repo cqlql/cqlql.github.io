@@ -799,3 +799,31 @@ body, body a {
     opacity: 0;
 }
 /*#endregion */
+
+/*#region 滚动提醒 */
+
+.scroll-tips {
+    position: absolute;
+    left: 50%;
+    bottom: 20px;
+    width: 44px;
+    height: 44px;
+    margin-left: -22px;
+    text-align: center;
+    z-index:1;
+}
+
+.scroll-tips span { 
+    display: inline-block;
+    width: 44px;
+    height: 44px;
+    background: url(imgs/arrow.png) no-repeat 0 0;
+    background-size: 100%;
+    opacity: 0.5;
+    -webkit-animation: tips_ani 1s ease-out infinite;
+}
+@-webkit-keyframes tips_ani {
+    0% {-webkit-transform:translateY(20px); opacity: 0.5;}
+    100% { -webkit-transform:translateY(-10px); opacity: 0;}
+}
+/*#endregion */
