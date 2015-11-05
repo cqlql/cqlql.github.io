@@ -1,0 +1,192 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <title></title>
+    <meta charset="UTF-8">
+    <meta content="width=device-width,initial-scale=1.0,user-scalable=no" name="viewport" />
+    <style>
+        .bg {
+            background: #000;
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+
+        video {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            display: none;
+        }
+
+        .spinner {
+        margin: -30px auto 0;
+        /* width: 50px; */
+        height: 60px;
+        text-align: center;
+        position: relative;
+        top: 50%;
+        }
+
+        .spinner > div {
+            background-color: #fff;
+            height: 100%;
+            width: 6px;
+            display: inline-block;
+            margin: 0 2px;
+            -webkit-animation: stretchdelay 1.2s infinite ease-in-out;
+            animation: stretchdelay 1.2s infinite ease-in-out;
+        }
+
+        .spinner .rect2 {
+            -webkit-animation-delay: -1.1s;
+            animation-delay: -1.1s;
+        }
+
+        .spinner .rect3 {
+            -webkit-animation-delay: -1.0s;
+            animation-delay: -1.0s;
+        }
+
+        .spinner .rect4 {
+            -webkit-animation-delay: -0.9s;
+            animation-delay: -0.9s;
+        }
+
+        .spinner .rect5 {
+            -webkit-animation-delay: -0.8s;
+            animation-delay: -0.8s;
+        }
+
+        @-webkit-keyframes stretchdelay {
+            0%, 40%, 100% {
+                -webkit-transform: scaleY(0.4);
+            }
+
+            20% {
+                -webkit-transform: scaleY(1.0);
+            }
+        }
+
+        @keyframes stretchdelay {
+            0%, 40%, 100% {
+                transform: scaleY(0.4);
+                -webkit-transform: scaleY(0.4);
+            }
+
+            20% {
+                transform: scaleY(1.0);
+                -webkit-transform: scaleY(1.0);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="bg">
+        <div class="spinner"><div class="rect1"></div><div class="rect2"></div><div class="rect3"></div><div class="rect4"></div><div class="rect5"></div></div>
+    </div>
+    <video controls="controls"></video>
+    <script>
+        var c = {};
+
+        c.ajax = function (params) {
+
+            function onReadystatechange() {
+                if (xhr.readyState === 4) {
+
+                    if (xhr.status === 200) {
+                        success(xhr.responseText);
+                    }
+                    else {
+                        error(xhr, xhr.status, arguments);
+                    }
+
+                    complete();
+                }
+            }
+
+            var
+                url = params.url,
+                type = params.type || 'get',
+                success = params.success || function () { },
+                error = params.error || function () { },
+                complete = params.complete || function () { },
+
+                xhr = new XMLHttpRequest();
+
+            xhr.addEventListener('readystatechange', onReadystatechange, false);
+
+            xhr.open(type, url);
+
+            xhr.send();
+
+            return xhr;
+        };
+
+        c.each = function (arr, fn) {
+            for (var i = 0, len = arr.length; i < len; i++) {
+                if (fn(i, arr[i], len) === false) {
+                    break;
+                }
+            }
+        };
+
+        c.ajax({
+            url: 'https://api.shendupeiban.com/public/v1/qrcodes?uri=' + encodeURIComponent(location.href)
+            , success: function (d) {
+                //success(d);
+            }
+        });
+
+        function success(d) {
+
+            d = JSON.parse(d);
+
+            var thinkingData, ev, videoSrc;
+            
+            if (d.result.has_resource) {
+                thinkingData = JSON.parse(d.result.question).QuestionOptionGroups[0].QuestionThinking;
+
+                if (thinkingData.length) {
+                    thinkingData.forEach(function (n) {
+
+                        n.Attachments.forEach(function (n) {
+                            switch (n.Type) {
+                                case 12:
+                                    break;
+                                case 13:
+                                    videoSrc = n.FileUrl;
+                                    break;
+                                case 14:
+                                    break;
+                            }
+                        });
+
+                    });
+                }
+            }
+
+            if (videoSrc) {
+                ev = document.querySelector('video');
+
+                ev.style.display = 'block';
+
+                ev.src = videoSrc;
+
+                document.body.children[0].removeChild(document.body.children[0].children[0]);
+            }
+            else {
+                location.href = d.result.redirect;
+            }
+        }
+
+    </script>
+
+</body>
+
+
+</html>

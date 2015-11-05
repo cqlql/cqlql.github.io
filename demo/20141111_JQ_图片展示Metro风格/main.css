@@ -1,6 +1,6 @@
 ﻿@charset "utf-8";
 
-.mr20{
+/*.mr20{
 	margin-right: 20px;
 }
 .ml14 {
@@ -67,7 +67,7 @@
 }
 .header a.r:hover {
     text-decoration:underline;
-}
+}*/
 /*#region 图片显示优化 - 加载中状态 */
 .imgFullShow,
 .imgFullShowMove,

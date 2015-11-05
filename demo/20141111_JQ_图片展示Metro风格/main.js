@@ -239,8 +239,8 @@ function pictureShow(jBox) {
         var
             left = 0,
             right = 0,
-            top = 48,
-            bottom = 38,
+            top = 82,
+            bottom = 2,
 
             minWidth = 1000,
             minHeight = 400,
