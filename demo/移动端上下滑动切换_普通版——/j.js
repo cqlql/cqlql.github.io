@@ -191,6 +191,7 @@ var
     //, eDownloadBtn = _temp[2]
     , eArrows = _temp[2]
     , eWXInfo = _temp[3]
+    , eDownloadInfo = document.querySelector('.download-info')
     , count = eMove.children.length
 
     , cssTransition = common.getCssAttrName('transition')
@@ -475,7 +476,8 @@ function setImgCss(whxy) {
 // 下载按钮
 function downloadBtnInit(eBtn) {
 
-    var isWX = /micromessenger/i.test(appVersion);
+    var isWX = /micromessenger/i.test(appVersion),
+        stopId;
 
     if (appVersion.indexOf('iPhone') > -1 || appVersion.indexOf('iPad') > -1) {
 
@@ -494,6 +496,14 @@ function downloadBtnInit(eBtn) {
 
             c.bindClick(eBtn, function () {
                 _czc.push(["_trackEvent", "下载页-数学π", "下载", "下载-iPhone"]);
+
+                eDownloadInfo.style.setProperty(cssTransform, 'translate3d(0,0,0)');
+
+                clearTimeout(stopId);
+
+                //stopId = setTimeout(function () {
+                //    eDownloadInfo.style.setProperty(cssTransform, 'translate3d(0,-100%,0)');
+                //}, 5000);
             });
         }
     }
