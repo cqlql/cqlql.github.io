@@ -492,7 +492,7 @@ function downloadBtnInit(eBtn) {
             });
         }
         else {
-            eBtn.href = "itms-services://?action=download-manifest&url=https://dn-shendu.qbox.me/AnanasMath.plist";
+            eBtn.href = "itms-services://?action=download-manifest&url=https://api.shendupeiban.com/static/plist/AnanasMath.plist";
 
             c.bindClick(eBtn, function () {
                 _czc.push(["_trackEvent", "下载页-数学π", "下载", "下载-iPhone"]);
