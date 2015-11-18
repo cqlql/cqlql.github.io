@@ -462,7 +462,7 @@ function setImgCss(whxy) {
 
     if (!imgStyle) {
         imgStyle = document.createElement('style');
-
+        imgStyle.id = 'imgStyle';
         document.head.appendChild(imgStyle);
 
     }

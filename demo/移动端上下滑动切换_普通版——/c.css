@@ -183,6 +183,21 @@ p {
     transform: translate3d(0,100%,0);
 }
 
+.full-box .items div{
+    position: absolute;
+    bottom: 26px;
+    color: #F8DB0B;
+    padding: 8px 0;
+    border-radius: 22px;
+    font-weight: bold;
+    font-size: 18px;
+    width: 100%;
+    text-align: center;
+}
+.full-box .items div a {
+    color: #F8DB0B;
+}
+
 @media (max-width: 360px) {
 
     .full-box .big-btn {
@@ -199,14 +214,11 @@ p {
         box-shadow: none;
         bottom: 59px;
     }
-    /*.full-box .arrows {
-        width: 30px;
-        height: 31px;
-        background-size: 30px auto;
-        margin-left: -13px;
-    }*/
-}
 
+    .full-box .items div{
+        bottom: 20px;
+    }
+}
 
 #info {
     color: #fff;

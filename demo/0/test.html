@@ -1,42 +1,37 @@
 ﻿<!DOCTYPE html>
-<html lang="zh-CN">
+<html lang='zh-CN'>
 <head>
     <title></title>
-    <meta charset="UTF-8">
-    <meta content="width=device-width,initial-scale=1.0,user-scalable=no" name="viewport" />
+    <meta charset='UTF-8'>
+    <meta content='width=device-width,initial-scale=1.0,user-scalable=no' name='viewport' />
 </head>
 <body>
     <style>
-        .demo {
-            margin: 0 20%;
-            padding-bottom: 36%;
-            background: #333;
-            position: relative;
-            background: url(1.png) no-repeat;
-            background-size: 100% auto;
-        }
-
-        .demo .num {
-            position: absolute;
-            right: -2%;
-            left: 76%;
-            bottom: 35%;
-        }
-
-        .demo .num div {
-            background: #ff6a00;
-            padding-bottom: 83.3%;
-            background: url(2.png) no-repeat;
-            background-size: 100% auto;
-        }
     </style>
-    <div class="demo">
 
-        <div class="num">
-            <div></div>
-        </div>
-    </div>
+    <script>
 
+        var rquickExpr = /^(?:#([\w-]+)|(\w+)|\.([\w-]+))$/;
+
+        rquickExpr = /windows (?=98)/;
+        // 只能跟在尾巴处
+        console.log(
+            1
+             //(/windows (xp|98) x/).exec('xx windows 98 xx') // ["windows 98 x", "98", index: 3, input: "xx windows 98 xx"] 
+             //,(/windows (?:xp|98) x/).exec('xx windows 98 xx') // ["windows 98", index: 3, input: "xx windows 98 xx"]
+             //, (/windows (?=xp|98)/).exec('xx windows 98 xx') // ["windows ", index: 3, input: "xx windows 98 xx"]
+             , (/(?=xp|98) windows/).exec('xx 98 windows xx') // ["windows ", index: 3, input: "xx windows 98 xx"]
+             //, (/windows (?!xp)/).exec('xx windows 98 xx') // ["windows ", index: 3, input: "xx windows 98 xx"]
+             , (/(?!xp) windows/).exec('xx windows 98 windows xx') // ["windows ", index: 3, input: "xx windows 98 xx"]
+            //, rquickExpr.exec('.name')
+            //, rquickExpr.exec('name')
+
+
+
+            );
+
+
+    </script>
 
 </body>
 
