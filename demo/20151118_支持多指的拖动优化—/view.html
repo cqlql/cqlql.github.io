@@ -1,0 +1,134 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <title></title>
+    <meta charset="UTF-8">
+    <meta content="width=device-width,initial-scale=1.0,user-scalable=no" name="viewport" />
+    <style>
+        div {
+            height:100px;
+        }
+    </style>
+</head>
+<body>
+    
+
+    <div style="width:300px;height:300px;background:#0094ff"></div>
+    <div></div>
+    <div></div>
+
+    <script src="../../js/common.js"></script>
+    <script src="../../js/common_mobile.js"></script>
+    <script>
+        
+        // ios 兼容性有问题，仿app多指
+        c.drag = function (eDrag, onMove, onDown, onUp) {
+
+            var startX, startY, identifier;
+
+            eDrag.addEventListener('touchstart', function (e) {
+                var touche = e.changedTouches[0];
+
+                identifier = touche.identifier;
+
+                startY = touche.pageY;
+
+                onDown(e);
+
+            });
+
+            eDrag.addEventListener('touchmove', function (e) {
+
+                var touche = e.touches[identifier],
+                    moveY;
+
+                    moveY = touche.pageY - startY;
+
+                    onMove({ top: moveY, event: e });
+            });
+
+            eDrag.addEventListener('touchend', function (e) {
+
+                identifier = e.touches.length - 1;
+
+                if (identifier > -1) {
+                    var touche = e.touches[identifier];
+
+                    startY = touche.pageY;
+
+                }
+
+                onUp(e);
+            });
+
+        };
+
+        // 多浏览器，虽然只有单指，但多指无违和冲突
+        c.drag = function (eDrag, onMove, onDown, onUp) {
+
+            var startX, startY, identifier;
+
+            eDrag.addEventListener('touchstart', function (e) {
+                var touche = e.touches[0];
+
+                startY = touche.pageY;
+
+                onDown(e);
+            });
+
+            eDrag.addEventListener('touchmove', function (e) {
+
+                var touche = e.touches[0],
+                    moveY;
+
+                moveY = touche.pageY - startY;
+
+                onMove({ top: moveY, event: e });
+                
+
+            });
+
+            eDrag.addEventListener('touchend', function (e) {
+
+                if (e.touches.length > 0) {
+
+                    startY = e.touches[0].pageY;
+
+                }
+
+                onUp(e);
+            });
+
+        };
+        
+        var
+            jDrag =$( document.getElementsByTagName('div'))
+            ,currentY = 0, y
+            , cssTransform = c.getCssName('transform')
+        ;
+
+        jDrag.drag(function (params) {
+            currentY = y + params.top;
+
+            jDrag.css({
+                transform: 'translate3d(0,' + currentY + 'px,0)'
+            });
+
+            params.event.preventDefault();
+        }, function () {
+            y = currentY;
+        }, function () {
+            y = currentY;
+        });
+        console.log(c.getAndroidVersion());
+        console.log(
+            $(document.getElementsByTagName('div')).css({ border: '1px solid' }).click(function () {
+                console.log(this);
+            })
+
+            );
+    </script>
+
+</body>
+
+</html>

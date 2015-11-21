@@ -14,7 +14,6 @@ window.requestAnimationFrame  = (function () {
     return window.requestAnimationFrame ||
         window.webkitRequestAnimationFrame ||
         window.mozRequestAnimationFrame ||
-        window.oRequestAnimationFrame ||
         window.msRequestAnimationFrame ||
         function (callback, element) {
             return window.setTimeout(callback, 1000/60);
@@ -28,6 +27,12 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
 
     /// 基础
 
+    //#region 浏览器判断
+    c.isIE = document.documentMode;// ie7~11
+    c.isEdge = navigator.appVersion.indexOf('Edge') > -1;
+    
+    //#endregion
+
     //#region 为定义参数处理
     //非空\未定义 情况 默认值 处理
     c.paramUn = function (value, def) {
@@ -35,7 +40,7 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
     };
     //#endregion
             
-    //#region class 相关
+    //#region className 操作
 
     c.hasClass = function (element,className) {
         return (' ' + element.className + ' ').indexOf(' ' +c.trim( className)+' ') > -1;
@@ -59,19 +64,20 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
             element.className = (' ' + element.className + ' ').replace(' ' + c.trim(className) + ' ', '');
         }
     };
-
+    
+    //#endregion
 
     // 获取后代元素
     //兼容性：所有浏览器
-    c.getElementsByClassName = function (className, obj) {
+    c.getElementsByClassName = function (className, element) {
 
-        obj = obj || document;
+        element = element || document;
 
-        if (obj.getElementsByClassName) {
-            return obj.getElementsByClassName(className);
+        if (element.getElementsByClassName) {
+            return element.getElementsByClassName(className);
         }
 
-        return c.filtrateElementsByClassName(className, obj.getElementsByTagName("*"));
+        return c.filtrateElementsByClassName(className, element.getElementsByTagName("*"));
     }
 
     // 过滤 元素集合 根据className
@@ -85,6 +91,128 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
         }
 
         return array;
+    };
+
+    //#region 紧邻同辈元素 获取
+    /**
+    紧邻同辈元素 获取
+        获取某节点 紧邻的 上或下 单个 同辈元素节点
+
+    @param nodeObj [node]  节点对象，一般为元素节点
+    @param * prevORnext [bool] 能代表真假的任意值，默认是假，即下一个，否则上一个
+
+    @return [node] 元素节点 或者为 null
+
+    @compatibility 所有浏览器
+    */
+
+    c.siblingElement = function (nodeObj, prevORnext) {
+
+        var prevORnextStr = prevORnext ? "previousSibling" : "nextSibling";
+
+        do {
+            nodeObj = nodeObj[prevORnextStr];
+            if (nodeObj === null) return null;
+        } while (nodeObj.nodeType !== 1)
+
+        return nodeObj;
+    };
+
+    //#endregion
+
+    //#region css 前缀获取
+
+    c.getPrefix = function () {
+        var prefix = null;
+
+        function handle() {
+            var userAgent = navigator.userAgent;
+
+            if (document.documentMode || userAgent.indexOf('Edge') > -1) {
+                prefix = 'ms';
+            }
+            else if (userAgent.indexOf('Firefox') > -1) {
+                prefix = 'Moz';
+            }
+            else {
+                prefix = 'webkit';
+            }
+
+        }
+
+        return function () {
+            if (prefix === null) {
+                handle();
+            }
+
+            return prefix;
+        };
+    }();
+
+    //#endregion 
+
+    //#region css 加前缀
+    /*
+
+    type: 
+        0 或不给, 减号连接,真正的 css属性名 
+        1, 驼峰, 适用直接给style赋值
+    例子
+    cssTransform = c.addPrefix('transform')
+    */
+    c.addPrefix = function (name, is) {
+        var
+            cssPrefixes = ["webkit", "Moz", "ms"],
+            //cssPrefixes = [c.getPrefix()],
+            style = document.body.style,
+            capName, i, newName, tempCssPrefixes;
+        
+        if (name in style) {
+            return name;
+        }
+
+        capName = name.charAt(0).toUpperCase() + name.substr(1),
+        i = cssPrefixes.length;
+        
+        while (i--) {
+
+            tempCssPrefixes = cssPrefixes[i];
+
+            newName = tempCssPrefixes + capName;
+
+            if (newName in style) {
+                return is ? newName : '-' + tempCssPrefixes + '-' + name;
+            }
+        }
+    };
+
+    //#endregion
+
+    //#region css 属性名获取，有前缀的
+    
+    // 单例模式，取过后的属性将保存，下次节省效率
+    c.getCssName = function () {
+        var obj = {};
+        return function (name) {
+            var styleName = obj[name];
+            
+            if (styleName === undefined) {
+                styleName = obj[name] = c.addPrefix(name);
+            }
+
+            return styleName;
+        }
+    }();
+
+    //#endregion
+
+    //#region css 设置
+    c.setCss = function (elem, kv) {
+        var style = elem.style;
+
+        for (var k in kv) {
+            style[c.getCssName(k)] = kv[k];
+        }
     };
     //#endregion
 
@@ -132,33 +260,6 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
         eBox.appendChild(newChild);
 
         return newChild;
-    };
-
-    //#endregion
-
-    //#region 紧邻同辈元素 获取
-    /**
-    紧邻同辈元素 获取
-        获取某节点 紧邻的 上或下 单个 同辈元素节点
-
-    @param nodeObj [node]  节点对象，一般为元素节点
-    @param * prevORnext [bool] 能代表真假的任意值，默认是假，即下一个，否则上一个
-
-    @return [node] 元素节点 或者为 null
-
-    @compatibility 所有浏览器
-    */
-
-    c.siblingElement = function (nodeObj, prevORnext) {
-
-        var prevORnextStr = prevORnext ? "previousSibling" : "nextSibling";
-
-        do {
-            nodeObj = nodeObj[prevORnextStr];
-            if (nodeObj === null) return null;
-        } while (nodeObj.nodeType !== 1)
-
-        return nodeObj;
     };
 
     //#endregion
@@ -708,114 +809,9 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
     };
     //#endregion
 
-    //#region 拖动基础
-
-    c.drag = 1 ?
-    // pc
-    function (eDrag, onMove, onDown, onUp) {
-        var isIE678 = !-[1, ],
-            eDom = document;
-
-        c.eventBind(eDrag, 'mousedown', down);
-
-        function down(e) {
-
-            onDown(e);
-
-            //IE678 执行捕捉 来 避免 图片文字等默认选择事件
-            if (isIE678) eDrag.setCapture();
-
-            var eveFn = {
-                mousemove: function (eve) {
-
-                    onMove({ left: eve.pageX - e.pageX, top: eve.pageY - e.pageY, event: eve });
-                },
-                mouseup: function () {
-                    if (onUp) onUp();
-
-                    if (isIE678) eDrag.releaseCapture();
-
-                    c.eventUnBind(document, eveFn);//解除所有事件
-                }
-            };
-
-            c.eventBind(document, eveFn);
-
-            return false;
-        }
-
-    } :
-    // 移动端
-    function (eDrag, onMove, onDown, onUp) {
-
-        var startX, startY;
-
-        eDrag.addEventListener('touchstart', function (e) {
-
-            var touche = e.touches[0];
-
-            startY = touche.pageY;
-
-            onDown(e);
-
-        });
-
-        eDrag.addEventListener('touchmove', function (e) {
-            var touche = e.touches[0],
-                moveY = touche.pageY - startY;
-
-            onMove({ top: moveY, event: e });
-        });
-
-        eDrag.addEventListener('touchend', function (e) {
-            onUp(e);
-        });
-
-    };
-
-    //#endregion
-
-    //#region 滚轮
-    /*
-    core.mouseWheel(jMainBox[0], function (e) {
-        var pre;
-        if (e.wheelDelta) //前120 ，后-120
-            pre = e.wheelDelta > 0;
-        else //firefox
-            pre = e.detail < 0;
-    
-        if (pre) {
-            //*往上滚
-        } else {
-            //*往下滚
-        }
-    
-        //阻止滚动条滚动
-        if (e.cancelable) e.preventDefault();
-        return false;
-    });
-    */
-    c.mouseWheel = function (dom, f) {
-        if (dom.addEventListener) {
-            if (dom.onmousewheel === undefined) dom.addEventListener('DOMMouseScroll', f, false);//firefox
-            else dom.addEventListener('mousewheel', f, false);
-        } else {
-            dom.attachEvent('onmousewheel', f);//ie678
-        }
-    };
-    c.removeMouseWheel = function (dom, f) {
-        if (dom.addEventListener) {
-            if (dom.onmousewheel === undefined) dom.removeEventListener('DOMMouseScroll', f, false);//firefox
-            else dom.removeEventListener('mousewheel', f, false);
-        } else {
-            dom.detachEvent('onmousewheel', f);//ie678
-        }
-    };
-    //#endregion
-
     //#region each 循环
 
-    // 带length的集合对象、纯对象
+    // 带length的集合对象 或 纯对象
     // fn 中 返回false 将跳出
     c.each = function (obj, fn) {
         var
@@ -865,7 +861,99 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
 
     //#endregion
 
-    /// 功能
+    c.extend = function (obj) {
+        var target = this;
+        c.each(obj, function (k, v) {
+            target[k] = v;
+        });
+    };
+
+    //#region 仿jq
+    window.$ = (function () {
+
+        function init(elements) {
+
+            if (elements.length === undefined) {
+                elements = [elements];
+            }
+
+            this.elements = elements;
+        }
+
+        function elemEnhance(elements) {
+            return new init(elements);
+        }
+
+        elemEnhance.fn = elemEnhance.prototype = {
+            each: function (fn) {
+                c.each(this.elements, fn);
+                return this;
+            },
+            css: function (kv) {
+                return this.each(function (i, elem) {
+                    c.setCss(elem, kv);
+                });
+            }
+            
+        };
+
+        elemEnhance.extend = elemEnhance.fn.extend = c.extend;
+
+        elemEnhance.extend({
+            getElementsByClassName: function (className, element) {
+                elemEnhance(c.getElementsByClassName(className, element));
+            },
+            filtrateElementsByClassName: function (className, element) {
+                elemEnhance(c.filtrateElementsByClassName(className, element));
+            }
+        });
+
+        init.prototype = elemEnhance.fn;
+
+        return elemEnhance;
+
+    })();
+    //#endregion
+
+    /// pc
+
+    //#region 滚轮
+    /*
+    core.mouseWheel(jMainBox[0], function (e) {
+        var pre;
+        if (e.wheelDelta) //前120 ，后-120
+            pre = e.wheelDelta > 0;
+        else //firefox
+            pre = e.detail < 0;
+    
+        if (pre) {
+            //*往上滚
+        } else {
+            //*往下滚
+        }
+    
+        //阻止滚动条滚动
+        if (e.cancelable) e.preventDefault();
+        return false;
+    });
+    */
+    c.mouseWheel = function (dom, f) {
+        if (dom.addEventListener) {
+            if (dom.onmousewheel === undefined) dom.addEventListener('DOMMouseScroll', f, false);//firefox
+            else dom.addEventListener('mousewheel', f, false);
+        } else {
+            dom.attachEvent('onmousewheel', f);//ie678
+        }
+    };
+    c.removeMouseWheel = function (dom, f) {
+        if (dom.addEventListener) {
+            if (dom.onmousewheel === undefined) dom.removeEventListener('DOMMouseScroll', f, false);//firefox
+            else dom.removeEventListener('mousewheel', f, false);
+        } else {
+            dom.detachEvent('onmousewheel', f);//ie678
+        }
+    };
+    //#endregion
 
     //#region 翻页
     c.pager = (function () {
@@ -1153,6 +1241,46 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
     })();
     //#endregion
 
+    //#region 拖动基础
+
+    c.drag = function (eDrag, onMove, onDown, onUp) {
+        var isIE678 = !-[1, ],
+            eDom = document;
+
+        c.eventBind(eDrag, 'mousedown', down);
+
+        function down(e) {
+
+            onDown(e);
+
+            //IE678 执行捕捉 来 避免 图片文字等默认选择事件
+            if (isIE678) eDrag.setCapture();
+
+            var eveFn = {
+                mousemove: function (eve) {
+
+                    onMove({ left: eve.pageX - e.pageX, top: eve.pageY - e.pageY, event: eve });
+                },
+                mouseup: function () {
+                    if (onUp) onUp();
+
+                    if (isIE678) eDrag.releaseCapture();
+
+                    c.eventUnBind(document, eveFn);//解除所有事件
+                }
+            };
+
+            c.eventBind(document, eveFn);
+
+            return false;
+        }
+
+    };
+
+    //#endregion
+
     window.c = window.common = c;
 
 })();
+
+
