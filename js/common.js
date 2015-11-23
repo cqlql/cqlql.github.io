@@ -15,7 +15,7 @@ window.requestAnimationFrame  = (function () {
         window.webkitRequestAnimationFrame ||
         window.mozRequestAnimationFrame ||
         window.msRequestAnimationFrame ||
-        function (callback, element) {
+        function (callback, elem) {
             return window.setTimeout(callback, 1000/60);
         };
 })();
@@ -42,82 +42,29 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
             
     //#region className 操作
 
-    c.hasClass = function (element,className) {
-        return (' ' + element.className + ' ').indexOf(' ' +c.trim( className)+' ') > -1;
+    c.hasClass = function (elem,className) {
+        return (' ' + elem.className + ' ').indexOf(' ' +c.trim( className)+' ') > -1;
     };
 
-    c.addClass = function (element, className) {
+    c.addClass = function (elem, className) {
 
-        if (element.classList) {
-            element.classList.add(className);
+        if (elem.classList) {
+            elem.classList.add(className);
         }
-        else if (c.hasClass(element, className) === false) {
-            element.className = c.trim((element.className + ' ' + className).replace(/\s{2,}/g, ' '));
+        else if (c.hasClass(elem, className) === false) {
+            elem.className = c.trim((elem.className + ' ' + className).replace(/\s{2,}/g, ' '));
         }
     };
 
-    c.removeClass = function (element, className) {
-        if (element.classList) {
-            element.classList.remove(className);
+    c.removeClass = function (elem, className) {
+        if (elem.classList) {
+            elem.classList.remove(className);
         }
         else {
-            element.className = (' ' + element.className + ' ').replace(' ' + c.trim(className) + ' ', '');
+            elem.className = (' ' + elem.className + ' ').replace(' ' + c.trim(className) + ' ', '');
         }
     };
     
-    //#endregion
-
-    // 获取后代元素
-    //兼容性：所有浏览器
-    c.getElementsByClassName = function (className, element) {
-
-        element = element || document;
-
-        if (element.getElementsByClassName) {
-            return element.getElementsByClassName(className);
-        }
-
-        return c.filtrateElementsByClassName(className, element.getElementsByTagName("*"));
-    }
-
-    // 过滤 元素集合 根据className
-    c.filtrateElementsByClassName = function (className, elements) {
-
-        var array = new Array();
-
-        //过滤
-        for (var i = 0, len = elements.length; i < len; i++) {
-            if (c.hasClass(elements[i], className)) array.push(elements[i]);
-        }
-
-        return array;
-    };
-
-    //#region 紧邻同辈元素 获取
-    /**
-    紧邻同辈元素 获取
-        获取某节点 紧邻的 上或下 单个 同辈元素节点
-
-    @param nodeObj [node]  节点对象，一般为元素节点
-    @param * prevORnext [bool] 能代表真假的任意值，默认是假，即下一个，否则上一个
-
-    @return [node] 元素节点 或者为 null
-
-    @compatibility 所有浏览器
-    */
-
-    c.siblingElement = function (nodeObj, prevORnext) {
-
-        var prevORnextStr = prevORnext ? "previousSibling" : "nextSibling";
-
-        do {
-            nodeObj = nodeObj[prevORnextStr];
-            if (nodeObj === null) return null;
-        } while (nodeObj.nodeType !== 1)
-
-        return nodeObj;
-    };
-
     //#endregion
 
     //#region css 前缀获取
@@ -162,7 +109,8 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
     */
     c.addPrefix = function (name, is) {
         var
-            cssPrefixes = ["webkit", "Moz", "ms"],
+            //cssPrefixes = ["webkit", "Moz", "ms"],
+            cssPrefixes = ["ms", "Moz", "webkit"],
             //cssPrefixes = [c.getPrefix()],
             style = document.body.style,
             capName, i, newName, tempCssPrefixes;
@@ -222,46 +170,6 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
         if (str.trim) return str.trim();
         return str.replace(/(^[\s\uFEFF]*)|(\s*$)/g, '');
     };
-    //#endregion
-
-    //#region 追加元素
-    /*
-    返回添加的元素
-
-    单个情况 直接返回元素
-
-    多个情况 返回元素集合
-    
-    */
-    c.appendChildHtml = function (eBox, html) {
-        var eE = document.createElement('div'),
-            newChild = [],
-            chils, len;
-
-        eE.innerHTML = html;
-
-        chils = eE.children;
-
-        len = chils.length;
-
-        if (len > 1) {
-
-            for (var i = 0, that; i < len; i++) {
-                that = chils[0]
-                eBox.appendChild(that);
-                newChild.push(that)
-            }
-
-            return newChild;
-        }
-
-        newChild = chils[0];
-
-        eBox.appendChild(newChild);
-
-        return newChild;
-    };
-
     //#endregion
 
     //#region [坐标] 元素 相对 于内容窗口 
@@ -868,25 +776,151 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
         });
     };
 
-    //#region 仿jq
-    window.$ = (function () {
+    //#region 元素获取
+    // 获取后代元素
+    //兼容性：所有浏览器
+    c.getElementsByClassName = function (className, elem) {
 
-        function init(elements) {
+        elem = elem || document;
 
-            if (elements.length === undefined) {
-                elements = [elements];
-            }
-
-            this.elements = elements;
+        if (elem.getElementsByClassName) {
+            return elem.getElementsByClassName(className);
         }
 
-        function elemEnhance(elements) {
-            return new init(elements);
+        return c.filtrateElementsByClassName(className, elem.getElementsByTagName("*"));
+    }
+
+    // 过滤 元素集合 根据className
+    c.filtrateElementsByClassName = function (className, elems) {
+
+        var array = new Array();
+
+        //过滤
+        for (var i = 0, len = elems.length; i < len; i++) {
+            if (c.hasClass(elems[i], className)) array.push(elems[i]);
+        }
+
+        return array;
+    };
+
+    //#region 紧邻同辈元素 获取
+    /**
+    紧邻同辈元素 获取
+        获取某节点 紧邻的 上或下 单个 同辈元素节点
+
+    @param nodeObj [node]  节点对象，一般为元素节点
+    @param * prevORnext [bool] 能代表真假的任意值，默认是假，即下一个，否则上一个
+
+    @return [node] 元素节点 或者为 null
+
+    @compatibility 所有浏览器
+    */
+
+    c.siblingElement = function (nodeObj, prevORnext) {
+
+        var prevORnextStr = prevORnext ? "previousSibling" : "nextSibling";
+
+        do {
+            nodeObj = nodeObj[prevORnextStr];
+            if (nodeObj === null) return null;
+        } while (nodeObj.nodeType !== 1)
+
+        return nodeObj;
+    };
+
+    //#endregion
+    //#endregion
+
+    // html -> elems
+    c.htmlToElems = function (html) {
+        var eTemp = document.createElement('div');
+        eTemp.innerHTML = html;
+        return eTemp.children;
+    };
+
+    //#region 元素增加
+
+    //#region 追加元素
+    /*
+    返回添加的元素
+
+    单个情况 直接返回元素
+
+    多个情况 返回元素集合
+    
+    */
+    c.appendChildHtml = function (eBox, html) {
+        var
+            fragment,
+            newChild = [],
+            chils, len;
+
+        chils = this.htmlToElems(html);
+
+        len = chils.length;
+
+        if (len > 1) {
+            fragment = document.createDocumentFragment();
+
+            for (var i = 0, that; i < len; i++) {
+                that = chils[0];
+                fragment.appendChild(that);
+                newChild.push(that);
+            }
+
+            eBox.appendChild(fragment);
+
+            return newChild;
+
+        }
+        newChild = chils[0];
+
+        eBox.appendChild(newChild);
+
+        return newChild;
+    };
+
+    //#endregion
+
+    //#endregion
+
+    //#region 仿jq
+    window.$=  window.jSimplify = (function () {
+
+        function init(content) {
+            var elems;
+
+            // html
+            if (typeof content === 'string') {
+                elems = c.htmlToElems(content);
+            }
+                // elements object
+            else {
+                elems = content;
+            }
+
+            var len = elems.length;
+
+            if (len === undefined) {
+                elems = [elems];
+                len = 1;
+            }
+
+            for (var i = 0; i < len; i++) {
+                this[i] = elems[i];
+            }
+
+            this.length= len;
+        }
+
+        function elemEnhance(elems) {
+            return new init(elems);
         }
 
         elemEnhance.fn = elemEnhance.prototype = {
+            jsimplify:'1',
             each: function (fn) {
-                c.each(this.elements, fn);
+                c.each(this, fn);
                 return this;
             },
             css: function (kv) {
@@ -894,17 +928,16 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
                     c.setCss(elem, kv);
                 });
             }
-            
         };
 
         elemEnhance.extend = elemEnhance.fn.extend = c.extend;
 
         elemEnhance.extend({
-            getElementsByClassName: function (className, element) {
-                elemEnhance(c.getElementsByClassName(className, element));
+            getElementsByClassName: function (className, elem) {
+                elemEnhance(c.getElementsByClassName(className, elem));
             },
-            filtrateElementsByClassName: function (className, element) {
-                elemEnhance(c.filtrateElementsByClassName(className, element));
+            filtrateElementsByClassName: function (className, elem) {
+                elemEnhance(c.filtrateElementsByClassName(className, elem));
             }
         });
 

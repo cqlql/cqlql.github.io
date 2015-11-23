@@ -11,6 +11,8 @@
 "use strict";
 
 c.extend({
+
+    // 取安卓版本
     getAndroidVersion:function () {
         var v;
         return function () {
@@ -102,14 +104,14 @@ c.extend({
 
 });
 
-$.fn.extend({
+jSimplify.fn.extend({
     click: function (fn) {
         return this.each(function (i, n) {
             c.click(n, fn);
         });
     }
     , drag: function (onMove, onDown, onUp) {
-        c.drag(this.elements[0], onMove, onDown, onUp);
+        c.drag(this[0], onMove, onDown, onUp);
 
         return this;
     }

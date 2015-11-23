@@ -8,29 +8,66 @@
 <body>
     <style>
     </style>
+    <div id="test">
+        <div></div>
+        <div></div>
+    </div>
 
+    <script src="../../js/common.js"></script>
+    <script src="../../js/common_mobile.js"></script>
     <script>
 
-        var rquickExpr = /^(?:#([\w-]+)|(\w+)|\.([\w-]+))$/;
+        $.fn.extend({
+            append: function (content) {
+                if (typeof content === 'string') {
+                    c.appendChildHtml(this[0], content);
+                }
+                else {
+                    $(content).appendTo(this[0]);
+                }
 
-        rquickExpr = /windows (?=98)/;
-        // 只能跟在尾巴处
+                return this;
+            },
+
+            // 参数只有集合中的第一个才有效
+            appendTo: function (context) {
+                var
+                    jElems=$(context),
+                    fragment,
+                    len = this.length;
+
+                if (len > 1) {
+                    fragment = document.createDocumentFragment();
+
+                    for (var i = 0, that; i < len; i++) {
+                        that = this[i];
+                        fragment.appendChild(that);
+                    }
+
+                    jElems[0].appendChild(fragment);
+                }
+
+                jElems[0].appendChild(this[0]);
+
+                return this;
+            }
+        });
+
         console.log(
-            1
-             //(/windows (xp|98) x/).exec('xx windows 98 xx') // ["windows 98 x", "98", index: 3, input: "xx windows 98 xx"] 
-             //,(/windows (?:xp|98) x/).exec('xx windows 98 xx') // ["windows 98", index: 3, input: "xx windows 98 xx"]
-             //, (/windows (?=xp|98)/).exec('xx windows 98 xx') // ["windows ", index: 3, input: "xx windows 98 xx"]
-             , (/(?=xp|98) windows/).exec('xx 98 windows xx') // ["windows ", index: 3, input: "xx windows 98 xx"]
-             //, (/windows (?!xp)/).exec('xx windows 98 xx') // ["windows ", index: 3, input: "xx windows 98 xx"]
-             , (/(?!xp) windows/).exec('xx windows 98 windows xx') // ["windows ", index: 3, input: "xx windows 98 xx"]
-            //, rquickExpr.exec('.name')
-            //, rquickExpr.exec('name')
+            c.appendChildHtml(document.body, '<i>1</i><b>2</b><p>3</p><p>4</p>')
+        ,
+            c.appendChildHtml(document.body, '<i>3</i>')
+            ,
+              $('<i>1</i><b>2</b><p>3</p><p>4</p>').appendTo(document.body)
+        );
 
+        //var eDiv = document.getElementById('test').getElementsByTagName('div');
 
+        //console.log(eDiv.length);
 
-            );
+        //document.body.appendChild(eDiv[0]);
 
-
+        //console.log(eDiv.length);
     </script>
 
 </body>
