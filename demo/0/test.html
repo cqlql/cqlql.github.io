@@ -17,13 +17,13 @@
     <script src="../../js/common_mobile.js"></script>
     <script>
 
-        $.fn.extend({
+        jQuick.fn.extend({
             append: function (content) {
                 if (typeof content === 'string') {
                     c.appendChildHtml(this[0], content);
                 }
                 else {
-                    $(content).appendTo(this[0]);
+                    jQuick(content).appendTo(this[0]);
                 }
 
                 return this;
@@ -32,7 +32,7 @@
             // 参数只有集合中的第一个才有效
             appendTo: function (context) {
                 var
-                    jElems=$(context),
+                    jElems = jQuick(context),
                     fragment,
                     len = this.length;
 
@@ -46,19 +46,22 @@
 
                     jElems[0].appendChild(fragment);
                 }
-
-                jElems[0].appendChild(this[0]);
+                else {
+                    jElems[0].appendChild(this[0]);
+                }
 
                 return this;
+            },
+            appendQuick: function (html) {
+                return $(c.appendChildHtml(this[0], html));
             }
         });
-
+        // 测试速度
         console.log(
-            c.appendChildHtml(document.body, '<i>1</i><b>2</b><p>3</p><p>4</p>')
-        ,
-            c.appendChildHtml(document.body, '<i>3</i>')
-            ,
-              $('<i>1</i><b>2</b><p>3</p><p>4</p>').appendTo(document.body)
+            //c.appendChildHtml(document.body, '<i>1</i><b>2</b><p>3</p><p>4</p>')
+        //,            c.appendChildHtml(document.body, '<i>3</i>')    ,
+              //,$('<i>1</i><b>2</b><p>3</p><p>4</p>').appendTo(document.body)
+              $(document.body).appendQuick('<i>1</i><b>2</b><p>3</p><p>4</p>')
         );
 
         //var eDiv = document.getElementById('test').getElementsByTagName('div');

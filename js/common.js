@@ -885,7 +885,9 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
     //#endregion
 
     //#region 仿jq
-    window.$=  window.jSimplify = (function () {
+    window.$ = window.jQuick = (function () {
+        var deletedIds = [],
+            splice = deletedIds.splice;
 
         function init(content) {
             var elems;
@@ -902,15 +904,16 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
             var len = elems.length;
 
             if (len === undefined) {
-                elems = [elems];
-                len = 1;
+                this[0] = elems;
+                this.length = 1;
+            }
+            else {
+                for (var i = 0; i < len; i++) {
+                    this[i] = elems[i];
+                }
+                this.length = len;
             }
 
-            for (var i = 0; i < len; i++) {
-                this[i] = elems[i];
-            }
-
-            this.length= len;
         }
 
         function elemEnhance(elems) {
@@ -918,7 +921,7 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
         }
 
         elemEnhance.fn = elemEnhance.prototype = {
-            jsimplify:'1',
+            jQuick:'1',
             each: function (fn) {
                 c.each(this, fn);
                 return this;
@@ -927,7 +930,13 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
                 return this.each(function (i, elem) {
                     c.setCss(elem, kv);
                 });
-            }
+            },
+
+            // For internal use only.
+            // Behaves like an Array's method, not like a jQuery method.
+            push: deletedIds.push,
+            sort: deletedIds.sort,
+            splice: splice
         };
 
         elemEnhance.extend = elemEnhance.fn.extend = c.extend;
@@ -944,6 +953,8 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
         init.prototype = elemEnhance.fn;
 
         return elemEnhance;
+
+        
 
     })();
     //#endregion

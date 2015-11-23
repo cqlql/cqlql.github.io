@@ -104,7 +104,7 @@ c.extend({
 
 });
 
-jSimplify.fn.extend({
+jQuick.fn.extend({
     click: function (fn) {
         return this.each(function (i, n) {
             c.click(n, fn);
