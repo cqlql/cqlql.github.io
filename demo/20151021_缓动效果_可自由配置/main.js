@@ -87,12 +87,12 @@ function toWidthAndLeft(eIn) {
     }
 }
 
-function stopQueue() {
-    queue.stop();
+function clearQueue() {
+    queue.clear();
 }
 
 function stopAnime() {
-    // 队列和动画都将终止
+    queue.clear();
     a.stop();
 }
 

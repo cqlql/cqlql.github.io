@@ -4,8 +4,8 @@
 * author:陈桥黎
 * date:2015-10-09
 * 
-* updateDate:2015-10-13
-*   增加新功能
+* updateDate:2015-11-24
+*   队列实现
 */
 
 "use strict";
@@ -213,106 +213,6 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
         }
 
         return { x: x, y: y };
-    };
-
-    //#endregion
-
-    //#region 事件绑定/解除
-
-    // pc
-    c.eventBind = function (target, types, listener) {
-        var fnName,
-            typePrefix;
-        if (window.addEventListener) {
-
-            fnName = 'addEventListener';
-            typePrefix = '';
-        }
-        else {
-            fnName = 'attachEvent';
-            typePrefix = 'on';
-        }
-
-
-        if (typeof types === 'string') {
-            //target[fnName](typePrefix + types, listener);
-            target[fnName](typePrefix + types, eventFn(listener));
-        }
-        else {
-            for (var k in types) {
-                //target[fnName](typePrefix + k, types[k]);
-                target[fnName](typePrefix + k, eventFn(types[k]));
-            }
-        }
-
-        function eventFn(listener) {
-
-            listener.base_date_realListener = function (e) {
-
-                var event = {
-                    pageX: e.pageX === undefined ? document.documentElement.scrollLeft + e.clientX : e.pageX
-                    , pageY: e.pageY === undefined ? document.documentElement.scrollTop + e.clientY : e.pageY
-                    , offsetX: e.offsetX
-                    , offsetY: e.offsetY
-                    , originalEvent: e
-                    , target: e.target || e.srcElement
-                    , preventDefault: function () {
-                        if (e.cancelable) e.preventDefault();
-                        else e.returnValue = false;
-                    }
-                    , stopPropagation: function () {
-                        if (e.stopPropagation) e.stopPropagation();
-                        else e.cancelBubble = true;
-                    }
-                };
-
-                if (listener(event) === false) {
-                    event.preventDefault();
-                    event.stopPropagation();
-                }
-
-            };
-
-            return listener.base_date_realListener;
-
-        }
-
-        //if (addEventListener) {
-        //    target.addEventListener(types, listener);
-        //}
-        //else {
-        //    target.attachEvent('on' + types, listener);
-        //}
-    };
-    c.eventUnBind = function (target, types, listener) {
-        //if (removeEventListener) {
-        //    target.removeEventListener(types, listener);
-        //}
-        //else {
-        //    target.detachEvent('on' + types, listener);
-        //}
-
-        var fnName,
-            typePrefix;
-        if (window.removeEventListener) {
-
-            fnName = 'removeEventListener';
-            typePrefix = '';
-        }
-        else {
-            fnName = 'detachEvent';
-            typePrefix = 'on';
-        }
-
-
-        if (typeof types === 'string') {
-            target[fnName](typePrefix + types, listener.base_date_realListener);
-        }
-        else {
-            for (var k in types) {
-                target[fnName](typePrefix + k, types[k].base_date_realListener);
-            }
-        }
     };
 
     //#endregion
@@ -735,7 +635,7 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
             loop();
         };
 
-        this.stop = function () {
+        this.clear= function () {
             arr = [];
             is = false;
         };
@@ -1055,6 +955,103 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
 
 /// pc
 c.extend({
+
+    //#region 事件绑定/解除
+
+    // pc
+    eventBind: function (target, types, listener) {
+        var fnName,
+            typePrefix;
+        if (window.addEventListener) {
+
+            fnName = 'addEventListener';
+            typePrefix = '';
+        }
+        else {
+            fnName = 'attachEvent';
+            typePrefix = 'on';
+        }
+
+        if (typeof types === 'string') {
+            //target[fnName](typePrefix + types, listener);
+            target[fnName](typePrefix + types, eventFn(listener));
+        }
+        else {
+            for (var k in types) {
+                //target[fnName](typePrefix + k, types[k]);
+                target[fnName](typePrefix + k, eventFn(types[k]));
+            }
+        }
+
+        function eventFn(listener) {
+
+            listener.base_date_realListener = function (e) {
+
+                var event = {
+                    pageX: e.pageX === undefined ? document.documentElement.scrollLeft + e.clientX : e.pageX
+                    , pageY: e.pageY === undefined ? document.documentElement.scrollTop + e.clientY : e.pageY
+                    , offsetX: e.offsetX
+                    , offsetY: e.offsetY
+                    , originalEvent: e
+                    , target: e.target || e.srcElement
+                    , preventDefault: function () {
+                        if (e.cancelable) e.preventDefault();
+                        else e.returnValue = false;
+                    }
+                    , stopPropagation: function () {
+                        if (e.stopPropagation) e.stopPropagation();
+                        else e.cancelBubble = true;
+                    }
+                };
+
+                if (listener(event) === false) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                }
+            };
+
+            return listener.base_date_realListener;
+
+        }
+
+        //if (addEventListener) {
+        //    target.addEventListener(types, listener);
+        //}
+        //else {
+        //    target.attachEvent('on' + types, listener);
+        //}
+    },
+    eventUnBind: function (target, types, listener) {
+        //if (removeEventListener) {
+        //    target.removeEventListener(types, listener);
+        //}
+        //else {
+        //    target.detachEvent('on' + types, listener);
+        //}
+
+        var fnName,
+            typePrefix;
+        if (window.removeEventListener) {
+
+            fnName = 'removeEventListener';
+            typePrefix = '';
+        }
+        else {
+            fnName = 'detachEvent';
+            typePrefix = 'on';
+        }
+
+        if (typeof types === 'string') {
+            target[fnName](typePrefix + types, listener.base_date_realListener);
+        }
+        else {
+            for (var k in types) {
+                target[fnName](typePrefix + k, types[k].base_date_realListener);
+            }
+        }
+    },
+
+    //#endregion
 
     //#region 滚轮
     /*
