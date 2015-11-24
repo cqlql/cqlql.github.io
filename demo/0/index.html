@@ -1,0 +1,90 @@
+﻿<!DOCTYPE html>
+<html lang='zh-CN'>
+<head>
+    <title></title>
+    <meta charset='UTF-8'>
+    <meta content='width=device-width,initial-scale=1.0,user-scalable=no' name='viewport' />
+
+    <style>
+
+        #test {
+            width:100px;
+            height:100px;
+            background:#333;
+        }
+    </style>
+</head>
+<body>
+    <style>
+    </style>
+    <div id="test">
+        <div></div>
+        <div></div>
+    </div>
+    <div id="test2">
+        <div></div>
+        <div></div>
+    </div>
+    <script src="../../js/common.js"></script>
+    <script src="../../js/common_mobile.js"></script>
+    <script>
+
+        function Queue() {
+            var is = false,
+                stopId,
+                arr = [],
+                target=this;
+
+            this.start = function (cb) {
+                arr.push(cb);
+
+                if (is) return;
+
+
+                is = true;
+
+                loop();
+            };
+
+            function stop() {
+                clearTimeout(stopId);
+            }
+
+            function loop() {
+                var cb = arr.shift();
+
+                if (cb) {
+
+                    cb(loop);
+
+                }
+                else {
+                    is = false;
+                }
+            }
+
+        }
+ 
+
+        var i = 0,
+            queue=new Queue();
+
+        document.getElementById('test').onclick = function () {
+            queue.start(function (loop) {
+               
+                console.log(i++);
+                   setTimeout(function () {
+
+                       
+
+                        loop();
+
+                    }, 600);
+            });
+        };
+
+    </script>
+
+</body>
+
+</html>

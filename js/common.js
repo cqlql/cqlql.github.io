@@ -67,6 +67,7 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
     
     //#endregion
 
+    //#region css
     //#region css 前缀获取
 
     c.getPrefix = function () {
@@ -114,14 +115,14 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
             //cssPrefixes = [c.getPrefix()],
             style = document.body.style,
             capName, i, newName, tempCssPrefixes;
-        
+
         if (name in style) {
             return name;
         }
 
         capName = name.charAt(0).toUpperCase() + name.substr(1),
         i = cssPrefixes.length;
-        
+
         while (i--) {
 
             tempCssPrefixes = cssPrefixes[i];
@@ -137,13 +138,13 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
     //#endregion
 
     //#region css 属性名获取，有前缀的
-    
+
     // 单例模式，取过后的属性将保存，下次节省效率
     c.getCssName = function () {
         var obj = {};
         return function (name) {
             var styleName = obj[name];
-            
+
             if (styleName === undefined) {
                 styleName = obj[name] = c.addPrefix(name);
             }
@@ -162,6 +163,7 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
             style[c.getCssName(k)] = kv[k];
         }
     };
+    //#endregion
     //#endregion
 
     //#region 去两头空格
@@ -642,7 +644,7 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
 
                 speed = options.speed === undefined ? 400 : options.speed,
                 easing = options.easing === undefined ? 'swing' : options.easing,
-                callBack = options.callBack === undefined ? function () { } : options.callBack,
+                callback = options.callback === undefined ? function () { } : options.callback,
 
                 start = {},
 
@@ -687,7 +689,7 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
 
                     stopId = null;
 
-                    callBack();
+                    callback();
                 }
             }
         }
@@ -715,6 +717,41 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
 
         //setCurParams(params);
     };
+    //#endregion
+
+    //#region 队列
+
+    c.Queue = function () {
+        var is = false,
+            arr = [];
+
+        this.add = function (cb) {
+            //console.log('排队数' + arr.length);
+            arr.push(cb);
+            if (is) return;
+
+            is = true;
+
+            loop();
+        };
+
+        this.stop = function () {
+            arr = [];
+            is = false;
+        };
+
+        function loop() {
+            //console.log('排队数' + arr.length);
+            var cb = arr.shift();
+            if (cb) {
+                cb(loop);
+            }
+            else {
+                is = false;
+            }
+        }
+    };
+
     //#endregion
 
     //#region each 循环
@@ -768,12 +805,24 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
     */
 
     //#endregion
-
+    
+    // 扩展
     c.extend = function (obj) {
         var target = this;
         c.each(obj, function (k, v) {
             target[k] = v;
         });
+    };
+
+    // url 参数获取
+    c.getUrlSearch = function (name) {
+        var reg = new RegExp(name + '=([^&]+)'),
+            match = reg.exec(location.search);
+
+        if (match) {
+            return match[1];
+        }
+        return match;
     };
 
     //#region 元素获取
@@ -831,14 +880,14 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
     //#endregion
     //#endregion
 
+    //#region 文档处理
+
     // html -> elems
     c.htmlToElems = function (html) {
         var eTemp = document.createElement('div');
         eTemp.innerHTML = html;
         return eTemp.children;
     };
-
-    //#region 元素增加
 
     //#region 追加元素
     /*
@@ -885,7 +934,7 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
     //#endregion
 
     //#region 仿jq
-    window.$ = window.jQuick = (function () {
+    window.$ = window.jsDo = (function () {
         var deletedIds = [],
             splice = deletedIds.splice;
 
@@ -921,7 +970,7 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
         }
 
         elemEnhance.fn = elemEnhance.prototype = {
-            jQuick:'1',
+            jsDo:'1',
             each: function (fn) {
                 c.each(this, fn);
                 return this;
@@ -941,16 +990,57 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
 
         elemEnhance.extend = elemEnhance.fn.extend = c.extend;
 
-        elemEnhance.extend({
-            getElementsByClassName: function (className, elem) {
-                elemEnhance(c.getElementsByClassName(className, elem));
+        init.prototype = elemEnhance.fn;
+
+        // 元素获取
+        elemEnhance.fn.extend({
+            prev: function () {
+                return $(c.siblingElement(this[0], 'previousSibling'));
             },
-            filtrateElementsByClassName: function (className, elem) {
-                elemEnhance(c.filtrateElementsByClassName(className, elem));
+
+            // 参数只有集合中的第一个才有效
+            next: function () {
+                return $(c.siblingElement(this[0]));
             }
         });
 
-        init.prototype = elemEnhance.fn;
+        // 文档处理
+        elemEnhance.fn.extend({
+            append: function (content) {
+                if (typeof content === 'string') {
+                    c.appendChildHtml(this[0], content);
+                }
+                else {
+                    jsDo(content).appendTo(this[0]);
+                }
+
+                return this;
+            },
+
+            // 参数只有集合中的第一个才有效
+            appendTo: function (context) {
+                var
+                    jElems = jsDo(context),
+                    fragment,
+                    len = this.length;
+
+                if (len > 1) {
+                    fragment = document.createDocumentFragment();
+
+                    for (var i = 0, that; i < len; i++) {
+                        that = this[i];
+                        fragment.appendChild(that);
+                    }
+
+                    jElems[0].appendChild(fragment);
+                }
+                else {
+                    jElems[0].appendChild(this[0]);
+                }
+
+                return this;
+            }
+        });
 
         return elemEnhance;
 
@@ -958,8 +1048,13 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
 
     })();
     //#endregion
+    
+    window.c = window.common = c;
 
-    /// pc
+})();
+
+/// pc
+c.extend({
 
     //#region 滚轮
     /*
@@ -981,26 +1076,26 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
         return false;
     });
     */
-    c.mouseWheel = function (dom, f) {
+    mouseWheel: function (dom, f) {
         if (dom.addEventListener) {
             if (dom.onmousewheel === undefined) dom.addEventListener('DOMMouseScroll', f, false);//firefox
             else dom.addEventListener('mousewheel', f, false);
         } else {
             dom.attachEvent('onmousewheel', f);//ie678
         }
-    };
-    c.removeMouseWheel = function (dom, f) {
+    },
+    removeMouseWheel: function (dom, f) {
         if (dom.addEventListener) {
             if (dom.onmousewheel === undefined) dom.removeEventListener('DOMMouseScroll', f, false);//firefox
             else dom.removeEventListener('mousewheel', f, false);
         } else {
             dom.detachEvent('onmousewheel', f);//ie678
         }
-    };
+    },
     //#endregion
 
     //#region 翻页
-    c.pager = (function () {
+    pager: (function () {
 
         /*
         翻页基本
@@ -1282,12 +1377,12 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
             getHtml: getHtml,
             commonAjax: commonAjax
         };
-    })();
+    })(),
     //#endregion
 
     //#region 拖动基础
 
-    c.drag = function (eDrag, onMove, onDown, onUp) {
+    drag: function (eDrag, onMove, onDown, onUp) {
         var isIE678 = !-[1, ],
             eDom = document;
 
@@ -1319,12 +1414,7 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
             return false;
         }
 
-    };
+    }
 
     //#endregion
-
-    window.c = window.common = c;
-
-})();
-
-
+});

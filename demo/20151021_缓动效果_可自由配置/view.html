@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <title></title>
@@ -47,7 +47,14 @@
     </p>
     <p>
         <button onclick="toWidthAndLeft(c.siblingElement(this))">width + left</button>
-        <input type="text" value="600,600" />
+        <input type="text" value="600,600,200" style="width:80px;"/>
+        &nbsp;&nbsp;&nbsp;&nbsp;
+        <input type="checkbox" id="queue" style="width:auto;vertical-align:middle;" checked />
+        <label for="queue">队列</label>
+    </p>
+    <p>
+        <button onclick="stopQueue()">停止队列</button>
+        <button onclick="stopAnime()">停止动画</button> 
     </p>
     <script src="main.js"></script>
 </body>

@@ -104,7 +104,7 @@ c.extend({
 
 });
 
-jQuick.fn.extend({
+jsDo.fn.extend({
     click: function (fn) {
         return this.each(function (i, n) {
             c.click(n, fn);
