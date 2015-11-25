@@ -22,66 +22,20 @@
         <div></div>
     </div>
     <div id="test2">
-        <div></div>
+        <div>1</div>
         <div></div>
     </div>
     <script src="../../js/common.js"></script>
     <script src="../../js/common_mobile.js"></script>
     <script>
+        //console.log(/-[\w]/.exec('margin-left'));
+        // MozAnimationDelay
+        //console.log(('margin-left').replace(/-[\w]/g, function (match) {
+        //    return match.substr(1).toUpperCase();
+        //}));
+        $(document.getElementById('test')).data('name', '123');
 
-        function Queue() {
-            var is = false,
-                stopId,
-                arr = [],
-                target=this;
-
-            this.start = function (cb) {
-                arr.push(cb);
-
-                if (is) return;
-
-
-                is = true;
-
-                loop();
-            };
-
-            function stop() {
-                clearTimeout(stopId);
-            }
-
-            function loop() {
-                var cb = arr.shift();
-
-                if (cb) {
-
-                    cb(loop);
-
-                }
-                else {
-                    is = false;
-                }
-            }
-
-        }
- 
-
-        var i = 0,
-            queue=new Queue();
-
-        document.getElementById('test').onclick = function () {
-            queue.start(function (loop) {
-               
-                console.log(i++);
-                   setTimeout(function () {
-
-                       
-
-                        loop();
-
-                    }, 600);
-            });
-        };
+        console.log(        $(document.getElementById('test')));
 
     </script>
 

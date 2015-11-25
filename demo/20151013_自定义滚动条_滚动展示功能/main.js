@@ -7,6 +7,7 @@ c.extend({
             eCont = params.eCont,
             type = params.type || 'top',
             moveAttrName = params.moveAttrName || type,
+            contDrag = params.contDrag === undefined ? true : params.contDrag,
 
             boxWH, contWH,
             currContXY = 0,
@@ -16,41 +17,13 @@ c.extend({
             , maxXY = 0
             , that = this
             , isDrag = false
+            ,hasScroll=false
             , contMoveAnime = new c.changeAnime(function (v) {
                 eCont.style[moveAttrName] = v + 'px';
             })
         ;
 
-        c.drag(eBox, function (xy) {
-
-            xy = xy[type];
-
-            velocity.change(xy);
-
-            change(tempContXY + xy);
-
-            isDrag = Math.abs(xy) > 6;
-        }, function (e) {
-            velocity.start();
-
-            tempContXY = currContXY;
-
-            stripingReduce.stop();
-
-            isDrag = false;
-
-
-        }, function () {
-            stripingReduce.start(velocity.end() / 70, function (v) {
-                change(currContXY + v);
-            });
-        });
-
-        c.eventBind(eBox, 'click', function (e) {
-            if (isDrag) {
-                e.preventDefault();
-            }
-        });
+        if (contDrag) contDragInit();
 
         c.mouseWheel(eBox, mouseWheel);
 
@@ -63,12 +36,21 @@ c.extend({
             boxWH = params.boxWH;
             contWH = params.contWH;
 
-            maxXY = boxWH - contWH;
+            if (contWH - boxWH > 1) {
+                maxXY = boxWH - contWH;
 
-            change(currContXY);
+                change(currContXY);
+
+                hasScroll = true;
+            }
+            else {
+                hasScroll = false;
+            }
         }
 
         function mouseWheel(e) {
+            if (hasScroll === false) return false;
+
             var pre, xy = currContXY, to = boxWH / 4,
                 isScroll;
             if (e.wheelDelta) //前120 ，后-120
@@ -125,7 +107,55 @@ c.extend({
             return isScroll;
         }
 
+        // 内容拖动功能
+        function contDragInit() {
+            c.drag(eBox, function (xy) {
+
+                xy = xy[type];
+
+                velocity.change(xy);
+
+                change(tempContXY + xy);
+
+                isDrag = Math.abs(xy) > 6;
+            }, function (e) {
+
+                if (hasScroll === false) return false;
+
+                velocity.start();
+
+                tempContXY = currContXY;
+
+                stripingReduce.stop();
+
+                isDrag = false;
+
+            }, function () {
+                stripingReduce.start(velocity.end() / 70, function (v) {
+                    change(currContXY + v);
+                });
+            });
+
+            c.eventBind(eBox, 'click', function (e) {
+                if (isDrag) {
+                    e.preventDefault();
+                }
+            });
+        }
+
     },
+
+    /*
+    
+    参数：
+     eBox
+     eCont
+     eBarBox
+     contDrag
+     type
+     moveAttrName
+     */
+
     ScrollBar: function (params) {
         var
             eBox = params.eBox,
@@ -133,6 +163,8 @@ c.extend({
 
             eBarBox = params.eBarBox,
             eBar = eBarBox.children[0],
+
+            contDrag = params.contDrag,
 
             type = params.type || 'top',
             moveAttrName = params.moveAttrName || type
@@ -146,21 +178,23 @@ c.extend({
                 eBox: eBox,
                 eCont: eCont,
                 type: type,
-                moveAttrName: moveAttrName
+                moveAttrName: moveAttrName,
+                contDrag: contDrag
             })
-            , moveR // 滚动条 与 内容 的移动比
+            , moveR = 1 // 滚动条 与 内容 的移动比
+
+            // 这里没必要要，因为没有滚动条情况，滚动条会直接消失，事件什么的都是浮云
+            //, hasScroll = false // 是否有滚动条
         ;
 
         c.drag(eBar, function (xy) {
-
             xy = xy[type];
-
             change(tempXY + xy);
-
         }, function (e) {
             tempXY = currXY;
         });
         c.eventBind(eBarBox, 'mousedown', function (e) {
+
             var v;
 
             if ((type === 'left' ? e.offsetX : e.offsetY) < currXY) {
@@ -170,7 +204,6 @@ c.extend({
             else {
                 v = -boxWH;
             }
-
             change(-v / moveR + currXY);
 
             e.preventDefault();
@@ -194,19 +227,20 @@ c.extend({
 
             if (r <= 1) {
                 eBarBox.style.display = 'none';
-                return;
             }
-            eBarBox.style.display = 'block';
+            else {
+                eBarBox.style.display = 'block';
 
-            barWH = barBoxWH / r;
+                barWH = barBoxWH / r;
 
-            if (barWH < 30) barWH = 30;
+                if (barWH < 30) barWH = 30;
 
-            maxXY = barBoxWH - barWH;
+                maxXY = barBoxWH - barWH;
 
-            moveR = (contWH - boxWH) / maxXY;
+                moveR = (contWH - boxWH) / maxXY;
 
-            eBar.style[typeSize] = barWH + 'px';
+                eBar.style[typeSize] = barWH + 'px';
+            }
 
             contScroll.update({
                 boxWH: boxWH,
@@ -303,14 +337,25 @@ function demo3() {
     var scrollBar = new c.ScrollBar({
         eBox: eBox,
         eCont: eCont,
-        eBarBox: eBarBox
-
+        eBarBox: eBarBox,
+        contDrag: false,
+        moveAttrName:'marginTop'
     });
     scrollBar.update({
         boxWH: eBox.clientHeight,
         contWH: eCont.clientHeight,
         barBoxWH: eBarBox.clientHeight
     });
+    
+    //var contScroll = new c.ContScroll({
+    //    eBox: eBox,
+    //    eCont: eCont
+    //});
+
+    //contScroll.update({
+    //    boxWH: eBox.clientHeight,
+    //    contWH: eCont.clientHeight
+    //});
 }
 
 function demo4() {

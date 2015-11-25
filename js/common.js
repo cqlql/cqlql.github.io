@@ -6,6 +6,8 @@
 * 
 * updateDate:2015-11-24
 *   队列实现
+* updateDate:2015-11-25
+*   float css名
 */
 
 "use strict";
@@ -76,6 +78,11 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
         function handle() {
             var userAgent = navigator.userAgent;
 
+            /*
+            实际上，Edge浏览器较为特殊。
+            比如，box-direction 这个css属性，居然是 webkit 前缀
+             */
+
             if (document.documentMode || userAgent.indexOf('Edge') > -1) {
                 prefix = 'ms';
             }
@@ -110,14 +117,19 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
     */
     c.addPrefix = function (name, is) {
         var
+            original= name,
             //cssPrefixes = ["webkit", "Moz", "ms"],
             cssPrefixes = ["ms", "Moz", "webkit"],
             //cssPrefixes = [c.getPrefix()],
             style = document.body.style,
             capName, i, newName, tempCssPrefixes;
 
+        name = name.replace(/-[\w]/g, function (match) {
+            return match.substr(1).toUpperCase();
+        });
+
         if (name in style) {
-            return name;
+            return is ? name : original;
         }
 
         capName = name.charAt(0).toUpperCase() + name.substr(1),
@@ -130,25 +142,32 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
             newName = tempCssPrefixes + capName;
 
             if (newName in style) {
-                return is ? newName : '-' + tempCssPrefixes + '-' + name;
+                return is ? newName : '-' + tempCssPrefixes + '-' + original;
             }
         }
+        return null;
     };
 
     //#endregion
 
-    //#region css 属性名获取，有前缀的
+    //#region css 属性名获取，有前缀的，js style 专用
 
     // 单例模式，取过后的属性将保存，下次节省效率
+    // 推荐使用 减号连接的 css属性名
     c.getCssName = function () {
         var obj = {};
         return function (name) {
             var styleName = obj[name];
 
-            if (styleName === undefined) {
-                styleName = obj[name] = c.addPrefix(name);
-            }
+            if (styleName===undefined) {
 
+                if (name === 'float') {
+                    styleName = obj[name] = c.getCssNameFloat();
+                }
+                else {
+                    styleName = obj[name] = c.addPrefix(name, 1);
+                }
+            }
             return styleName;
         }
     }();
@@ -164,6 +183,33 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
         }
     };
     //#endregion
+
+    c.getCssNameFloat = function () {
+
+        var name;
+
+        function handle() {
+            var
+            arr = ['styleFloat', 'cssFloat', 'float'],
+            style = document.body.style,
+            i = arr.length, name;
+
+            while (i--) {
+                name = arr[i];
+                if (name in style) {
+                    return name;
+                }
+            }
+        }
+
+        return function () {
+            if (!name) {
+                name = handle();
+            }
+            return name;
+        };
+    }();
+
     //#endregion
 
     //#region 去两头空格
@@ -870,7 +916,8 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
         }
 
         elemEnhance.fn = elemEnhance.prototype = {
-            jsDo:'1',
+            jsDo: '1',
+            key:Math.random(),
             each: function (fn) {
                 c.each(this, fn);
                 return this;
@@ -939,6 +986,29 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
                 }
 
                 return this;
+            }
+        });
+
+        // 数据缓存
+        elemEnhance.fn.extend({
+            data: function (key, value) {
+                var target = this;
+                if (arguments.length > 1) {
+
+                    return this.each(function (i, elem) {
+                        elem[key + target.key] = value;
+                    });
+                }
+
+                return this[0][key + this.key];
+
+            }
+        });
+
+        elemEnhance.fn.extend({
+            animate: function (key, value) {
+
+
             }
         });
 
@@ -1387,7 +1457,7 @@ c.extend({
 
         function down(e) {
 
-            onDown(e);
+            if (onDown(e) === false) return;
 
             //IE678 执行捕捉 来 避免 图片文字等默认选择事件
             if (isIE678) eDrag.setCapture();
