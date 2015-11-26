@@ -70,6 +70,7 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
     //#endregion
 
     //#region css
+
     //#region css 前缀获取
 
     c.getPrefix = function () {
@@ -150,10 +151,11 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
 
     //#endregion
 
-    //#region css 属性名获取，有前缀的，js style 专用
+    //#region css 属性名获取
 
     // 单例模式，取过后的属性将保存，下次节省效率
-    // 推荐使用 减号连接的 css属性名
+    // 参数：推荐使用 减号连接的 css属性名
+    // 返回：有前缀的，js style 专用
     c.getCssName = function () {
         var obj = {};
         return function (name) {
@@ -174,16 +176,49 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
 
     //#endregion
 
-    //#region css 设置
-    c.setCss = function (elem, kv) {
+    //#region css 值获取
+
+    /*
+    
+    参数:
+        name
+         推荐使用原 css 属性名称
+    
+    */
+
+    c.getCss = function () {
+
+        return window.getComputedStyle ?
+        function (elem, name) {
+
+            var style = getComputedStyle(elem, null);
+
+            return style[this.getCssName(name)];
+
+        } : function (elem, name) {
+            return elem.currentStyle[this.getCssName(name)];
+        }
+
+    }();
+
+    //#endregion
+
+    //#region css 值设置
+    c.setCss = function (elem, name,value) {
         var style = elem.style;
 
-        for (var k in kv) {
-            style[c.getCssName(k)] = kv[k];
+        if (typeof name === 'string') {
+            style[c.getCssName(name)] = value;
+        }
+        else {
+            for (var k in name) {
+                style[c.getCssName(k)] = name[k];
+            }
         }
     };
     //#endregion
 
+    //#region 取float js操作名称
     c.getCssNameFloat = function () {
 
         var name;
@@ -209,6 +244,8 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
             return name;
         };
     }();
+
+    //#endregion
 
     //#endregion
 
@@ -584,21 +621,21 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
             stopId = null;
 
         function excu(params, options) {
+            
+            stop();
 
             var
                 go = options.go,
 
                 speed = options.speed === undefined ? 400 : options.speed,
                 easing = options.easing === undefined ? 'swing' : options.easing,
-                callback = options.callback === undefined ? function () { } : options.callback,
+                callback = options.callback || function () { },
 
                 start = {},
 
                 t = 0,//当前起始次数
                 time = 16,//帧间隔
                 d = speed / time;//总次数
-
-            stop();
 
             c.each(params, function (key,value) {
                 if (curParams[key] === undefined) {
@@ -648,6 +685,7 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
         }
 
         function stop() {
+
             if (stopId !== null) {
                 cancelAnimationFrame(stopId);
                 stopId = null;
@@ -658,7 +696,7 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
         this.setCurParams = setCurParams;
         this.stop = stop;
         this.getCurParams = function () {
-            console.log(curParams);
+            return curParams;
         };
 
         //setCurParams(params);
@@ -668,12 +706,15 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
     //#region 队列
 
     c.Queue = function () {
-        var is = false,
+        var
+            is = false,// 是否在队列中
             arr = [];
 
         this.add = function (cb) {
             //console.log('排队数' + arr.length);
+            
             arr.push(cb);
+
             if (is) return;
 
             is = true;
@@ -689,12 +730,14 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
         function loop() {
             //console.log('排队数' + arr.length);
             var cb = arr.shift();
+
             if (cb) {
                 cb(loop);
             }
             else {
                 is = false;
             }
+
         }
     };
 
@@ -917,15 +960,29 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
 
         elemEnhance.fn = elemEnhance.prototype = {
             jsDo: '1',
-            key:Math.random(),
+            key: (Math.random() + '').substr('2'),
             each: function (fn) {
                 c.each(this, fn);
                 return this;
             },
-            css: function (kv) {
-                return this.each(function (i, elem) {
-                    c.setCss(elem, kv);
-                });
+            css: function (name,value) {
+
+                if (arguments.length === 1) {
+                    if (typeof name === 'string') {
+
+                        return c.getCss(this[0], name);
+                    }
+
+                    this.each(function (i, elem) {
+                        c.setCss(elem, name);
+                    });
+                }
+                else {
+                    c.setCss(this[0], name, value);
+                }
+
+                return this;
+
             },
 
             // For internal use only.
@@ -996,25 +1053,83 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
                 if (arguments.length > 1) {
 
                     return this.each(function (i, elem) {
-                        elem[key + target.key] = value;
+                        elem[key + elemEnhance.key] = value;
                     });
                 }
 
-                return this[0][key + this.key];
+                return this[0][key + elemEnhance.key];
 
             }
         });
 
         elemEnhance.fn.extend({
-            animate: function (key, value) {
+            animate: function (params, options) {
+                options = options || {};
 
+                var animateKey = 'animate_' + this.key,
+                    animateQueueKey = 'animateQueue_' + this.key;
+
+                this.each(function () {
+                    var
+                        speed = options.speed,
+                        callback = options.callback || function () {},
+                        isQueue = options.queue,
+
+                        elem = arguments[1],
+                        easingBuild = elem[animateKey],
+                        queue = elem[animateQueueKey],
+                        currParams;
+                    
+                    // 初始化
+                    if (easingBuild===undefined) {
+                        easingBuild = elem[animateKey] = new c.EasingBuild();
+                    }
+
+                    // 设置初始值。同步后期更改css值
+                    currParams = easingBuild.getCurParams();
+                    for (var k in params) {
+                        //if (currParams[k] === undefined)
+                        currParams[k] = parseFloat(c.getCss(elem, k)) || 0;
+                    }
+                    easingBuild.setCurParams(currParams);
+
+                    // 队列初始
+                    if (queue === undefined) {
+                        queue = elem[animateQueueKey] = new c.Queue();
+                    }
+
+                    if (isQueue) {
+                        queue.add(function (loop) {
+                            animeStart(loop);
+                        });
+                    }
+                    else {
+                        queue.clear();
+                        animeStart();
+                    }
+
+                    function animeStart(cb) {
+                        cb = cb || function () { };
+
+                        easingBuild.excu(params, {
+                            go: function (to) {
+                                for (var k in to) {
+                                    c.setCss(elem, k, to[k] + 'px');
+                                }
+                            },
+                            speed: speed,
+                            callback: function () {
+                                cb();
+                                callback();
+                            }
+                        });
+                    }
+                });
 
             }
         });
 
         return elemEnhance;
-
-        
 
     })();
     //#endregion

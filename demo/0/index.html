@@ -11,13 +11,22 @@
             width:100px;
             height:100px;
             background:#333;
+            position:relative;
+            top:100px;
         }
+         #test2 {
+            width:100px;
+            height:100px;
+            background:#0094ff;
+            position:relative;
+        }
+
     </style>
 </head>
 <body>
     <style>
     </style>
-    <div id="test">
+    <div id="test" >
         <div></div>
         <div></div>
     </div>
@@ -26,17 +35,49 @@
         <div></div>
     </div>
     <script src="../../js/common.js"></script>
+    <!--<script src="http://libs.baidu.com/jquery/1.10.2/jquery.min.js"></script>-->
+
     <script src="../../js/common_mobile.js"></script>
     <script>
-        //console.log(/-[\w]/.exec('margin-left'));
-        // MozAnimationDelay
-        //console.log(('margin-left').replace(/-[\w]/g, function (match) {
-        //    return match.substr(1).toUpperCase();
-        //}));
-        $(document.getElementById('test')).data('name', '123');
+    // 只能操作内联css
+        var eTest1 = document.getElementById('test'),
+            eTest =[ document.getElementById('test2')];
 
-        console.log(        $(document.getElementById('test')));
+        setTimeout(function () {
 
+            $(eTest).animate({
+                left: 100
+            }, {
+                queue: true
+            });
+
+            $(eTest).animate({
+                top: 100,
+                left: 200
+            }, {
+                queue: true
+            });
+
+            $(eTest).animate({
+                top: 200,
+                left: 200
+            }, {
+                speed:1000,
+                queue: false
+            });
+        },200);
+
+        //setTimeout(function () {
+        //    eTest1.style.top = 300 + 'px';
+
+        //    $(eTest).animate({
+        //        top: 200,
+        //        left: 200
+        //    }, {
+        //        queue: false
+        //    });
+        //},1200);
+  
     </script>
 
 </body>

@@ -92,7 +92,7 @@ function clearQueue() {
 }
 
 function stopAnime() {
-    queue.clear();
+    //queue.clear();
     a.stop();
 }
 
