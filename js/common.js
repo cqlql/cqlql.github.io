@@ -618,18 +618,21 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
 
             curParams = {},
 
+            callback,
+
             stopId = null;
 
         function excu(params, options) {
             
-            stop();
+            stopLast();
+
+            callback = options.callback || function () { };
 
             var
                 go = options.go,
 
                 speed = options.speed === undefined ? 400 : options.speed,
                 easing = options.easing === undefined ? 'swing' : options.easing,
-                callback = options.callback || function () { },
 
                 start = {},
 
@@ -684,7 +687,7 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
             }
         }
 
-        function stop() {
+        function stopLast() {
 
             if (stopId !== null) {
                 cancelAnimationFrame(stopId);
@@ -694,7 +697,10 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
 
         this.excu = excu;
         this.setCurParams = setCurParams;
-        this.stop = stop;
+        this.stop = function () {
+            stopLast();
+            callback();
+        };
         this.getCurParams = function () {
             return curParams;
         };
