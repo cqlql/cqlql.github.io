@@ -25,7 +25,58 @@
 </head>
 <body>
     <style>
+        ul{list-style-type:none;padding:0;margin:0;}
+
+        .balloon-cont {
+            width:300px;
+            border:1px solid #000;
+            padding: 8px 10px;
+            font-size:12px;
+        }
+        .balloon-cont .tit {
+            padding-bottom:10px;
+        }
+        .balloon-cont .des {
+            padding-bottom:10px;
+        }
+        .balloon-cont li {
+            height: 28px;
+        }
+        .balloon-cont li .l{
+            float:left;
+                padding: 0 10px;
+                font-size:14px;
+        }
+        .balloon-cont li .m{
+            float:left;
+            width:200px;
+            height:12px;
+                margin-top: 4px;
+            background:#eee;
+        }
+        .balloon-cont li .m div {
+            background:#68de00;
+            height:12px;
+        }
+        .balloon-cont li .r{
+            float:left;
+            width:12px;
+        }
     </style>
+
+
+    <div class="balloon-cont">
+        <div class="tit">选项分布</div>
+        <div class="des">第12题  正确答案C，总分13分</div>
+        <ul class="options">
+            <li>
+                <div class="l">A</div>
+                <div class="m"><div style="width:20%"></div></div>
+                <div class="r"></div>
+            </li>
+        </ul>
+    </div>
+
     <div id="test" >
         <div></div>
         <div></div>
@@ -43,29 +94,29 @@
         var eTest1 = document.getElementById('test'),
             eTest =[ document.getElementById('test2')];
 
-        setTimeout(function () {
+        //setTimeout(function () {
 
-            $(eTest).animate({
-                left: 100
-            }, {
-                queue: true
-            });
+        //    $(eTest).animate({
+        //        left: 100
+        //    }, {
+        //        queue: true
+        //    });
 
-            $(eTest).animate({
-                top: 100,
-                left: 200
-            }, {
-                queue: true
-            });
+        //    $(eTest).animate({
+        //        top: 100,
+        //        left: 200
+        //    }, {
+        //        queue: true
+        //    });
 
-            $(eTest).animate({
-                top: 200,
-                left: 200
-            }, {
-                speed:1000,
-                queue: false
-            });
-        },200);
+        //    $(eTest).animate({
+        //        top: 200,
+        //        left: 200
+        //    }, {
+        //        speed:1000,
+        //        queue: false
+        //    });
+        //},200);
 
         //setTimeout(function () {
         //    eTest1.style.top = 300 + 'px';
