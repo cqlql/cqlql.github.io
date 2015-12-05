@@ -1,15 +1,3 @@
-
-/*
-* 公共js库
-* author:陈桥黎
-* date:2015-10-09
-* 
-* updateDate:2015-11-24
-*   队列实现
-* updateDate:2015-11-25
-*   float css名
-*/
-
 "use strict";
 
 window.requestAnimationFrame  = (function () {
@@ -246,6 +234,23 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
     }();
 
     //#endregion
+
+    // #region 增加css  
+    c.addCssTxt = function (txt) {
+        var eStyle = document.createElement('style');
+
+        if ('textContent' in eStyle) {
+            eStyle.textContent = txt;
+            document.head.appendChild(eStyle);
+        }
+        else {
+            // ie678
+            eStyle.setAttribute("type", "text/css");
+            eStyle.styleSheet.cssText = txt;
+            document.body.appendChild(eStyle);
+        }
+    };
+    // #endregion
 
     //#endregion
 
@@ -934,6 +939,9 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
             splice = deletedIds.splice;
 
         function init(content) {
+
+            if (!content) return;
+
             var elems;
 
             // html
@@ -966,6 +974,7 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
 
         elemEnhance.fn = elemEnhance.prototype = {
             jsDo: '1',
+            length:0,
             key: (Math.random() + '').substr('2'),
             each: function (fn) {
                 c.each(this, fn);
@@ -1143,4 +1152,3 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
     window.c = window.common = c;
 
 })();
-
