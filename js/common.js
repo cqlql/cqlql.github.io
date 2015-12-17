@@ -806,6 +806,14 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
 
     //#endregion
 
+    //#region 取滚动条隐藏距离
+    c.getWindowScrollTop  = 'pageYOffset' in window ?function () {
+        return pageYOffset;
+    }:function () {
+        return document.documentElement.scrollTop;
+    };
+    //#endregion
+
     c.ajax = function (params) {
 
         function onReadystatechange() {
