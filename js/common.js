@@ -1235,6 +1235,16 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
             }
         });
 
+        // prop
+        elemEnhance.fn.extend({
+            prop: function (key,value) {
+                return this.each(function (i, elem) {
+                    elem[key] = value;
+                });
+
+            }
+        });
+
         return elemEnhance;
 
     })();
