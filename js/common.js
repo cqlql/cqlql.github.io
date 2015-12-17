@@ -235,7 +235,7 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
 
     //#endregion
 
-    // #region 增加css  
+    // #region 增加css 文本
     c.addCssTxt = function (txt) {
         var eStyle = document.createElement('style');
 
@@ -805,6 +805,40 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
     */
 
     //#endregion
+
+    c.ajax = function (params) {
+
+        function onReadystatechange() {
+            if (xhr.readyState === 4) {
+
+                if (xhr.status === 200) {
+                    success(xhr.responseText);
+                }
+                else {
+                    error(xhr, xhr.status, arguments);
+                }
+
+                complete();
+            }
+        }
+
+        var
+            url = params.url,
+            type = params.type || 'get',
+            success = params.success || function () { },
+            error = params.error || function () { },
+            complete = params.complete || function () { },
+
+            xhr = new XMLHttpRequest();
+
+        xhr.addEventListener('readystatechange', onReadystatechange, false);
+
+        xhr.open(type, url);
+
+        xhr.send();
+
+        return xhr;
+    };
     
     // 扩展
     c.extend = function (obj) {
@@ -824,6 +858,27 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
         }
         return match;
     };
+
+    c.addScript = function (src, callback) {
+        var script = document.createElement('script'),
+            callback = callback || function () { };
+
+        script.src = src;
+        if ('onload' in script) {
+            script.onload = function () {
+                callback();
+            };
+        }
+        else {
+            script.attachEvent("onreadystatechange", function () {
+                if (script.readyState === "complete" || script.readyState === "loaded") {
+                    callback();
+                }
+            });
+        }
+        document.head.appendChild(script);
+    }
+
 
     //#region 元素获取
     // 获取后代元素
@@ -972,6 +1027,11 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
             return new init(elems);
         }
 
+        function keyBuildPrivate(name) {
+
+            return name + '_' + elemEnhance.key
+        }
+
         elemEnhance.fn = elemEnhance.prototype = {
             jsDo: '1',
             length:0,
@@ -1077,6 +1137,27 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
             }
         });
 
+        // loading
+        elemEnhance.fn.extend({
+            addLoading: function () {
+                var name = keyBuildPrivate('stopId');
+                return this.each(function (i, elem) {
+                    elem[name] = setTimeout(function () {
+                        c.addClass(elem, 'loading');
+                    }, 400);
+                });
+
+            },
+            removeLoading: function () {
+                var name = keyBuildPrivate('stopId');
+                return this.each(function (i, elem) {
+                    clearTimeout(elem[name]);
+                    c.removeClass(elem, 'loading');
+                });
+            }
+        });
+
+        // 动画
         elemEnhance.fn.extend({
             animate: function (params, options) {
                 options = options || {};
@@ -1149,6 +1230,7 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
     })();
     //#endregion
     
+
     window.c = window.common = c;
 
 })();

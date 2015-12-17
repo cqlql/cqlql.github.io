@@ -1,13 +1,4 @@
 
-/*
-* 公共js库 - 移动端
-* author:陈桥黎
-* date:2015-11-21
-* 
-* 
-*   
-*/
-
 "use strict";
 
 c.extend({
@@ -102,10 +93,13 @@ c.extend({
 
     }
 
+    , isWX: /micromessenger/i.test(navigator.appVersion)
+
 });
 
 jsDo.fn.extend({
     click: function (fn) {
+
         return this.each(function (i, n) {
             c.click(n, fn);
         });
@@ -118,4 +112,10 @@ jsDo.fn.extend({
 
 });
 
+
+// 系统判断
+c.extend({
+    isIOS: navigator.appVersion.indexOf('Mac OS') > -1,
+    isAndroid: navigator.appVersion.indexOf('Android') > -1
+});
 
