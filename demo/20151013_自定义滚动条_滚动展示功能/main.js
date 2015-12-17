@@ -18,7 +18,7 @@ c.extend({
             , that = this
             , isDrag = false
             ,hasScroll=false
-            , contMoveAnime = new c.changeAnime(function (v) {
+            , contMoveAnime = new c.ChangeAnime(function (v) {
                 eCont.style[moveAttrName] = v + 'px';
             })
         ;

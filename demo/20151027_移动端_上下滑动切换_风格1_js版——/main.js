@@ -153,7 +153,7 @@
     /*
     *** 版本2
     //创建
-    var anime = new c.changeAnime(function (v) {
+    var anime = new c.ChangeAnime(function (v) {
         side_follow.css('top', v);
     });
     
@@ -167,7 +167,7 @@
     //取状态
     anime.getState();
     */
-    c.changeAnime = function (change, rate) {
+    c.ChangeAnime = function (change, rate) {
 
         var o = this,
 

@@ -1926,7 +1926,7 @@ var common = (function () {
     //取状态
     anime.getState();
     */
-    c.changeAnime = function (change, rate) {
+    c.ChangeAnime = function (change, rate) {
 
         var o = this,
 

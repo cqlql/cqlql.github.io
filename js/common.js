@@ -385,7 +385,7 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
     /*
     *** 版本2
     //创建
-    var anime = new c.changeAnime(function (v) {
+    var anime = new c.ChangeAnime(function (v) {
         side_follow.css('top', v);
     });
     
@@ -399,7 +399,7 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
     //取状态
     anime.getState();
     */
-    c.changeAnime = function (change, rate) {
+    c.ChangeAnime = function (change, rate) {
 
         var o = this,
 
@@ -413,6 +413,7 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
             sw = false;
         }
 
+        // 参数2 可以是任意值，12px这种也是有效的，其他非数字将视为0
         function start(to, cur) {
 
             function baseExcu() {
@@ -430,17 +431,18 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
 
                 change(o.cur);
 
-                if (sw) window.requestAnimationFrame (baseExcu);
+                if (sw) window.requestAnimationFrame(baseExcu);
             }
 
             o.to = to;
+            cur = parseFloat(cur);
             o.cur = cur ? cur : o.cur;
 
             if (sw) return;
 
             sw = true;
 
-            window.requestAnimationFrame (baseExcu);
+            window.requestAnimationFrame(baseExcu);
         }
 
         function stop() {

@@ -2,7 +2,7 @@
 
 var
     eBox=document.getElementById('test'),
-    anime = new c.changeAnime(function (v) {
+    anime = new c.ChangeAnime(function (v) {
         eBox.style.top = v + 'px';
 },.1);
 
