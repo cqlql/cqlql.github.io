@@ -869,6 +869,7 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
         return match;
     };
 
+    //#region 外链 script 增加
     c.addScript = function (src, callback) {
         var script = document.createElement('script'),
             callback = callback || function () { };
@@ -886,8 +887,9 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
                 }
             });
         }
-        document.head.appendChild(script);
+        (document.head || document.body).appendChild(script);
     }
+    //#endregion
 
 
     //#region 元素获取

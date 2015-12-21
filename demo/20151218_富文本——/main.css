@@ -1,0 +1,26 @@
+﻿body {
+}
+
+
+#edit {
+    border:1px solid #000000;
+    
+}
+#editIframe {
+    width:100%;
+    border:0;
+}
+
+.tool {
+    padding-bottom:4px;
+}
+
+.tool a {
+    font-size:22px;
+    padding:2px 6px;
+}
+.tool span:hover,
+.tool a:hover {
+    background:#bdbdbd;
+    cursor:pointer;
+}
