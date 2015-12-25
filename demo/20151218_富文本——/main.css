@@ -9,6 +9,7 @@
 #editIframe {
     width:100%;
     border:0;
+    height: 400px;
 }
 
 .tool {
@@ -18,9 +19,19 @@
 .tool a {
     font-size:22px;
     padding:2px 6px;
+    text-decoration:none;
 }
 .tool span:hover,
 .tool a:hover {
     background:#bdbdbd;
     cursor:pointer;
+}
+
+
+
+/*小标题*/
+.tool .minh1{
+    font-weight: bold;
+    color: rgb(104, 0, 185);
+    padding-right:2px;
 }

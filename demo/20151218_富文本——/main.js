@@ -7,40 +7,37 @@ var eIframe = document.getElementById('editIframe'),
     iWindow = eIframe.contentWindow,
     iDocument = iWindow.document;
 
-
-iDocument.body.innerHTML = '就拿最近腾讯的 就拿最近腾讯的MHOL来说，我和一个群里<span id="bgColor1" style="font-weight:bold;"><s>十几个</s>老猎人</span>玩了一段时间（不少于100小时，有的人咋看不懂字啊，不少于100小时只是在MHOL上）后\
-，普遍的反映是此作在手感/游戏流程/风格上对MH往日作品的还原相当好，花钱刚需的地方也只有一开始的VIP排队（现在非VIP也已经很容易进入），\
-我和朋友只花了一个月VIP的钱，装备一直在主流梯队，换句话说RMB玩家在这个游戏里并不能获得什么优势。\
-但为什么微博和知乎上在MHOL的问题下都是清一色的+10086黄金太刀/没钱玩XXX/除了画面毫无特点/土豪玩家秒天秒地/看到腾讯我就呵呵之类的评价？\
-在国内网络游戏这块，腾讯是明显的多用户少收费的模式，CF/DNF/LOL三巨头我都玩过，基本上都是不花钱或者花较少（500以内）就能体验到大部分游戏内容且游戏性相当不错的游戏。\
-相对于土豪拉动消费，凌驾普通玩家之上，这难道不是比较良性的收费模式吗？为何玩家充斥着对腾讯的偏见，认为腾讯游戏非常花钱呢？'
+iDocument.body.innerHTML = '<section class="note"><h1>title1</h1><div class="content"><p>\
+审查制度是任人打扮的小姑娘，从来就不是双重标准，而是没有标准。你不配合的往死里卡，你识相懂规矩，大佬又投了钱自然是按自己人的标准来。\
+</p><p><br/></p></div>\</section>'
 
 iDocument.designMode = "on";
-
 
 eTool.onclick = function (e) {
 
     var set = tool[e.target.getAttribute('type')];
     if (set) {
-        //iWindow.focus();
-
-        //excuSelect();
+        iWindow.focus();
 
         set();
     }
 }
 
+addCssLink('../../css/base.css');
+addCssLink('note.css');
+addCssLink('iframe.css');
+
+iDocument.body.className = 'rich-edit';
 
 var tool = {
     // 设置粗体
     bold: function () {
         iDocument.execCommand("Bold");
-
     }
+    
     // 删除线
     , strikeThrough: function () {
         iDocument.execCommand("strikeThrough");
-        console.log(123);
     }
     // 删除
     , delete: function () {
@@ -50,29 +47,103 @@ var tool = {
     , a: function () {
         iDocument.execCommand("createLink", false, "//baidu.com");
     }
+    // 撤销
+    , undo: function () {
+        iDocument.execCommand("undo");
+    }
+    // 插入标题模块文本
+    // 这种方式不能撤销重做
+    //, insertHxModule: function (text) {
+    //    var selection = iWindow.getSelection(),
+    //       range = selection.getRangeAt(0);
+
+    //    var tagString = text;
+
+    //    var newNode = c.htmlToElems(tagString)[0];
+
+    //    range.deleteContents();
+
+    //    range.insertNode(newNode);
+
+    //    // 确保增加到div.content之下
+    //    fn();
+
+    //    range.selectNode(newNode.children[0].childNodes[0]);
+    //    selection.removeAllRanges();
+    //    selection.addRange(range);
+    //    function fn() {
+    //        var parent = newNode.parentElement;
+    //        if (c.hasClass(parent, 'content') === false) {
+    //            c.insertAfter(parent, newNode);
+    //            fn();
+    //        }
+    //    }
+    //}
+    , insertHxModule: function (text) {
+        iDocument.execCommand('insertHTML', false, text);
+    }
+    , h1: function () {
+        tool.insertHxModule('<section class="note"><h1>title1</h1><div class="content"><p>content</p><p><br/></p></div>\</section>');
+    }
+    , h2: function () {
+        tool.insertHxModule('<section><h2>title2</h2><div class="content"><p>content</p><p><br/></div>\</section>');
+    }
+    , h3: function () {
+        tool.insertHxModule('<section><h3>title3</h3><div class="content"><p>content</p><p><br/></div>\</section>');
+    }
+    , h4: function () {
+        tool.insertHxModule('<section><h4>title4</h4><div class="content"><p>content</p><p><br/></div>\</section>');
+    }
+    , h5: function () {
+        tool.insertHxModule('<section><h4>title5</h4><div class="content"><p>content</p><p><br/></div>\</section>');
+    }
+    
+    // 删除标题模块
+    , delHx: function () {
+
+        var
+            selection=iDocument.getSelection(),
+            elem = selection.anchorNode.parentElement;
+    
+        fn();
+
+        function fn() {
+            if (elem.tagName === 'SECTION') {
+                c.removeElement(elem);
+            }
+            else {
+                elem = elem.parentElement;
+                fn();
+            }
+        }
+    }
+
+    // 小标题1
+    , minh1: function () {
+        var selection = iWindow.getSelection(),
+            range;
+
+        if (selection.isCollapsed===false) {
+            range = selection.getRangeAt(0);
+            range.surroundContents(c.htmlToElems('<span class="h1"></span>')[0]);
+
+            selection.removeAllRanges();
+            selection.addRange(range);
+        }
+
+    }
+
     // 测试
     , test: function () {
-        
-        iWindow.focus();
 
-        var selection = iWindow.getSelection();
-        console.log(
-            
-        selection.containsNode(iDocument.body.childNodes[0],false)
-      
-
-        );
     }
 };
-iWindow.focus();
+//iWindow.focus();
 
-excuSelect();
+//excuSelect();
 
+editInit();
 
-
-//iWindow.getSelection().getRangeAt(0).collapse(true);
-//iWindow.getSelection().removeAllRanges();
-//iWindow.getSelection().addRange(range);
 function excuSelect() {
     var
      selection = iWindow.getSelection(),
@@ -81,33 +152,35 @@ function excuSelect() {
 
     range.setStart(iDocument.body.childNodes[0], 4);
     range.setEnd(iDocument.body.childNodes[0], 5);
-    //range.selectNode(iDocument.body.childNodes[0]);
-
     
     selection.removeAllRanges();
     selection.addRange(range);
 
-
 }
 
-function 控制选区() {
-    //iWindow.focus();
+function editInit() {
+    var selection = iWindow.getSelection(),
+        range,
+        eFirst;
 
+    // 避免某些情况因为必须使用createRange而出错，保证能使用getRangeAt
+    if (!selection.rangeCount) {
+        eFirst = iDocument.body.childNodes[0];
 
-    //document.execCommand("backColor",false,'#000');
-    var
-        selection = iWindow.getSelection(),
         range = iDocument.createRange();
-    //range = selection.getRangeAt(0);
 
-    //
+        range.setStartBefore(eFirst);
+        range.setEndBefore(eFirst);
 
-    range.setStart(iDocument.body.childNodes[0], 1);
-    range.setEnd(iDocument.body.childNodes[0], 2);
-    //range.setEnd(6);
+        selection.removeAllRanges();
+        selection.addRange(range);
+    }
+    
+}
 
-    console.log(range);
-
-    selection.removeAllRanges();
-    selection.addRange(range);
+function addCssLink(src) {
+    var cssLink = document.createElement('link');
+    cssLink.rel = "stylesheet";
+    cssLink.href = src;
+    iDocument.head.appendChild(cssLink);
 }

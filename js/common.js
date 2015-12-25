@@ -956,6 +956,19 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
         return eTemp.children;
     };
 
+    //#region 元素之后插入
+    c.insertAfter = function (item, newItem) {
+        var next = c.siblingElement(item);
+
+        if (next) {
+            item.parentElement.insertBefore(newItem, next);
+        }
+        else {
+            item.parentElement.appendChild(newItem);
+        }
+    };
+    //#endregion
+
     //#region 追加元素
     /*
     返回添加的元素
@@ -998,6 +1011,16 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
 
     //#endregion
 
+    //#region 元素删除
+    c.removeElement = function (elem) {
+        if ('remove' in elem) {
+            elem.remove();
+        }
+        else {
+            elem.parentNode.removeChild(elem);
+        }
+    }
+    //#endregion
     //#endregion
 
     //#region 仿jq
