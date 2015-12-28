@@ -9,7 +9,9 @@ var eIframe = document.getElementById('editIframe'),
 
 iDocument.body.innerHTML = '<section class="note"><h1>title1</h1><div class="content"><p>\
 审查制度是任人打扮的小姑娘，从来就不是双重标准，而是没有标准。你不配合的往死里卡，你识相懂规矩，大佬又投了钱自然是按自己人的标准来。\
-</p><p><br/></p></div>\</section>'
+</p><p><br/></p></div>\</section>';
+
+iDocument.body.innerHTML +='<p>审查制度是任人打扮的小姑娘，从来就不是双重标准，而是没有标准。你不配合的往死里卡，你识相懂规矩，大佬又投了钱自然是按自己人的标准来。</p><p><br></p><p>function fn() {</p><p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; if (elem.tagName === \'SECTION\') {</p><p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; c.removeElement(elem);</p><p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; }</p><p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; else {</p><p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; elem = elem.parentElement;</p><p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; fn();</p><p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; }</p><p>&nbsp; &nbsp; &nbsp; &nbsp; }</p><p><br></p>';
 
 iDocument.designMode = "on";
 
@@ -21,13 +23,20 @@ eTool.onclick = function (e) {
 
         set();
     }
-}
+
+};
 
 addCssLink('../../css/base.css');
 addCssLink('note.css');
 addCssLink('iframe.css');
 
 iDocument.body.className = 'rich-edit';
+
+iDocument.body.change = function (e) {
+
+    console.log(1);
+};
+
 
 var tool = {
     // 设置粗体
@@ -51,6 +60,20 @@ var tool = {
     , undo: function () {
         iDocument.execCommand("undo");
     }
+
+    // 重点1
+    , 'em-red': function () {
+
+    }
+
+    // code-javascript
+    , "code-javascript": function () {
+        iDocument.execCommand("formatBlock", true, 'pre');
+        //iDocument.execCommand('insertHTML', false, '<pre class="code" type="code-javascript">&#8203;</pre>');
+
+    }
+
+
     // 插入标题模块文本
     // 这种方式不能撤销重做
     //, insertHxModule: function (text) {
@@ -135,7 +158,15 @@ var tool = {
 
     // 测试
     , test: function () {
+        //var selection = iDocument.getSelection(),
+        //    text = iDocument.getSelection().toString();
+        //iDocument.execCommand('insertHTML', false, '');
+        //iDocument.execCommand('insertHTML', false, '<span class="em-red">' + text + '&#8203;</span>');
+        //selection.selectAllChildren(selection.anchorNode.parentNode);
 
+        //iDocument.execCommand("fontSize", true, '18');
+
+        console.log(iWindow.history);
     }
 };
 //iWindow.focus();

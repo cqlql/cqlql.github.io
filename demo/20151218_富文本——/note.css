@@ -82,7 +82,7 @@ body {
 
 /*#region 重点醒目*/
 /*红色*/
-.note .em_red{
+.note .em-red{
     font-weight: bold;
     color: #c00;
 }

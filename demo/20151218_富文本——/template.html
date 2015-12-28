@@ -18,7 +18,8 @@
         </div>
         <div>
             <a href="javascript:;" class="minh1" type="minh1">小标题1</a>
-            <a href="javascript:;" class="code" type="code">code</a>
+            <a href="javascript:;" class="em-red" type="em-red">重点1</a>
+            <a href="javascript:;" class="code" type="code-javascript">code-javascript</a>
         </div>
         <a href="javascript:;" type="undo">撤销</a>
         <a href="javascript:;" type="a">A</a>
@@ -31,6 +32,19 @@
     <div id="edit">
         <iframe id="editIframe"></iframe>
     </div>
+    <div contenteditable="true" id="test">xx</div>
+    <code>12</code>
+
+    <pre>
+eTool.onclick = function (e) {
+    var set = tool[e.target.getAttribute('type')];
+    if (set) {
+        iWindow.focus();
+        set();
+    }
+}
+</pre>
+
     <script src="../../js/common.js"></script>
     <script src="main.js"></script>
 </body>

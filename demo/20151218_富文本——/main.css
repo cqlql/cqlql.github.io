@@ -35,3 +35,10 @@
     color: rgb(104, 0, 185);
     padding-right:2px;
 }
+.tool .em-red{
+    font-weight: bold;
+    color:#f00;
+}
+.tool .code{
+    background-color:#ddd;
+}

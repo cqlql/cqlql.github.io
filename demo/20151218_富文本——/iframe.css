@@ -5,8 +5,14 @@
 }
 
 .rich-edit section {
-    border: 1px dashed #90f;
+    border: 1px dashed #ddd;
 }
+
+.rich-edit .code{
+    background-color: #eee;
+    padding: 6px;
+}
+
 /*#endregion */
 
 
