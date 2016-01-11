@@ -909,7 +909,7 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
     // 过滤 元素集合 根据className
     c.filtrateElementsByClassName = function (className, elems) {
 
-        var array = new Array();
+        var array = [];
 
         //过滤
         for (var i = 0, len = elems.length; i < len; i++) {
