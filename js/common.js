@@ -891,10 +891,20 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
     }
     //#endregion
 
-
     //#region 元素获取
-    // 获取后代元素
-    //兼容性：所有浏览器
+
+    /*
+    获取后代元素
+
+    @param string className
+    @param [element] elem 某祖先元素，可不带，默认document，即最顶级
+
+    @return array,HTMLCollection 元素集合。旧版浏览器将返回array
+
+    @兼容性 所有浏览器
+
+    */
+
     c.getElementsByClassName = function (className, elem) {
 
         elem = elem || document;
@@ -970,14 +980,8 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
     //#endregion
 
     //#region 追加元素
-    /*
-    返回添加的元素
 
-    单个情况 直接返回元素
-
-    多个情况 返回元素集合
-    
-    */
+    // @return array,element 返回添加的元素，单个情况 直接返回元素，多个情况 返回元素集合
     c.appendChildHtml = function (eBox, html) {
         var
             fragment,
@@ -1021,6 +1025,33 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
         }
     }
     //#endregion
+
+    //#endregion
+
+    //#region 类型获取
+
+    /*
+      @六种基本类型：number string boolean function object array
+
+      @这些类型也能获取：
+        HTMLCollection、HTMLDocument、HTMLTitleElement、HTMLHtmlElement
+        这些类型使用typeof 将返回 object
+     
+     */
+    c.getType = function (v) {
+
+        var typeStr = typeof v,
+            fullTypeStr;
+
+        if (typeStr === 'object') {
+            fullTypeStr = ({}).toString.call(v);
+            return /\[object ([^\]]+)\]/.exec(fullTypeStr)[1].toLowerCase();
+        }
+        else {
+            return typeStr;
+        }
+    }
+
     //#endregion
 
     //#region 仿jq
@@ -1063,14 +1094,14 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
         }
 
         function keyBuildPrivate(name) {
-
-            return name + '_' + elemEnhance.key
+            return name + '_' + elemEnhance.key;
         }
 
         elemEnhance.fn = elemEnhance.prototype = {
-            jsDo: '1',
+            jsDo: '1.0.0',
             length:0,
             key: (Math.random() + '').substr('2'),
+            
             each: function (fn) {
                 c.each(this, fn);
                 return this;
@@ -1105,9 +1136,10 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
         elemEnhance.extend = elemEnhance.fn.extend = c.extend;
 
         init.prototype = elemEnhance.fn;
-
-        // 元素获取
+        
         elemEnhance.fn.extend({
+
+            //#region 元素获取
             prev: function () {
                 return $(c.siblingElement(this[0], 'previousSibling'));
             },
@@ -1116,20 +1148,19 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
             next: function () {
                 return $(c.siblingElement(this[0]));
             }
-        });
+            //#endregion
+      
+            //#region 文档处理
+            , append: function (content) {
+                    if (typeof content === 'string') {
+                        c.appendChildHtml(this[0], content);
+                    }
+                    else {
+                        jsDo(content).appendTo(this[0]);
+                    }
 
-        // 文档处理
-        elemEnhance.fn.extend({
-            append: function (content) {
-                if (typeof content === 'string') {
-                    c.appendChildHtml(this[0], content);
-                }
-                else {
-                    jsDo(content).appendTo(this[0]);
-                }
-
-                return this;
-            },
+                    return this;
+                },
 
             // 参数只有集合中的第一个才有效
             appendTo: function (context) {
@@ -1154,11 +1185,11 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
 
                 return this;
             }
-        });
 
-        // 数据缓存
-        elemEnhance.fn.extend({
-            data: function (key, value) {
+            //#endregion
+
+            //#region 数据缓存
+            , data: function (key, value) {
                 var target = this;
                 if (arguments.length > 1) {
 
@@ -1170,11 +1201,10 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
                 return this[0][key + elemEnhance.key];
 
             }
-        });
-
-        // loading
-        elemEnhance.fn.extend({
-            addLoading: function () {
+            //#endregion
+        
+            //#region loading
+            ,addLoading: function () {
                 var name = keyBuildPrivate('stopId');
                 return this.each(function (i, elem) {
                     elem[name] = setTimeout(function () {
@@ -1190,11 +1220,10 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
                     c.removeClass(elem, 'loading');
                 });
             }
-        });
+            //#endregion
 
-        // 动画
-        elemEnhance.fn.extend({
-            animate: function (params, options) {
+            //#region 动画
+            ,animate: function (params, options) {
                 options = options || {};
 
                 var animateKey = 'animate_' + this.key,
@@ -1258,16 +1287,16 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
                 });
 
             }
-        });
+            //#endregion
 
-        // prop
-        elemEnhance.fn.extend({
-            prop: function (key,value) {
+            //#region prop
+            ,prop: function (key,value) {
                 return this.each(function (i, elem) {
                     elem[key] = value;
                 });
 
             }
+            //#endregion
         });
 
         return elemEnhance;
