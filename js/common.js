@@ -891,20 +891,19 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
     }
     //#endregion
 
+    //#region 元素操作
+
     //#region 元素获取
 
+    // 获取后代元素
     /*
-    获取后代元素
-
     @param string className
     @param [element] elem 某祖先元素，可不带，默认document，即最顶级
 
     @return array,HTMLCollection 元素集合。旧版浏览器将返回array
 
     @兼容性 所有浏览器
-
     */
-
     c.getElementsByClassName = function (className, elem) {
 
         elem = elem || document;
@@ -929,10 +928,9 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
         return array;
     };
 
-    //#region 紧邻同辈元素 获取
+    // 紧邻同辈元素 获取 
     /**
-    紧邻同辈元素 获取
-        获取某节点 紧邻的 上或下 单个 同辈元素节点
+    获取某节点 紧邻的 上或下 单个 同辈元素节点
 
     @param nodeObj [node]  节点对象，一般为元素节点
     @param * prevORnext [bool] 能代表真假的任意值，默认是假，即下一个，否则上一个
@@ -941,7 +939,6 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
 
     @compatibility 所有浏览器
     */
-
     c.siblingElement = function (nodeObj, prevORnext) {
 
         var prevORnextStr = prevORnext ? "previousSibling" : "nextSibling";
@@ -955,9 +952,6 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
     };
 
     //#endregion
-    //#endregion
-
-    //#region 文档处理
 
     // html -> elems
     c.htmlToElems = function (html) {
@@ -966,22 +960,38 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
         return eTemp.children;
     };
 
-    //#region 元素之后插入
+    // 元素之后插入
+    /*
+      @param element item 位置元素。将在此元素之后追加
+      @param element,string newItem 追加的元素
+     
+     */
     c.insertAfter = function (item, newItem) {
-        var next = c.siblingElement(item);
 
-        if (next) {
-            item.parentElement.insertBefore(newItem, next);
+        switch (this.getType(newItem)) {
+            case 'string':
+                elementInsertAfter(item,this.htmlToElems(newItem)[0]);
+                break;
+            default:
+                elementInsertAfter(item, newItem);
         }
-        else {
-            item.parentElement.appendChild(newItem);
+
+        function elementInsertAfter(item, newItem) {
+            var next = c.siblingElement(item);
+
+            if (next) {
+                item.parentElement.insertBefore(newItem, next);
+            }
+            else {
+                item.parentElement.appendChild(newItem);
+            }
         }
     };
-    //#endregion
 
-    //#region 追加元素
-
-    // @return array,element 返回添加的元素，单个情况 直接返回元素，多个情况 返回元素集合
+    // 追加元素
+    /*
+     @return array,element 返回添加的元素，单个情况 直接返回元素，多个情况 返回元素集合
+     */
     c.appendChildHtml = function (eBox, html) {
         var
             fragment,
@@ -1013,9 +1023,7 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
         return newChild;
     };
 
-    //#endregion
-
-    //#region 元素删除
+    // 元素删除
     c.removeElement = function (elem) {
         if ('remove' in elem) {
             elem.remove();
@@ -1024,7 +1032,6 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
             elem.parentNode.removeChild(elem);
         }
     }
-    //#endregion
 
     //#endregion
 
@@ -1033,7 +1040,7 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
     /*
       @六种基本类型：number string boolean function object array
 
-      @这些类型也能获取：
+      @这些类型也能获取[ie678不支持这些]：
         HTMLCollection、HTMLDocument、HTMLTitleElement、HTMLHtmlElement
         这些类型使用typeof 将返回 object
      
@@ -1056,8 +1063,7 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
 
     //#region 仿jq
     window.$ = window.jsDo = (function () {
-        var deletedIds = [],
-            splice = deletedIds.splice;
+        var deletedIds = [];
 
         function init(content) {
 
@@ -1130,7 +1136,7 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
             // Behaves like an Array's method, not like a jQuery method.
             push: deletedIds.push,
             sort: deletedIds.sort,
-            splice: splice
+            splice: deletedIds.splice
         };
 
         elemEnhance.extend = elemEnhance.fn.extend = c.extend;

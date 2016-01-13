@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang='zh-CN'>
 <head>
     <title></title>
@@ -10,9 +10,9 @@
         #test {
             width:100px;
             height:100px;
-            background:#333;
+            background:#d0d0d0;
             position:relative;
-            top:100px;
+            /*top:100px;*/
         }
          #test2 {
             width:100px;
@@ -24,113 +24,14 @@
     </style>
 </head>
 <body>
-    <style>
-        ul{list-style-type:none;padding:0;margin:0;}
-
-        .balloon-cont {
-            width:300px;
-            border:1px solid #000;
-            padding: 8px 10px;
-            font-size:12px;
-        }
-        .balloon-cont .tit {
-            padding-bottom:10px;
-        }
-        .balloon-cont .des {
-            padding-bottom:10px;
-        }
-        .balloon-cont li {
-            height: 28px;
-        }
-        .balloon-cont li .l{
-            float:left;
-                padding: 0 10px;
-                font-size:14px;
-        }
-        .balloon-cont li .m{
-            float:left;
-            width:200px;
-            height:12px;
-                margin-top: 4px;
-            background:#eee;
-        }
-        .balloon-cont li .m div {
-            background:#68de00;
-            height:12px;
-        }
-        .balloon-cont li .r{
-            float:left;
-            width:12px;
-        }
-    </style>
-
-
-    <div class="balloon-cont">
-        <div class="tit">选项分布</div>
-        <div class="des">第12题  正确答案C，总分13分</div>
-        <ul class="options">
-            <li>
-                <div class="l">A</div>
-                <div class="m"><div style="width:20%"></div></div>
-                <div class="r"></div>
-            </li>
-        </ul>
-    </div>
-
-    <div id="test" >
-        <div></div>
-        <div></div>
-    </div>
-    <div id="test2">
-        <div>1</div>
-        <div></div>
-    </div>
+    <div id="test"></div>
     <script src="../../js/common.js"></script>
-    <!--<script src="http://libs.baidu.com/jquery/1.10.2/jquery.min.js"></script>-->
 
-    <script src="../../js/common_mobile.js"></script>
     <script>
-    // 只能操作内联css
-        var eTest1 = document.getElementById('test'),
-            eTest =[ document.getElementById('test2')];
+        c.insertAfter(test, '<i>123</i>');
 
-        //setTimeout(function () {
-
-        //    $(eTest).animate({
-        //        left: 100
-        //    }, {
-        //        queue: true
-        //    });
-
-        //    $(eTest).animate({
-        //        top: 100,
-        //        left: 200
-        //    }, {
-        //        queue: true
-        //    });
-
-        //    $(eTest).animate({
-        //        top: 200,
-        //        left: 200
-        //    }, {
-        //        speed:1000,
-        //        queue: false
-        //    });
-        //},200);
-
-        //setTimeout(function () {
-        //    eTest1.style.top = 300 + 'px';
-
-        //    $(eTest).animate({
-        //        top: 200,
-        //        left: 200
-        //    }, {
-        //        queue: false
-        //    });
-        //},1200);
-  
+        
     </script>
-
 </body>
 
 </html>
