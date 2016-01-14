@@ -953,28 +953,68 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
 
     //#endregion
 
-    // html -> elems
-    c.htmlToElems = function (html) {
+    // html -> elem
+    /*
+     html转对象，返回一个新div，html是此div对象的内容
+     */
+    c.htmlToElem = function (html) {
         var eTemp = document.createElement('div');
         eTemp.innerHTML = html;
-        return eTemp.children;
+        return eTemp;
+    };
+    // html -> elems
+    c.htmlToElems = function (html) {
+        return this.htmlToElem(html).children;
     };
 
-    // 元素之后插入
+    // HTMLCollection,array,html -> fragment
     /*
-      @param element item 位置元素。将在此元素之后追加
-      @param element,string newItem 追加的元素
      
+     @regurn (array) 第一个是片段，第二个是多个节点的数组
      */
-    c.insertAfter = function (item, newItem) {
+    c.toFragment = function (newItems) {
+        var fragment = document.createDocumentFragment(),
+           nodes = [];
 
-        switch (this.getType(newItem)) {
+        switch (this.getType(newItems)) {
             case 'string':
-                elementInsertAfter(item,this.htmlToElems(newItem)[0]);
+                newItems = this.htmlToElem(newItems).childNodes;
                 break;
             default:
-                elementInsertAfter(item, newItem);
+                if (newItems.length === undefined) {
+                    newItems = [newItems];
+                }
         }
+
+        if (this.getType(newItems) === 'array') {
+            this.each(newItems, function (i, that) {
+                fragment.appendChild(that);
+            });
+            nodes = newItems;
+        }
+        else {
+            // HTMLCollection 集合情况。此集合特性将取一个就会少一个
+            for (var i = 0, that, len = newItems.length; i < len; i++) {
+                that = newItems[0];
+                fragment.appendChild(that);
+                nodes.push(that);
+            }
+        }
+
+        return [fragment, nodes];
+    }
+
+    // 紧邻元素之后插入
+    /*
+      @param (element) item 位置元素。将紧邻此元素之后追加
+      @param (HTMLCollection,array,html) newItems 追加的元素，可以是多个。html可以标签文本随意组合
+     
+      @return (array) 新加的节点集合
+     */
+    c.insertAfter = function (item, newItems) {
+        var params = c.toFragment(newItems);
+        elementInsertAfter(item, params[0]);
+        return params[1];
 
         function elementInsertAfter(item, newItem) {
             var next = c.siblingElement(item);

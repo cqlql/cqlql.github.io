@@ -7,7 +7,7 @@
 
     <style>
 
-        #test {
+        .test {
             width:100px;
             height:100px;
             background:#d0d0d0;
@@ -24,13 +24,14 @@
     </style>
 </head>
 <body>
-    <div id="test"></div>
+    <div id="test" class="test"><b></b>cont</div>
     <script src="../../js/common.js"></script>
 
     <script>
-        c.insertAfter(test, '<i>123</i>');
+        c.insertAfter(test, '<i>123</i><b>123</b>');
 
-        
+
+
     </script>
 </body>
 
