@@ -969,7 +969,7 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
 
     // HTMLCollection,array,html -> fragment
     /*
-     
+     @param (HTMLCollection,array,string) HTMLCollection集合，或者元素数组，可以是多个。html可以标签文本随意组合
      @regurn (array) 第一个是片段，第二个是多个节点的数组
      */
     c.toFragment = function (newItems) {
@@ -1012,7 +1012,7 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
       @return (array) 新加的节点集合
      */
     c.insertAfter = function (item, newItems) {
-        var params = c.toFragment(newItems);
+        var params = this.toFragment(newItems);
         elementInsertAfter(item, params[0]);
         return params[1];
 
@@ -1062,6 +1062,16 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
 
         return newChild;
     };
+
+    // 追加元素2，全功能
+    /*
+     内部之后追加，参数2支持节点集合、数组、html字符串，详见 this.toFragment
+     */
+    c.appendChild = function (eBox, newItems) {
+        var params = this.toFragment(newItems);
+        eBox.appendChild(params[0]);
+        return params[1];
+    }
 
     // 元素删除
     c.removeElement = function (elem) {
