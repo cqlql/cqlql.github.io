@@ -1,40 +1,68 @@
 ﻿<!DOCTYPE html>
-<html lang='zh-CN'>
+<html>
+
 <head>
     <title></title>
-    <meta charset='UTF-8'>
-    <meta content='width=device-width,initial-scale=1.0,user-scalable=no' name='viewport' />
+
+    <meta content="width=device-width,initial-scale=1.0,user-scalable=no" name="viewport" />
 
     <style>
-
-        .test {
-            width:100px;
-            height:100px;
-            background:#d0d0d0;
-            position:relative;
-            /*top:100px;*/
-        }
-         #test2 {
-            width:100px;
-            height:100px;
-            background:#0094ff;
-            position:relative;
+        body {
+            /*padding:40px;*/
         }
 
+        #div1 {
+            height: 300px;
+            width: 300px;
+            /*-webkit-transform:rotate(100deg);*/
+            /*transition:transform 6s cubic-bezier(0.25, 0.46, 0.45, 0.94);*/
+            /*transition:all 8s cubic-bezier(0.39, 0.575, 0.565, 1);*/
+            -moz-transition: all 8s cubic-bezier(0, 0, 0.2, 1);
+            -o-transition: all 8s cubic-bezier(0, 0, 0.2, 1);
+            -webkit-transition: all 8s cubic-bezier(0, 0, 0.2, 1);
+            transition: all 8s cubic-bezier(0, 0, 0.2, 1);
+            border-radius: 50%;
+            background: url(test.jpg) no-repeat;
+            background-size: 100% auto;
+        }
     </style>
 </head>
+
 <body>
-    <div id="test" class="test"><b></b>cont</div>
-    <script src="../../js/common.js"></script>
-
+    <div id="info">xxx</div>
+    <div id="div1"></div>
     <script>
-        console.log(
-            c.appendChild(test, '<i>123</i><b>123</b>xxxxxxxxx')
-            );
-        c.appendChild(test, '<i>123</i><b>123</b>xxxxxxxxx');
+        var
+            prizeId = 2,
+            prizes = {
+               0: {
+                    0: 0,
+                    1:60
+                }
+            },
+            turnNum=5,// 附加圈数
 
+            div1 = document.getElementsByTagName('div')[1];
 
+        for (var i = 0, count = 6; i < count; i++) {
+            prizes[i] = {
+                0: i * 360 / count,
+                1: 360 / count
+            };
+        }
 
+        div1.addEventListener("click", function () {
+            var deg = turnNum * 360 + prizes[prizeId][0];
+            this.style.setProperty('transform', 'rotate(' + deg + 'deg)');
+        });
+
+        function xx() {
+            console.log('中奖了');
+
+        }
+
+        div1.addEventListener("transitionend", xx);
+        div1.addEventListener("webkitTransitionEnd", xx);
     </script>
 </body>
 
