@@ -1117,7 +1117,7 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
 
     // 图片加载
     /*
-    针对当个图片
+     针对单个个图片
      可用于批量预先加载。提高体验
      */
     c.imgLoad = function (src, f, f2) {
@@ -1128,14 +1128,23 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
         if (f2) img.onerror = f2;
         img.src = src;
     };
-    // 针对多个图片
+
+    // 多图片加载
+    /*
+     支持有图片加载失败情况
+
+     @example
+        c.imgsLoad([
+            'css/imgs/dish.png'
+            , 'css/imgs/dish-bg.png'
+            , 'css/imgs/ico.png'
+            , 'css/imgs/start.png'
+        ],function(){
+            // todo
+        });
+     */
     c.imgsLoad = function (urls, callback) {
-        //var urls = [
-        //            'css/imgs/dish.png'
-        //            , 'css/imgs/dish-bg.png'
-        //            , 'css/imgs/ico.png'
-        //            , 'css/imgs/start.png'
-        //],
+        
         var count = urls.length;
 
         c.each(urls, function (i, src) {
