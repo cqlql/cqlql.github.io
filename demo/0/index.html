@@ -22,47 +22,19 @@
             -webkit-transition: all 8s cubic-bezier(0, 0, 0.2, 1);
             transition: all 8s cubic-bezier(0, 0, 0.2, 1);
             border-radius: 50%;
-            background: url(test.jpg) no-repeat;
+            /*background: url(test.jpg) no-repeat;*/
             background-size: 100% auto;
         }
     </style>
 </head>
 
 <body>
-    <div id="info">xxx</div>
+    <div id="info" name="test2">xxx</div>
     <div id="div1"></div>
+    <input type="text" name="test" value="" />
+    <input type="text" name="test" value="" />
     <script>
-        var
-            prizeId = 2,
-            prizes = {
-               0: {
-                    0: 0,
-                    1:60
-                }
-            },
-            turnNum=5,// 附加圈数
-
-            div1 = document.getElementsByTagName('div')[1];
-
-        for (var i = 0, count = 6; i < count; i++) {
-            prizes[i] = {
-                0: i * 360 / count,
-                1: 360 / count
-            };
-        }
-
-        div1.addEventListener("click", function () {
-            var deg = turnNum * 360 + prizes[prizeId][0];
-            this.style.setProperty('transform', 'rotate(' + deg + 'deg)');
-        });
-
-        function xx() {
-            console.log('中奖了');
-
-        }
-
-        div1.addEventListener("transitionend", xx);
-        div1.addEventListener("webkitTransitionEnd", xx);
+        console.log(document.getElementsByTagName('*').namedItem('test').tags);
     </script>
 </body>
 

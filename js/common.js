@@ -971,6 +971,7 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
     /*
      @param (HTMLCollection,array,string) HTMLCollection集合，或者元素数组，可以是多个。html可以标签文本随意组合
      @regurn (array) 第一个是片段，第二个是多个节点的数组
+     @兼容性 如需支持ie67，需修改其中判断手法，已标注
      */
     c.toFragment = function (newItems) {
         var fragment = document.createDocumentFragment(),
@@ -986,19 +987,20 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
                 }
         }
 
-        if (this.getType(newItems) === 'array') {
-            this.each(newItems, function (i, that) {
-                fragment.appendChild(that);
-            });
-            nodes = newItems;
-        }
-        else {
+        if (newItems instanceof HTMLCollection) {
+            // 此种判断手法不支持ie67
             // HTMLCollection 集合情况。此集合特性将取一个就会少一个
             for (var i = 0, that, len = newItems.length; i < len; i++) {
                 that = newItems[0];
                 fragment.appendChild(that);
                 nodes.push(that);
             }
+        }
+        else {
+            this.each(newItems, function (i, that) {
+                fragment.appendChild(that);
+            });
+            nodes = newItems;
         }
 
         return [fragment, nodes];
@@ -1108,6 +1110,48 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
             return typeStr;
         }
     }
+
+    //#endregion
+
+    //#region 图片处理
+
+    // 图片加载
+    /*
+    针对当个图片
+     可用于批量预先加载。提高体验
+     */
+    c.imgLoad = function (src, f, f2) {
+        var img = new Image();
+        img.onload = function () {
+            f(img);
+        };
+        if (f2) img.onerror = f2;
+        img.src = src;
+    };
+    // 针对多个图片
+    c.imgsLoad = function (urls, callback) {
+        //var urls = [
+        //            'css/imgs/dish.png'
+        //            , 'css/imgs/dish-bg.png'
+        //            , 'css/imgs/ico.png'
+        //            , 'css/imgs/start.png'
+        //],
+        var count = urls.length;
+
+        c.each(urls, function (i, src) {
+            c.imgLoad(src, endFn);
+        });
+
+        function endFn() {
+            count--;
+            if (count === 0) callback();
+        }
+    };
+
+    // 可清理的图片加载
+    /*
+     对于一些超时加载，依然会触发完成事件，而且可能后于当前有用加载触发，所以需清理
+     */
 
     //#endregion
 
@@ -1360,7 +1404,6 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
     })();
     //#endregion
     
-
     window.c = window.common = c;
 
 })();
