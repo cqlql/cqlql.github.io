@@ -1139,7 +1139,7 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
         var count = urls.length;
 
         c.each(urls, function (i, src) {
-            c.imgLoad(src, endFn);
+            c.imgLoad(src, endFn, endFn);
         });
 
         function endFn() {
