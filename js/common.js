@@ -464,7 +464,7 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
     c.easing = {
         def: 'easeOutQuad',
         swing: function (x, t, b, c, d) {
-            return common.easing[common.easing.def](x, t, b, c, d);
+            return this[this.def](x, t, b, c, d);
         },
         easeInQuad: function (x, t, b, c, d) {
             return c * (t /= d) * t + b;
