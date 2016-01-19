@@ -107,16 +107,13 @@
                     easeDeg = (360 + prizes[prizeId][0] - rDeg + 15);
 
                 easeDeg %= 360;
-                console.log(easeDeg);
-
+                
                 if (easeDeg < 226) {
                     easeDeg += 360;
                 }
 
 
                 goalDeg = easeDeg * 2;
-
-                console.log(goalDeg);
 
                 goalDegUpdate.noFirst = 1;
             }

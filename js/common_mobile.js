@@ -4,7 +4,7 @@
 c.extend({
 
     // 取安卓版本
-    getAndroidVersion:function () {
+    getAndroidVersion: function () {
         var v;
         return function () {
 
@@ -18,7 +18,7 @@ c.extend({
     }(),
 
     // click 重写。解决 1、4.4以下webview 原始click灰色；2、ios原始click问题
-    click : function (elem, fn) {
+    click: function (elem, fn) {
         var
             touchcancel,
             outmoded = (this.getAndroidVersion() && this.getAndroidVersion() < 4.4) || (this.deviceName === 'iPhone');
@@ -119,3 +119,32 @@ c.extend({
     isAndroid: navigator.appVersion.indexOf('Android') > -1
 });
 
+
+// js 调用执行 设备 接口 
+/*
+ @example
+   c.deviceCallback(['contact', 'jumppointsCallback'], 'jumppoints', data[curIndex].id);// 都带参
+   c.deviceCallback(['contact', 'thisLevelCallback'], 'goBack:0');// 不带参
+   c.deviceCallback(['answer', 'uploadPicture'], 'uploadPictureShort:' + iArr[0] + '_' + iArr[1]); // 只给ios带参
+ */
+c.deviceCallback = function () {
+
+    if (this.isAndroid) {
+        return function (aName, iName, str) {
+            if (str === undefined) {
+                window[aName[0]][aName[1]]();
+            }
+            else {
+                window[aName[0]][aName[1]](str);
+            }
+        };
+    }
+    else if (this.isIOS) {
+        return function (aName, iName, str) {
+            if (iName === undefined) return;
+
+            if (str === undefined) window.location.href = iName;
+            else window.location.href = iName + ':' + encodeURIComponent(str);
+        };
+    }
+}();
