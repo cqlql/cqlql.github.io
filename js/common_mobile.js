@@ -128,8 +128,7 @@ c.extend({
    c.deviceCallback(['answer', 'uploadPicture'], 'uploadPictureShort:' + iArr[0] + '_' + iArr[1]); // 只给ios带参
  */
 c.deviceCallback = function () {
-
-    if (this.isAndroid) {
+    if (c.isAndroid) {
         return function (aName, iName, str) {
             if (str === undefined) {
                 window[aName[0]][aName[1]]();
@@ -139,7 +138,7 @@ c.deviceCallback = function () {
             }
         };
     }
-    else if (this.isIOS) {
+    else if (c.isIOS) {
         return function (aName, iName, str) {
             if (iName === undefined) return;
 
