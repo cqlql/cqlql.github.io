@@ -1,6 +1,12 @@
 
 "use strict";
 
+// 系统判断
+c.extend({
+    isIOS: navigator.appVersion.indexOf('Mac OS') > -1,
+    isAndroid: navigator.appVersion.indexOf('Android') > -1
+});
+
 c.extend({
 
     // 取安卓版本
@@ -21,7 +27,7 @@ c.extend({
     click: function (elem, fn) {
         var
             touchcancel,
-            outmoded = (this.getAndroidVersion() && this.getAndroidVersion() < 4.4) || (this.deviceName === 'iPhone');
+            outmoded = (this.getAndroidVersion() && this.getAndroidVersion() < 4.4) || (this.isIOS);
 
         if (outmoded) {
             elem.addEventListener('touchend', touchend);
@@ -113,11 +119,7 @@ jsDo.fn.extend({
 });
 
 
-// 系统判断
-c.extend({
-    isIOS: navigator.appVersion.indexOf('Mac OS') > -1,
-    isAndroid: navigator.appVersion.indexOf('Android') > -1
-});
+
 
 
 // js 调用执行 设备 接口 
