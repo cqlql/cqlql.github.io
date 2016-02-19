@@ -1,0 +1,56 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <title></title>
+    <meta charset="UTF-8">
+    <style>
+        ul{list-style-type:none;}
+        p,input,td,textarea,ul,dl,dt,dd{padding:0;margin:0;}
+    </style>
+</head>
+
+<body>
+    <div style="height: 2000px;"></div>
+    <div id="info"></div>
+    <script>
+        
+        function windowScrollDirection(downFn, upFn) {
+            var firstScrollTop = 0,
+                isShow = 0;
+            window.addEventListener('scroll', function() {
+                var pageYOffset = window.pageYOffset;
+
+                if (pageYOffset < 200 || firstScrollTop < pageYOffset) {
+                    toShow = 0;
+
+                    if (isShow !== toShow) {
+                        downFn();
+                    }
+                } else {
+                    toShow = 1;
+
+                    if (isShow !== toShow) {
+                        upFn();
+                    }
+
+                }
+
+                isShow = toShow;
+
+                firstScrollTop = pageYOffset;
+            });
+        }
+        windowScrollDirection(function() {
+            console.log('隐藏情况');
+        }, function() {
+            console.log('显示情况');
+        });
+
+    </script>
+
+</body>
+
+
+
+</html>

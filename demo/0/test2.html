@@ -4,8 +4,9 @@
     <title>timer</title>
     <meta charset="utf-8">
     <meta name="description" content="Countdown timer">
-    <link rel="icon" type="image/x-icon" href="data:image/png;base64,AAABAAEAEBAQAAAABAAoAQAAFgAAACgAAAAQAAAAIAAAAAEABAAAAAAAgAAAAAAAAAAAAAAAEAAAABAAAAAAAAAAAACAAACAAAAAgIAAgAAAAIAAgACAgAAAwMDAAICAgAAAAP8AAP8AAAD//wD/AAAA/wD/AP//AAD///8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD//wAA/D8AAPjfAAD4/wAA+P8AAPj/AAD4/wAA+P8AAPj/AAD4/wAA8D8AAPj/AAD8/wAA/v8AAP7/AAD//wAA" title="Favorite Icon" />
-    <style>
+    <meta content="width=device-width,initial-scale=1.0,user-scalable=no" name="viewport" />
+    <!--<link rel="icon" type="image/x-icon" href="data:image/png;base64,AAABAAEAEBAQAAAABAAoAQAAFgAAACgAAAAQAAAAIAAAAAEABAAAAAAAgAAAAAAAAAAAAAAAEAAAABAAAAAAAAAAAACAAACAAAAAgIAAgAAAAIAAgACAgAAAwMDAAICAgAAAAP8AAP8AAAD//wD/AAAA/wD/AP//AAD///8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD//wAA/D8AAPjfAAD4/wAA+P8AAPj/AAD4/wAA+P8AAPj/AAD4/wAA8D8AAPj/AAD8/wAA/v8AAP7/AAD//wAA" title="Favorite Icon" />-->
+    <!--<style>
         html, body, div, span, h1, h2, h3, h4, h5, h6, p, a, em, img {
             margin: 0;
             padding: 0;
@@ -132,100 +133,102 @@
             -moz-border-radius: 40px;
             -webkit-border-radius: 40px;
         }
-    </style>
-    <script type="text/javascript" src="http://ajax.microsoft.com/ajax/jquery/jquery-1.4.2.min.js"></script>
+    </style>-->
+    <!--<script type="text/javascript" src="http://ajax.microsoft.com/ajax/jquery/jquery-1.4.2.min.js"></script>-->
     <script type="text/javascript">
-                var milisec = 0;
-                var seconds = 0;
-                var mins = 0;
-                var hours = 0;
-                var timer;
-                var timer_ticking = false;
+                //var milisec = 0;
+                //var seconds = 0;
+                //var mins = 0;
+                //var hours = 0;
+                //var timer;
+                //var timer_ticking = false;
 
-                var captions = {start: "Start Timer", stop: "Stop Timer" };
-                var classes  = {start: "start round", stop: "stop round" };
+                //var captions = {start: "Start Timer", stop: "Stop Timer" };
+                //var classes  = {start: "start round", stop: "stop round" };
 
-                function timer_callback(){
-                        if (milisec>=9){
-                                milisec=0;
-                                seconds+=1;
-                        }
-                        else {
-                                milisec+=1;
-                        }
-                        if (seconds>=60){
-                                seconds=0;
-                                mins+=1;
-                        }
-                        if (mins>=60){
-                                mins=0;
-                                hours+=1;
-                                if (hours == 1) $('#glass').addClass("font-medium").removeClass("font-big");
-                        }
-                        displaytime();
-                        timer = setTimeout("timer_callback()",100);
-                }
+                //function timer_callback(){
+                //        if (milisec>=9){
+                //                milisec=0;
+                //                seconds+=1;
+                //        }
+                //        else {
+                //                milisec+=1;
+                //        }
+                //        if (seconds>=60){
+                //                seconds=0;
+                //                mins+=1;
+                //        }
+                //        if (mins>=60){
+                //                mins=0;
+                //                hours+=1;
+                //                if (hours == 1) $('#glass').addClass("font-medium").removeClass("font-big");
+                //        }
+                //        displaytime();
+                //        timer = setTimeout("timer_callback()",100);
+                //}
 
-                function displaytime() {
-                        if (seconds < 10)
-                                sec_display = "0" + seconds;
-                        else
-                                sec_display = seconds;
-                        if (mins < 10)
-                                mins_display = "0" + mins;
-                        else
-                                mins_display = mins;
-                        if (hours < 10)
-                        {
-                                if (hours > 0)
-                                        hours_display = "0" + hours + ":";
-                                else
-                                        hours_display = "";
-                        }
-                        else
-                                hours_display = hours + ":";
-                        $('#glass strong').html(hours_display + mins_display + ":" + sec_display + "." + milisec);
-                }
+                //function displaytime() {
+                //        if (seconds < 10)
+                //                sec_display = "0" + seconds;
+                //        else
+                //                sec_display = seconds;
+                //        if (mins < 10)
+                //                mins_display = "0" + mins;
+                //        else
+                //                mins_display = mins;
+                //        if (hours < 10)
+                //        {
+                //                if (hours > 0)
+                //                        hours_display = "0" + hours + ":";
+                //                else
+                //                        hours_display = "";
+                //        }
+                //        else
+                //                hours_display = hours + ":";
+                //        $('#glass strong').html(hours_display + mins_display + ":" + sec_display + "." + milisec);
+                //}
 
-                function start() {
-                        timer_ticking = true;
-                        timer_callback();
-                        $('.start').html(captions.stop).attr("class",classes.stop);
-                }
+                //function start() {
+                //        timer_ticking = true;
+                //        timer_callback();
+                //        $('.start').html(captions.stop).attr("class",classes.stop);
+                //}
 
-                function stop() {
-                        timer_ticking = false;
-                        clearTimeout(timer);
-                        $('.stop').html(captions.start).attr("class",classes.start);
-                }
+                //function stop() {
+                //        timer_ticking = false;
+                //        clearTimeout(timer);
+                //        $('.stop').html(captions.start).attr("class",classes.start);
+                //}
 
-                function reset() {
-                        stop();
-                        milisec = seconds = mins = hours = 0;
-                        displaytime();
-                }
+                //function reset() {
+                //        stop();
+                //        milisec = seconds = mins = hours = 0;
+                //        displaytime();
+                //}
 
-                $(document).ready(function() {
-                        $('#glass').click(function(){
-                                if(timer_ticking == true)
-                                        stop();
-                                else
-                                        start();
-                        });
-                        $('.start').live('click',start);
-                        $('.stop').live('click',stop);
-                        $('.reset').click(reset);
-                });
+                //$(document).ready(function() {
+                //        $('#glass').click(function(){
+                //                if(timer_ticking == true)
+                //                        stop();
+                //                else
+                //                        start();
+                //        });
+                //        $('.start').live('click',start);
+                //        $('.stop').live('click',stop);
+                //        $('.reset').click(reset);
+                //});
     </script>
 </head>
 <body>
-    <div id="timer" class="round-big">
+    <button id="eBtn">test</button>
+    <script src="../../js/test2.js"></script>
+    <!--<div id="timer" class="round-big">
         <h1>timer</h1>
         <div id="glass" class="font-big round-medium">
             <strong>00:00.0</strong>
         </div>
         <button class="start round" type="button">Start Timer</button>
         <button class="reset round" type="button">Reset Timer</button>
-    </div>
+    </div>-->
 </body>
 </html>
