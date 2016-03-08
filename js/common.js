@@ -1,12 +1,12 @@
 "use strict";
 
-window.requestAnimationFrame  = (function () {
+window.requestAnimationFrame = (function () {
     return window.requestAnimationFrame ||
         window.webkitRequestAnimationFrame ||
         window.mozRequestAnimationFrame ||
         window.msRequestAnimationFrame ||
         function (callback, elem) {
-            return window.setTimeout(callback, 1000/60);
+            return window.setTimeout(callback, 1000 / 60);
         };
 })();
 window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAnimationFrame || window.clearTimeout;
@@ -20,7 +20,7 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
     //#region 浏览器判断
     c.isIE = document.documentMode;// ie7~11
     c.isEdge = navigator.appVersion.indexOf('Edge') > -1;
-    
+
     //#endregion
 
     //#region 为定义参数处理
@@ -29,11 +29,11 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
         return value === undefined ? def : value;
     };
     //#endregion
-            
+
     //#region className 操作
 
-    c.hasClass = function (elem,className) {
-        return (' ' + elem.className + ' ').indexOf(' ' +c.trim( className)+' ') > -1;
+    c.hasClass = function (elem, className) {
+        return (' ' + elem.className + ' ').indexOf(' ' + c.trim(className) + ' ') > -1;
     };
 
     c.addClass = function (elem, className) {
@@ -54,7 +54,7 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
             elem.className = (' ' + elem.className + ' ').replace(' ' + c.trim(className) + ' ', '');
         }
     };
-    
+
     //#endregion
 
     //#region css
@@ -106,7 +106,7 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
     */
     c.addPrefix = function (name, is) {
         var
-            original= name,
+            original = name,
             //cssPrefixes = ["webkit", "Moz", "ms"],
             cssPrefixes = ["ms", "Moz", "webkit"],
             //cssPrefixes = [c.getPrefix()],
@@ -149,7 +149,7 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
         return function (name) {
             var styleName = obj[name];
 
-            if (styleName===undefined) {
+            if (styleName === undefined) {
 
                 if (name === 'float') {
                     styleName = obj[name] = c.getCssNameFloat();
@@ -192,7 +192,7 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
     //#endregion
 
     //#region css 值设置
-    c.setCss = function (elem, name,value) {
+    c.setCss = function (elem, name, value) {
         var style = elem.style;
 
         if (typeof name === 'string') {
@@ -464,7 +464,7 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
     c.easing = {
         def: 'easeOutQuad',
         swing: function (x, t, b, c, d) {
-            return this[this.def](x, t, b, c, d);
+            return common.easing[common.easing.def](x, t, b, c, d);
         },
         easeInQuad: function (x, t, b, c, d) {
             return c * (t /= d) * t + b;
@@ -630,7 +630,7 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
             stopId = null;
 
         function excu(params, options) {
-            
+
             stopLast();
 
             callback = options.callback || function () { };
@@ -647,7 +647,7 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
                 time = 16,//帧间隔
                 d = speed / time;//总次数
 
-            c.each(params, function (key,value) {
+            c.each(params, function (key, value) {
                 if (curParams[key] === undefined) {
                     curParams[key] = 0;
                 }
@@ -725,7 +725,7 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
 
         this.add = function (cb) {
             //console.log('排队数' + arr.length);
-            
+
             arr.push(cb);
 
             if (is) return;
@@ -735,7 +735,7 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
             loop();
         };
 
-        this.clear= function () {
+        this.clear = function () {
             arr = [];
             is = false;
         };
@@ -809,9 +809,9 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
     //#endregion
 
     //#region 取滚动条隐藏距离
-    c.getWindowScrollTop  = 'pageYOffset' in window ?function () {
+    c.getWindowScrollTop = 'pageYOffset' in window ? function () {
         return pageYOffset;
-    }:function () {
+    } : function () {
         return document.documentElement.scrollTop;
     };
     //#endregion
@@ -849,7 +849,7 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
 
         return xhr;
     };
-    
+
     // 扩展
     c.extend = function (obj) {
         var target = this;
@@ -1117,7 +1117,7 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
 
     // 图片加载
     /*
-     针对单个个图片
+    针对单个图片
      可用于批量预先加载。提高体验
      */
     c.imgLoad = function (src, f, f2) {
@@ -1129,22 +1129,17 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
         img.src = src;
     };
 
-    // 多图片加载
+    // 针对多个图片
     /*
-     支持有图片加载失败情况
-
-     @example
-        c.imgsLoad([
-            'css/imgs/dish.png'
-            , 'css/imgs/dish-bg.png'
-            , 'css/imgs/ico.png'
-            , 'css/imgs/start.png'
-        ],function(){
-            // todo
-        });
+     var urls = [
+                    'css/imgs/dish.png'
+                    , 'css/imgs/dish-bg.png'
+                    , 'css/imgs/ico.png'
+                    , 'css/imgs/start.png'
+        ],
      */
     c.imgsLoad = function (urls, callback) {
-        
+
         var count = urls.length;
 
         c.each(urls, function (i, src) {
@@ -1157,11 +1152,72 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
         }
     };
 
-    // 可清理的图片加载
+    // 图片唯一加载 
     /*
+     再次调用，将清理上一次用此方法加载的图片调用
      对于一些超时加载，依然会触发完成事件，而且可能后于当前有用加载触发，所以需清理
      */
+    c.ImgUniqueLoad = function () {
+        /*
+        属性事件，未发生前可更改设置清除。
+        兼容性：包括ie6的所有    
+        */
 
+        var lastImg;
+
+        function stop() {
+            if (lastImg) lastImg.onload = null;
+            lastImg = undefined;
+        }
+
+        //每次执行都将清除上一次加载
+        this.excu = function (src, ready, err) {
+
+            var img = new Image();
+
+            stop();
+
+            img.onload = function () {
+                ready({
+                    width: img.width,
+                    height: img.height,
+                    img: img
+                });
+
+                lastImg = undefined;// 图片加载好后清除占用。因为此变量只存储未加载好的图片
+            };
+            if (err) img.onerror = err;
+
+            img.src = src;
+
+            lastImg = img;
+        };
+
+        this.stop = stop;
+    };
+
+    //#endregion
+
+    //#region 索引 字母 互转
+
+    // index [number] 索引从0 开始
+
+    //大写
+    c.getLetter = function (index) {
+        index *= 1;
+        return String.fromCharCode(65 + index);
+    };
+
+    // 小写
+    c.getLowerLetter = function (index) {
+        index *= 1;
+        return String.fromCharCode(97 + index);
+    };
+
+    // 大写字母转索引
+    c.letterToIndex = function (letter) {
+        return letter.charCodeAt() - 65;
+    };
     //#endregion
 
     //#region 仿jq
@@ -1208,14 +1264,14 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
 
         elemEnhance.fn = elemEnhance.prototype = {
             jsDo: '1.0.0',
-            length:0,
+            length: 0,
             key: (Math.random() + '').substr('2'),
-            
+
             each: function (fn) {
                 c.each(this, fn);
                 return this;
             },
-            css: function (name,value) {
+            css: function (name, value) {
 
                 if (arguments.length === 1) {
                     if (typeof name === 'string') {
@@ -1245,7 +1301,7 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
         elemEnhance.extend = elemEnhance.fn.extend = c.extend;
 
         init.prototype = elemEnhance.fn;
-        
+
         elemEnhance.fn.extend({
 
             //#region 元素获取
@@ -1258,18 +1314,18 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
                 return $(c.siblingElement(this[0]));
             }
             //#endregion
-      
+
             //#region 文档处理
             , append: function (content) {
-                    if (typeof content === 'string') {
-                        c.appendChildHtml(this[0], content);
-                    }
-                    else {
-                        jsDo(content).appendTo(this[0]);
-                    }
+                if (typeof content === 'string') {
+                    c.appendChildHtml(this[0], content);
+                }
+                else {
+                    jsDo(content).appendTo(this[0]);
+                }
 
-                    return this;
-                },
+                return this;
+            },
 
             // 参数只有集合中的第一个才有效
             appendTo: function (context) {
@@ -1311,9 +1367,9 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
 
             }
             //#endregion
-        
+
             //#region loading
-            ,addLoading: function () {
+            , addLoading: function () {
                 var name = keyBuildPrivate('stopId');
                 return this.each(function (i, elem) {
                     elem[name] = setTimeout(function () {
@@ -1332,7 +1388,7 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
             //#endregion
 
             //#region 动画
-            ,animate: function (params, options) {
+            , animate: function (params, options) {
                 options = options || {};
 
                 var animateKey = 'animate_' + this.key,
@@ -1341,16 +1397,16 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
                 this.each(function () {
                     var
                         speed = options.speed,
-                        callback = options.callback || function () {},
+                        callback = options.callback || function () { },
                         isQueue = options.queue,
 
                         elem = arguments[1],
                         easingBuild = elem[animateKey],
                         queue = elem[animateQueueKey],
                         currParams;
-                    
+
                     // 初始化
-                    if (easingBuild===undefined) {
+                    if (easingBuild === undefined) {
                         easingBuild = elem[animateKey] = new c.EasingBuild();
                     }
 
@@ -1399,7 +1455,7 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
             //#endregion
 
             //#region prop
-            ,prop: function (key,value) {
+            , prop: function (key, value) {
                 return this.each(function (i, elem) {
                     elem[key] = value;
                 });
@@ -1412,7 +1468,7 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
 
     })();
     //#endregion
-    
+
     window.c = window.common = c;
 
 })();
