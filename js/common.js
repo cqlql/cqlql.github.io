@@ -763,7 +763,7 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
     c.each = function (obj, fn) {
         var
             key,
-            len = obj.length;
+            len = obj && obj.length;
 
         if (len === undefined) {
             for (key in obj) {
