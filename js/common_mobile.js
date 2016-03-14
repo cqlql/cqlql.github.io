@@ -152,6 +152,127 @@ c.ScrollTo = function (params) {
 
 };
 
+//#region 左右滑动
+c.sideslip = function (params) {
+
+    var
+        eBox = params.eBox,
+        changeRight = c.paramUn(params.changeRight, function () { }),
+        changeLeft = c.paramUn(params.changeLeft, function () { }),
+        inplace = c.paramUn(params.inplace, function () { }),
+        moveX = c.paramUn(params.moveX, function () { }),
+        resetStart = c.paramUn(params.resetStart, function () { }),
+
+        //eMove = params.eMove,
+        //change = params.change,
+        boxW = params.boxW,
+        //count = params.count,
+
+        startX, startY,
+
+        // 0 没反映，1 x 方向，2 y 方向
+        status = 0,
+
+        // 拖动情况 松开时 进行滑动的最大偏移值
+        offset = boxW / 3,
+
+        currentX = 0,
+
+        curIndex = 0,
+
+        cssTransition = c.getCssAttrName('transition'),
+        cssTransform = c.getCssAttrName('transform'),
+
+        xVel = new c.velocity();
+
+    eBox.addEventListener('touchstart', function (e) {
+
+        if (status === 1) {
+            resetStart();
+        }
+
+        var touche = e.touches[0];
+
+        startX = touche.pageX;
+        startY = touche.pageY;
+
+        xVel.start();
+
+        status = 0;
+    });
+
+    eBox.addEventListener('touchmove', function (e) {
+        var touche = e.touches[0],
+            y = touche.pageY - startY;
+
+        currentX = touche.pageX - startX;
+
+        if (status === 0) {
+
+            if (Math.abs(currentX) > Math.abs(y)) {
+                status = 1;
+            }
+            else {
+                status = 2;
+            }
+        }
+
+        if (status === 1) {
+
+            xVel.change(currentX);
+
+            moveX((currentX - (curIndex * boxW)));
+
+            e.preventDefault();
+
+        }
+
+    });
+
+    eBox.addEventListener('touchend', function (e) {
+
+        if (status === 1) {
+            var val = xVel.end();
+
+            //滑动情况
+            if (Math.abs(val) > 40) {
+
+                if (val < 0) {
+                    // 左滑
+                    changeLeft();
+
+                } else {
+                    // 右滑
+                    changeRight();
+                }
+            }
+                //移动情况
+            else {
+
+                // 超过一般情况 滑动
+                if (Math.abs(currentX) > offset) {
+
+                    if (currentX > 0) {
+                        /// 向右
+                        changeRight();
+                    }
+                    else {
+                        /// 左
+                        changeLeft();
+                    }
+                }
+                else {
+                    // 复位
+                    inplace();
+                }
+            }
+        }
+
+    });
+
+};
+//#endregion
+
 
 
 // 扩展 仿JQ
