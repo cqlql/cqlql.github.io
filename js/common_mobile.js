@@ -132,7 +132,8 @@ c.ScrollTo = function (params) {
         go = new c.EasingBuild();
 
 
-    this.goY = function (toY) {
+    this.goY = function (toY, speed) {
+        speed = speed || 600;
 
         go.setCurParams({
             y: eBox.scrollTop
@@ -145,7 +146,7 @@ c.ScrollTo = function (params) {
 
                 eBox.scrollTop = to.y;
             },
-            speed: 600,
+            speed: speed,
             time: 40
         });
     };
@@ -162,6 +163,7 @@ c.sideslip = function (params) {
         inplace = c.paramUn(params.inplace, function () { }),
         moveX = c.paramUn(params.moveX, function () { }),
         resetStart = c.paramUn(params.resetStart, function () { }),
+        getRunState = c.paramUn(params.getRunState, function () { return true; }),
 
         //eMove = params.eMove,
         //change = params.change,
@@ -180,12 +182,14 @@ c.sideslip = function (params) {
 
         curIndex = 0,
 
-        cssTransition = c.getCssAttrName('transition'),
-        cssTransform = c.getCssAttrName('transform'),
+        cssTransition = c.addPrefix('transition'),
+        cssTransform = c.addPrefix('transform'),
 
-        xVel = new c.velocity();
+        xVel = new c.Velocity();
 
     eBox.addEventListener('touchstart', function (e) {
+
+        if (getRunState()) return;
 
         if (status === 1) {
             resetStart();
@@ -202,6 +206,7 @@ c.sideslip = function (params) {
     });
 
     eBox.addEventListener('touchmove', function (e) {
+        if (getRunState()) return;
         var touche = e.touches[0],
             y = touche.pageY - startY;
 
@@ -230,7 +235,7 @@ c.sideslip = function (params) {
     });
 
     eBox.addEventListener('touchend', function (e) {
-
+        if (getRunState()) return;
         if (status === 1) {
             var val = xVel.end();
 
@@ -272,8 +277,6 @@ c.sideslip = function (params) {
 
 };
 //#endregion
-
-
 
 // 扩展 仿JQ
 jsDo.fn.extend({
