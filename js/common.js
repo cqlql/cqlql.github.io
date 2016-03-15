@@ -593,6 +593,86 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
     };
     //#endregion
 
+    //#region 延时 有效执行
+    /*
+    指定时间内再次调用。将重新计时
+    实现 快速更新 情况 实现在 在最后结束后再更新
+
+     # 初始
+    @@ common.delayExcu
+    @example
+        var delayExcu = new c.DelayExcu();
+    # method
+    @@ delayExcu.excu 不会发生重复调用。重复调用会删除之前的，最新的生效
+    @param fn [function] 延迟执行的函数
+    @param * time [number] 延迟的毫秒数。默认200
+    @example
+        delayExcu.excu(function () {alert('');});
+
+    @@ delayExcu.clear 终止
+    @return [bool] true表示fn没有执行，清除成功。false，表示fn已经执行，没进行清除
+    @example
+        delayExcu.clear();
+
+    delayExcu.excu(function () {jBox.addClass('imgFullShowMove');});
+    if(delayExcu.clear()===false) jBox.removeClass('imgFullShowMove');
+    */
+    c.DelayExcu = function () {
+        var timeId = null;
+
+        function clear() {
+            if (timeId !== null) {
+
+                clearTimeout(timeId);
+
+                timeId = null;
+
+                return true;
+            }
+            return false;
+        }
+
+        this.excu = function (callBack, time) {
+            clear();
+
+            if (time === 0) {
+                callBack();
+            }
+            else {
+                timeId = setTimeout(function () {
+                    timeId = null;
+                    callBack();
+                }, time || 200);
+            }
+        };
+
+        this.clear = clear;
+
+    };
+    //#endregion
+
+    //#region 频率执行
+    // 实现按指定间隔执行
+    c.ExcuFrequency = function () {
+        var status = 0;
+        this.excu = function (fn, time) {
+            if (status) return;
+            status = 1;
+            setTimeout(function () {
+                fn();
+                status = 0;
+            }, time === undefined ? 600 : time);
+        }
+    };
+    //#endregion   
+
+    // 尝试执行，不断尝试，直到fn返回 true(可以是任何可转为true的类型)
+    c.tryExcu = function (fn) {
+        if (fn()) return;
+
+        setTimeout(c.tryExcu, 10);
+    };
+
     //#region 动画效果 可 自由配置
 
     /*
@@ -1217,6 +1297,13 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
     // 大写字母转索引
     c.letterToIndex = function (letter) {
         return letter.charCodeAt() - 65;
+    };
+    //#endregion
+
+    //#region loading
+    c.Loading = function (show, close) {
+        this.show = show;
+        this.close = close;
     };
     //#endregion
 

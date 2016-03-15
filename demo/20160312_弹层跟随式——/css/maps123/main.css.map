@@ -1,0 +1,1 @@
+{"version":3,"sources":["main.scss"],"names":[],"mappings":"AAEA,CAAC,CAAA;EACG,eAAe,EAAC,IAAK;EACrB,KAAK,EAAC,IAAK,GACd","file":"main.css","sourcesContent":["\r\n\r\na{\r\n    text-decoration:none;\r\n    color:#333; \r\n}"],"sourceRoot":"/source/"}

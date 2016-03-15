@@ -26,22 +26,6 @@
             width:100%;
             /*-webkit-transform:translateX(100px);*/
         }
-        .exam-box .left {
-            position: absolute;
-            top: 0;
-            bottom: 0;
-            width:100%;
-            left:-100%;
-            background:#0094ff;
-        }
-        .exam-box .right {
-            position: absolute;
-            top: 0;
-            bottom: 0;
-            width:100%;
-            right:-100%;
-            background:#808080;
-        }
 
         .exam-box .cont {
             background:#d4b610;
@@ -61,7 +45,8 @@
             bottom: 0;
             width:100%;
             left:0;
-            background:url(../../images/loading/loading2.gif) no-repeat center center;
+            background:#fff url(../../images/loading/loading2.gif) no-repeat center center;
+    pointer-events: none;
         }
         .exam-box .r_load {
         position: absolute;
@@ -72,15 +57,48 @@
             background:url(../../images/loading/loading2.gif) no-repeat center center;
 
         }
+
+        .exam-box .l_page {
+            position: absolute;
+            top: 0;
+            width:100%;
+            height:0;
+            text-align:center;
+            left:-100%;
+            font-size: 18px;
+            color: #6d6;
+        }
+        .exam-box .m_page {
+            position: absolute;
+            top: 0;
+            width:100%;
+            height:0;
+            text-align:center;
+            pointer-events: none;
+            font-size: 18px;
+            color: #6d6;
+        }
+        .exam-box .r_page {
+            position: absolute;
+            top: 0;
+            width:100%;
+            height:0;
+            text-align:center;
+            right:-100%;
+            font-size: 18px;
+            color: #6d6;
+        }
+
     </style>
     <div class="exam-box">
         <div class="move">
-            <div class="left"></div>
             <div class="cont">13123213123</div>
-            <div class="right"></div>
             <div class="l_load"></div>
             <div class="m_load"></div>
             <div class="r_load"></div>
+            <div class="l_page"></div>
+            <div class="m_page"></div>
+            <div class="r_page"></div>
         </div>
     </div>
 
