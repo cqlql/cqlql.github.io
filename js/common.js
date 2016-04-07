@@ -673,6 +673,31 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
         setTimeout(c.tryExcu, 10);
     };
 
+    //#region 倒计时
+    c.timing = function (time, loop, last) {
+        loop(time);
+
+        function excu() {
+            setTimeout(function () {
+                time--;
+
+                if (time === 0) {
+                    last();
+                    return;
+                }
+
+                loop(time);
+
+                excu();
+
+            }, 1000);
+
+        }
+
+        excu();
+    };
+    //#endregion
+
     //#region 动画效果 可 自由配置
 
     /*
@@ -871,6 +896,7 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
        cb(eventElem);
        function cb(that) {
            if (that === eBox) {
+               // 祖先情况跳出
                return;
            }
            if (that.classList.contains('m-tit')) {

@@ -67,6 +67,7 @@ c.drag = function (eDrag, onMove, onDown, onUp) {
     eDrag.addEventListener('touchstart', function (e) {
         var touche = e.touches[0];
 
+        startX = touche.pageX;
         startY = touche.pageY;
 
         onDown(e);
@@ -75,19 +76,20 @@ c.drag = function (eDrag, onMove, onDown, onUp) {
     eDrag.addEventListener('touchmove', function (e) {
 
         var touche = e.touches[0],
-            moveY;
+            pageX = touche.pageX, pageY = touche.pageY,
+            moveX, moveY;
 
-        moveY = touche.pageY - startY;
+        moveX = pageX - startX;
+        moveY = pageY - startY;
 
-        onMove({ top: moveY, event: e });
-
-
+        onMove({ left: moveX, top: moveY, pageX: pageX, pageY: pageY, event: e });
     });
 
     eDrag.addEventListener('touchend', function (e) {
 
         if (e.touches.length > 0) {
 
+            startX = e.touches[0].pageX;
             startY = e.touches[0].pageY;
 
         }
@@ -181,9 +183,6 @@ c.sideslip = function (params) {
         currentX = 0,
 
         curIndex = 0,
-
-        cssTransition = c.addPrefix('transition'),
-        cssTransform = c.addPrefix('transform'),
 
         xVel = new c.Velocity();
 

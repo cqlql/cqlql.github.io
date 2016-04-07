@@ -39,3 +39,24 @@
     }
 }
 /*#endregion */
+
+
+/*#region 箭头 */
+.arrow {
+    content: '';
+    position: absolute;
+    top: -30px;
+    left: 50%;
+    border: 15px dashed rgba(0, 0, 0, 0);
+    width: 0;
+    height: 0;
+    
+/*bottom 表示向上*/
+    border-bottom:15px #93D8F5 solid;
+
+/*可通过调节全局 15 和下面的15 来改变高宽*/
+
+}
+
+
+/*#endregion */
