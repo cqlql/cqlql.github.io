@@ -14,7 +14,7 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
 (function () {
 
     var c = {};
-
+    
     /// 基础
 
     //#region 浏览器判断
@@ -303,6 +303,26 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
         return { x: x, y: y };
     };
 
+    //#endregion
+
+    //#region 数字补位
+    /*
+        实现位数不够进行前面补0
+
+        params number[number,string] 要补位的数字
+        params targetLen 目标总长度
+
+        return [string] 即使是不需要更改的数字，最终都会返回string类型
+     */
+    c.placeHolder = function (number, targetLen) {
+        number = number.toString();
+
+        var length = number.length;
+
+        if (length < targetLen) number = (new Array(targetLen - length + 1)).join('0') + number;
+        
+        return number;
+    };
     //#endregion
 
     //#region 速率计算
@@ -1071,6 +1091,13 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
     // html -> elems
     c.htmlToElems = function (html) {
         return this.htmlToElem(html).children;
+    };
+
+    // html -> 节点对象
+    c.htmlToNode = function (html) {
+        var elem = document.createElement('div');
+        elem.innerHTML = html;
+        return elem.childNodes;
     };
 
     // HTMLCollection,array,html -> fragment
