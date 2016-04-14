@@ -437,21 +437,22 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
         function start(to, cur) {
 
             function baseExcu() {
+                if (sw) {
+                    var len = rate * (o.to - o.cur);
 
-                var len = rate * (o.to - o.cur);
+                    o.cur += len;
 
-                o.cur += len;
+                    //最后一次
+                    if (Math.abs(o.to - o.cur) < 1) {
+                        o.cur = o.to;
 
-                //最后一次
-                if (Math.abs(o.to - o.cur) < 1) {
-                    o.cur = o.to;
+                        lastExcu();
+                    }
 
-                    lastExcu();
+                    change(o.cur);
+
+                    window.requestAnimationFrame(baseExcu);
                 }
-
-                change(o.cur);
-
-                if (sw) window.requestAnimationFrame(baseExcu);
             }
 
             o.to = to;
@@ -459,7 +460,6 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
             o.cur = cur ? cur : o.cur;
 
             if (sw) return;
-
             sw = true;
 
             window.requestAnimationFrame(baseExcu);

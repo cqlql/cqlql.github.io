@@ -7,28 +7,18 @@ var eIframe = document.getElementById('editIframe'),
     iWindow = eIframe.contentWindow,
     iDocument = iWindow.document;
 
-iDocument.body.innerHTML = '<section class="note"><h1>title1</h1><div class="content"><p>\
-审查制度是任人打扮的小姑娘，从来就不是双重标准，而是没有标准。你不配合的往死里卡，你识相懂规矩，大佬又投了钱自然是按自己人的标准来。\
-</p><p><br/></p></div>\</section>';
-
-iDocument.body.innerHTML +='<p>审查制度是任人打扮的小姑娘，从来就不是双重标准，而是没有标准。你不配合的往死里卡，你识相懂规矩，大佬又投了钱自然是按自己人的标准来。</p><p><br></p><p>function fn() {</p><p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; if (elem.tagName === \'SECTION\') {</p><p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; c.removeElement(elem);</p><p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; }</p><p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; else {</p><p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; elem = elem.parentElement;</p><p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; fn();</p><p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; }</p><p>&nbsp; &nbsp; &nbsp; &nbsp; }</p><p><br></p>';
-
 iDocument.designMode = "on";
 
 eTool.onclick = function (e) {
 
     var set = tool[e.target.getAttribute('type')];
     if (set) {
-        iWindow.focus();
+        //iWindow.focus();
 
         set();
     }
 
 };
-
-addCssLink('../../css/base.css');
-addCssLink('note.css');
-addCssLink('iframe.css');
 
 iDocument.body.className = 'rich-edit';
 
@@ -74,34 +64,6 @@ var tool = {
     }
 
 
-    // 插入标题模块文本
-    // 这种方式不能撤销重做
-    //, insertHxModule: function (text) {
-    //    var selection = iWindow.getSelection(),
-    //       range = selection.getRangeAt(0);
-
-    //    var tagString = text;
-
-    //    var newNode = c.htmlToElems(tagString)[0];
-
-    //    range.deleteContents();
-
-    //    range.insertNode(newNode);
-
-    //    // 确保增加到div.content之下
-    //    fn();
-
-    //    range.selectNode(newNode.children[0].childNodes[0]);
-    //    selection.removeAllRanges();
-    //    selection.addRange(range);
-    //    function fn() {
-    //        var parent = newNode.parentElement;
-    //        if (c.hasClass(parent, 'content') === false) {
-    //            c.insertAfter(parent, newNode);
-    //            fn();
-    //        }
-    //    }
-    //}
     , insertHxModule: function (text) {
         iDocument.execCommand('insertHTML', false, text);
     }
@@ -127,7 +89,8 @@ var tool = {
         var
             selection=iDocument.getSelection(),
             elem = selection.anchorNode.parentElement;
-    
+        iDocument.execCommand('insertHTML', false, 11);
+
         fn();
 
         function fn() {
