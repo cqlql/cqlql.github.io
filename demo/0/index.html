@@ -13,47 +13,8 @@
 
 <body>
 
-    <svg xmlns="http://www.w3.org/2000/svg" height="400" width="400">
+    <embed width="100%" height="100%" name="plugin" id="plugin" src="file:///F:/%E8%BF%85%E9%9B%B7%E4%B8%8B%E8%BD%BD/jQuery%E5%9F%BA%E7%A1%80%E6%95%99%E7%A8%8B(%E7%AC%AC2%E7%89%88)[www.TopSage.com]/[%E5%A4%A7%E5%AE%B6%E7%BD%91]jQuery%E5%9F%BA%E7%A1%80%E6%95%99%E7%A8%8B(%E7%AC%AC2%E7%89%88)[www.TopSage.com].pdf" type="application/pdf" internalinstanceid="3">
 
-        <path fill="none" stroke="#69d2ca" stroke-width="6" d="M80 80
-           A 50 50, 0, 1, 1, 79.9 80
-           " fill="green" />
-    </svg>
-    <script>
-        var c={};c.easing={def:"easeOutQuad",swing:function(f,g,a,h,i){return c.easing[c.easing.def](f,g,a,h,i)},easeInQuad:function(e,f,a,h,g){return h*(f/=g)*f+a},easeOutQuad:function(e,f,a,h,g){return -h*(f/=g)*(f-2)+a},easeInOutQuad:function(e,f,a,h,g){if((f/=g/2)<1){return h/2*f*f+a}return -h/2*((--f)*(f-2)-1)+a},easeInCubic:function(e,f,a,h,g){return h*(f/=g)*f*f+a},easeOutCubic:function(e,f,a,h,g){return h*((f=f/g-1)*f*f+1)+a},easeInOutCubic:function(e,f,a,h,g){if((f/=g/2)<1){return h/2*f*f*f+a}return h/2*((f-=2)*f*f+2)+a},easeInQuart:function(e,f,a,h,g){return h*(f/=g)*f*f*f+a},easeOutQuart:function(e,f,a,h,g){return -h*((f=f/g-1)*f*f*f-1)+a},easeInOutQuart:function(e,f,a,h,g){if((f/=g/2)<1){return h/2*f*f*f*f+a}return -h/2*((f-=2)*f*f*f-2)+a},easeInQuint:function(e,f,a,h,g){return h*(f/=g)*f*f*f*f+a},easeOutQuint:function(e,f,a,h,g){return h*((f=f/g-1)*f*f*f*f+1)+a},easeInOutQuint:function(e,f,a,h,g){if((f/=g/2)<1){return h/2*f*f*f*f*f+a}return h/2*((f-=2)*f*f*f*f+2)+a},easeInSine:function(e,f,a,h,g){return -h*Math.cos(f/g*(Math.PI/2))+h+a},easeOutSine:function(e,f,a,h,g){return h*Math.sin(f/g*(Math.PI/2))+a},easeInOutSine:function(e,f,a,h,g){return -h/2*(Math.cos(Math.PI*f/g)-1)+a},easeInExpo:function(e,f,a,h,g){return(f==0)?a:h*Math.pow(2,10*(f/g-1))+a},easeOutExpo:function(e,f,a,h,g){return(f==g)?a+h:h*(-Math.pow(2,-10*f/g)+1)+a},easeInOutExpo:function(e,f,a,h,g){if(f==0){return a}if(f==g){return a+h}if((f/=g/2)<1){return h/2*Math.pow(2,10*(f-1))+a}return h/2*(-Math.pow(2,-10*--f)+2)+a},easeInCirc:function(e,f,a,h,g){return -h*(Math.sqrt(1-(f/=g)*f)-1)+a},easeOutCirc:function(e,f,a,h,g){return h*Math.sqrt(1-(f=f/g-1)*f)+a},easeInOutCirc:function(e,f,a,h,g){if((f/=g/2)<1){return -h/2*(Math.sqrt(1-f*f)-1)+a}return h/2*(Math.sqrt(1-(f-=2)*f)+1)+a},easeInElastic:function(f,h,e,l,k){var i=1.70158;var j=0;var g=l;if(h==0){return e}if((h/=k)==1){return e+l}if(!j){j=k*0.3}if(g<Math.abs(l)){g=l;var i=j/4}else{var i=j/(2*Math.PI)*Math.asin(l/g)}return -(g*Math.pow(2,10*(h-=1))*Math.sin((h*k-i)*(2*Math.PI)/j))+e},easeOutElastic:function(f,h,e,l,k){var i=1.70158;var j=0;var g=l;if(h==0){return e}if((h/=k)==1){return e+l}if(!j){j=k*0.3}if(g<Math.abs(l)){g=l;var i=j/4}else{var i=j/(2*Math.PI)*Math.asin(l/g)}return g*Math.pow(2,-10*h)*Math.sin((h*k-i)*(2*Math.PI)/j)+l+e},easeInOutElastic:function(f,h,e,l,k){var i=1.70158;var j=0;var g=l;if(h==0){return e}if((h/=k/2)==2){return e+l}if(!j){j=k*(0.3*1.5)}if(g<Math.abs(l)){g=l;var i=j/4}else{var i=j/(2*Math.PI)*Math.asin(l/g)}if(h<1){return -0.5*(g*Math.pow(2,10*(h-=1))*Math.sin((h*k-i)*(2*Math.PI)/j))+e}return g*Math.pow(2,-10*(h-=1))*Math.sin((h*k-i)*(2*Math.PI)/j)*0.5+l+e},easeInBack:function(e,f,a,i,h,g){if(g==undefined){g=1.70158}return i*(f/=h)*f*((g+1)*f-g)+a},easeOutBack:function(e,f,a,i,h,g){if(g==undefined){g=1.70158}return i*((f=f/h-1)*f*((g+1)*f+g)+1)+a},easeInOutBack:function(e,f,a,i,h,g){if(g==undefined){g=1.70158}if((f/=h/2)<1){return i/2*(f*f*(((g*=(1.525))+1)*f-g))+a}return i/2*((f-=2)*f*(((g*=(1.525))+1)*f+g)+2)+a},easeInBounce:function(e,f,a,h,g){return h-jQuery.easing.easeOutBounce(e,g-f,0,h,g)+a},easeOutBounce:function(e,f,a,h,g){if((f/=g)<(1/2.75)){return h*(7.5625*f*f)+a}else{if(f<(2/2.75)){return h*(7.5625*(f-=(1.5/2.75))*f+0.75)+a}else{if(f<(2.5/2.75)){return h*(7.5625*(f-=(2.25/2.75))*f+0.9375)+a}else{return h*(7.5625*(f-=(2.625/2.75))*f+0.984375)+a}}}},easeInOutBounce:function(e,f,a,h,g){if(f<g/2){return jQuery.easing.easeInBounce(e,f*2,0,h,g)*0.5+a}return jQuery.easing.easeOutBounce(e,f*2-g,0,h,g)*0.5+h*0.5+a}};c.each=function(e,d){var b,a=e&&e.length;if(a===undefined){for(b in e){if(d(b,e[b])===false){break}}}else{for(b=0;b<a;b++){if(d(b,e[b],a)===false){break}}}};c.EasingBuild=function(h){var f=this,i={},g,e=null;function b(p,r){d();g=r.callback||function(){};var o=r.go,l=r.speed===undefined?400:r.speed,j=r.easing===undefined?"swing":r.easing,k={},s=0,m=16,q=l/m;c.each(p,function(t,u){if(i[t]===undefined){i[t]=0}k[t]=i[t]});n();function n(){var u={},t;if(s<q){s++;c.each(p,function(v,w){t=k[v];u[v]=c.easing[j](null,s,t,w-t,q);i[v]=u[v]});o(u);e=requestAnimationFrame(n,m)}else{o(p);c.each(p,function(v,w){i[v]=p[v]});e=null;g()}}}function a(k){for(var j in k){i[j]=k[j]}}function d(){if(e!==null){cancelAnimationFrame(e);e=null}}this.excu=b;this.setCurParams=a;this.stop=function(){d();g()};this.getCurParams=function(){return i}};
-
-        var easing = new c.EasingBuild();
-
-var r = 50,
-    startX = 100,
-    startY = 80,
-    sPath = document.getElementsByTagName('path')[0];
-
-easing.excu({
-    a: 360
-}, {
-    go: function (to) {
-
-        to(to.a);
-    },
-    speed: 600
-});
-
-to(360);
-        
-
-function to(angle) {
-    var x = ~~((Math.sin(radian(angle)) * 50 + startX) * 100) / 100;
-    var y = 50 - Math.cos(radian(angle)) * 50 + startY;
-
-    sPath.setAttribute('d', 'M' + startX + ' ' + startY + ' A 50 50, 0, ' + (angle > 180 ? 1 : 0) + ', 1, ' + x + ' ' + y);
-}
-
-function radian(angle) {
-    return angle * Math.PI / 180;
-}
-
-    </script>
 </body>
 
 </html>

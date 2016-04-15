@@ -31,7 +31,8 @@
 
     };
 
-
+    var range;
+    var selection;
     var tool = {
         // 设置粗体
         bold: function () {
@@ -121,11 +122,63 @@
 
         // 测试
         , test: function () {
+            iWindow.document.body.innerHTML = data[1][0];
+            iWindow.getSelection().removeAllRanges();
+            iWindow.getSelection().addRange(data[1][1]);
+            console.log(data[1][1]);
+            return;
+            selection = iWindow.getSelection();
+            var r =document.createRange();;
 
+            var tNode = document.createTextNode('xxxxxxxxxx');
+
+            r.insertNode(tNode);
+
+            range = r.cloneRange();
+
+            selection.addRange(r);
+
+
+            //console.log(range);
+
+            //console.log(range.toString());
+
+        }
+        // 测试
+        , test2: function () {
+            //console.log(range);
+            //iWindow.getSelection().removeAllRanges();
+            //iWindow.getSelection().addRange(range);
+
+
+            console.log(data);
         }
     };
 
+
+
+
+    var data = [], excuFrequency = new ExcuFrequency();
+    iWindow.onkeydown = function () {
+        excuFrequency.excu(function () {
+            console.log(iWindow.getSelection().getRangeAt(0));
+            data.push([iWindow.document.body.innerHTML, iWindow.getSelection()]);
+        });
+    };
+
     editInit();
+
+    function ExcuFrequency() {
+        var status = 0;
+        this.excu = function (fn, time) {
+            if (status) return;
+            status = 1;
+            setTimeout(function () {
+                fn();
+                status = 0;
+            }, time === undefined ? 600 : time);
+        }
+    }
 
     function excuSelect() {
         var
