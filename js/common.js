@@ -1364,7 +1364,8 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
     c.JSON = {
         // 对象转换为 json数据。解决低端浏览器不支持JSON.stringify
         stringify: function (obj) {
-            var data = '';
+            var data = '',
+                getType = c.getType;
 
             if (getType(obj) === 'object') {
                 fn(obj);
@@ -1430,28 +1431,15 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
                 }
 
             }
-
-            function getType(v) {
-
-                var typeStr = typeof v,
-                    fullTypeStr;
-
-                if (typeStr === 'object') {
-                    fullTypeStr = ({}).toString.call(v);
-                    return /\[object ([^\]]+)\]/.exec(fullTypeStr)[1].toLowerCase();
-                }
-                else {
-                    return typeStr;
-                }
-            }
-
+            
         }
         , parse: function () {
 
         }
         // 对象转表单数据
         , formData: function (obj) {
-            var data = '';
+            var data = '',
+                getType = c.getType;
 
             fn(obj);
 
@@ -1473,22 +1461,7 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
                     }
                 }
             }
-
-            function getType(v) {
-
-                var typeStr = typeof v,
-                    fullTypeStr;
-
-                if (typeStr === 'object') {
-                    fullTypeStr = ({}).toString.call(v);
-                    return /\[object ([^\]]+)\]/.exec(fullTypeStr)[1].toLowerCase();
-                }
-                else {
-                    return typeStr;
-                }
-            }
         }
-
     };
     //#endregion
 
