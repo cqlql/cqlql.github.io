@@ -23,7 +23,6 @@
 
     };
 
-
     iDocument.body.className = 'rich-edit';
 
     iDocument.body.change = function (e) {

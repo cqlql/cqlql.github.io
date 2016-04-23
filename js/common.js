@@ -1400,7 +1400,7 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
                         data += '],';
                     }
                     else {
-                        data += '"' + key + '":"' + val + '",';
+                        data += '"' + key.replace(/"/g, '\\"') + '":"' + val.replace(/"/g, '\\"') + '",';
                     }
                 }
             }
@@ -1426,12 +1426,12 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
                         data += '],';
                     }
                     else {
-                        data += '"' + val + '",';
+                        data += '"' + val.replace(/"/g, '\\"') + '",';
                     }
                 }
 
             }
-            
+
         }
         , parse: function () {
 
@@ -1452,12 +1452,11 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
                     var val = obj[key];
                     var type = getType(val);
                     var newName = name ? name + '[' + key + ']' : key;
-                    console.log(type);
                     if (type === 'array' || type === 'object') {
                         fn(val, newName);
                     }
                     else {
-                        data += '&' + newName + '=' + val;
+                        data += '&' + newName + '=' + encodeURIComponent(val);
                     }
                 }
             }

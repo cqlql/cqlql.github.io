@@ -7,7 +7,12 @@ var eIframe = document.getElementById('editIframe'),
     iWindow = eIframe.contentWindow,
     iDocument = iWindow.document;
 
+addCssLink('css/iframe.css');
+addCssLink('css/main.css');
+addCssLink('css/note.css');
+
 iDocument.designMode = "on";
+iDocument.body.innerHTML = '&#8203;';
 
 eTool.onclick = function (e) {
 
