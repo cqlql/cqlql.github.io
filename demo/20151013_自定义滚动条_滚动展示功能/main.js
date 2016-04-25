@@ -320,9 +320,9 @@ function demo1() {
         });
     };
 
-    document.getElementById('btn2').onclick = function () {
-        scrollBar.moveToBottom();
-    };
+    //document.getElementById('btn2').onclick = function () {
+    //    scrollBar.moveToBottom();
+    //};
 }
 
 function demo2() {
