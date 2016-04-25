@@ -24,34 +24,48 @@
 
         var easing = new c.EasingBuild();
 
-var r = 50,
-    startX = 100,
-    startY = 80,
-    sPath = document.getElementsByTagName('path')[0];
+        var r =30,
+            startX = 100,
+            startY = 80,
+            sPath = document.getElementsByTagName('path')[0];
 
-easing.excu({
-    a: 360
-}, {
-    go: function (to) {
+        //easing.excu({
+        //    a: 360
+        //}, {
+        //    go: function (v) {
+        //        to(v.a);
+        //    },
+        //    speed: 600
+        //});
 
-        to(to.a);
-    },
-    speed: 600
-});
+        var v = 1;
+        var stopId = setInterval(function () {
+            v++;
+            to(v);
+            if (v >= 360) stop();
+        }, 17);
 
-to(360);
-        
+        window.onclick = function () {
 
-function to(angle) {
-    var x = ~~((Math.sin(radian(angle)) * 50 + startX) * 100) / 100;
-    var y = 50 - Math.cos(radian(angle)) * 50 + startY;
+            stop();
+        };
 
-    sPath.setAttribute('d', 'M' + startX + ' ' + startY + ' A 50 50, 0, ' + (angle > 180 ? 1 : 0) + ', 1, ' + x + ' ' + y);
-}
+       function stop() {
+           clearInterval(stopId);
+       }
 
-function radian(angle) {
-    return angle * Math.PI / 180;
-}
+        function to(angle) {
+            var x = Math.sin(radian(angle)) * r + startX;
+            var y = r - Math.cos(radian(angle)) * r + startY;
+
+            if (angle === 360) x -= 0.0001;
+
+            sPath.setAttribute('d', 'M' + startX + ' ' + startY + ' A ' + r + ' ' + r + ', 0, ' + (angle > 180 ? 1 : 0) + ', 1, ' + x + ' ' + y);
+        }
+
+        function radian(angle) {
+            return angle * Math.PI / 180;
+        }
 
     </script>
 </body>

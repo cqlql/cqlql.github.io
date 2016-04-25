@@ -740,6 +740,7 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
                 //div1.style.top = to.y + 'px';
                 div1.style.width = to.w + 'px';
             },
+            easing:'easeOutQuad',
             speed: 600
         });
     
