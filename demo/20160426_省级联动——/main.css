@@ -1,0 +1,116 @@
+.box {
+    
+
+    padding:40px 0 0 40px;
+
+}
+
+
+
+/*#region 省级联通下拉 */
+
+.area-select {
+
+    position:relative;
+}
+.area-select input {
+    border: 1px solid #e9e9e9;
+    padding: 0 5px;
+    font-size: 14px;
+    height: 28px;
+}
+
+.area-select .a-overlay{
+    position:absolute;
+    top:30px;
+
+}
+.area-select .a-tab {
+    border: 1px solid #ccc;
+    /*border-left:0;*/
+        height: 35px;
+        background: #f0f0f0;
+        line-height: 1.6;
+}
+.area-select .a-tab a{
+
+
+    float:left;
+        padding: 8px 20px;
+    width: 33px;
+        text-align: center;
+    border-right: 1px solid #ccc;
+    border-bottom: 1px solid rgba(0, 0, 0, 0);
+        
+
+}
+.area-select .a-tab a.active {
+    background: #fff;
+    border-bottom: 1px solid #fff;
+    color: #659E00;
+}
+.area-select .a-content {
+        border: 1px #ccc solid;
+    border-top: 0;
+    padding: 10px 15px;
+    width: 310px;
+    background: #fff;
+    font-size: 12px;
+    line-height:2;
+}
+.area-select .a-content a {
+    display: inline-block;
+    color: #4D4D4D;
+    padding: 0 10px;
+    /*white-space: nowrap;*/
+    margin-right: 2px;
+}
+.area-select .a-content a:hover {
+    background-color: #F5FFE2;
+    border-radius: 2px;
+    color: #659E00;
+}
+
+.area-select .a-content a.active {
+    background-color: #659E00;
+    color: #fff;
+    border-radius: 2px;
+}
+
+.area-select .a-content dt {
+    display: inline-block;
+    width: 25px;
+    float: left;
+    padding-right: 10px;
+    font-weight: 700;
+    text-align: right;
+}
+.area-select .a-content dd {
+    overflow:hidden;
+    
+}
+.area-select .query-list {
+    position:absolute;
+    top:30px;
+
+    
+    line-height: 2;
+    border: 1px #ccc solid;
+    max-height: 200px;
+    min-width: 120px;
+    overflow: auto;
+    background:#fff;
+}
+.area-select .query-list b,
+.area-select .query-list a{
+    display:block;
+    padding: 0 20px 0 8px;
+    white-space: nowrap;
+}
+
+.area-select .query-list a:hover {
+    background-color: #F5FFE2;
+    border-radius: 2px;
+    color: #659E00;
+}
+/*#endregion */

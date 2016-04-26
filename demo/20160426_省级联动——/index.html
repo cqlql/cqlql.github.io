@@ -1,0 +1,40 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <title></title>
+    <meta charset="UTF-8">
+    <link href="../../css/base.css" rel="stylesheet" />
+    <link href="main.css" rel="stylesheet" />
+</head>
+<body>
+
+    <header></header>
+
+    <div class="box">
+        <div class="area-select">
+            <input type="text" value="" />
+            <div class="a-overlay" style="display:none;">
+                <div class="a-tab">
+                    <a href="javascript:;" class="active">省份</a>
+                    <a href="javascript:;">城市</a>
+                </div>
+                <div class="a-content">
+                    <dl class="province"></dl>
+                    <dl class="city" style="display:none;"></dl>
+                </div>
+            </div>
+            <div class="query-list" style="display:none;">
+                <a href="">广东省/深圳市</a>
+                <a href="">广东省/广州市</a>
+                <a href="">北京/北京</a>
+            </div>
+        </div>
+    </div>
+    
+    <script src="jquery-1.11.0.js"></script>
+    <script src="common.js"></script>
+    <script src="areaModelTree.js"></script>
+    <script src="main.js"></script>
+</body>
+
+</html>
