@@ -7,11 +7,12 @@
 
 
 
-/*#region 省级联通下拉 */
+/*#region .area-select - 省级联动下拉 */
 
 .area-select {
 
     position:relative;
+    font:12px arial,SimSun;
 }
 .area-select input {
     border: 1px solid #e9e9e9;
@@ -22,8 +23,8 @@
 
 .area-select .a-overlay{
     position:absolute;
-    top:30px;
-
+    top:29px;
+    z-index:1;
 }
 .area-select .a-tab {
     border: 1px solid #ccc;
@@ -42,6 +43,7 @@
     border-right: 1px solid #ccc;
     border-bottom: 1px solid rgba(0, 0, 0, 0);
         
+    color:#333;
 
 }
 .area-select .a-tab a.active {
@@ -64,6 +66,7 @@
     padding: 0 10px;
     /*white-space: nowrap;*/
     margin-right: 2px;
+
 }
 .area-select .a-content a:hover {
     background-color: #F5FFE2;
@@ -91,8 +94,8 @@
 }
 .area-select .query-list {
     position:absolute;
-    top:30px;
-
+    top:29px;
+    z-index:1;
     
     line-height: 2;
     border: 1px #ccc solid;
@@ -106,8 +109,10 @@
     display:block;
     padding: 0 20px 0 8px;
     white-space: nowrap;
+    color:#333;
 }
 
+.area-select .query-list a.hover,
 .area-select .query-list a:hover {
     background-color: #F5FFE2;
     border-radius: 2px;
