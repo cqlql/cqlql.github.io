@@ -64,10 +64,8 @@ c.AreaSelect = function (params) {
     };
 
     function select(eItem) {
-        if (eItem.tagName === 'A') {
             selectedText = eItem.innerHTML;
             selectedValue = eItem.getAttribute('attr-id');
-        }
         jIn.val(selectedText);
     }
 
@@ -95,7 +93,21 @@ c.AreaSelect = function (params) {
                         return false;
                         break;
                     case 13:
-                        listBox.enterKey(select);
+                        // listBox.enterKey(select);
+                        listBox.enterKey(function (eItem) {
+                             if (eItem.tagName === 'A') {
+                                 var id = eItem.getAttribute('attr-id');
+
+                                 if(noQueryCity[id]){
+                                     selectedValue = eItem.getAttribute('attr-id');
+                                     selectedText = eItem.innerHTML+ ' / ' +  eItem.innerHTML;
+                                     jIn.val(selectedText);
+                                 }
+                                 else{
+                                     select(eItem);
+                                 }
+                             }
+                        });
                         jQueryList.hide();
                         break;
                     case 39: case 37:
@@ -298,10 +310,9 @@ c.AreaSelect = function (params) {
 
                 jCurr = jProvinceItems.eq(contentHtmlBuild.getProvinceItemIndex(id)).addClass('active');
 
-                if (noQueryCity[id] === undefined) {
-                    jCurrCity.removeClass('active');
-                    jCurrCity = $();
-                }
+                contentHtmlBuild.city(id);
+
+                tab.select(1);
 
             }
             else if (id.length === 4) {

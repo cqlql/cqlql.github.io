@@ -33,7 +33,8 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
     //#region className 操作
 
     c.hasClass = function (elem, className) {
-        return (' ' + elem.className + ' ').indexOf(' ' + c.trim(className) + ' ') > -1;
+        if (elem) return (' ' + elem.className + ' ').indexOf(' ' + c.trim(className) + ' ') > -1;
+        return false;
     };
 
     c.addClass = function (elem, className) {
@@ -1156,10 +1157,10 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
             var next = c.siblingElement(item);
 
             if (next) {
-                item.parentElement.insertBefore(newItem, next);
+                item.parentNode.insertBefore(newItem, next);
             }
             else {
-                item.parentElement.appendChild(newItem);
+                item.parentNode.appendChild(newItem);
             }
         }
     };
