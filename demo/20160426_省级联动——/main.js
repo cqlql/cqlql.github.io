@@ -38,8 +38,13 @@ c.AreaSelect = function (params) {
     queryList();
 
     outsideClose(jIn, jPopup, function () {
+        if (jIn.val().length===0) {
+            selectedValue = '';
+            selectedText = '';
+        }
         jPopup.hide();
         jIn.val(selectedText);
+
     });
 
     this.getValue = function () {
@@ -122,16 +127,19 @@ c.AreaSelect = function (params) {
             },
             click: function () {
                 contentSelect.select(selectedValue);
-
                 jQueryList.hide();
                 jSelectBox.show();
-
             }
         });
 
         function filter() {
             excuFrequency.excu(function () {
-                var v = jIn.val().split('/'),
+                var v =$.trim( jIn.val());
+
+                if (!v) return;
+
+                v = v.split('/');
+                var 
                     v1 = $.trim(v[0]),
                     v2 = $.trim(v[1]),
                          html = '',
@@ -328,6 +336,14 @@ c.AreaSelect = function (params) {
                 jCurrCity = jCityBox.children().eq(contentHtmlBuild.getCityItemIndex(id)).addClass('active');
 
                 tab.select(1);
+            }
+            else if (jCurr) {
+                // 清空
+                jCurr.removeClass('active');
+                jCurrCity.removeClass('active');
+                jCurrCity=jCurr = $();
+                jCityBox.html('');
+                tab.select(0);
             }
         };
     }
