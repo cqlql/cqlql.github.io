@@ -1,0 +1,10 @@
+
+body{
+	padding: 20px;
+}
+canvas{
+    width: 600px;
+    height: 300px;
+    border: 1px solid #333;
+    
+}
