@@ -1,0 +1,49 @@
+
+
+.circle-progress{
+	position: relative;
+	
+	text-align: center;
+}
+.circle-progress .graph{
+  width: 175px;
+  height: 175px;
+  margin: 0 auto;
+
+}
+.circle-progress svg{
+  width: 100%;
+  height: 100%;
+
+}
+
+
+.circle-progress .txt{
+	position: absolute;
+	top:0;
+	left:0;
+	width: 100%;
+	height: 100%;
+}
+
+.circle-progress .txt .t1{
+    padding: 58px 0 2px;
+    font-size: 22px;
+}
+.circle-progress .txt .t1 b{
+	font-size: 30px;
+	color: #ffa836;
+	font-weight: normal;
+}
+.circle-progress .txt .t1 span{
+	font-size: 30px;
+	padding: 0 4px;
+}
+.circle-progress .txt .t2{
+    font-size: 18px;
+}
+.circle-progress .txt .center{
+	 width: 175px;
+  height: 175px;
+  margin: 0 auto;
+}
