@@ -31,7 +31,9 @@
                 <li>
                     <a href="/about">关于</a>
                 </li>
-                {% elseif page.isabout %}
+
+                {% else %}
+                {% if page.isabout %}
                 <li>
                     <a href="/">首页</a>
                 </li>
@@ -45,6 +47,7 @@
                 <li>
                     <a href="/about">关于</a>
                 </li>
+                {% endif %}
                 {% endif %}
             </ul>
         </menu>
