@@ -3,7 +3,6 @@
   <component name="ChangeListManager">
     <list default="true" id="41faba64-2323-4ec0-a3fd-5adaf7f21e6d" name="Default" comment="">
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/demo/20160720_滑动手势判断/index.html" afterPath="$PROJECT_DIR$/demo/20160720_滑动手势判断/index.html" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/demo/20160720_滑动手势判断/view.html" afterPath="$PROJECT_DIR$/demo/20160720_滑动手势判断/view.html" />
     </list>
     <ignored path="cqlql.github.io.iws" />
     <ignored path=".idea/workspace.xml" />
@@ -36,11 +35,11 @@
               </provider>
             </entry>
           </file>
-          <file leaf-file-name="index.html" pinned="false" current-in-tab="false">
+          <file leaf-file-name="index.html" pinned="false" current-in-tab="true">
             <entry file="file://$PROJECT_DIR$/index.html">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="0">
-                  <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
+                <state relative-caret-position="30">
+                  <caret line="2" column="7" selection-start-line="2" selection-start-column="7" selection-end-line="2" selection-end-column="22" />
                   <folding />
                 </state>
               </provider>
@@ -76,6 +75,16 @@
               </provider>
             </entry>
           </file>
+          <file leaf-file-name="none.html" pinned="false" current-in-tab="false">
+            <entry file="file://$PROJECT_DIR$/_layouts/none.html">
+              <provider selected="true" editor-type-id="text-editor">
+                <state relative-caret-position="0">
+                  <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
+                  <folding />
+                </state>
+              </provider>
+            </entry>
+          </file>
           <file leaf-file-name="2015-12-17-滚动侧边带缓动更随.html" pinned="false" current-in-tab="false">
             <entry file="file://$PROJECT_DIR$/_posts/2015-12-17-滚动侧边带缓动更随.html">
               <provider selected="true" editor-type-id="text-editor">
@@ -106,50 +115,12 @@
               </provider>
             </entry>
           </file>
-          <file leaf-file-name="index.html" pinned="false" current-in-tab="true">
+          <file leaf-file-name="index.html" pinned="false" current-in-tab="false">
             <entry file="file://$PROJECT_DIR$/demo/20160720_滑动手势判断/index.html">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="390">
-                  <caret line="26" column="5" selection-start-line="26" selection-start-column="5" selection-end-line="26" selection-end-column="5" />
+                <state relative-caret-position="30">
+                  <caret line="2" column="13" selection-start-line="2" selection-start-column="13" selection-end-line="2" selection-end-column="13" />
                   <folding />
-                </state>
-              </provider>
-            </entry>
-          </file>
-          <file leaf-file-name="main.js" pinned="false" current-in-tab="false">
-            <entry file="file://$PROJECT_DIR$/demo/20160719_滑动探索——/main.js">
-              <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="255">
-                  <caret line="42" column="9" selection-start-line="42" selection-start-column="9" selection-end-line="42" selection-end-column="9" />
-                  <folding>
-                    <element signature="e#0#40#0" expanded="false" />
-                    <element signature="e#62#282#0" expanded="false" />
-                    <element signature="e#111#147#0" expanded="false" />
-                    <element signature="e#177#214#0" expanded="false" />
-                    <element signature="e#239#247#0" expanded="false" />
-                    <element signature="e#272#280#0" expanded="false" />
-                    <element signature="e#690#715#0" expanded="false" />
-                    <element signature="e#1093#1243#0" expanded="false" />
-                    <element signature="e#1487#1530#0" expanded="false" />
-                    <element signature="e#1548#1591#0" expanded="false" />
-                    <element signature="e#1810#2652#0" expanded="false" />
-                    <element signature="e#1839#2646#0" expanded="false" />
-                    <element signature="e#1931#2141#0" expanded="false" />
-                    <element signature="e#1963#2042#0" expanded="false" />
-                    <element signature="e#2048#2127#0" expanded="false" />
-                    <element signature="e#2178#2636#0" expanded="false" />
-                    <element signature="e#2259#2526#0" expanded="false" />
-                    <element signature="e#2300#2392#0" expanded="false" />
-                    <element signature="e#2418#2508#0" expanded="false" />
-                    <element signature="e#2548#2622#0" expanded="false" />
-                    <element signature="n#!!block;n#Velocity#0" expanded="false" />
-                    <element signature="n#!!block;n#getSustainTimes#0;n#!!block;n#Velocity#0" expanded="false" />
-                    <element signature="e#2884#2968#0" expanded="false" />
-                    <element signature="e#2997#3462#0" expanded="false" />
-                    <element signature="e#3231#3395#0" expanded="false" />
-                    <element signature="e#3423#3456#0" expanded="false" />
-                    <element signature="e#3498#3625#0" expanded="false" />
-                  </folding>
                 </state>
               </provider>
             </entry>
@@ -404,6 +375,20 @@
               <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
             </PATH_ELEMENT>
           </PATH>
+          <PATH>
+            <PATH_ELEMENT>
+              <option name="myItemId" value="cqlql.github.io" />
+              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.ProjectViewProjectNode" />
+            </PATH_ELEMENT>
+            <PATH_ELEMENT>
+              <option name="myItemId" value="cqlql.github.io" />
+              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
+            </PATH_ELEMENT>
+            <PATH_ELEMENT>
+              <option name="myItemId" value="_includes" />
+              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
+            </PATH_ELEMENT>
+          </PATH>
         </subPane>
       </pane>
       <pane id="Scope" />
@@ -514,12 +499,12 @@
       <workItem from="1467767747912" duration="9093000" />
       <workItem from="1468911637282" duration="3844000" />
       <workItem from="1468978028704" duration="23417000" />
-      <workItem from="1469015257867" duration="3283000" />
+      <workItem from="1469015257867" duration="3407000" />
     </task>
     <servers />
   </component>
   <component name="TimeTrackingManager">
-    <option name="totallyTimeSpent" value="52086000" />
+    <option name="totallyTimeSpent" value="52210000" />
   </component>
   <component name="ToolWindowManager">
     <frame x="-8" y="22" width="1936" height="1066" extended-state="6" />
@@ -586,14 +571,6 @@
     <watches-manager />
   </component>
   <component name="editorHistoryManager">
-    <entry file="file://$PROJECT_DIR$/demo/20160413_SVG_圆形进度-饼图——/path实现.html">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="1140">
-          <caret line="76" column="7" selection-start-line="76" selection-start-column="7" selection-end-line="78" selection-end-column="9" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/demo/20160413_SVG_圆形进度-饼图——/main.css">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="0">
@@ -3495,22 +3472,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/_layouts/index.html">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="300">
-          <caret line="19" column="44" selection-start-line="19" selection-start-column="44" selection-end-line="19" selection-end-column="44" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/tags/index.html">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="0">
-          <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/test.html">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="0">
@@ -3527,7 +3488,15 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/index.html">
+    <entry file="file://$PROJECT_DIR$/demo/20160720_滑动手势判断/index.html">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="30">
+          <caret line="2" column="13" selection-start-line="2" selection-start-column="13" selection-end-line="2" selection-end-column="13" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/tags/index.html">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="0">
           <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
@@ -3535,10 +3504,26 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/demo/20160720_滑动手势判断/index.html">
+    <entry file="file://$PROJECT_DIR$/_layouts/none.html">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="390">
-          <caret line="26" column="5" selection-start-line="26" selection-start-column="5" selection-end-line="26" selection-end-column="5" />
+        <state relative-caret-position="0">
+          <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/_layouts/index.html">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="300">
+          <caret line="19" column="44" selection-start-line="19" selection-start-column="44" selection-end-line="19" selection-end-column="44" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/index.html">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="30">
+          <caret line="2" column="7" selection-start-line="2" selection-start-column="7" selection-end-line="2" selection-end-column="22" />
           <folding />
         </state>
       </provider>
