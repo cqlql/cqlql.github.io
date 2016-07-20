@@ -2,7 +2,8 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="41faba64-2323-4ec0-a3fd-5adaf7f21e6d" name="Default" comment="">
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/_layouts/index.html" afterPath="$PROJECT_DIR$/_layouts/index.html" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/demo/20160720_滑动手势判断/index.html" afterPath="$PROJECT_DIR$/demo/20160720_滑动手势判断/index.html" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/demo/20160720_滑动手势判断/view.html" afterPath="$PROJECT_DIR$/demo/20160720_滑动手势判断/view.html" />
     </list>
     <ignored path="cqlql.github.io.iws" />
     <ignored path=".idea/workspace.xml" />
@@ -28,8 +29,8 @@
           <file leaf-file-name="view.html" pinned="false" current-in-tab="false">
             <entry file="file://$PROJECT_DIR$/demo/20160720_滑动手势判断/view.html">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="330">
-                  <caret line="21" column="9" selection-start-line="21" selection-start-column="9" selection-end-line="21" selection-end-column="9" />
+                <state relative-caret-position="120">
+                  <caret line="7" column="0" selection-start-line="7" selection-start-column="0" selection-end-line="26" selection-end-column="9" />
                   <folding />
                 </state>
               </provider>
@@ -65,7 +66,7 @@
               </provider>
             </entry>
           </file>
-          <file leaf-file-name="index.html" pinned="false" current-in-tab="true">
+          <file leaf-file-name="index.html" pinned="false" current-in-tab="false">
             <entry file="file://$PROJECT_DIR$/_layouts/index.html">
               <provider selected="true" editor-type-id="text-editor">
                 <state relative-caret-position="300">
@@ -105,11 +106,11 @@
               </provider>
             </entry>
           </file>
-          <file leaf-file-name="index.html" pinned="false" current-in-tab="false">
+          <file leaf-file-name="index.html" pinned="false" current-in-tab="true">
             <entry file="file://$PROJECT_DIR$/demo/20160720_滑动手势判断/index.html">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="300">
-                  <caret line="20" column="5" selection-start-line="20" selection-start-column="5" selection-end-line="20" selection-end-column="5" />
+                <state relative-caret-position="390">
+                  <caret line="26" column="5" selection-start-line="26" selection-start-column="5" selection-end-line="26" selection-end-column="5" />
                   <folding />
                 </state>
               </provider>
@@ -250,9 +251,9 @@
         <option value="$PROJECT_DIR$/demo/20160720_滑动手势判/index.html" />
         <option value="$PROJECT_DIR$/demo/20160720_滑动手势判/view.html" />
         <option value="$PROJECT_DIR$/_posts/2016-07-20-滑动手势判断.html" />
-        <option value="$PROJECT_DIR$/demo/20160720_滑动手势判断/index.html" />
-        <option value="$PROJECT_DIR$/demo/20160720_滑动手势判断/view.html" />
         <option value="$PROJECT_DIR$/_layouts/index.html" />
+        <option value="$PROJECT_DIR$/demo/20160720_滑动手势判断/view.html" />
+        <option value="$PROJECT_DIR$/demo/20160720_滑动手势判断/index.html" />
       </list>
     </option>
   </component>
@@ -513,12 +514,12 @@
       <workItem from="1467767747912" duration="9093000" />
       <workItem from="1468911637282" duration="3844000" />
       <workItem from="1468978028704" duration="23417000" />
-      <workItem from="1469015257867" duration="3062000" />
+      <workItem from="1469015257867" duration="3283000" />
     </task>
     <servers />
   </component>
   <component name="TimeTrackingManager">
-    <option name="totallyTimeSpent" value="51865000" />
+    <option name="totallyTimeSpent" value="52086000" />
   </component>
   <component name="ToolWindowManager">
     <frame x="-8" y="22" width="1936" height="1066" extended-state="6" />
@@ -3494,23 +3495,15 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/demo/20160720_滑动手势判断/index.html">
+    <entry file="file://$PROJECT_DIR$/_layouts/index.html">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="300">
-          <caret line="20" column="5" selection-start-line="20" selection-start-column="5" selection-end-line="20" selection-end-column="5" />
+          <caret line="19" column="44" selection-start-line="19" selection-start-column="44" selection-end-line="19" selection-end-column="44" />
           <folding />
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/demo/20160720_滑动手势判断/view.html">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="330">
-          <caret line="21" column="9" selection-start-line="21" selection-start-column="9" selection-end-line="21" selection-end-column="9" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/index.html">
+    <entry file="file://$PROJECT_DIR$/tags/index.html">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="0">
           <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
@@ -3526,7 +3519,15 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/tags/index.html">
+    <entry file="file://$PROJECT_DIR$/demo/20160720_滑动手势判断/view.html">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="120">
+          <caret line="7" column="0" selection-start-line="7" selection-start-column="0" selection-end-line="26" selection-end-column="9" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/index.html">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="0">
           <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
@@ -3534,10 +3535,10 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/_layouts/index.html">
+    <entry file="file://$PROJECT_DIR$/demo/20160720_滑动手势判断/index.html">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="300">
-          <caret line="19" column="44" selection-start-line="19" selection-start-column="44" selection-end-line="19" selection-end-column="44" />
+        <state relative-caret-position="390">
+          <caret line="26" column="5" selection-start-line="26" selection-start-column="5" selection-end-line="26" selection-end-column="5" />
           <folding />
         </state>
       </provider>
