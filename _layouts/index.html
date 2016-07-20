@@ -28,9 +28,20 @@
                 <li>
                     <a class="active">{{ page.title }}</a>
                 </li>
+                <li>
+                    <a heft="/about">关于</a>
+                </li>
+                {% elseif page.about %}
+                <li>
+                    <a href="/">首页</a>
+                </li>
+                <li>
+                    <a class="active">关于</a>
+                </li>
                 {% else %}
                 <li>
                     <a class="active">首页</a>
+                    <a heft="/about">关于</a>
                 </li>
                 {% endif %}
             </ul>
