@@ -1,0 +1,146 @@
+﻿<!DOCTYPE html>
+<html>
+
+<head>
+    <title></title>
+    <meta content="width=device-width,initial-scale=1.0,user-scalable=no" name="viewport"/>
+
+    <style>
+
+        #dropBox {
+            width: 100px;
+            height: 100px;
+            background-color: #0076c5;
+            color: #fff;
+            padding: 10px;
+            position: relative;
+            font-size: 14px;
+        }
+    </style>
+</head>
+
+<body>
+
+<div id="dropBox">拖动试试</div>
+
+<script>
+
+    var eBox = document.getElementById('dropBox'),
+            x = 0, y = 0;
+
+    drag(eBox, function (xy) {
+        x += xy.x;
+        y += xy.y;
+
+        // eBox.style.transform = 'translate(' + x + 'px,' + y + 'px)';
+        eBox.style.left = x + 'px';
+        eBox.style.top = y + 'px';
+    });
+
+    function drag(eDrag, onMove, onDown, onUp) {
+
+        if (document.addEventListener) {
+            drag = function (eDrag, onMove, onDown, onUp) {
+                eDrag.addEventListener('mousedown', down);
+
+                function down(e) {
+
+                    if (onDown && onDown(e) === false) return;
+
+                    var dragBase = new DragBase();
+                    dragBase.start(e.pageX, e.pageY);
+
+                    document.addEventListener('mousemove', mousemove);
+                    document.addEventListener('mouseup', mouseup);
+
+                    e.preventDefault();
+
+                    function mousemove(moveEvent) {
+                        dragBase.move(moveEvent.pageX, moveEvent.pageY, function (toX, toY) {
+                            onMove({x: toX, y: toY, event: moveEvent});
+                        });
+                    }
+
+                    function mouseup() {
+                        if (onUp) onUp();
+
+                        //解除所有事件
+                        document.removeEventListener('mousemove', mousemove);
+                        document.removeEventListener('mouseup', mouseup);
+
+                    }
+                }
+            };
+        }
+        else {
+            drag = function (eDrag, onMove, onDown, onUp) {
+                eDrag.attachEvent('onmousedown', down);
+
+                function down(e) {
+
+                    if (onDown && onDown(e) === false) return;
+
+                    var dragBase = new DragBase();
+                    dragBase.start(e.clientX, e.clientY);
+
+                    //IE678 执行捕捉 来 避免 图片文字等默认选择事件
+                    eDrag.setCapture();
+
+                    document.attachEvent('onmousemove', mousemove);
+                    document.attachEvent('onmouseup', mouseup);
+
+                    return false;
+
+                    function mousemove(moveEvent) {
+                        dragBase.move(moveEvent.clientX, moveEvent.clientY, function (toX, toY) {
+                            onMove({x: toX, y: toY, event: moveEvent});
+                        });
+                    }
+
+                    function mouseup() {
+                        if (onUp) onUp();
+
+                        eDrag.releaseCapture();
+
+                        //解除所有事件
+                        document.detachEvent('onmousemove', mousemove);
+                        document.detachEvent('onmouseup', mouseup);
+
+                    }
+                }
+            };
+        }
+
+        drag(eDrag, onMove, onDown, onUp);
+
+
+function DragBase() {
+    var
+            prevX, prevY,
+            toX, toY;
+
+    this.start = function (x, y) {
+        prevX = x;
+        prevY = y;
+        toX = 0;
+        toY = 0;
+    };
+
+    this.move = function (x, y, fn) {
+        toX = x - prevX;
+        toY = y - prevY;
+
+        fn(toX, toY);
+
+        prevX = x;
+        prevY = y;
+    };
+}
+    }
+
+
+</script>
+
+</body>
+
+</html>

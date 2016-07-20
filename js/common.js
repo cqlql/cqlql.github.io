@@ -373,6 +373,12 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
 
     //#region 减动画核心
 
+    /*
+    * 减动画核心
+    *
+    * 可实现惯性，也许还有更好的办法
+    * 暂只支持一个方向(x或者y)
+    * */
     c.StripingReduce = function () {
         var stopId;
         this.start = function (to, fn) {
@@ -388,7 +394,7 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
             }
 
             stopId = setTimeout(back, times);
-        }
+        };
 
         this.stop = function () {
             clearTimeout(stopId);
