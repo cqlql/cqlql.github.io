@@ -2,22 +2,7 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="41faba64-2323-4ec0-a3fd-5adaf7f21e6d" name="Default" comment="">
-      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/demo/20160721_移动端_左右滑动banner/imgs/1.png" />
-      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/demo/20160721_移动端_左右滑动banner/imgs/2.png" />
-      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/demo/20160721_移动端_左右滑动banner/imgs/3.png" />
-      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/demo/20160721_移动端_左右滑动banner/imgs/4.png" />
-      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/demo/20160721_移动端_左右滑动banner/imgs/5.png" />
-      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/demo/20160721_移动端_左右滑动banner/imgs/6.png" />
-      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/_posts/2016-07-21-移动端_左右滑动banner.html" />
-      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/demo/20160720_滑动手势判断/main.js" />
-      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/demo/20160721_移动端_左右滑动banner/index.html" />
-      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/demo/20160721_移动端_左右滑动banner/main.js" />
-      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/demo/20160721_移动端_左右滑动banner/view.html" />
-      <change type="DELETED" beforePath="$PROJECT_DIR$/demo/20160719_滑动探索——/main.js" afterPath="" />
-      <change type="DELETED" beforePath="$PROJECT_DIR$/demo/20160719_滑动探索——/view.html" afterPath="" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/demo/20160720_滑动手势判断/index.html" afterPath="$PROJECT_DIR$/demo/20160720_滑动手势判断/index.html" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/demo/20160720_滑动手势判断/view.html" afterPath="$PROJECT_DIR$/demo/20160720_滑动手势判断/view.html" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/_posts/2016-07-21-移动端_左右滑动banner.html" afterPath="$PROJECT_DIR$/_posts/2016-07-21-移动端_左右滑动banner.html" />
     </list>
     <ignored path="cqlql.github.io.iws" />
     <ignored path=".idea/workspace.xml" />
@@ -146,17 +131,17 @@
               </provider>
             </entry>
           </file>
-          <file leaf-file-name="2016-07-21-移动端_左右滑动banner.html" pinned="false" current-in-tab="false">
+          <file leaf-file-name="2016-07-21-移动端_左右滑动banner.html" pinned="false" current-in-tab="true">
             <entry file="file://$PROJECT_DIR$/_posts/2016-07-21-移动端_左右滑动banner.html">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="90">
-                  <caret line="6" column="0" selection-start-line="6" selection-start-column="0" selection-end-line="6" selection-end-column="0" />
+                <state relative-caret-position="15">
+                  <caret line="1" column="21" selection-start-line="1" selection-start-column="21" selection-end-line="1" selection-end-column="21" />
                   <folding />
                 </state>
               </provider>
             </entry>
           </file>
-          <file leaf-file-name="index.html" pinned="false" current-in-tab="true">
+          <file leaf-file-name="index.html" pinned="false" current-in-tab="false">
             <entry file="file://$PROJECT_DIR$/demo/20160721_移动端_左右滑动banner/index.html">
               <provider selected="true" editor-type-id="text-editor">
                 <state relative-caret-position="0">
@@ -284,6 +269,7 @@
         <option value="$PROJECT_DIR$/demo/20160719_移动端_左右滑动banner/view.html" />
         <option value="$PROJECT_DIR$/demo/20160719_移动端_左右滑动banner/index.html" />
         <option value="$PROJECT_DIR$/_posts/2016-07-19-移动端_左右滑动banner.html" />
+        <option value="$PROJECT_DIR$/_posts/2016-07-21-移动端_左右滑动banner.html" />
       </list>
     </option>
   </component>
@@ -294,8 +280,8 @@
     <sorting>DEFINITION_ORDER</sorting>
   </component>
   <component name="ProjectFrameBounds">
-    <option name="x" value="502" />
-    <option name="y" value="75" />
+    <option name="x" value="-58" />
+    <option name="y" value="216" />
     <option name="width" value="1554" />
     <option name="height" value="929" />
   </component>
@@ -569,18 +555,18 @@
       <workItem from="1468978028704" duration="23417000" />
       <workItem from="1469015257867" duration="8191000" />
       <workItem from="1469024670764" duration="1751000" />
-      <workItem from="1469063744053" duration="21819000" />
+      <workItem from="1469063744053" duration="22018000" />
     </task>
     <servers />
   </component>
   <component name="TimeTrackingManager">
-    <option name="totallyTimeSpent" value="80564000" />
+    <option name="totallyTimeSpent" value="80763000" />
   </component>
   <component name="ToolWindowManager">
-    <frame x="502" y="75" width="1554" height="929" extended-state="0" />
-    <editor active="false" />
+    <frame x="-58" y="216" width="1554" height="929" extended-state="0" />
+    <editor active="true" />
     <layout>
-      <window_info id="Project" active="true" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.34300792" sideWeight="0.5" order="0" side_tool="false" content_ui="combo" />
+      <window_info id="Project" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.34300792" sideWeight="0.5" order="0" side_tool="false" content_ui="combo" />
       <window_info id="TODO" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="6" side_tool="false" content_ui="tabs" />
       <window_info id="Event Log" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="7" side_tool="true" content_ui="tabs" />
       <window_info id="Find" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.50107294" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
@@ -2420,18 +2406,18 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/_posts/2016-07-21-移动端_左右滑动banner.html">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="90">
-          <caret line="6" column="0" selection-start-line="6" selection-start-column="0" selection-end-line="6" selection-end-column="0" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/demo/20160721_移动端_左右滑动banner/index.html">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="0">
           <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/_posts/2016-07-21-移动端_左右滑动banner.html">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="15">
+          <caret line="1" column="21" selection-start-line="1" selection-start-column="21" selection-end-line="1" selection-end-column="21" />
           <folding />
         </state>
       </provider>
