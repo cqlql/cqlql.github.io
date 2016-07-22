@@ -3,9 +3,8 @@
  */
 
 'use strict';
-swipe({
-    eBox: document.querySelector('.banner')
-});
+
+banner();
 
 // 代替 Velocity 的新方式
 function SwipeBase() {
@@ -23,7 +22,7 @@ function SwipeBase() {
         prevXData[i] = x;
         excu(x - prevXData[i - 1]);
     };
-    this.end = function (swipeLeft, swipeRight, reset) {
+    this.end = function (swipeLeft, swipeRight, swipeNot) {
 
         if (i) {
             if (i < 2) {
@@ -44,7 +43,7 @@ function SwipeBase() {
             }
             else {
                 // 未发送滑动，但有移动
-                reset();
+                swipeNot();
             }
 
         }
@@ -53,92 +52,111 @@ function SwipeBase() {
             // move根本就没触发情况
         }
     };
+
+    // 解决多指滑动 视为点击，松开无法归位问题
+    this.startAgain = function (x) {
+        i = 1;
+        prevXData = {};
+        prevXData[i] = x;
+    }
 }
 
-/*
- * 能够区分滚动条的滑动
- * 固定为一点触摸
+/**
+ * x方向，考虑滚动手势的滑动
+ * 此滑动手势封装考虑了多点，对于拥有多种手势的功能可能不适用，此种情况需定制
  *
- * */
-function swipe(params) {
+ */
+function swipeXScroll(params) {
     var
         eBox = params.eBox,
-        eMove = eBox.children[0],
-        eBtnBox = eBox.children[1],
-        eItems = eMove.children,
-        count = eItems.length,
-        eBtns = eBtnBox.children,
 
-        // swipeLeft = params.swipeLeft,
-        // swipeRight = params.swipeRight,
-        // reset = params.reset,
-        // move = params.move,
+        swipeLeft = params.swipeLeft,
+        swipeRight = params.swipeRight,
+        swipeNot = params.swipeNot,
+        onstart = params.onstart,
+        onmove = params.onmove,
+    // onend= params.onend,
 
-        boxW = eBox.clientWidth,
-
-        swipeBase = new SwipeBase,
-
-        transform = getRightCssName('transform')[1],
-        transition = getRightCssName('transition')[1],
-
-        // 记录点下的坐标
+    // 记录点下的坐标
         startX, startY,
 
-        // 拖动情况 松开时 是否进行滑动的最大偏移值
-        offset = boxW / 3,
-
-        // 实现区分滚动条
-        // 0 没反映，1 x 方向，2 y 方向
+    // 实现区分滚动条
+    // 0 没反映，1 x 方向，2 y 方向
         status = 0,
 
-        // 拖动的长度
-        dragLen,
-
-        // 当前显示项索引
-        index = 0;
-
-    for (var i = 0, btnHtml = ''; i < count; i++) {
-        // 初始化项的位置
-        eItems[i].style[transform] = 'translateX(' + (i * 100) + '%)';
-
-        // 拼接按钮
-        btnHtml += '<li' + (i ? '' : ' class="active"') + '></li>';
-    }
-    eBtnBox.innerHTML = btnHtml;
+    // 记录多点数据
+        touchesData;
 
     eBox.addEventListener('touchstart', function (e) {
 
-        var touches = e.touches;
+        var touches = e.touches,
+            len = touches.length;
 
-        if (touches.length === 1) {
+        if (len === 1) {
             start(touches[0]);
+        }
+        else {
+            each(len, function (i) {
+                startAgain(touches[i], i);
+            });
         }
 
     });
 
     eBox.addEventListener('touchmove', function (e) {
         var touches = e.touches;
-        move(touches[0], e);
+        each(touches.length, function (i) {
+            move(touches[i], e, i);
+        });
     });
 
     eBox.addEventListener('touchend', function (e) {
-        if (e.touches.length === 0) end();
+        var touches = e.touches;
+        if (touches.length === 0) {
+            end();
+        }
+        else {
+            each(touches.length, function (i) {
+                startAgain(touches[i], i);
+            });
+        }
     });
 
+    function each(len, fn) {
+        while (len--) {
+            fn(len);
+        }
+    }
+
     function start(touche) {
+
+
         startX = touche.pageX;
         startY = touche.pageY;
 
-        swipeBase.start(startX);
-
-        dragLen = 0;
         status = 0;
 
-        eMove.style[transition] = '0s';
+        var data = {
+            swipeBase: new SwipeBase
+        };
+
+        data.swipeBase.start(startX);
+        onstart();
+
+        touchesData = {0: data};
     }
 
-    function move(touche, e) {
-        console.log(status);
+    function startAgain(touche, i) {
+        var data = {
+            swipeBase: new SwipeBase
+        };
+
+        data.swipeBase.startAgain(touche.pageX);
+
+        touchesData[i] = data;
+    }
+
+    function move(touche, e, i) {
         if (status === 0) {
             var x = touche.pageX - startX,
                 y = touche.pageY - startY;
@@ -152,37 +170,85 @@ function swipe(params) {
         }
 
         if (status === 1) {
-
-            swipeBase.move(touche.pageX, function (toX) {
-                dragLen += toX;
-                eMove.style[transform] = 'translate3d(' + ((-index * boxW) + dragLen ) + 'px,0,0)';
-            });
+            touchesData[i].swipeBase.move(touche.pageX, onmove);
             e.preventDefault();
         }
     }
 
     function end() {
+
         if (status === 1) {
-            swipeBase.end(swipeLeft, swipeRight, function () {
-                // 未滑动，拖动情况
-
-                // 超过一般情况 滑动
-                if (Math.abs(dragLen) > offset) {
-
-                    if (dragLen > 0) {
-                        swipeRight();
-                    }
-                    else {
-                        swipeLeft();
-                    }
-                }
-                else {
-                    // 复位
-                    reset();
-                }
-            });
+            touchesData[0].swipeBase.end(swipeLeft, swipeRight, swipeNot);
         }
     }
+
+}
+
+
+/**
+ * 轮播：普通常用
+ * 很基础的轮播，只有box move item 三种主要元素
+ * */
+function slider(params) {
+    var eBox= params.eBox,
+        each=params.each,
+        onchange=params.onchange,
+        eMove = eBox.children[0],
+        eItems = eMove.children,
+        count = eItems.length,
+
+        boxW = eBox.clientWidth,
+
+        transform = getRightCssName('transform')[1],
+        transition = getRightCssName('transition')[1],
+
+        // 拖动的长度
+        moveLength = 0,
+
+    // 拖动情况 松开时 是否进行滑动的最大偏移值
+        offset = boxW / 3,
+
+    // 当前显示项索引
+        index = 0;
+
+    for (var i = 0, btnHtml = ''; i < count; i++) {
+        // 初始化项的位置
+        eItems[i].style[transform] = 'translateX(' + (i * 100) + '%)';
+
+        each(i);
+    }
+
+    swipeXScroll({
+        eBox: eBox,
+        swipeLeft: swipeLeft,
+        swipeRight: swipeRight,
+        swipeNot: function () {
+            // 未发生，但有移动;
+
+            // 超过一般情况 滑动
+            if (Math.abs(moveLength) > offset) {
+
+                if (moveLength > 0) {
+                    swipeRight();
+                }
+                else {
+                    swipeLeft();
+                }
+            }
+            else {
+                // 复位
+                reset();
+            }
+        },
+        onstart: function () {
+            moveLength=0;
+            eMove.style[transition] = '0s';
+        },
+        onmove: function (to) {
+            moveLength += to;
+            eMove.style[transform] = 'translate3d(' + ((-index * boxW) + moveLength ) + 'px,0,0)';
+        }
+    });
 
     function swipeLeft() {
         var i = index;
@@ -210,18 +276,8 @@ function swipe(params) {
 
     function change(i) {
         if (i !== index) {
-            eBtns[index].classList.remove('active');
-            eBtns[i].classList.add('active');
+            onchange(eItems[i],index,i);
             index = i;
-
-            // 按需加载
-            var eItem = eItems[index];
-            if (!eItem._data_isComplete) {
-                var img = eItem.children[0],
-                    imgUrl = img.dataset.src;
-                if (imgUrl) img.src = imgUrl;
-                eItem._data_isComplete = 1;
-            }
         }
     }
 
@@ -235,6 +291,43 @@ function swipe(params) {
 
 }
 
+/**
+ * banner：普通常用
+ * 主要元素：box move item bottomBtn
+ * */
+function banner() {
+
+    var eBox=document.querySelector('.banner'),
+        eBtnBox = eBox.children[1],
+        eBtns=eBtnBox.children,
+
+        btnHtml='';
+
+    slider({
+        eBox:eBox,
+        each:function (i) {
+            // 拼接按钮
+            btnHtml += '<li' + (i ? '' : ' class="active"') + '></li>';
+        },
+        onchange:function (eItem,prevIndex,index) {
+            eBtns[prevIndex].classList.remove('active');
+            eBtns[index].classList.add('active');
+            // 按需加载
+            if (!eItem._data_isComplete) {
+                var img = eItem.children[0],
+                    imgUrl = img.dataset.src;
+                if (imgUrl) img.src = imgUrl;
+                eItem._data_isComplete = 1;
+            }
+        }
+    });
+
+    eBtnBox.innerHTML = btnHtml;
+}
+
+/**
+ * 基础方法
+ * */
 function getRightCssName(cssPropertyName) {
     var
         firstLetter = cssPropertyName[0],
