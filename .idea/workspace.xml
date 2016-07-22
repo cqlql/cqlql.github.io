@@ -2,7 +2,9 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="41faba64-2323-4ec0-a3fd-5adaf7f21e6d" name="Default" comment="">
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/demo/20160721_移动端_左右滑动banner/main.js" afterPath="$PROJECT_DIR$/demo/20160721_移动端_左右滑动banner/main.js" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/demo/20160721_移动端_左右滑动banner/view.html" afterPath="$PROJECT_DIR$/demo/20160721_移动端_左右滑动banner/view.html" />
     </list>
     <ignored path="cqlql.github.io.iws" />
     <ignored path=".idea/workspace.xml" />
@@ -22,7 +24,7 @@
     <favorites_list name="cqlql.github.io" />
   </component>
   <component name="FileEditorManager">
-    <splitter split-orientation="horizontal" split-proportion="0.4875817">
+    <splitter split-orientation="horizontal" split-proportion="0.5521558">
       <split-first>
         <leaf SIDE_TABS_SIZE_LIMIT_KEY="112">
           <file leaf-file-name="index.html" pinned="false" current-in-tab="false">
@@ -38,7 +40,7 @@
           <file leaf-file-name="view.html" pinned="false" current-in-tab="false">
             <entry file="file://$PROJECT_DIR$/demo/20160720_滑动手势判断/view.html">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="105">
+                <state relative-caret-position="120">
                   <caret line="7" column="0" selection-start-line="7" selection-start-column="0" selection-end-line="7" selection-end-column="0" />
                   <folding />
                 </state>
@@ -68,26 +70,13 @@
           <file leaf-file-name="main.js" pinned="false" current-in-tab="true">
             <entry file="file://$PROJECT_DIR$/demo/20160721_移动端_左右滑动banner/main.js">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="274">
-                  <caret line="107" column="46" selection-start-line="107" selection-start-column="46" selection-end-line="107" selection-end-column="46" />
+                <state relative-caret-position="350">
+                  <caret line="328" column="21" selection-start-line="328" selection-start-column="12" selection-end-line="328" selection-end-column="21" />
                   <folding>
-                    <element signature="n#!!block;n#start#0;n#!!block;n#swipeXScroll#0" expanded="false" />
+                    <element signature="n#!!block;n#SwipeBase#0" expanded="false" />
                     <element signature="n#!!block;n#slider#0" expanded="false" />
                     <element signature="n#!!doc;n#banner#0" expanded="false" />
-                    <element signature="n#!!block;n#banner#0" expanded="false" />
-                    <marker date="1469198929141" expanded="false" signature="109:412" placeholder="{...}" />
-                    <marker date="1469198929141" expanded="false" signature="109:1026" placeholder="{...}" />
                   </folding>
-                </state>
-              </provider>
-            </entry>
-          </file>
-          <file leaf-file-name="view.html" pinned="false" current-in-tab="false">
-            <entry file="file://$PROJECT_DIR$/demo/20160721_移动端_左右滑动banner/view.html">
-              <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="240">
-                  <caret line="15" column="0" selection-start-line="15" selection-start-column="0" selection-end-line="15" selection-end-column="0" />
-                  <folding />
                 </state>
               </provider>
             </entry>
@@ -99,7 +88,7 @@
           <file leaf-file-name="index.html" pinned="false" current-in-tab="false">
             <entry file="file://$PROJECT_DIR$/demo/0/index.html">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="300">
+                <state relative-caret-position="270">
                   <caret line="18" column="9" selection-start-line="18" selection-start-column="9" selection-end-line="18" selection-end-column="9" />
                   <folding />
                 </state>
@@ -220,21 +209,29 @@
               </provider>
             </entry>
           </file>
-          <file leaf-file-name="main.js" pinned="false" current-in-tab="true">
+          <file leaf-file-name="main.js" pinned="false" current-in-tab="false">
             <entry file="file://$PROJECT_DIR$/demo/20160721_移动端_左右滑动banner/main.js">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="135">
-                  <caret line="188" column="0" selection-start-line="188" selection-start-column="0" selection-end-line="188" selection-end-column="0" />
+                <state relative-caret-position="297">
+                  <caret line="189" column="0" selection-start-line="189" selection-start-column="0" selection-end-line="189" selection-end-column="0" />
                   <folding>
-                    <element signature="e#4413#4528#0" expanded="false" />
-                    <element signature="e#4661#5031#0" expanded="false" />
-                    <element signature="n#!!block;n#swipeLeft#0;n#!!block;n#slider#0" expanded="false" />
-                    <element signature="n#!!block;n#swipeRight#0;n#!!block;n#slider#0" expanded="false" />
-                    <element signature="n#!!block;n#reset#0;n#!!block;n#slider#0" expanded="false" />
-                    <element signature="n#!!block;n#change#0;n#!!block;n#slider#0" expanded="false" />
-                    <element signature="n#!!block;n#anime#0;n#!!block;n#slider#0" expanded="false" />
-                    <element signature="n#!!block;n#getRightCssName#0" expanded="false" />
-                    <element signature="n#!!block;n#toStyleName#0" expanded="false" />
+                    <element signature="n#!!block;n#SwipeBase#0" expanded="false" />
+                    <element signature="n#!!block;n#start#0;n#!!block;n#swipeXScroll#0" expanded="false" />
+                    <element signature="n#!!block;n#slider#0" expanded="false" />
+                    <element signature="n#!!doc;n#banner#0" expanded="false" />
+                    <element signature="n#!!block;n#banner#0" expanded="false" />
+                  </folding>
+                </state>
+              </provider>
+            </entry>
+          </file>
+          <file leaf-file-name="view.html" pinned="false" current-in-tab="true">
+            <entry file="file://$PROJECT_DIR$/demo/20160721_移动端_左右滑动banner/view.html">
+              <provider selected="true" editor-type-id="text-editor">
+                <state relative-caret-position="240">
+                  <caret line="15" column="34" selection-start-line="15" selection-start-column="34" selection-end-line="15" selection-end-column="34" />
+                  <folding>
+                    <element signature="n#style#0;n#div#0;n#body#0;n#html#0;n#!!top" expanded="false" />
                   </folding>
                 </state>
               </provider>
@@ -285,6 +282,7 @@
         <option value="$PROJECT_DIR$/demo/20160719_移动端_左右滑动banner/index.html" />
         <option value="$PROJECT_DIR$/_posts/2016-07-19-移动端_左右滑动banner.html" />
         <option value="$PROJECT_DIR$/_posts/2016-07-21-移动端_左右滑动banner.html" />
+        <option value="$PROJECT_DIR$/demo/20160721_移动端_左右滑动banner/view.html" />
         <option value="$PROJECT_DIR$/demo/20160721_移动端_左右滑动banner/main.js" />
       </list>
     </option>
@@ -295,10 +293,10 @@
     <detection-done>true</detection-done>
   </component>
   <component name="ProjectFrameBounds">
-    <option name="x" value="-8" />
-    <option name="y" value="22" />
-    <option name="width" value="1936" />
-    <option name="height" value="1066" />
+    <option name="x" value="793" />
+    <option name="y" value="348" />
+    <option name="width" value="1554" />
+    <option name="height" value="826" />
   </component>
   <component name="ProjectLevelVcsManager" settingsEditedManually="false">
     <OptionsSetting value="true" id="Add" />
@@ -325,8 +323,8 @@
       <foldersAlwaysOnTop value="true" />
     </navigator>
     <panes>
-      <pane id="Scratches" />
       <pane id="Scope" />
+      <pane id="Scratches" />
       <pane id="ProjectPane">
         <subPane>
           <PATH>
@@ -535,18 +533,19 @@
       <workItem from="1469015257867" duration="8191000" />
       <workItem from="1469024670764" duration="1751000" />
       <workItem from="1469063744053" duration="23231000" />
-      <workItem from="1469186006909" duration="6207000" />
+      <workItem from="1469186006909" duration="6442000" />
+      <workItem from="1469203346624" duration="998000" />
     </task>
     <servers />
   </component>
   <component name="TimeTrackingManager">
-    <option name="totallyTimeSpent" value="88183000" />
+    <option name="totallyTimeSpent" value="89416000" />
   </component>
   <component name="ToolWindowManager">
-    <frame x="-8" y="22" width="1936" height="1066" extended-state="6" />
+    <frame x="793" y="348" width="1554" height="826" extended-state="0" />
     <editor active="true" />
     <layout>
-      <window_info id="Project" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.1938883" sideWeight="0.5" order="0" side_tool="false" content_ui="combo" />
+      <window_info id="Project" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.30343008" sideWeight="0.5" order="0" side_tool="false" content_ui="combo" />
       <window_info id="TODO" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="6" side_tool="false" content_ui="tabs" />
       <window_info id="Event Log" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="7" side_tool="true" content_ui="tabs" />
       <window_info id="Version Control" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.14435147" sideWeight="0.5" order="7" side_tool="false" content_ui="tabs" />
@@ -955,14 +954,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/demo/20160720_滑动手势判断/view.html">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="105">
-          <caret line="7" column="0" selection-start-line="7" selection-start-column="0" selection-end-line="7" selection-end-column="0" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/_layouts/index.html">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="562">
@@ -979,14 +970,6 @@
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/demo/20160719_滑动探索——/main_backup.js" />
-    <entry file="file://$PROJECT_DIR$/demo/20151217_滚动侧边带缓动更随/index.html">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="30">
-          <caret line="2" column="9" selection-start-line="2" selection-start-column="9" selection-end-line="2" selection-end-column="9" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/js/common_mobile.js">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="1005">
@@ -1089,33 +1072,48 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/demo/20160721_移动端_左右滑动banner/view.html">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="240">
-          <caret line="15" column="0" selection-start-line="15" selection-start-column="0" selection-end-line="15" selection-end-column="0" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/demo/0/index.html">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="300">
+        <state relative-caret-position="270">
           <caret line="18" column="9" selection-start-line="18" selection-start-column="9" selection-end-line="18" selection-end-column="9" />
           <folding />
         </state>
       </provider>
     </entry>
+    <entry file="file://$PROJECT_DIR$/demo/20160720_滑动手势判断/view.html">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="120">
+          <caret line="7" column="0" selection-start-line="7" selection-start-column="0" selection-end-line="7" selection-end-column="0" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/demo/20151217_滚动侧边带缓动更随/index.html">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="30">
+          <caret line="2" column="9" selection-start-line="2" selection-start-column="9" selection-end-line="2" selection-end-column="9" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/demo/20160721_移动端_左右滑动banner/view.html">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="240">
+          <caret line="15" column="34" selection-start-line="15" selection-start-column="34" selection-end-line="15" selection-end-column="34" />
+          <folding>
+            <element signature="n#style#0;n#div#0;n#body#0;n#html#0;n#!!top" expanded="false" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
     <entry file="file://$PROJECT_DIR$/demo/20160721_移动端_左右滑动banner/main.js">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="274">
-          <caret line="107" column="46" selection-start-line="107" selection-start-column="46" selection-end-line="107" selection-end-column="46" />
+        <state relative-caret-position="350">
+          <caret line="328" column="21" selection-start-line="328" selection-start-column="12" selection-end-line="328" selection-end-column="21" />
           <folding>
-            <element signature="n#!!block;n#start#0;n#!!block;n#swipeXScroll#0" expanded="false" />
+            <element signature="n#!!block;n#SwipeBase#0" expanded="false" />
             <element signature="n#!!block;n#slider#0" expanded="false" />
             <element signature="n#!!doc;n#banner#0" expanded="false" />
-            <element signature="n#!!block;n#banner#0" expanded="false" />
-            <marker date="1469198929141" expanded="false" signature="109:412" placeholder="{...}" />
-            <marker date="1469198929141" expanded="false" signature="109:1026" placeholder="{...}" />
           </folding>
         </state>
       </provider>

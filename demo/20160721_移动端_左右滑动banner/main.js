@@ -140,7 +140,8 @@ function swipeXScroll(params) {
         data.swipeBase.start(startX);
         onstart();
 
-        touchesData = {0: data};
+        touchesData = {};
+        touchesData[touche.identifier] = data;
     }
 
     function startAgain(touche) {
