@@ -2,7 +2,6 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="41faba64-2323-4ec0-a3fd-5adaf7f21e6d" name="Default" comment="">
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/demo/20160721_移动端_左右滑动banner/main.js" afterPath="$PROJECT_DIR$/demo/20160721_移动端_左右滑动banner/main.js" />
     </list>
     <ignored path="cqlql.github.io.iws" />
@@ -69,16 +68,15 @@
           <file leaf-file-name="main.js" pinned="false" current-in-tab="true">
             <entry file="file://$PROJECT_DIR$/demo/20160721_移动端_左右滑动banner/main.js">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="240">
-                  <caret line="183" column="1" selection-start-line="183" selection-start-column="1" selection-end-line="183" selection-end-column="1" />
+                <state relative-caret-position="274">
+                  <caret line="107" column="46" selection-start-line="107" selection-start-column="46" selection-end-line="107" selection-end-column="46" />
                   <folding>
-                    <element signature="n#!!block;n#swipeXScroll#0" expanded="false" />
                     <element signature="n#!!block;n#start#0;n#!!block;n#swipeXScroll#0" expanded="false" />
                     <element signature="n#!!block;n#slider#0" expanded="false" />
                     <element signature="n#!!doc;n#banner#0" expanded="false" />
                     <element signature="n#!!block;n#banner#0" expanded="false" />
-                    <marker date="1469198597316" expanded="false" signature="109:412" placeholder="{...}" />
-                    <marker date="1469198597316" expanded="false" signature="109:1026" placeholder="{...}" />
+                    <marker date="1469198929141" expanded="false" signature="109:412" placeholder="{...}" />
+                    <marker date="1469198929141" expanded="false" signature="109:1026" placeholder="{...}" />
                   </folding>
                 </state>
               </provider>
@@ -226,10 +224,10 @@
             <entry file="file://$PROJECT_DIR$/demo/20160721_移动端_左右滑动banner/main.js">
               <provider selected="true" editor-type-id="text-editor">
                 <state relative-caret-position="135">
-                  <caret line="184" column="0" selection-start-line="184" selection-start-column="0" selection-end-line="184" selection-end-column="0" />
+                  <caret line="188" column="0" selection-start-line="188" selection-start-column="0" selection-end-line="188" selection-end-column="0" />
                   <folding>
-                    <element signature="e#4225#4340#0" expanded="false" />
-                    <element signature="e#4473#4843#0" expanded="false" />
+                    <element signature="e#4413#4528#0" expanded="false" />
+                    <element signature="e#4661#5031#0" expanded="false" />
                     <element signature="n#!!block;n#swipeLeft#0;n#!!block;n#slider#0" expanded="false" />
                     <element signature="n#!!block;n#swipeRight#0;n#!!block;n#slider#0" expanded="false" />
                     <element signature="n#!!block;n#reset#0;n#!!block;n#slider#0" expanded="false" />
@@ -537,12 +535,12 @@
       <workItem from="1469015257867" duration="8191000" />
       <workItem from="1469024670764" duration="1751000" />
       <workItem from="1469063744053" duration="23231000" />
-      <workItem from="1469186006909" duration="5804000" />
+      <workItem from="1469186006909" duration="6207000" />
     </task>
     <servers />
   </component>
   <component name="TimeTrackingManager">
-    <option name="totallyTimeSpent" value="87780000" />
+    <option name="totallyTimeSpent" value="88183000" />
   </component>
   <component name="ToolWindowManager">
     <frame x="-8" y="22" width="1936" height="1066" extended-state="6" />
@@ -1109,16 +1107,15 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/demo/20160721_移动端_左右滑动banner/main.js">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="240">
-          <caret line="183" column="1" selection-start-line="183" selection-start-column="1" selection-end-line="183" selection-end-column="1" />
+        <state relative-caret-position="274">
+          <caret line="107" column="46" selection-start-line="107" selection-start-column="46" selection-end-line="107" selection-end-column="46" />
           <folding>
-            <element signature="n#!!block;n#swipeXScroll#0" expanded="false" />
             <element signature="n#!!block;n#start#0;n#!!block;n#swipeXScroll#0" expanded="false" />
             <element signature="n#!!block;n#slider#0" expanded="false" />
             <element signature="n#!!doc;n#banner#0" expanded="false" />
             <element signature="n#!!block;n#banner#0" expanded="false" />
-            <marker date="1469198597316" expanded="false" signature="109:412" placeholder="{...}" />
-            <marker date="1469198597316" expanded="false" signature="109:1026" placeholder="{...}" />
+            <marker date="1469198929141" expanded="false" signature="109:412" placeholder="{...}" />
+            <marker date="1469198929141" expanded="false" signature="109:1026" placeholder="{...}" />
           </folding>
         </state>
       </provider>

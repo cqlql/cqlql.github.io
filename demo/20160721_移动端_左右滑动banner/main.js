@@ -104,11 +104,15 @@ function swipeXScroll(params) {
     });
 
     eBox.addEventListener('touchend', function (e) {
-        var touches = e.touches;
+        var touches = e.touches,
+            changedTouches = e.changedTouches;
         if (touches.length === 0) {
-            end(e.changedTouches[0]);
+            end(changedTouches[0]);
         }
         else {
+            each(changedTouches.length, function (i) {
+                delete  touchesData[changedTouches[i].identifier];
+            });
             each(touches.length, function (i) {
                 startAgain(touches[i], i);
             });
@@ -140,9 +144,9 @@ function swipeXScroll(params) {
     }
 
     function startAgain(touche) {
-        var id=touche.identifier;
+        var id = touche.identifier;
 
-        if(touchesData[touche.identifier]){
+        if (touchesData[touche.identifier]) {
             return;
         }
 
@@ -189,9 +193,9 @@ function swipeXScroll(params) {
  * 很基础的轮播，只有box move item 三种主要元素
  * */
 function slider(params) {
-    var eBox= params.eBox,
-        each=params.each,
-        onchange=params.onchange,
+    var eBox = params.eBox,
+        each = params.each,
+        onchange = params.onchange,
         eMove = eBox.children[0],
         eItems = eMove.children,
         count = eItems.length,
@@ -201,7 +205,7 @@ function slider(params) {
         transform = getRightCssName('transform')[1],
         transition = getRightCssName('transition')[1],
 
-        // 拖动的长度
+    // 拖动的长度
         moveLength = 0,
 
     // 拖动情况 松开时 是否进行滑动的最大偏移值
@@ -240,7 +244,7 @@ function slider(params) {
             }
         },
         onstart: function () {
-            moveLength=0;
+            moveLength = 0;
             eMove.style[transition] = '0s';
         },
         onmove: function (to) {
@@ -275,7 +279,7 @@ function slider(params) {
 
     function change(i) {
         if (i !== index) {
-            onchange(eItems[i],index,i);
+            onchange(eItems[i], index, i);
             index = i;
         }
     }
@@ -296,19 +300,19 @@ function slider(params) {
  * */
 function banner() {
 
-    var eBox=document.querySelector('.banner'),
+    var eBox = document.querySelector('.banner'),
         eBtnBox = eBox.children[1],
-        eBtns=eBtnBox.children,
+        eBtns = eBtnBox.children,
 
-        btnHtml='';
+        btnHtml = '';
 
     slider({
-        eBox:eBox,
-        each:function (i) {
+        eBox: eBox,
+        each: function (i) {
             // 拼接按钮
             btnHtml += '<li' + (i ? '' : ' class="active"') + '></li>';
         },
-        onchange:function (eItem,prevIndex,index) {
+        onchange: function (eItem, prevIndex, index) {
             eBtns[prevIndex].classList.remove('active');
             eBtns[index].classList.add('active');
             // 按需加载
