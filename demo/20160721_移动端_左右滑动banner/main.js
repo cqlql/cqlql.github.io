@@ -52,13 +52,6 @@ function SwipeBase() {
             // move根本就没触发情况
         }
     };
-
-    // 解决多指滑动 视为点击，松开无法归位问题
-    this.startAgain = function (x) {
-        i = 1;
-        prevXData = {};
-        prevXData[i] = x;
-    }
 }
 
 /**
@@ -97,7 +90,7 @@ function swipeXScroll(params) {
         }
         else {
             each(len, function (i) {
-                startAgain(touches[i], i);
+                startAgain(touches[i]);
             });
         }
 
@@ -106,14 +99,14 @@ function swipeXScroll(params) {
     eBox.addEventListener('touchmove', function (e) {
         var touches = e.touches;
         each(touches.length, function (i) {
-            move(touches[i], e, i);
+            move(touches[i], e);
         });
     });
 
     eBox.addEventListener('touchend', function (e) {
         var touches = e.touches;
         if (touches.length === 0) {
-            end();
+            end(e.changedTouches[0]);
         }
         else {
             each(touches.length, function (i) {
@@ -146,17 +139,23 @@ function swipeXScroll(params) {
         touchesData = {0: data};
     }
 
-    function startAgain(touche, i) {
+    function startAgain(touche) {
+        var id=touche.identifier;
+
+        if(touchesData[touche.identifier]){
+            return;
+        }
+
         var data = {
             swipeBase: new SwipeBase
         };
 
-        data.swipeBase.startAgain(touche.pageX);
+        data.swipeBase.start(touche.pageX);
 
-        touchesData[i] = data;
+        touchesData[id] = data;
     }
 
-    function move(touche, e, i) {
+    function move(touche, e) {
         if (status === 0) {
             var x = touche.pageX - startX,
                 y = touche.pageY - startY;
@@ -170,15 +169,15 @@ function swipeXScroll(params) {
         }
 
         if (status === 1) {
-            touchesData[i].swipeBase.move(touche.pageX, onmove);
+            touchesData[touche.identifier].swipeBase.move(touche.pageX, onmove);
             e.preventDefault();
         }
     }
 
-    function end() {
+    function end(touche) {
 
         if (status === 1) {
-            touchesData[0].swipeBase.end(swipeLeft, swipeRight, swipeNot);
+            touchesData[touche.identifier].swipeBase.end(swipeLeft, swipeRight, swipeNot);
         }
     }
 
