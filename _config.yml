@@ -1,4 +1,5 @@
 paginate: 10
 pygments: true
 safe: true
+highlighter: rouge
 published: false
