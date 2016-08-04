@@ -58,6 +58,8 @@ function SwipeBase() {
  * x方向，考虑滚动手势的滑动
  * 此滑动手势封装考虑了多点，对于拥有多种手势的功能可能不适用，此种情况需定制
  *
+ * @param onstart 滑动开始触发，可通过 return false 可阻止往下进行
+ *
  */
 function swipeXScroll(params) {
     var
@@ -68,16 +70,18 @@ function swipeXScroll(params) {
         swipeNot = params.swipeNot,
         onstart = params.onstart,
         onmove = params.onmove,
-    // onend= params.onend,
+        // onend = params.onend,
 
-    // 记录点下的坐标
+        // 记录点下的坐标
         startX, startY,
 
-    // 实现区分滚动条
-    // 0 没反映，1 x 方向，2 y 方向
+        // 实现区分滚动条
+        // 0 没反映，1 x 方向，2 y 方向
         status = 0,
 
-    // 记录多点数据
+        isStart = false,// 是否已经开始。true表示已经开始
+
+        // 记录多点数据
         touchesData;
 
     eBox.addEventListener('touchstart', function (e) {
@@ -93,7 +97,6 @@ function swipeXScroll(params) {
                 startAgain(touches[i]);
             });
         }
-
     });
 
     eBox.addEventListener('touchmove', function (e) {
@@ -127,18 +130,20 @@ function swipeXScroll(params) {
 
     function start(touche) {
 
+        if (onstart() === false)return;
 
         startX = touche.pageX;
         startY = touche.pageY;
 
         status = 0;
+        isStart = true;// 已经开始
 
         var data = {
             swipeBase: new SwipeBase
         };
 
         data.swipeBase.start(startX);
-        onstart();
+
 
         touchesData = {};
         touchesData[touche.identifier] = data;
@@ -174,7 +179,9 @@ function swipeXScroll(params) {
         }
 
         if (status === 1) {
-            touchesData[touche.identifier].swipeBase.move(touche.pageX, onmove);
+            if (isStart) {
+                touchesData[touche.identifier].swipeBase.move(touche.pageX, onmove);
+            }
             e.preventDefault();
         }
     }
@@ -182,7 +189,11 @@ function swipeXScroll(params) {
     function end(touche) {
 
         if (status === 1) {
-            touchesData[touche.identifier].swipeBase.end(swipeLeft, swipeRight, swipeNot);
+
+            if (isStart) {
+                touchesData[touche.identifier].swipeBase.end(swipeLeft, swipeRight, swipeNot);
+                isStart = false;
+            }
         }
     }
 
@@ -192,6 +203,12 @@ function swipeXScroll(params) {
 /**
  * 轮播：普通常用
  * 很基础的轮播，只有box move item 三种主要元素
+ *
+ * 支持 动画结束后才能进行下一步操作。见 anime 函数
+ *
+ * 关于滑动频繁无法触发 transitionend 事件bug：已解决
+ * 是因为 onmove、onend 有可能绕过 onstart ，紧跟着 transitionend 后触发。没发生移动就造成 swipe 执行，就是原地执行了anime，开启了 isRun，却没关闭 isRun，解决办法是，必须保证 onstart 后，才会触发 onmove、onend，这就100%保证只有发生移动才会触发swipe
+ *
  * */
 function slider(params) {
     var eBox = params.eBox,
@@ -206,13 +223,15 @@ function slider(params) {
         transform = getRightCssName('transform')[1],
         transition = getRightCssName('transition')[1],
 
-    // 拖动的长度
+        // 拖动的长度
         moveLength = 0,
 
-    // 拖动情况 松开时 是否进行滑动的最大偏移值
+        // 拖动情况 松开时 是否进行滑动的最大偏移值
         offset = boxW / 3,
 
-    // 当前显示项索引
+        isRun = false,// 是否动画进行中
+
+        // 当前显示项索引
         index = 0;
 
     for (var i = 0, btnHtml = ''; i < count; i++) {
@@ -245,6 +264,7 @@ function slider(params) {
             }
         },
         onstart: function () {
+            if (isRun) return false;
             moveLength = 0;
             eMove.style[transition] = '0s';
         },
@@ -254,13 +274,22 @@ function slider(params) {
         }
     });
 
+    eBox.addEventListener("webkitTransitionEnd", transitionend);
+    eBox.addEventListener("transitionend", transitionend);
+
+    function transitionend() {
+        isRun = false;
+    }
+
     function swipeLeft() {
         var i = index;
         i++;
         if (i >= count) {
             i = count - 1;
         }
-        change(i);
+        else {
+            change(i);
+        }
         anime();
     }
 
@@ -270,7 +299,9 @@ function slider(params) {
         if (i < 0) {
             i = 0;
         }
-        change(i);
+        else {
+            change(i);
+        }
         anime();
     }
 
@@ -279,20 +310,15 @@ function slider(params) {
     }
 
     function change(i) {
-        if (i !== index) {
-            onchange(eItems[i], index, i);
-            index = i;
-        }
+        onchange(eItems[i], index, i);
+        index = i;
     }
 
     function anime() {
-
-        eMove.style[transition] = '0.3s';
-
+        isRun = true; // 将开启 只有动画结束后才能进行下一步操作
+        eMove.style[transition] = '.3s';
         eMove.style[transform] = 'translate3d(' + (-index * boxW) + 'px,0,0)';
-
     }
-
 }
 
 /**

@@ -132,11 +132,19 @@ c.extend({
     */
     mouseWheel: function (dom, f) {
         if (dom.addEventListener) {
-            if (dom.onmousewheel === undefined) dom.addEventListener('DOMMouseScroll', f, false);//firefox
-            else dom.addEventListener('mousewheel', f, false);
-        } else {
-            dom.attachEvent('onmousewheel', f);//ie678
+            this.mouseWheel = function (dom, f) {
+                if (dom.onmousewheel === undefined) dom.addEventListener('DOMMouseScroll', f, false);//firefox
+                else dom.addEventListener('mousewheel', f, false);
+            }
         }
+        else if(dom.attachEvent){
+            this.mouseWheel = function (dom, f) {
+                dom.attachEvent('onmousewheel', f);//ie678
+            }
+        }
+
+        this.mouseWheel(dom, f);
+
     },
     removeMouseWheel: function (dom, f) {
         if (dom.addEventListener) {
@@ -472,3 +480,5 @@ c.extend({
 
     //#endregion
 });
+
+
