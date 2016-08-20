@@ -1,0 +1,76 @@
+
+p,input,td,textarea,ul,dl,dt,dd,menu{padding:0;margin:0;}
+ul{list-style-type:none;}
+
+
+
+.list-select {
+    $h:70px;
+    height:$h;
+    width:634px;
+    padding-left: 200px;
+
+    background-color: rgba(0, 0, 0, 0.7);
+
+    .aw{
+        width:30px;
+
+        height:$h;
+        float:left;
+        position: relative;
+
+        &:after{
+            content:'';
+            position: absolute;
+            left: 50%;
+            top:50%;
+            margin:(-25px/2) 0 0 (-17px/2) ;
+            width: 17px;
+            height: 25px;
+            background: url('../20160805_HHZT/imgs/ico.png') no-repeat -62px -63px;
+        }
+
+    }
+
+    .aw.r {
+        float:right;
+
+        &:after{
+            background-position: -62px -112px;
+        }
+    }
+
+    .ls-wrap {
+        height:$h;
+        overflow:hidden;
+    }
+    .ls-show {
+        margin:0 2px;
+        width:570px;
+        overflow:hidden;
+        
+    }
+    ul{
+        position: relative;
+        left:0;
+        transition: .3s;
+    }
+
+    li {
+        float:left;
+        width:114px;
+        height:$h;
+
+        a{
+            display: block;
+            margin: 4px 2px;
+            height:62px;
+            background-color: #1bbc9b;
+        }
+    }
+
+    li.active {
+        background:#ff6a00;
+    }
+}
+

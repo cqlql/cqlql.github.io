@@ -1,0 +1,173 @@
+@charset "UTF-8";
+
+/*# 重置 */
+body, select {
+    margin: 0;
+}
+
+p, input, td, textarea, ul, dl, dt, dd, menu {
+    padding: 0;
+    margin: 0;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    margin: 0;
+    font-size: inherit;
+    font-weight: normal;
+}
+
+ul {
+    list-style-type: none;
+}
+
+img {
+    border: 0 \9;
+}
+
+/*ie*/
+
+body {
+    color: #333;
+    font: 14px/1.2 Consolas, Microsoft Yahei, \5FAE\8F6F\96C5\9ED1, arial, SimSun, tahoma, Srial, helvetica;
+}
+
+a {
+    color: #333;
+    text-decoration: none;
+}
+
+input, textarea {
+    outline: none;
+}
+
+.placetable {
+    position: relative;
+    padding: 30px 10px 10px;
+    overflow: hidden;
+    /* dd:before{
+        content:'';
+        display:inline-block;
+        height:100%;
+        vertical-align:middle;
+    } */
+}
+
+.placetable .platform {
+    width: 300px;
+    height: 40px;
+    background: #cfcece;
+    color: #fff;
+    margin: 10px auto;
+    text-align: center;
+    font-size: 26px;
+    line-height: 1.5;
+    position: relative;
+
+}
+
+.placetable .handle {
+    position: absolute;
+    right: -140px;
+    top: 0;
+    width: 100%;
+}
+
+.placetable .handle .save,
+.placetable .handle .manage,
+.placetable .handle .criticism,
+.placetable .handle .praise {
+    width: 50px;
+    height: 40px;
+    float: left;
+    background: #ff7070;
+    font-size: 16px;
+    color: #fff;
+    line-height: 2.6;
+    position: absolute;
+    right: 25px;
+}
+
+.placetable .handle .save,
+.placetable .handle .manage,
+.placetable .handle .praise {
+    background: #2dceb8;
+    right: -25px;
+}
+
+.placetable .handle .save,
+.placetable .handle .manage {
+    right: 82px;
+}
+
+.placetable .list {
+    /* text-align:center; */
+    margin: 0 auto;
+    position: relative;
+}
+
+.placetable .item {
+    height: 36px;
+    width: 100px;
+    background: #fff;
+    padding: 4px;
+    display: inline-block;
+    vertical-align: middle;
+    position: absolute;
+    left: 0;
+    top: 0;
+    margin: 0;
+    -webkit-transition: -webkit-transform 600ms ease;
+    transition: transform 600ms ease;
+}
+
+.placetable .item.selected {
+    background: #ffba00;
+    color: #886300;
+}
+
+.placetable .item.drag {
+    outline: 2px solid #FF6767;
+    -webkit-transition: none;
+    transition: none;
+}
+
+.placetable .item.drag * {
+    display: none;
+}
+
+.placetable .item.move {
+    position: absolute;
+    left: 0;
+    top: 0;
+    opacity: 0.8;
+    filter: alpha(opacity=80);
+    background: #fff;
+    -webkit-transition: none;
+    transition: none;
+}
+
+.placetable .item.disable {
+    -webkit-filter: grayscale(100%);
+    filter: grayscale(100%);
+    opacity: 0.5;
+}
+
+.placetable dt {
+    /* float: left; */
+    /* width: 40px; */
+    /* text-align:left; */
+    position: absolute;
+    top: 4px;
+    bottom: 4px;
+}
+
+.placetable dt img {
+    height: 100%;
+}
+
+.placetable dd {
+    overflow: hidden;
+    height: 40px;
+    margin-left: 38px;
+    font-size: 14px;
+}

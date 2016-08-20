@@ -70,7 +70,6 @@ function swipeXScroll(params) {
         swipeNot = params.swipeNot,
         onstart = params.onstart,
         onmove = params.onmove,
-        // onend = params.onend,
 
         // 记录点下的坐标
         startX, startY,

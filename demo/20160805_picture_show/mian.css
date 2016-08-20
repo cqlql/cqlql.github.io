@@ -1,0 +1,67 @@
+p, input, td, textarea, ul, dl, dt, dd, menu {
+  padding: 0;
+  margin: 0;
+}
+
+ul {
+  list-style-type: none;
+}
+
+.list-select {
+  height: 70px;
+  width: 634px;
+  padding-left: 200px;
+  background-color: rgba(0, 0, 0, 0.7);
+}
+.list-select .aw {
+  width: 30px;
+  height: 70px;
+  float: left;
+  position: relative;
+}
+.list-select .aw:after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  margin: -12.5px 0 0 -8.5px;
+  width: 17px;
+  height: 25px;
+  background: url("../20160805_HHZT/imgs/ico.png") no-repeat -62px -63px;
+}
+.list-select .aw.r {
+  float: right;
+}
+.list-select .aw.r:after {
+  background-position: -62px -112px;
+}
+.list-select .ls-wrap {
+  height: 70px;
+  overflow: hidden;
+}
+.list-select .ls-show {
+  margin: 0 2px;
+  width: 570px;
+  overflow: hidden;
+}
+.list-select ul {
+  position: relative;
+  left: 0;
+  transition: .3s;
+}
+.list-select li {
+  float: left;
+  width: 114px;
+  height: 70px;
+}
+.list-select li a {
+  display: block;
+  margin: 4px 2px;
+  height: 62px;
+  background-color: #1bbc9b;
+}
+.list-select li.active {
+  background: #ff6a00;
+}
+
+/*# sourceMappingURL=mian.css.map */
