@@ -1,0 +1,58 @@
+@charset "UTF-8";
+/*# 重置 */
+body, p, dl, dd {
+  margin: 0;
+}
+
+ul {
+  list-style-type: none;
+  padding: 0;
+  margin: 0;
+}
+
+body {
+  color: #333;
+  font: 14px/1.2 Microsoft Yahei,\5FAE\8F6F\96C5\9ED1;
+}
+
+a {
+  color: #333;
+  text-decoration: none;
+}
+
+/*# 公共 */
+.cf {
+  clear: both;
+}
+
+.cf:after {
+  content: '';
+  display: block;
+  height: 0;
+  overflow: hidden;
+  clear: both;
+}
+
+/*hide*/
+.picture-zoom {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  overflow: hidden;
+  pointer-events: none;
+  -webkit-transform: scale(0.8, 0.8);
+  transform: scale(0.8, 0.8);
+  opacity: 0;
+  -webkit-transition: 0.2s ease-out;
+  transition: 0.2s ease-out;
+}
+.picture-zoom.show {
+  pointer-events: auto;
+  -webkit-transform: scale(1, 1);
+  transform: scale(1, 1);
+  opacity: 1;
+}
+
+/*# sourceMappingURL=common.css.map */
