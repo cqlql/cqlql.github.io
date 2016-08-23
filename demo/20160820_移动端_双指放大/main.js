@@ -8,7 +8,7 @@
     var c = commonInit();
 
     (function () {
-        document.querySelector('a').onclick = function () {
+        document.getElementById('popupBtn').onclick = function () {
             zoomPicture('imgs/test.jpg');
         };
     })();
