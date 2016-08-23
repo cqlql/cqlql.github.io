@@ -8,7 +8,6 @@
     var c = commonInit();
 
     (function () {
-        var btn = document.querySelector('a');
         document.querySelector('a').onclick = function () {
             zoomPicture('imgs/test.jpg');
         };

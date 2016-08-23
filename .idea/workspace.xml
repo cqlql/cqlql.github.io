@@ -1,12 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="41faba64-2323-4ec0-a3fd-5adaf7f21e6d" name="Default" comment="">
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/demo/0/index.html" afterPath="$PROJECT_DIR$/demo/0/index.html" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/demo/20160721_移动端_左右滑动banner/main.js" afterPath="$PROJECT_DIR$/demo/20160721_移动端_左右滑动banner/main.js" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/js/common_pc.js" afterPath="$PROJECT_DIR$/js/common_pc.js" />
-    </list>
+    <list default="true" id="41faba64-2323-4ec0-a3fd-5adaf7f21e6d" name="Default" comment="" />
     <ignored path="cqlql.github.io.iws" />
     <ignored path=".idea/workspace.xml" />
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
@@ -24,26 +19,164 @@
     <favorites_list name="cqlql.github.io" />
   </component>
   <component name="FileEditorManager">
-    <splitter split-orientation="horizontal" split-proportion="0.35905612">
+    <splitter split-orientation="horizontal" split-proportion="0.3399361">
       <split-first>
         <leaf SIDE_TABS_SIZE_LIMIT_KEY="300">
           <file leaf-file-name="index.html" pinned="false" current-in-tab="false">
-            <entry file="file://$PROJECT_DIR$/demo/20160720_拖动新实现_即时累加轨迹两点距离—/index.html">
+            <entry file="file://$PROJECT_DIR$/demo/20151012_简易日历/index.html">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="780">
-                  <caret line="71" column="17" selection-start-line="71" selection-start-column="17" selection-end-line="71" selection-end-column="17" />
+                <state relative-caret-position="570">
+                  <caret line="38" column="39" selection-start-line="38" selection-start-column="39" selection-end-line="38" selection-end-column="39" />
+                  <folding />
+                </state>
+              </provider>
+            </entry>
+          </file>
+          <file leaf-file-name="2016-08-20-移动端双指放大.html" pinned="false" current-in-tab="true">
+            <entry file="file://$PROJECT_DIR$/_posts/2016-08-20-移动端双指放大.html">
+              <provider selected="true" editor-type-id="text-editor">
+                <state relative-caret-position="0">
+                  <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="5" selection-end-column="0" />
+                  <folding />
+                </state>
+              </provider>
+            </entry>
+          </file>
+          <file leaf-file-name="main.js" pinned="false" current-in-tab="false">
+            <entry file="file://$PROJECT_DIR$/demo/20160721_移动端_左右滑动banner/main.js">
+              <provider selected="true" editor-type-id="text-editor">
+                <state relative-caret-position="5190">
+                  <caret line="346" column="45" selection-start-line="346" selection-start-column="45" selection-end-line="346" selection-end-column="45" />
+                  <folding />
+                </state>
+              </provider>
+            </entry>
+          </file>
+          <file leaf-file-name="index.html" pinned="false" current-in-tab="false">
+            <entry file="file://$PROJECT_DIR$/index.html">
+              <provider selected="true" editor-type-id="text-editor">
+                <state relative-caret-position="240">
+                  <caret line="16" column="16" selection-start-line="16" selection-start-column="16" selection-end-line="16" selection-end-column="16" />
+                  <folding />
+                </state>
+              </provider>
+            </entry>
+          </file>
+        </leaf>
+      </split-first>
+      <split-second>
+        <leaf SIDE_TABS_SIZE_LIMIT_KEY="300">
+          <file leaf-file-name="picture_slide_show.js" pinned="false" current-in-tab="false">
+            <entry file="file://$PROJECT_DIR$/../../project/workspace/TeachingEasy/assets/js/picture_slide_show.js">
+              <provider selected="true" editor-type-id="text-editor">
+                <state relative-caret-position="240">
+                  <caret line="103" column="5" selection-start-line="103" selection-start-column="5" selection-end-line="103" selection-end-column="5" />
                   <folding>
-                    <element signature="e#1975#3207#0" expanded="false" />
+                    <element signature="e#229#369#0" expanded="false" />
+                    <element signature="e#529#639#0" expanded="false" />
+                    <element signature="e#691#777#0" expanded="false" />
                   </folding>
                 </state>
               </provider>
             </entry>
           </file>
-          <file leaf-file-name="common.js" pinned="false" current-in-tab="false">
+          <file leaf-file-name="placetable_example_.html" pinned="false" current-in-tab="false">
+            <entry file="file://$PROJECT_DIR$/demo/20160801_座位表_/placetable_example_.html">
+              <provider selected="true" editor-type-id="text-editor">
+                <state relative-caret-position="105">
+                  <caret line="7" column="13" selection-start-line="7" selection-start-column="13" selection-end-line="7" selection-end-column="13" />
+                  <folding />
+                </state>
+              </provider>
+            </entry>
+          </file>
+          <file leaf-file-name="视频点播.html" pinned="false" current-in-tab="false">
+            <entry file="file://$PROJECT_DIR$/demo/20160805_HHZT/视频点播.html">
+              <provider selected="true" editor-type-id="text-editor">
+                <state relative-caret-position="60">
+                  <caret line="4" column="4" selection-start-line="4" selection-start-column="4" selection-end-line="4" selection-end-column="91" />
+                  <folding>
+                    <element signature="n#div#1;n#body#0;n#html#0;n#!!top" expanded="false" />
+                    <element signature="n#div#1;n#div#3;n#body#0;n#html#0;n#!!top" expanded="false" />
+                  </folding>
+                </state>
+              </provider>
+            </entry>
+          </file>
+          <file leaf-file-name="common.scss" pinned="false" current-in-tab="false">
+            <entry file="file://$PROJECT_DIR$/demo/20160808_new/sass/common.scss">
+              <provider selected="true" editor-type-id="text-editor">
+                <state relative-caret-position="210">
+                  <caret line="205" column="14" selection-start-line="205" selection-start-column="14" selection-end-line="205" selection-end-column="14" />
+                  <folding>
+                    <element signature="e#48#73#0" expanded="false" />
+                    <element signature="e#141#174#0" expanded="false" />
+                    <element signature="e#189#4367#0" expanded="false" />
+                    <element signature="e#489#527#0" expanded="false" />
+                    <element signature="e#548#586#0" expanded="false" />
+                    <element signature="e#599#744#0" expanded="false" />
+                    <element signature="e#756#1178#0" expanded="false" />
+                    <element signature="e#910#1172#0" expanded="false" />
+                    <element signature="e#1190#1616#0" expanded="false" />
+                    <element signature="e#1347#1610#0" expanded="false" />
+                    <element signature="e#1628#2049#0" expanded="false" />
+                    <element signature="e#1782#2043#0" expanded="false" />
+                    <element signature="e#2063#2540#0" expanded="false" />
+                    <element signature="e#2228#2534#0" expanded="false" />
+                    <element signature="e#2553#3030#0" expanded="false" />
+                    <element signature="e#2720#3024#0" expanded="false" />
+                    <element signature="e#3043#3516#0" expanded="false" />
+                    <element signature="e#3212#3510#0" expanded="false" />
+                    <element signature="e#3529#4004#0" expanded="false" />
+                    <element signature="e#3698#3998#0" expanded="false" />
+                    <element signature="e#4015#4365#0" expanded="false" />
+                    <element signature="e#4383#9980#0" expanded="false" />
+                    <element signature="e#4395#6426#0" expanded="false" />
+                    <element signature="e#4505#5051#0" expanded="false" />
+                    <element signature="e#4662#5041#0" expanded="false" />
+                    <element signature="e#5065#5129#0" expanded="false" />
+                    <element signature="e#5142#5206#0" expanded="false" />
+                    <element signature="e#5221#5260#0" expanded="false" />
+                    <element signature="e#5274#5438#0" expanded="false" />
+                    <element signature="e#5348#5428#0" expanded="false" />
+                    <element signature="e#5476#5538#0" expanded="false" />
+                    <element signature="e#5555#5596#0" expanded="false" />
+                    <element signature="e#5614#5704#0" expanded="false" />
+                    <element signature="e#5724#5889#0" expanded="false" />
+                    <element signature="e#5911#6420#0" expanded="false" />
+                    <element signature="e#6122#6277#0" expanded="false" />
+                    <element signature="e#6298#6410#0" expanded="false" />
+                    <element signature="e#6440#9978#0" expanded="false" />
+                    <element signature="e#6501#6541#0" expanded="false" />
+                    <element signature="e#6552#6619#0" expanded="false" />
+                    <element signature="e#6630#6673#0" expanded="false" />
+                    <element signature="e#6695#6899#0" expanded="false" />
+                    <element signature="e#6921#7126#0" expanded="false" />
+                    <element signature="e#7158#7992#0" expanded="false" />
+                    <element signature="e#7180#7260#0" expanded="false" />
+                    <element signature="e#7281#7982#0" expanded="false" />
+                    <element signature="e#7649#7797#0" expanded="false" />
+                    <element signature="e#7822#7968#0" expanded="false" />
+                    <element signature="e#8023#8924#0" expanded="false" />
+                    <element signature="e#8073#8153#0" expanded="false" />
+                    <element signature="e#8173#8914#0" expanded="false" />
+                    <element signature="e#8579#8727#0" expanded="false" />
+                    <element signature="e#8752#8900#0" expanded="false" />
+                    <element signature="e#8954#9971#0" expanded="false" />
+                    <element signature="e#9004#9084#0" expanded="false" />
+                    <element signature="e#9101#9628#0" expanded="false" />
+                    <element signature="e#9231#9614#0" expanded="false" />
+                    <element signature="e#9655#9961#0" expanded="false" />
+                  </folding>
+                </state>
+              </provider>
+            </entry>
+          </file>
+          <file leaf-file-name="common.js" pinned="false" current-in-tab="true">
             <entry file="file://$PROJECT_DIR$/js/common.js">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="2055">
-                  <caret line="644" column="45" selection-start-line="644" selection-start-column="39" selection-end-line="644" selection-end-column="45" />
+                <state relative-caret-position="74">
+                  <caret line="694" column="0" selection-start-line="694" selection-start-column="0" selection-end-line="694" selection-end-column="0" />
                   <folding>
                     <element signature="e#59#342#0" expanded="false" />
                     <element signature="e#269#339#0" expanded="false" />
@@ -159,6 +292,7 @@
                     <element signature="e#16502#16593#0" expanded="false" />
                     <element signature="e#16599#16693#0" expanded="false" />
                     <element signature="e#16755#16945#0" expanded="false" />
+                    <element signature="e#16997#17609#0" expanded="false" />
                     <element signature="e#17640#18255#0" expanded="false" />
                     <element signature="e#17695#17882#0" expanded="false" />
                     <element signature="e#17730#17846#0" expanded="false" />
@@ -263,11 +397,7 @@
                     <element signature="e#31257#31394#0" expanded="false" />
                     <element signature="e#31408#31447#0" expanded="false" />
                     <element signature="e#31509#31550#0" expanded="false" />
-                    <element signature="e#31589#31750#0" expanded="false" />
-                    <element signature="e#31655#31686#0" expanded="false" />
                     <element signature="e#31771#31979#0" expanded="false" />
-                    <element signature="e#32023#32260#0" expanded="false" />
-                    <element signature="e#32099#32152#0" expanded="false" />
                     <element signature="e#32181#32254#0" expanded="false" />
                     <element signature="e#32282#32365#0" expanded="false" />
                     <element signature="e#32400#33158#0" expanded="false" />
@@ -355,179 +485,6 @@
               </provider>
             </entry>
           </file>
-          <file leaf-file-name="common_pc.js" pinned="false" current-in-tab="false">
-            <entry file="file://$PROJECT_DIR$/js/common_pc.js">
-              <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="375">
-                  <caret line="121" column="0" selection-start-line="113" selection-start-column="0" selection-end-line="134" selection-end-column="12" />
-                  <folding>
-                    <element signature="e#1#62#0" expanded="false" />
-                    <element signature="e#181#2178#0" expanded="false" />
-                    <element signature="e#264#346#0" expanded="false" />
-                    <element signature="e#360#438#0" expanded="false" />
-                    <element signature="e#479#617#0" expanded="false" />
-                    <element signature="e#631#818#0" expanded="false" />
-                    <element signature="e#666#808#0" expanded="false" />
-                    <element signature="e#855#1982#0" expanded="false" />
-                    <element signature="e#917#1917#0" expanded="false" />
-                    <element signature="e#948#1745#0" expanded="false" />
-                    <element signature="e#1395#1532#0" expanded="false" />
-                    <element signature="e#1584#1727#0" expanded="false" />
-                    <element signature="e#1795#1903#0" expanded="false" />
-                    <element signature="e#1992#2017#0" expanded="false" />
-                    <element signature="e#2232#2985#0" expanded="false" />
-                    <element signature="e#2242#2270#0" expanded="false" />
-                    <element signature="e#2514#2599#0" expanded="false" />
-                    <element signature="e#2613#2691#0" expanded="false" />
-                    <element signature="e#2732#2824#0" expanded="false" />
-                    <element signature="e#2838#2979#0" expanded="false" />
-                    <element signature="e#2873#2969#0" expanded="false" />
-                  </folding>
-                </state>
-              </provider>
-            </entry>
-          </file>
-          <file leaf-file-name="index.html" pinned="false" current-in-tab="true">
-            <entry file="file://$PROJECT_DIR$/demo/20160803_满屏轮播/index.html">
-              <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="1410">
-                  <caret line="115" column="13" selection-start-line="115" selection-start-column="13" selection-end-line="115" selection-end-column="13" />
-                  <folding>
-                    <element signature="n#style#0;n#div#0;n#div#0;n#div#0;n#body#0;n#html#0;n#!!top" expanded="true" />
-                    <element signature="n#style#0;n#div#1;n#div#0;n#div#0;n#body#0;n#html#0;n#!!top" expanded="true" />
-                    <element signature="n#style#0;n#div#2;n#div#0;n#div#0;n#body#0;n#html#0;n#!!top" expanded="true" />
-                  </folding>
-                </state>
-              </provider>
-            </entry>
-          </file>
-          <file leaf-file-name="2016-08-03-满屏轮播.html" pinned="false" current-in-tab="false">
-            <entry file="file://$PROJECT_DIR$/_posts/2016-08-03-满屏轮播.html">
-              <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="60">
-                  <caret line="4" column="3" selection-start-line="4" selection-start-column="3" selection-end-line="4" selection-end-column="3" />
-                  <folding />
-                </state>
-              </provider>
-            </entry>
-          </file>
-          <file leaf-file-name="template.html" pinned="false" current-in-tab="false">
-            <entry file="file://$PROJECT_DIR$/demo/0/template.html">
-              <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="105">
-                  <caret line="7" column="4" selection-start-line="7" selection-start-column="4" selection-end-line="7" selection-end-column="77" />
-                  <folding />
-                </state>
-              </provider>
-            </entry>
-          </file>
-          <file leaf-file-name="main.js" pinned="false" current-in-tab="false">
-            <entry file="file://$PROJECT_DIR$/demo/20160721_移动端_左右滑动banner/main.js">
-              <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="-120">
-                  <caret line="209" column="0" selection-start-line="209" selection-start-column="0" selection-end-line="209" selection-end-column="0" />
-                  <folding>
-                    <element signature="e#0#40#0" expanded="false" />
-                    <element signature="e#170#242#0" expanded="false" />
-                    <element signature="e#280#362#0" expanded="false" />
-                    <element signature="e#422#1024#0" expanded="false" />
-                    <element signature="e#440#936#0" expanded="false" />
-                    <element signature="e#465#550#0" expanded="false" />
-                    <element signature="e#667#735#0" expanded="false" />
-                    <element signature="e#767#834#0" expanded="false" />
-                    <element signature="e#852#925#0" expanded="false" />
-                    <element signature="e#950#1018#0" expanded="false" />
-                    <element signature="e#964#980#0" expanded="false" />
-                    <element signature="n#!!doc;n#swipeXScroll#0" expanded="false" />
-                    <element signature="n#!!block;n#swipeXScroll#0" expanded="false" />
-                    <element signature="e#1486#1496#0" expanded="false" />
-                    <element signature="e#1688#1948#0" expanded="false" />
-                    <element signature="e#1782#1824#0" expanded="false" />
-                    <element signature="e#1838#1942#0" expanded="false" />
-                    <element signature="e#1875#1930#0" expanded="false" />
-                    <element signature="e#2004#2133#0" expanded="false" />
-                    <element signature="e#2081#2125#0" expanded="false" />
-                    <element signature="e#2188#2627#0" expanded="false" />
-                    <element signature="e#2304#2351#0" expanded="false" />
-                    <element signature="e#2365#2621#0" expanded="false" />
-                    <element signature="e#2420#2502#0" expanded="false" />
-                    <element signature="e#2551#2609#0" expanded="false" />
-                    <element signature="n#!!block;n#each#0;n#!!block;n#swipeXScroll#0" expanded="false" />
-                    <element signature="e#2682#2714#0" expanded="false" />
-                    <element signature="n#!!block;n#start#0;n#!!block;n#swipeXScroll#0" expanded="false" />
-                    <element signature="e#2927#2975#0" expanded="false" />
-                    <element signature="n#!!block;n#startAgain#0;n#!!block;n#swipeXScroll#0" expanded="false" />
-                    <element signature="e#3213#3244#0" expanded="false" />
-                    <element signature="e#3265#3313#0" expanded="false" />
-                    <element signature="n#!!block;n#move#0;n#!!block;n#swipeXScroll#0" expanded="false" />
-                    <element signature="e#3457#3703#0" expanded="false" />
-                    <element signature="e#3589#3632#0" expanded="false" />
-                    <element signature="e#3650#3693#0" expanded="false" />
-                    <element signature="e#3731#3900#0" expanded="false" />
-                    <element signature="e#3758#3858#0" expanded="false" />
-                    <element signature="n#!!block;n#end#0;n#!!block;n#swipeXScroll#0" expanded="false" />
-                    <element signature="e#3962#4143#0" expanded="false" />
-                    <element signature="e#3990#4133#0" expanded="false" />
-                    <element signature="e#5046#5161#0" expanded="false" />
-                    <element signature="e#5180#5993#0" expanded="false" />
-                    <element signature="e#5394#5574#0" expanded="false" />
-                    <element signature="e#5433#5486#0" expanded="false" />
-                    <element signature="e#5508#5560#0" expanded="false" />
-                    <element signature="e#5592#5654#0" expanded="false" />
-                    <element signature="e#5847#5987#0" expanded="false" />
-                    <element signature="n#!!doc;n#banner#0" expanded="false" />
-                    <element signature="n#!!block;n#banner#0" expanded="false" />
-                    <element signature="e#7135#7724#0" expanded="false" />
-                    <element signature="e#7184#7287#0" expanded="false" />
-                    <element signature="e#7342#7718#0" expanded="false" />
-                    <element signature="e#7512#7708#0" expanded="false" />
-                    <element signature="n#!!doc;n#getRightCssName#0" expanded="false" />
-                    <element signature="n#!!block;n#getRightCssName#0" expanded="false" />
-                    <element signature="e#8253#8412#0" expanded="false" />
-                    <element signature="e#8327#8406#0" expanded="false" />
-                    <element signature="n#!!block;n#toStyleName#0" expanded="false" />
-                    <element signature="e#8528#8570#0" expanded="false" />
-                  </folding>
-                </state>
-              </provider>
-            </entry>
-          </file>
-        </leaf>
-      </split-first>
-      <split-second>
-        <leaf SIDE_TABS_SIZE_LIMIT_KEY="300">
-          <file leaf-file-name="main.js" pinned="false" current-in-tab="true">
-            <entry file="file://$PROJECT_DIR$/demo/20160803_满屏轮播/main.js">
-              <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="347">
-                  <caret line="246" column="27" selection-start-line="246" selection-start-column="17" selection-end-line="246" selection-end-column="27" />
-                  <folding>
-                    <element signature="n#!!block;n#leftType#0;n#!!block;n#FullPage#0" expanded="false" />
-                    <marker date="1470274773791" expanded="true" signature="7759:7782" ph="..." />
-                    <marker date="1470274773791" expanded="true" signature="7783:8232" ph="..." />
-                    <marker date="1470274773791" expanded="true" signature="7813:8226" ph="..." />
-                    <marker date="1470274773791" expanded="true" signature="7848:8165" ph="..." />
-                    <marker date="1470274773791" expanded="true" signature="7891:7914" ph="..." />
-                    <marker date="1470274773791" expanded="true" signature="7915:7947" ph="..." />
-                    <marker date="1470274773791" expanded="true" signature="7990:8013" ph="..." />
-                    <marker date="1470274773791" expanded="true" signature="8014:8046" ph="..." />
-                    <marker date="1470274773791" expanded="true" signature="8089:8112" ph="..." />
-                    <marker date="1470274773791" expanded="true" signature="8113:8145" ph="..." />
-                  </folding>
-                </state>
-              </provider>
-            </entry>
-          </file>
-          <file leaf-file-name="2016-07-21-移动端_左右滑动banner.html" pinned="false" current-in-tab="false">
-            <entry file="file://$PROJECT_DIR$/_posts/2016-07-21-移动端_左右滑动banner.html">
-              <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="15">
-                  <caret line="1" column="21" selection-start-line="1" selection-start-column="7" selection-end-line="1" selection-end-column="21" />
-                  <folding />
-                </state>
-              </provider>
-            </entry>
-          </file>
         </leaf>
       </split-second>
     </splitter>
@@ -535,53 +492,70 @@
   <component name="FileTemplateManagerImpl">
     <option name="RECENT_TEMPLATES">
       <list>
+        <option value="CSS File" />
+        <option value="HTML File" />
         <option value="JavaScript File" />
       </list>
     </option>
   </component>
   <component name="Git.Settings">
+    <option name="ROOT_SYNC" value="DONT_SYNC" />
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
   <component name="IdeDocumentHistory">
     <option name="CHANGED_PATHS">
       <list>
-        <option value="$PROJECT_DIR$/demo/20160426_省级联动——/main.js" />
-        <option value="$PROJECT_DIR$/css/index.css" />
-        <option value="$PROJECT_DIR$/css/main.css" />
-        <option value="$PROJECT_DIR$/demo/20160719_滑动切换——/view.html" />
-        <option value="$PROJECT_DIR$/demo/20160719_滑动切换——/main.js" />
-        <option value="$PROJECT_DIR$/js/common.js" />
-        <option value="$PROJECT_DIR$/demo/20160720_拖动新实现_即时——/index.html" />
-        <option value="$PROJECT_DIR$/demo/20160720_拖动新实现_即时累加轨迹两点距离——/index.html" />
-        <option value="$PROJECT_DIR$/demo/20160720_滑动手势判断——/main.js" />
-        <option value="$PROJECT_DIR$/demo/20160720_滑动手势判断——/view.html" />
-        <option value="$PROJECT_DIR$/demo/20160720_滑动手势判断—/view.html" />
-        <option value="$PROJECT_DIR$/demo/20160720_滑动手势判/index.html" />
-        <option value="$PROJECT_DIR$/demo/20160720_滑动手势判/view.html" />
-        <option value="$PROJECT_DIR$/_posts/2016-07-20-滑动手势判断.html" />
-        <option value="$PROJECT_DIR$/about/index.md" />
-        <option value="$PROJECT_DIR$/about/index.html" />
-        <option value="$PROJECT_DIR$/_layouts/index.html" />
-        <option value="$PROJECT_DIR$/demo/20151217_滚动侧边带缓动更随/index.html" />
-        <option value="$PROJECT_DIR$/demo/20160720_滑动手势判断/main.js" />
-        <option value="$PROJECT_DIR$/demo/20160720_滑动手势判断/view.html" />
-        <option value="$PROJECT_DIR$/demo/20160720_滑动手势判断/index.html" />
-        <option value="$PROJECT_DIR$/demo/20160719_滑动探索——/view.html" />
-        <option value="$PROJECT_DIR$/demo/20160719_滑动探索——/main.js" />
-        <option value="$PROJECT_DIR$/demo/20160719_移动端_左右滑动banner/view.html" />
-        <option value="$PROJECT_DIR$/demo/20160719_移动端_左右滑动banner/index.html" />
-        <option value="$PROJECT_DIR$/_posts/2016-07-19-移动端_左右滑动banner.html" />
-        <option value="$PROJECT_DIR$/_posts/2016-07-21-移动端_左右滑动banner.html" />
-        <option value="$PROJECT_DIR$/demo/20160721_移动端_左右滑动banner/view.html" />
-        <option value="E:/$admin/Desktop/banner/图片轮播展示JQ1.html" />
-        <option value="$PROJECT_DIR$/_config.yml" />
-        <option value="$PROJECT_DIR$/demo/20160721_移动端_左右滑动banner/index.html" />
-        <option value="$PROJECT_DIR$/demo/0/index.html" />
-        <option value="$PROJECT_DIR$/js/common_pc.js" />
-        <option value="$PROJECT_DIR$/demo/20160803_满屏轮播/main.js" />
-        <option value="$PROJECT_DIR$/demo/20160721_移动端_左右滑动banner/main.js" />
-        <option value="$PROJECT_DIR$/_posts/2016-08-03-满屏轮播.html" />
-        <option value="$PROJECT_DIR$/demo/20160803_满屏轮播/index.html" />
+        <option value="$PROJECT_DIR$/demo/20160805_HHZT/资讯详情.html" />
+        <option value="$PROJECT_DIR$/demo/20160805_HHZT/index.html" />
+        <option value="$PROJECT_DIR$/demo/20160805_HHZT/js/news-index.js" />
+        <option value="$PROJECT_DIR$/demo/20160805_HHZT/资讯信息.html" />
+        <option value="$PROJECT_DIR$/demo/20160805_HHZT/js/news_index.js" />
+        <option value="$PROJECT_DIR$/demo/20160808_new/train.html" />
+        <option value="$PROJECT_DIR$/demo/20160808_new/main.js" />
+        <option value="$PROJECT_DIR$/demo/20160808_new/js/main.js" />
+        <option value="$PROJECT_DIR$/demo/20160808_new/jietu.html" />
+        <option value="$PROJECT_DIR$/demo/20160805_HHZT/个人中心.html" />
+        <option value="$PROJECT_DIR$/demo/20160805_HHZT/个人中心.-我录制的视频.html" />
+        <option value="$PROJECT_DIR$/demo/20160805_HHZT/视频点播.html" />
+        <option value="$PROJECT_DIR$/demo/20160808_new/zuoye.html" />
+        <option value="$PROJECT_DIR$/demo/20160808_new/js/data.js" />
+        <option value="$PROJECT_DIR$/demo/20160808_new/js/homework_view_data_.js" />
+        <option value="$PROJECT_DIR$/demo/20160808_new/homework_view.html" />
+        <option value="$PROJECT_DIR$/demo/20160808_new/sass/common.scss" />
+        <option value="$PROJECT_DIR$/demo/20160808_new/js/homework_view.js" />
+        <option value="E:/$admin/Desktop/20160805_HHZT/css/common.css" />
+        <option value="$PROJECT_DIR$/demo/20160808_new/homework.html" />
+        <option value="$PROJECT_DIR$/demo/20160805_HHZT/个人中心-基本信息.html" />
+        <option value="$PROJECT_DIR$/demo/20160805_HHZT/个人中心-我录制的视频.html" />
+        <option value="$PROJECT_DIR$/demo/20160805_HHZT/个人中心-我的消息.html" />
+        <option value="$PROJECT_DIR$/demo/20160805_HHZT/个人中心-我的消息-发消息.html" />
+        <option value="$PROJECT_DIR$/demo/20160805_HHZT/js/videolive.js" />
+        <option value="$PROJECT_DIR$/demo/20160805_HHZT/直播.html" />
+        <option value="$PROJECT_DIR$/demo/20160805_HHZT/css/ieold.css" />
+        <option value="$PROJECT_DIR$/demo/20160805_HHZT/播放.html" />
+        <option value="$PROJECT_DIR$/demo/20160805_HHZT/js/index.js" />
+        <option value="$PROJECT_DIR$/demo/20160805_HHZT/登录.html" />
+        <option value="$PROJECT_DIR$/demo/20160801_座位表_/placetable_example_.js" />
+        <option value="$PROJECT_DIR$/demo/20141111_JQ_图片展示360度/common.js" />
+        <option value="$PROJECT_DIR$/demo/20160805_HHZT/sass/common.scss" />
+        <option value="$PROJECT_DIR$/demo/20160805_HHZT/css/common.css" />
+        <option value="$PROJECT_DIR$/demo/20160805_HHZT/主页.html" />
+        <option value="$PROJECT_DIR$/demo/20151009_移动端_双指放大/20160816.js" />
+        <option value="$PROJECT_DIR$/demo/20160808_new/sass/base.scss" />
+        <option value="$PROJECT_DIR$/demo/20151009_移动端_双指放大/20160816.html" />
+        <option value="$PROJECT_DIR$/demo/20151009_移动端_双指放大/sass/base.scss" />
+        <option value="$PROJECT_DIR$/demo/20151009_移动端_双指放大/sass/common.scss" />
+        <option value="$PROJECT_DIR$/demo/20151009_移动端_双指放大/start.cmd" />
+        <option value="$PROJECT_DIR$/demo/20151009_touch_zoom_/start.cmd" />
+        <option value="$PROJECT_DIR$/demo/20160805_HHZT/js/common.js" />
+        <option value="$PROJECT_DIR$/demo/20151009_touch_zoom_/20160816.js" />
+        <option value="$PROJECT_DIR$/demo/20151009_touch_zoom_/sass/common.scss" />
+        <option value="$PROJECT_DIR$/demo/20151009_touch_zoom_/20160816.html" />
+        <option value="$PROJECT_DIR$/demo/20151009_移动端_双指放大/index.html" />
+        <option value="$PROJECT_DIR$/demo/20151009_移动端_双指放大/css/common.css" />
+        <option value="$PROJECT_DIR$/demo/20151009_移动端_双指放大/main.js" />
+        <option value="$PROJECT_DIR$/_posts/2015-10-09-移动端双指放大.html" />
+        <option value="$PROJECT_DIR$/_posts/2016-08-20-移动端双指放大.html" />
       </list>
     </option>
   </component>
@@ -592,9 +566,9 @@
     <sorting>DEFINITION_ORDER</sorting>
   </component>
   <component name="ProjectFrameBounds">
-    <option name="x" value="-8" />
-    <option name="y" value="22" />
-    <option name="width" value="1936" />
+    <option name="x" value="186" />
+    <option name="y" value="155" />
+    <option name="width" value="1924" />
     <option name="height" value="1066" />
   </component>
   <component name="ProjectLevelVcsManager" settingsEditedManually="false">
@@ -615,15 +589,13 @@
       <showLibraryContents />
       <hideEmptyPackages />
       <abbreviatePackageNames />
-      <autoscrollToSource />
+      <autoscrollToSource ProjectPane="false" />
       <autoscrollFromSource />
       <sortByType />
       <manualOrder />
       <foldersAlwaysOnTop value="true" />
     </navigator>
     <panes>
-      <pane id="Scope" />
-      <pane id="Scratches" />
       <pane id="ProjectPane">
         <subPane>
           <PATH>
@@ -652,75 +624,7 @@
               <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
             </PATH_ELEMENT>
             <PATH_ELEMENT>
-              <option name="myItemId" value="js" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
-            </PATH_ELEMENT>
-          </PATH>
-          <PATH>
-            <PATH_ELEMENT>
-              <option name="myItemId" value="cqlql.github.io" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.ProjectViewProjectNode" />
-            </PATH_ELEMENT>
-            <PATH_ELEMENT>
-              <option name="myItemId" value="cqlql.github.io" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
-            </PATH_ELEMENT>
-            <PATH_ELEMENT>
               <option name="myItemId" value="demo" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
-            </PATH_ELEMENT>
-          </PATH>
-          <PATH>
-            <PATH_ELEMENT>
-              <option name="myItemId" value="cqlql.github.io" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.ProjectViewProjectNode" />
-            </PATH_ELEMENT>
-            <PATH_ELEMENT>
-              <option name="myItemId" value="cqlql.github.io" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
-            </PATH_ELEMENT>
-            <PATH_ELEMENT>
-              <option name="myItemId" value="demo" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
-            </PATH_ELEMENT>
-            <PATH_ELEMENT>
-              <option name="myItemId" value="20160803_满屏轮播" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
-            </PATH_ELEMENT>
-          </PATH>
-          <PATH>
-            <PATH_ELEMENT>
-              <option name="myItemId" value="cqlql.github.io" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.ProjectViewProjectNode" />
-            </PATH_ELEMENT>
-            <PATH_ELEMENT>
-              <option name="myItemId" value="cqlql.github.io" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
-            </PATH_ELEMENT>
-            <PATH_ELEMENT>
-              <option name="myItemId" value="demo" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
-            </PATH_ELEMENT>
-            <PATH_ELEMENT>
-              <option name="myItemId" value="20160721_移动端_左右滑动banner" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
-            </PATH_ELEMENT>
-          </PATH>
-          <PATH>
-            <PATH_ELEMENT>
-              <option name="myItemId" value="cqlql.github.io" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.ProjectViewProjectNode" />
-            </PATH_ELEMENT>
-            <PATH_ELEMENT>
-              <option name="myItemId" value="cqlql.github.io" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
-            </PATH_ELEMENT>
-            <PATH_ELEMENT>
-              <option name="myItemId" value="demo" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
-            </PATH_ELEMENT>
-            <PATH_ELEMENT>
-              <option name="myItemId" value="0" />
               <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
             </PATH_ELEMENT>
           </PATH>
@@ -740,12 +644,14 @@
           </PATH>
         </subPane>
       </pane>
+      <pane id="Scope" />
+      <pane id="Scratches" />
     </panes>
   </component>
   <component name="PropertiesComponent">
     <property name="settings.editor.selected.configurable" value="vcs.Git" />
     <property name="settings.editor.splitter.proportion" value="0.2" />
-    <property name="last_opened_file_path" value="E:/$admin/Desktop/vue-hackernews-gh-pages" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$/../note/admin" />
     <property name="WebServerToolWindowFactoryState" value="false" />
     <property name="HbShouldOpenHtmlAsHb" value="" />
     <property name="js-jscs-nodeInterpreter" value="C:\Program Files\nodejs\node.exe" />
@@ -765,14 +671,22 @@
     <property name="FileHistory.git4idea.history.GitHistoryProvider_treeOrder2" value="2" />
     <property name="FileHistory.git4idea.history.GitHistoryProvider_treeWidth3" value="973" />
     <property name="FileHistory.git4idea.history.GitHistoryProvider_treeOrder3" value="3" />
+    <property name="DefaultHtmlFileTemplate" value="HTML File" />
+    <property name="list.type.of.created.stylesheet" value="CSS" />
   </component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
-      <recent name="E:\Dropbox\github\cqlql.github.io\demo\20160803_满屏轮播" />
-      <recent name="E:\Dropbox\github\cqlql.github.io\_posts" />
-      <recent name="E:\Dropbox\github\cqlql.github.io\demo\20160719_移动端_左右滑动banner" />
-      <recent name="E:\Dropbox\github\cqlql.github.io\demo\20160719_滑动探索——" />
-      <recent name="E:\Dropbox\github\cqlql.github.io\demo\20160720_滑动手势判" />
+      <recent name="E:\Dropbox\github\cqlql.github.io\demo\20151009_移动端_双指放大" />
+      <recent name="E:\Dropbox\github\cqlql.github.io\demo\20160805_HHZT\imgs" />
+      <recent name="E:\Dropbox\github\cqlql.github.io\demo\20160805_HHZT" />
+      <recent name="E:\Dropbox\github\cqlql.github.io\demo\20160808_new" />
+      <recent name="E:\Dropbox\github\cqlql.github.io\demo\20160808_new\imgs" />
+    </key>
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="E:\Dropbox\github\cqlql.github.io\demo\20151009_touch_zoom_\imgs" />
+      <recent name="E:\Dropbox\github\cqlql.github.io\demo\20160808_new\js" />
+      <recent name="E:\Dropbox\github\cqlql.github.io\demo\20160808_new" />
+      <recent name="E:\Dropbox\github\cqlql.github.io\demo\20160808_new\css" />
     </key>
   </component>
   <component name="RunManager">
@@ -865,7 +779,60 @@
       <workItem from="1470034676614" duration="2698000" />
       <workItem from="1470209971901" duration="10140000" />
       <workItem from="1470226118407" duration="2903000" />
-      <workItem from="1470272865035" duration="2971000" />
+      <workItem from="1470272865035" duration="25607000" />
+      <workItem from="1470315876111" duration="2278000" />
+      <workItem from="1470359415060" duration="3234000" />
+      <workItem from="1470362761051" duration="1476000" />
+      <workItem from="1470365282122" duration="25402000" />
+      <workItem from="1470405249931" duration="11358000" />
+      <workItem from="1470416875413" duration="1869000" />
+      <workItem from="1470445829090" duration="29446000" />
+      <workItem from="1470481008274" duration="2229000" />
+      <workItem from="1470483393102" duration="8658000" />
+      <workItem from="1470492215101" duration="10517000" />
+      <workItem from="1470618019387" duration="27702000" />
+      <workItem from="1470654286479" duration="2692000" />
+      <workItem from="1470657139176" duration="4016000" />
+      <workItem from="1470661647003" duration="6538000" />
+      <workItem from="1470668320991" duration="1898000" />
+      <workItem from="1470670309865" duration="2533000" />
+      <workItem from="1470704760200" duration="23200000" />
+      <workItem from="1470751027893" duration="1020000" />
+      <workItem from="1470791494019" duration="27470000" />
+      <workItem from="1470837164209" duration="4333000" />
+      <workItem from="1470841610948" duration="114000" />
+      <workItem from="1470841830004" duration="422000" />
+      <workItem from="1470878262379" duration="6981000" />
+      <workItem from="1470886698430" duration="1993000" />
+      <workItem from="1470923076949" duration="3090000" />
+      <workItem from="1470926808413" duration="294000" />
+      <workItem from="1470972910488" duration="2215000" />
+      <workItem from="1471008638226" duration="7000000" />
+      <workItem from="1471016542884" duration="140000" />
+      <workItem from="1471223886072" duration="16152000" />
+      <workItem from="1471267405180" duration="9129000" />
+      <workItem from="1471312299615" duration="6190000" />
+      <workItem from="1471397888619" duration="866000" />
+      <workItem from="1471398784157" duration="595000" />
+      <workItem from="1471400690917" duration="607000" />
+      <workItem from="1471402534447" duration="1697000" />
+      <workItem from="1471404425663" duration="1522000" />
+      <workItem from="1471406299109" duration="898000" />
+      <workItem from="1471417865810" duration="5959000" />
+      <workItem from="1471426788492" duration="4792000" />
+      <workItem from="1471490283439" duration="7481000" />
+      <workItem from="1471574654769" duration="2470000" />
+      <workItem from="1471615792748" duration="1765000" />
+      <workItem from="1471620642913" duration="1228000" />
+      <workItem from="1471622774279" duration="458000" />
+      <workItem from="1471692568701" duration="2911000" />
+      <workItem from="1471695571301" duration="9441000" />
+      <workItem from="1471705416361" duration="173000" />
+      <workItem from="1471705597984" duration="155000" />
+      <workItem from="1471829201674" duration="2359000" />
+      <workItem from="1471848326504" duration="595000" />
+      <workItem from="1471916527835" duration="1381000" />
+      <workItem from="1471917945136" duration="869000" />
     </task>
     <task id="LOCAL-00001" summary="新增 满屏轮播demo">
       <created>1470275799570</created>
@@ -881,33 +848,47 @@
       <option name="project" value="LOCAL" />
       <updated>1470276148860</updated>
     </task>
-    <option name="localTasksCounter" value="3" />
+    <task id="LOCAL-00003" summary="新增多项demo">
+      <created>1471705652706</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1471705652706</updated>
+    </task>
+    <task id="LOCAL-00004" summary="新增多项demo">
+      <created>1471705720069</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1471705720069</updated>
+    </task>
+    <option name="localTasksCounter" value="5" />
     <servers />
   </component>
   <component name="TimeTrackingManager">
-    <option name="totallyTimeSpent" value="143750000" />
+    <option name="totallyTimeSpent" value="466197000" />
   </component>
   <component name="ToolWindowManager">
-    <frame x="-8" y="22" width="1936" height="1066" extended-state="7" />
+    <frame x="186" y="155" width="1924" height="1066" extended-state="0" />
     <editor active="true" />
     <layout>
-      <window_info id="Project" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.17386723" sideWeight="0.5" order="0" side_tool="false" content_ui="combo" />
+      <window_info id="Project" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.1797694" sideWeight="0.5" order="0" side_tool="false" content_ui="combo" />
       <window_info id="TODO" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="6" side_tool="false" content_ui="tabs" />
-      <window_info id="Event Log" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="7" side_tool="true" content_ui="tabs" />
+      <window_info id="Event Log" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.113089" sideWeight="0.5" order="7" side_tool="true" content_ui="tabs" />
       <window_info id="Version Control" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.14435147" sideWeight="0.5" order="7" side_tool="false" content_ui="tabs" />
-      <window_info id="Run" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="2" side_tool="false" content_ui="tabs" />
       <window_info id="Structure" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.25" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
       <window_info id="Terminal" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="7" side_tool="false" content_ui="tabs" />
       <window_info id="Favorites" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="2" side_tool="true" content_ui="tabs" />
-      <window_info id="Debug" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.4" sideWeight="0.5" order="3" side_tool="false" content_ui="tabs" />
       <window_info id="Cvs" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.25" sideWeight="0.5" order="4" side_tool="false" content_ui="tabs" />
       <window_info id="Messages" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="7" side_tool="false" content_ui="tabs" />
       <window_info id="Message" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="0" side_tool="false" content_ui="tabs" />
       <window_info id="Commander" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.4" sideWeight="0.5" order="0" side_tool="false" content_ui="tabs" />
       <window_info id="Inspection" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.4" sideWeight="0.5" order="5" side_tool="false" content_ui="tabs" />
+      <window_info id="Run" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="2" side_tool="false" content_ui="tabs" />
       <window_info id="Hierarchy" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.25" sideWeight="0.5" order="2" side_tool="false" content_ui="combo" />
-      <window_info id="Find" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.50107294" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
+      <window_info id="Find" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.17703862" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
       <window_info id="Ant Build" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.25" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
+      <window_info id="Debug" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.4" sideWeight="0.5" order="3" side_tool="false" content_ui="tabs" />
     </layout>
     <layout-to-restore>
       <window_info id="TODO" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="6" side_tool="false" content_ui="tabs" />
@@ -942,7 +923,8 @@
   <component name="VcsManagerConfiguration">
     <MESSAGE value="新增 满屏轮播demo" />
     <MESSAGE value="修改 满屏轮播demo" />
-    <option name="LAST_COMMIT_MESSAGE" value="修改 满屏轮播demo" />
+    <MESSAGE value="新增多项demo" />
+    <option name="LAST_COMMIT_MESSAGE" value="新增多项demo" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
@@ -951,271 +933,356 @@
           <url>file://$PROJECT_DIR$/demo/20160426_省级联动——/main.js</url>
           <line>71</line>
         </line-breakpoint>
+        <line-breakpoint enabled="true" type="javascript">
+          <url>file://$PROJECT_DIR$/demo/20160805_HHZT/js/index.js</url>
+          <line>269</line>
+          <option name="timeStamp" value="22" />
+        </line-breakpoint>
       </breakpoints>
-      <option name="time" value="11" />
+      <option name="time" value="33" />
     </breakpoint-manager>
     <watches-manager />
   </component>
   <component name="editorHistoryManager">
-    <entry file="file://$PROJECT_DIR$/demo/20160505_画图——/main.js">
+    <entry file="file://E:/$admin/Desktop/20160805_HHZT/css/common.css">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="300">
-          <caret line="103" column="0" selection-start-line="103" selection-start-column="0" selection-end-line="103" selection-end-column="0" />
+        <state relative-caret-position="775">
+          <caret line="1843" column="1" selection-start-line="1843" selection-start-column="1" selection-end-line="1843" selection-end-column="1" />
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/demo/20160720_滑动手势判断——/main.js" />
-    <entry file="file://$PROJECT_DIR$/demo/20160720_滑动手势判断——/view.html" />
-    <entry file="file://$PROJECT_DIR$/demo/20160426_省级联动——/main.js">
+    <entry file="file://$PROJECT_DIR$/demo/20160808_new/js/homework_view_data_.js" />
+    <entry file="file://$PROJECT_DIR$/demo/20160808_new/js/homework_view.js" />
+    <entry file="file://$PROJECT_DIR$/demo/20160808_new/homework_view.html" />
+    <entry file="file://$PROJECT_DIR$/demo/20160808_new/js/homework.js">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="150">
-          <caret line="556" column="24" selection-start-line="556" selection-start-column="24" selection-end-line="556" selection-end-column="24" />
+        <state relative-caret-position="60">
+          <caret line="6" column="28" selection-start-line="6" selection-start-column="28" selection-end-line="6" selection-end-column="28" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/demo/20160808_new/homework.html">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="885">
+          <caret line="59" column="17" selection-start-line="59" selection-start-column="17" selection-end-line="59" selection-end-column="17" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/demo/20160808_new/js/homework_data_.js">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="444">
+          <caret line="40" column="31" selection-start-line="40" selection-start-column="31" selection-end-line="40" selection-end-column="31" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/demo/20160803_满屏轮播/main.js">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="60">
+          <caret line="6" column="26" selection-start-line="6" selection-start-column="26" selection-end-line="6" selection-end-column="26" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/demo/20160805_HHZT/个人中心-基本信息.html">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="1500">
+          <caret line="100" column="0" selection-start-line="101" selection-start-column="0" selection-end-line="101" selection-end-column="7" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/demo/20160805_HHZT/js/videolive.js" />
+    <entry file="file://$PROJECT_DIR$/demo/20160805_HHZT/css/ieold.css">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="15">
+          <caret line="1" column="23" selection-start-line="1" selection-start-column="23" selection-end-line="1" selection-end-column="23" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/demo/20160805_HHZT/直播.html">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="3690">
+          <caret line="259" column="7" selection-start-line="259" selection-start-column="7" selection-end-line="259" selection-end-column="7" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/demo/20160805_HHZT/资讯详情.html">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="390">
+          <caret line="26" column="36" selection-start-line="26" selection-start-column="36" selection-end-line="26" selection-end-column="36" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/demo/20160805_HHZT/播放.html">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="1350">
+          <caret line="90" column="38" selection-start-line="90" selection-start-column="38" selection-end-line="90" selection-end-column="38" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/demo/20160805_HHZT/js/index.js">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="2130">
+          <caret line="144" column="23" selection-start-line="144" selection-start-column="23" selection-end-line="144" selection-end-column="23" />
           <folding>
-            <element signature="e#82#14968#0" expanded="false" />
-            <element signature="e#336#545#0" expanded="false" />
-            <element signature="e#9456#9969#0" expanded="false" />
-            <element signature="e#9577#9625#0" expanded="false" />
-            <element signature="e#9691#9963#0" expanded="false" />
-            <element signature="e#10003#13266#0" expanded="false" />
-            <element signature="e#10144#10196#0" expanded="false" />
-            <element signature="e#10283#10656#0" expanded="false" />
-            <element signature="e#10377#10606#0" expanded="false" />
-            <element signature="e#10774#10826#0" expanded="false" />
-            <element signature="e#10874#10922#0" expanded="false" />
-            <element signature="e#10989#11274#0" expanded="false" />
-            <element signature="e#11096#11187#0" expanded="false" />
-            <element signature="e#11209#11264#0" expanded="false" />
-            <element signature="e#11317#11755#0" expanded="false" />
-            <element signature="e#11511#11586#0" expanded="false" />
-            <element signature="e#11606#11743#0" expanded="false" />
-            <element signature="e#11810#12942#0" expanded="false" />
-            <element signature="e#11942#12204#0" expanded="false" />
-            <element signature="e#12300#12596#0" expanded="false" />
-            <element signature="e#12359#12576#0" expanded="false" />
-            <element signature="e#12614#12894#0" expanded="false" />
-            <element signature="e#12662#12878#0" expanded="false" />
-            <element signature="e#13021#13260#0" expanded="false" />
-            <element signature="e#13098#13199#0" expanded="false" />
-            <element signature="e#13293#13421#0" expanded="false" />
-            <element signature="e#13343#13413#0" expanded="false" />
-            <element signature="e#13447#14186#0" expanded="false" />
-            <element signature="e#14250#14649#0" expanded="false" />
-            <element signature="e#14326#14364#0" expanded="false" />
-            <element signature="e#14416#14454#0" expanded="false" />
-            <element signature="e#14500#14641#0" expanded="false" />
-            <element signature="e#14526#14573#0" expanded="false" />
-            <element signature="e#14591#14631#0" expanded="false" />
-            <element signature="e#14675#14966#0" expanded="false" />
-            <element signature="e#14770#14907#0" expanded="false" />
-            <element signature="e#14921#14960#0" expanded="false" />
+            <element signature="e#0#38#0" expanded="false" />
+            <marker date="1471271796000" expanded="true" signature="7616:10929" ph="..." />
           </folding>
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/demo/webview分块展示_可调节容器但不使用WH/index.html">
+    <entry file="file://$PROJECT_DIR$/demo/20160805_HHZT/登录.html">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="0">
-          <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
+        <state relative-caret-position="30">
+          <caret line="2" column="6" selection-start-line="2" selection-start-column="6" selection-end-line="2" selection-end-column="6" />
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/_posts/2016-07-20-滑动手势判断.html" />
-    <entry file="file://$PROJECT_DIR$/demo/20151009_移动端_双指放大/index.html">
+    <entry file="file://$PROJECT_DIR$/demo/20160801_座位表_/placetable_example_.js">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="240">
-          <caret line="16" column="14" selection-start-line="16" selection-start-column="14" selection-end-line="16" selection-end-column="14" />
+        <state relative-caret-position="2250">
+          <caret line="308" column="0" selection-start-line="307" selection-start-column="0" selection-end-line="308" selection-end-column="0" />
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/test.html">
+    <entry file="file://$PROJECT_DIR$/demo/20141111_JQ_图片展示360度/common.js">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="0">
-          <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
+        <state relative-caret-position="1065">
+          <caret line="1642" column="0" selection-start-line="1642" selection-start-column="0" selection-end-line="1642" selection-end-column="0" />
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/web.config">
+    <entry file="file://$PROJECT_DIR$/demo/20160805_HHZT/sass/common.scss">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="0">
-          <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
+        <state relative-caret-position="915">
+          <caret line="609" column="30" selection-start-line="609" selection-start-column="30" selection-end-line="609" selection-end-column="30" />
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/about/index.md" />
-    <entry file="file://$PROJECT_DIR$/_posts/$2015-10-09-svg初探.html">
+    <entry file="file://$PROJECT_DIR$/demo/20160808_new/sass/base.scss">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="0">
-          <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
+        <state relative-caret-position="60">
+          <caret line="4" column="30" selection-start-line="4" selection-start-column="30" selection-end-line="4" selection-end-column="30" />
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/tags/index.html">
+    <entry file="file://$PROJECT_DIR$/demo/20160805_HHZT/css/common.css">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="0">
-          <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
+        <state relative-caret-position="109">
+          <caret line="1814" column="1" selection-start-line="1814" selection-start-column="1" selection-end-line="1814" selection-end-column="1" />
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/index.html">
+    <entry file="file://$PROJECT_DIR$/demo/20151009_移动端_双指放大/sass/common.scss" />
+    <entry file="file://$PROJECT_DIR$/demo/20151009_移动端_双指放大/start.cmd" />
+    <entry file="file://$PROJECT_DIR$/demo/20151009_移动端_双指放大/sass/base.scss" />
+    <entry file="file://$PROJECT_DIR$/demo/20160805_HHZT/主页.html">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="180">
-          <caret line="12" column="32" selection-start-line="12" selection-start-column="32" selection-end-line="12" selection-end-column="32" />
+        <state relative-caret-position="450">
+          <caret line="67" column="75" selection-start-line="67" selection-start-column="75" selection-end-line="67" selection-end-column="75" />
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/demo/20141111_JQ_图片展示360度/index.html">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="150">
-          <caret line="10" column="9" selection-start-line="10" selection-start-column="9" selection-end-line="10" selection-end-column="9" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/_posts/2014-11-11-JQ_图片展示360度.html">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="0">
-          <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/_posts/2015-12-17-滚动侧边带缓动更随.html">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="0">
-          <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/_layouts/none.html">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="0">
-          <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/_layouts/index.html">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="562">
-          <caret line="41" column="20" selection-start-line="41" selection-start-column="20" selection-end-line="41" selection-end-column="20" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/demo/20160719_滑动探索——/main_backup.js" />
-    <entry file="file://$PROJECT_DIR$/js/common_mobile.js">
+    <entry file="file://$PROJECT_DIR$/demo/20160805_HHZT/js/common.js">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="1005">
-          <caret line="243" column="29" selection-start-line="243" selection-start-column="29" selection-end-line="243" selection-end-column="29" />
+          <caret line="67" column="0" selection-start-line="67" selection-start-column="0" selection-end-line="67" selection-end-column="0" />
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/demo/20160720_滑动手势判断/main.js">
+    <entry file="file://$PROJECT_DIR$/demo/20160808_new/sass/common.scss">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="585">
-          <caret line="41" column="8" selection-start-line="41" selection-start-column="8" selection-end-line="41" selection-end-column="8" />
+        <state relative-caret-position="210">
+          <caret line="205" column="14" selection-start-line="205" selection-start-column="14" selection-end-line="205" selection-end-column="14" />
+          <folding>
+            <element signature="e#48#73#0" expanded="false" />
+            <element signature="e#141#174#0" expanded="false" />
+            <element signature="e#189#4367#0" expanded="false" />
+            <element signature="e#489#527#0" expanded="false" />
+            <element signature="e#548#586#0" expanded="false" />
+            <element signature="e#599#744#0" expanded="false" />
+            <element signature="e#756#1178#0" expanded="false" />
+            <element signature="e#910#1172#0" expanded="false" />
+            <element signature="e#1190#1616#0" expanded="false" />
+            <element signature="e#1347#1610#0" expanded="false" />
+            <element signature="e#1628#2049#0" expanded="false" />
+            <element signature="e#1782#2043#0" expanded="false" />
+            <element signature="e#2063#2540#0" expanded="false" />
+            <element signature="e#2228#2534#0" expanded="false" />
+            <element signature="e#2553#3030#0" expanded="false" />
+            <element signature="e#2720#3024#0" expanded="false" />
+            <element signature="e#3043#3516#0" expanded="false" />
+            <element signature="e#3212#3510#0" expanded="false" />
+            <element signature="e#3529#4004#0" expanded="false" />
+            <element signature="e#3698#3998#0" expanded="false" />
+            <element signature="e#4015#4365#0" expanded="false" />
+            <element signature="e#4383#9980#0" expanded="false" />
+            <element signature="e#4395#6426#0" expanded="false" />
+            <element signature="e#4505#5051#0" expanded="false" />
+            <element signature="e#4662#5041#0" expanded="false" />
+            <element signature="e#5065#5129#0" expanded="false" />
+            <element signature="e#5142#5206#0" expanded="false" />
+            <element signature="e#5221#5260#0" expanded="false" />
+            <element signature="e#5274#5438#0" expanded="false" />
+            <element signature="e#5348#5428#0" expanded="false" />
+            <element signature="e#5476#5538#0" expanded="false" />
+            <element signature="e#5555#5596#0" expanded="false" />
+            <element signature="e#5614#5704#0" expanded="false" />
+            <element signature="e#5724#5889#0" expanded="false" />
+            <element signature="e#5911#6420#0" expanded="false" />
+            <element signature="e#6122#6277#0" expanded="false" />
+            <element signature="e#6298#6410#0" expanded="false" />
+            <element signature="e#6440#9978#0" expanded="false" />
+            <element signature="e#6501#6541#0" expanded="false" />
+            <element signature="e#6552#6619#0" expanded="false" />
+            <element signature="e#6630#6673#0" expanded="false" />
+            <element signature="e#6695#6899#0" expanded="false" />
+            <element signature="e#6921#7126#0" expanded="false" />
+            <element signature="e#7158#7992#0" expanded="false" />
+            <element signature="e#7180#7260#0" expanded="false" />
+            <element signature="e#7281#7982#0" expanded="false" />
+            <element signature="e#7649#7797#0" expanded="false" />
+            <element signature="e#7822#7968#0" expanded="false" />
+            <element signature="e#8023#8924#0" expanded="false" />
+            <element signature="e#8073#8153#0" expanded="false" />
+            <element signature="e#8173#8914#0" expanded="false" />
+            <element signature="e#8579#8727#0" expanded="false" />
+            <element signature="e#8752#8900#0" expanded="false" />
+            <element signature="e#8954#9971#0" expanded="false" />
+            <element signature="e#9004#9084#0" expanded="false" />
+            <element signature="e#9101#9628#0" expanded="false" />
+            <element signature="e#9231#9614#0" expanded="false" />
+            <element signature="e#9655#9961#0" expanded="false" />
+          </folding>
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/demo/20160719_滑动探索——/view.html" />
-    <entry file="file://$PROJECT_DIR$/demo/20160719_滑动探索——/main.js" />
-    <entry file="file://$PROJECT_DIR$/demo/20160413_SVG_圆形进度-饼图——/main.css">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="285">
-          <caret line="19" column="0" selection-start-line="19" selection-start-column="0" selection-end-line="19" selection-end-column="0" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/demo/20160719_移动端_左右滑动banner/view.html" />
-    <entry file="file://$PROJECT_DIR$/demo/20160719_移动端_左右滑动banner/index.html" />
-    <entry file="file://$PROJECT_DIR$/demo/20160720_滑动手势判断/index.html">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="105">
-          <caret line="7" column="9" selection-start-line="7" selection-start-column="9" selection-end-line="7" selection-end-column="9" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/demo/20160720_滑动手势判断/view.html">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="105">
-          <caret line="7" column="0" selection-start-line="7" selection-start-column="0" selection-end-line="7" selection-end-column="0" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/demo/20151217_滚动侧边带缓动更随/index.html">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="30">
-          <caret line="2" column="9" selection-start-line="2" selection-start-column="9" selection-end-line="2" selection-end-column="9" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://E:/$admin/Desktop/ghostzhang.github.io-master/_config.yml" />
-    <entry file="file://$PROJECT_DIR$/_config.yml">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="60">
-          <caret line="4" column="16" selection-start-line="4" selection-start-column="16" selection-end-line="4" selection-end-column="16" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://F:/Downloads/HTMLJavaScriptCss/第03堂课/date.htm" />
-    <entry file="file://$PROJECT_DIR$/../../__important/_implement/_former_abandon/html_css_js/_banner/图片轮播展示JQ1.html">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="1545">
-          <caret line="103" column="22" selection-start-line="103" selection-start-column="22" selection-end-line="103" selection-end-column="22" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://E:/$admin/Desktop/banner/图片轮播展示JQ1.html" />
-    <entry file="file://$PROJECT_DIR$/demo/20160721_移动端_左右滑动banner/view.html">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="1275">
-          <caret line="85" column="9" selection-start-line="45" selection-start-column="8" selection-end-line="85" selection-end-column="9" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/demo/20160721_移动端_左右滑动banner/index.html">
+    <entry file="file://$PROJECT_DIR$/demo/20160805_HHZT/个人中心-我录制的视频.html">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="855">
-          <caret line="57" column="15" selection-start-line="57" selection-start-column="15" selection-end-line="57" selection-end-column="15" />
+          <caret line="57" column="18" selection-start-line="57" selection-start-column="18" selection-end-line="57" selection-end-column="18" />
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/css/base.css">
+    <entry file="file://$PROJECT_DIR$/demo/20151009_touch_zoom_/index.html" />
+    <entry file="file://$PROJECT_DIR$/demo/20160805_HHZT/视频点播.html">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="60">
-          <caret line="4" column="0" selection-start-line="4" selection-start-column="0" selection-end-line="4" selection-end-column="57" />
+          <caret line="4" column="4" selection-start-line="4" selection-start-column="4" selection-end-line="4" selection-end-column="91" />
+          <folding>
+            <element signature="n#div#1;n#body#0;n#html#0;n#!!top" expanded="false" />
+            <element signature="n#div#1;n#div#3;n#body#0;n#html#0;n#!!top" expanded="false" />
+          </folding>
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/../note/admin/themes/views/index.hbs">
+    <entry file="file://$PROJECT_DIR$/demo/20151009_touch_zoom_/start.cmd" />
+    <entry file="file://$PROJECT_DIR$/demo/20160805_HHZT/个人中心-我的消息-发消息.html">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="30">
-          <caret line="2" column="13" selection-start-line="2" selection-start-column="13" selection-end-line="2" selection-end-column="13" />
+        <state relative-caret-position="735">
+          <caret line="49" column="35" selection-start-line="49" selection-start-column="35" selection-end-line="49" selection-end-column="35" />
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/../note/admin/views/index.hbs">
+    <entry file="file://$PROJECT_DIR$/demo/20160805_HHZT/个人中心-我的消息.html">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="345">
-          <caret line="23" column="61" selection-start-line="23" selection-start-column="61" selection-end-line="23" selection-end-column="61" />
+        <state relative-caret-position="825">
+          <caret line="55" column="18" selection-start-line="55" selection-start-column="18" selection-end-line="55" selection-end-column="18" />
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/demo/0/index.html">
+    <entry file="file://$PROJECT_DIR$/demo/20151009_touch_zoom_/imgs/test.jpg" />
+    <entry file="file://$PROJECT_DIR$/demo/20151009_touch_zoom_/imgs/test2.jpg" />
+    <entry file="file://$PROJECT_DIR$/demo/20160801_座位表_/placetable_example_.html">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="525">
-          <caret line="35" column="0" selection-start-line="35" selection-start-column="0" selection-end-line="43" selection-end-column="5" />
+        <state relative-caret-position="105">
+          <caret line="7" column="13" selection-start-line="7" selection-start-column="13" selection-end-line="7" selection-end-column="13" />
+          <folding />
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/about/index.html">
+    <entry file="file://$PROJECT_DIR$/demo/20160721_移动端_左右滑动banner/main.js">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="120">
-          <caret line="8" column="0" selection-start-line="8" selection-start-column="0" selection-end-line="9" selection-end-column="24" />
+        <state relative-caret-position="5190">
+          <caret line="346" column="45" selection-start-line="346" selection-start-column="45" selection-end-line="346" selection-end-column="45" />
+          <folding />
         </state>
       </provider>
     </entry>
-    <entry file="file://E:/$admin/Desktop/test2/Details.js" />
+    <entry file="file://$PROJECT_DIR$/demo/20151009_touch_zoom_/css/common.css" />
+    <entry file="file://$PROJECT_DIR$/demo/20151009_touch_zoom_/20160816.js" />
+    <entry file="file://$PROJECT_DIR$/../../project/workspace/TeachingEasy/assets/js/picture_slide_show.js">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="240">
+          <caret line="103" column="5" selection-start-line="103" selection-start-column="5" selection-end-line="103" selection-end-column="5" />
+          <folding>
+            <element signature="e#229#369#0" expanded="false" />
+            <element signature="e#529#639#0" expanded="false" />
+            <element signature="e#691#777#0" expanded="false" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/demo/20151009_touch_zoom_/sass/common.scss" />
+    <entry file="file://$PROJECT_DIR$/demo/20151009_touch_zoom_/20160816.html" />
+    <entry file="file://$PROJECT_DIR$/index.html">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="240">
+          <caret line="16" column="16" selection-start-line="16" selection-start-column="16" selection-end-line="16" selection-end-column="16" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/demo/20151009_移动端_双指放大/old.js">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="779">
+          <caret line="177" column="22" selection-start-line="177" selection-start-column="10" selection-end-line="177" selection-end-column="22" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/demo/20151009_移动端_双指放大/view.html">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="0">
+          <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/demo/20151009_移动端_双指放大/index.html">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="135">
+          <caret line="9" column="33" selection-start-line="9" selection-start-column="33" selection-end-line="9" selection-end-column="33" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/demo/20151009_移动端_双指放大/css/common.css">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="172">
+          <caret line="71" column="18" selection-start-line="71" selection-start-column="18" selection-end-line="71" selection-end-column="18" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/demo/20151009_移动端_双指放大/main.js">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="180">
+          <caret line="27" column="44" selection-start-line="27" selection-start-column="44" selection-end-line="27" selection-end-column="44" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/demo/20151012_简易日历/index.html">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="570">
+          <caret line="38" column="39" selection-start-line="38" selection-start-column="39" selection-end-line="38" selection-end-column="39" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
     <entry file="file://$PROJECT_DIR$/js/common.js">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="2055">
-          <caret line="644" column="45" selection-start-line="644" selection-start-column="39" selection-end-line="644" selection-end-column="45" />
+        <state relative-caret-position="74">
+          <caret line="694" column="0" selection-start-line="694" selection-start-column="0" selection-end-line="694" selection-end-column="0" />
           <folding>
             <element signature="e#59#342#0" expanded="false" />
             <element signature="e#269#339#0" expanded="false" />
@@ -1331,6 +1398,7 @@
             <element signature="e#16502#16593#0" expanded="false" />
             <element signature="e#16599#16693#0" expanded="false" />
             <element signature="e#16755#16945#0" expanded="false" />
+            <element signature="e#16997#17609#0" expanded="false" />
             <element signature="e#17640#18255#0" expanded="false" />
             <element signature="e#17695#17882#0" expanded="false" />
             <element signature="e#17730#17846#0" expanded="false" />
@@ -1435,11 +1503,7 @@
             <element signature="e#31257#31394#0" expanded="false" />
             <element signature="e#31408#31447#0" expanded="false" />
             <element signature="e#31509#31550#0" expanded="false" />
-            <element signature="e#31589#31750#0" expanded="false" />
-            <element signature="e#31655#31686#0" expanded="false" />
             <element signature="e#31771#31979#0" expanded="false" />
-            <element signature="e#32023#32260#0" expanded="false" />
-            <element signature="e#32099#32152#0" expanded="false" />
             <element signature="e#32181#32254#0" expanded="false" />
             <element signature="e#32282#32365#0" expanded="false" />
             <element signature="e#32400#33158#0" expanded="false" />
@@ -1526,168 +1590,11 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/js/common_pc.js">
+    <entry file="file://$PROJECT_DIR$/_posts/2016-08-20-移动端双指放大.html">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="375">
-          <caret line="121" column="0" selection-start-line="113" selection-start-column="0" selection-end-line="134" selection-end-column="12" />
-          <folding>
-            <element signature="e#1#62#0" expanded="false" />
-            <element signature="e#181#2178#0" expanded="false" />
-            <element signature="e#264#346#0" expanded="false" />
-            <element signature="e#360#438#0" expanded="false" />
-            <element signature="e#479#617#0" expanded="false" />
-            <element signature="e#631#818#0" expanded="false" />
-            <element signature="e#666#808#0" expanded="false" />
-            <element signature="e#855#1982#0" expanded="false" />
-            <element signature="e#917#1917#0" expanded="false" />
-            <element signature="e#948#1745#0" expanded="false" />
-            <element signature="e#1395#1532#0" expanded="false" />
-            <element signature="e#1584#1727#0" expanded="false" />
-            <element signature="e#1795#1903#0" expanded="false" />
-            <element signature="e#1992#2017#0" expanded="false" />
-            <element signature="e#2232#2985#0" expanded="false" />
-            <element signature="e#2242#2270#0" expanded="false" />
-            <element signature="e#2514#2599#0" expanded="false" />
-            <element signature="e#2613#2691#0" expanded="false" />
-            <element signature="e#2732#2824#0" expanded="false" />
-            <element signature="e#2838#2979#0" expanded="false" />
-            <element signature="e#2873#2969#0" expanded="false" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/demo/0/template.html">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="105">
-          <caret line="7" column="4" selection-start-line="7" selection-start-column="4" selection-end-line="7" selection-end-column="77" />
+        <state relative-caret-position="0">
+          <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="5" selection-end-column="0" />
           <folding />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/demo/20160721_移动端_左右滑动banner/main.js">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="-120">
-          <caret line="209" column="0" selection-start-line="209" selection-start-column="0" selection-end-line="209" selection-end-column="0" />
-          <folding>
-            <element signature="e#0#40#0" expanded="false" />
-            <element signature="e#170#242#0" expanded="false" />
-            <element signature="e#280#362#0" expanded="false" />
-            <element signature="e#422#1024#0" expanded="false" />
-            <element signature="e#440#936#0" expanded="false" />
-            <element signature="e#465#550#0" expanded="false" />
-            <element signature="e#667#735#0" expanded="false" />
-            <element signature="e#767#834#0" expanded="false" />
-            <element signature="e#852#925#0" expanded="false" />
-            <element signature="e#950#1018#0" expanded="false" />
-            <element signature="e#964#980#0" expanded="false" />
-            <element signature="n#!!doc;n#swipeXScroll#0" expanded="false" />
-            <element signature="n#!!block;n#swipeXScroll#0" expanded="false" />
-            <element signature="e#1486#1496#0" expanded="false" />
-            <element signature="e#1688#1948#0" expanded="false" />
-            <element signature="e#1782#1824#0" expanded="false" />
-            <element signature="e#1838#1942#0" expanded="false" />
-            <element signature="e#1875#1930#0" expanded="false" />
-            <element signature="e#2004#2133#0" expanded="false" />
-            <element signature="e#2081#2125#0" expanded="false" />
-            <element signature="e#2188#2627#0" expanded="false" />
-            <element signature="e#2304#2351#0" expanded="false" />
-            <element signature="e#2365#2621#0" expanded="false" />
-            <element signature="e#2420#2502#0" expanded="false" />
-            <element signature="e#2551#2609#0" expanded="false" />
-            <element signature="n#!!block;n#each#0;n#!!block;n#swipeXScroll#0" expanded="false" />
-            <element signature="e#2682#2714#0" expanded="false" />
-            <element signature="n#!!block;n#start#0;n#!!block;n#swipeXScroll#0" expanded="false" />
-            <element signature="e#2927#2975#0" expanded="false" />
-            <element signature="n#!!block;n#startAgain#0;n#!!block;n#swipeXScroll#0" expanded="false" />
-            <element signature="e#3213#3244#0" expanded="false" />
-            <element signature="e#3265#3313#0" expanded="false" />
-            <element signature="n#!!block;n#move#0;n#!!block;n#swipeXScroll#0" expanded="false" />
-            <element signature="e#3457#3703#0" expanded="false" />
-            <element signature="e#3589#3632#0" expanded="false" />
-            <element signature="e#3650#3693#0" expanded="false" />
-            <element signature="e#3731#3900#0" expanded="false" />
-            <element signature="e#3758#3858#0" expanded="false" />
-            <element signature="n#!!block;n#end#0;n#!!block;n#swipeXScroll#0" expanded="false" />
-            <element signature="e#3962#4143#0" expanded="false" />
-            <element signature="e#3990#4133#0" expanded="false" />
-            <element signature="e#5046#5161#0" expanded="false" />
-            <element signature="e#5180#5993#0" expanded="false" />
-            <element signature="e#5394#5574#0" expanded="false" />
-            <element signature="e#5433#5486#0" expanded="false" />
-            <element signature="e#5508#5560#0" expanded="false" />
-            <element signature="e#5592#5654#0" expanded="false" />
-            <element signature="e#5847#5987#0" expanded="false" />
-            <element signature="n#!!doc;n#banner#0" expanded="false" />
-            <element signature="n#!!block;n#banner#0" expanded="false" />
-            <element signature="e#7135#7724#0" expanded="false" />
-            <element signature="e#7184#7287#0" expanded="false" />
-            <element signature="e#7342#7718#0" expanded="false" />
-            <element signature="e#7512#7708#0" expanded="false" />
-            <element signature="n#!!doc;n#getRightCssName#0" expanded="false" />
-            <element signature="n#!!block;n#getRightCssName#0" expanded="false" />
-            <element signature="e#8253#8412#0" expanded="false" />
-            <element signature="e#8327#8406#0" expanded="false" />
-            <element signature="n#!!block;n#toStyleName#0" expanded="false" />
-            <element signature="e#8528#8570#0" expanded="false" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/demo/20160720_拖动新实现_即时累加轨迹两点距离—/index.html">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="780">
-          <caret line="71" column="17" selection-start-line="71" selection-start-column="17" selection-end-line="71" selection-end-column="17" />
-          <folding>
-            <element signature="e#1975#3207#0" expanded="false" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/_posts/2016-07-21-移动端_左右滑动banner.html">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="15">
-          <caret line="1" column="21" selection-start-line="1" selection-start-column="7" selection-end-line="1" selection-end-column="21" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/_posts/2016-08-03-满屏轮播.html">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="60">
-          <caret line="4" column="3" selection-start-line="4" selection-start-column="3" selection-end-line="4" selection-end-column="3" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/demo/20160803_满屏轮播/index.html">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="1410">
-          <caret line="115" column="13" selection-start-line="115" selection-start-column="13" selection-end-line="115" selection-end-column="13" />
-          <folding>
-            <element signature="n#style#0;n#div#0;n#div#0;n#div#0;n#body#0;n#html#0;n#!!top" expanded="true" />
-            <element signature="n#style#0;n#div#1;n#div#0;n#div#0;n#body#0;n#html#0;n#!!top" expanded="true" />
-            <element signature="n#style#0;n#div#2;n#div#0;n#div#0;n#body#0;n#html#0;n#!!top" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/demo/20160803_满屏轮播/main.js">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="347">
-          <caret line="246" column="27" selection-start-line="246" selection-start-column="17" selection-end-line="246" selection-end-column="27" />
-          <folding>
-            <element signature="n#!!block;n#leftType#0;n#!!block;n#FullPage#0" expanded="false" />
-            <marker date="1470274773791" expanded="true" signature="7759:7782" ph="..." />
-            <marker date="1470274773791" expanded="true" signature="7783:8232" ph="..." />
-            <marker date="1470274773791" expanded="true" signature="7813:8226" ph="..." />
-            <marker date="1470274773791" expanded="true" signature="7848:8165" ph="..." />
-            <marker date="1470274773791" expanded="true" signature="7891:7914" ph="..." />
-            <marker date="1470274773791" expanded="true" signature="7915:7947" ph="..." />
-            <marker date="1470274773791" expanded="true" signature="7990:8013" ph="..." />
-            <marker date="1470274773791" expanded="true" signature="8014:8046" ph="..." />
-            <marker date="1470274773791" expanded="true" signature="8089:8112" ph="..." />
-            <marker date="1470274773791" expanded="true" signature="8113:8145" ph="..." />
-          </folding>
         </state>
       </provider>
     </entry>
