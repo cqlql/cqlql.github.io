@@ -7,7 +7,7 @@
 (function () {
     var c = commonInit();
 
-    c.click(document.querySelector('.button'), function () {
+    c.click(document.querySelector('.popup-btn'), function () {
         confirm(function () {
 
 

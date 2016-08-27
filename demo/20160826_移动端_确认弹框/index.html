@@ -6,13 +6,26 @@ demo: 1
 <link rel="stylesheet" href="css/common.css">
 <style>
     .popup-btn {
+        border:0;
+        color: #666;
+        font-size: 16px;
+        background-color: #eee;
+
         display: block;
         text-align: center;
         padding: 10px 0;
         margin: 10px;
     }
+    .popup-btn:active {
+        background-color: #eee;
+        color: #aaa;
+        text-shadow: 0 1px 0 rgba(255, 255, 255, 0.3);
+        text-decoration: none;
+        -webkit-box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
+        box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
+    }
 </style>
 
-<a class="button popup-btn" href="javascript:;void(0)" style="">弹出</a>
+<a class="popup-btn" href="javascript:;void(0)" style="">弹出</a>
 
 <script src="main.js"></script>
