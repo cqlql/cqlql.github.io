@@ -1,0 +1,47 @@
+﻿@charset "utf-8";
+
+/*# 重置 */
+// dt没有默认的margin padding
+body,p,dl,dd{margin:0;}
+ul{list-style-type:none;padding:0;margin:0;}
+
+//: td,input padding 1
+//: textarea padding 2
+//: select元素只有option 有padding
+//td,input,textarea{padding:0}
+
+//h1,h2,h3,h4,h5,h6{margin:0;font-size:inherit;font-weight:normal;}
+
+//: menu标签用的少，html4弃用，html5重新定义，还在实验中
+//menu{padding:0;margin:0;}
+
+//: table{border-collapse:collapse;}
+//img{border:0\9;} /*ie*/
+
+
+//body{color:#333;font:12px/1.2 arial,SimSun,tahoma,Srial,helvetica;
+//body{color:#333;font:12px/1.2 Consolas, Microsoft Yahei,\5FAE\8F6F\96C5\9ED1,arial,SimSun,tahoma,Srial,helvetica;}
+body{color:#333;font:14px/1.2 Microsoft Yahei,\5FAE\8F6F\96C5\9ED1}
+a{color:#333;text-decoration:none;}
+//input,textarea{outline:none;}
+
+
+
+/*# 公共 */
+
+.cf{clear:both;}
+.cf:after {
+    content: '';
+    display: block;
+    height: 0;
+    overflow: hidden;
+    clear: both;
+}
+
+
+/*hide*/
+//.hide{display:none;}
+//.hide0 {opacity:0;filter:alpha(opacity=0);}
+
+
+

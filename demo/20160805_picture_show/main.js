@@ -9,7 +9,8 @@
         eFullBanner = document.getElementById('fullBanner');
 
 
-    c.queryElements(eFullBanner, '.list-select', function (elems) {
+    c.queryElements(document.body, '.list-select', function (elems) {
+        console.log(elems);
         var listSelect = new ListSelect({
             eBox: elems[0]
         });
@@ -17,7 +18,7 @@
     });
 
 
-    function listSelect(params) {
+    function ListSelect(params) {
         var
 
             eBox = params.eBox,
@@ -93,9 +94,11 @@
             var
                 max = showBoxW - count * itemW,
                 v = showBoxW / 2 - index * itemW - itemW / 2;
+            v = showBoxW / 2 - index * itemW;
+            v = showBoxW - index * itemW - itemW * 2;
 
-            if (v > 0)v = 0;
-            else if (v < max)v = max;
+            // if (v > 0)v = 0;
+            // else if (v < max)v = max;
 
             return v;
         }

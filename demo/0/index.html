@@ -1,51 +1,58 @@
 ﻿<!DOCTYPE html>
 <html>
-
 <head>
     <title></title>
-
     <meta content="width=device-width,initial-scale=1.0,user-scalable=no" name="viewport"/>
-    <link rel="stylesheet" href="../../css/base.css">
+
     <style>
 
-        body {
-            margin: 0;
-        }
 
-        table {
-            width: 100%;
-            border: 10px solid #333;
-        }
     </style>
 
+
 </head>
-
 <body>
-
-<table>
-    <tr>
-        <td>1</td>
-    </tr>
-
-</table>
-
+<a> test2</a>
+<div style="height: 1000px"></div>
+<img data-src="http://hbimg.b0.upaiyun.com/3da16ab641cf978dc44dc2606afd4845e9370af349292-HBhCfV" alt=""
+     style="min-height: 100px">
+<script src="jquery-1.11.0.js"></script>
 <script>
+    jQuery.fn.lazyload = function (params) {
+        var w = $(window),
+                imgs = $(),
+                winH=w.height(),
+                effect;
 
-console.log(sum(1 + 2)); // 3
+        w.scroll(function () {
+            var maxY = w.scrollTop() + winH;
+            imgs.each(function () {
+                var img = $(this);
+                if (img.offset().top < maxY) {
+                    img.hide().prop('src', img.attr('data-src'))[effect]();
+                    img.prop('src', img.attr('data-src')).removeClass('loading');
+                    imgs = imgs.not(img);
+                }
+            });
+        });
+        w.resize(function () {
+            winH = w.height();
+        });
 
-function A() {
+        jQuery.fn.lazyload = lazyload;
 
-}
+        this.lazyload(params);
 
-function B(callback) {
-    callback();
-}
+        function lazyload(params) {
+            params = params || {};
+            effect = params.effect || 'fadeIn';
+            imgs = imgs.add(this);
+        }
+    };
 
-B(a);
-
+    // 使用
+    $('img').lazyload()
 
 </script>
-
 </body>
-
 </html>
