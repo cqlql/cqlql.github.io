@@ -2,32 +2,7 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="41faba64-2323-4ec0-a3fd-5adaf7f21e6d" name="Default" comment="">
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/demo/20160826_移动端_确认弹框/main.js" afterPath="$PROJECT_DIR$/demo/20160826_移动端_确认弹框/main.js" />
-      <change type="MOVED" beforePath="$PROJECT_DIR$/demo/20160801_座位表_/css/imgs/avatar/1.png" afterPath="$PROJECT_DIR$/demo/20160801_座位表/css/imgs/avatar/1.png" />
-      <change type="MOVED" beforePath="$PROJECT_DIR$/demo/20160801_座位表_/css/imgs/avatar/10.png" afterPath="$PROJECT_DIR$/demo/20160801_座位表/css/imgs/avatar/10.png" />
-      <change type="MOVED" beforePath="$PROJECT_DIR$/demo/20160801_座位表_/css/imgs/avatar/11.png" afterPath="$PROJECT_DIR$/demo/20160801_座位表/css/imgs/avatar/11.png" />
-      <change type="MOVED" beforePath="$PROJECT_DIR$/demo/20160801_座位表_/css/imgs/avatar/12.png" afterPath="$PROJECT_DIR$/demo/20160801_座位表/css/imgs/avatar/12.png" />
-      <change type="MOVED" beforePath="$PROJECT_DIR$/demo/20160801_座位表_/css/imgs/avatar/13.png" afterPath="$PROJECT_DIR$/demo/20160801_座位表/css/imgs/avatar/13.png" />
-      <change type="MOVED" beforePath="$PROJECT_DIR$/demo/20160801_座位表_/css/imgs/avatar/14.png" afterPath="$PROJECT_DIR$/demo/20160801_座位表/css/imgs/avatar/14.png" />
-      <change type="MOVED" beforePath="$PROJECT_DIR$/demo/20160801_座位表_/css/imgs/avatar/15.png" afterPath="$PROJECT_DIR$/demo/20160801_座位表/css/imgs/avatar/15.png" />
-      <change type="MOVED" beforePath="$PROJECT_DIR$/demo/20160801_座位表_/css/imgs/avatar/16.png" afterPath="$PROJECT_DIR$/demo/20160801_座位表/css/imgs/avatar/16.png" />
-      <change type="MOVED" beforePath="$PROJECT_DIR$/demo/20160801_座位表_/css/imgs/avatar/17.png" afterPath="$PROJECT_DIR$/demo/20160801_座位表/css/imgs/avatar/17.png" />
-      <change type="MOVED" beforePath="$PROJECT_DIR$/demo/20160801_座位表_/css/imgs/avatar/18.png" afterPath="$PROJECT_DIR$/demo/20160801_座位表/css/imgs/avatar/18.png" />
-      <change type="MOVED" beforePath="$PROJECT_DIR$/demo/20160801_座位表_/css/imgs/avatar/19.png" afterPath="$PROJECT_DIR$/demo/20160801_座位表/css/imgs/avatar/19.png" />
-      <change type="MOVED" beforePath="$PROJECT_DIR$/demo/20160801_座位表_/css/imgs/avatar/2.png" afterPath="$PROJECT_DIR$/demo/20160801_座位表/css/imgs/avatar/2.png" />
-      <change type="MOVED" beforePath="$PROJECT_DIR$/demo/20160801_座位表_/css/imgs/avatar/20.png" afterPath="$PROJECT_DIR$/demo/20160801_座位表/css/imgs/avatar/20.png" />
-      <change type="MOVED" beforePath="$PROJECT_DIR$/demo/20160801_座位表_/css/imgs/avatar/3.png" afterPath="$PROJECT_DIR$/demo/20160801_座位表/css/imgs/avatar/3.png" />
-      <change type="MOVED" beforePath="$PROJECT_DIR$/demo/20160801_座位表_/css/imgs/avatar/4.png" afterPath="$PROJECT_DIR$/demo/20160801_座位表/css/imgs/avatar/4.png" />
-      <change type="MOVED" beforePath="$PROJECT_DIR$/demo/20160801_座位表_/css/imgs/avatar/5.png" afterPath="$PROJECT_DIR$/demo/20160801_座位表/css/imgs/avatar/5.png" />
-      <change type="MOVED" beforePath="$PROJECT_DIR$/demo/20160801_座位表_/css/imgs/avatar/6.png" afterPath="$PROJECT_DIR$/demo/20160801_座位表/css/imgs/avatar/6.png" />
-      <change type="MOVED" beforePath="$PROJECT_DIR$/demo/20160801_座位表_/css/imgs/avatar/7.png" afterPath="$PROJECT_DIR$/demo/20160801_座位表/css/imgs/avatar/7.png" />
-      <change type="MOVED" beforePath="$PROJECT_DIR$/demo/20160801_座位表_/css/imgs/avatar/8.png" afterPath="$PROJECT_DIR$/demo/20160801_座位表/css/imgs/avatar/8.png" />
-      <change type="MOVED" beforePath="$PROJECT_DIR$/demo/20160801_座位表_/css/imgs/avatar/9.png" afterPath="$PROJECT_DIR$/demo/20160801_座位表/css/imgs/avatar/9.png" />
-      <change type="MOVED" beforePath="$PROJECT_DIR$/demo/20160801_座位表_/css/placetable_example_.css" afterPath="$PROJECT_DIR$/demo/20160801_座位表/css/placetable_example.css" />
-      <change type="MOVED" beforePath="$PROJECT_DIR$/demo/20160801_座位表_/placetable_example_.html" afterPath="$PROJECT_DIR$/demo/20160801_座位表/placetable_example.html" />
-      <change type="MOVED" beforePath="$PROJECT_DIR$/demo/20160801_座位表_/placetable_example_.js" afterPath="$PROJECT_DIR$/demo/20160801_座位表/placetable_example.js" />
-      <change type="MOVED" beforePath="$PROJECT_DIR$/demo/20160801_座位表_/placetable_example_data_.js" afterPath="$PROJECT_DIR$/demo/20160801_座位表/placetable_example_data_.js" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/demo/20160801_座位表/css/placetable_example.css" afterPath="$PROJECT_DIR$/demo/20160801_座位表/css/placetable_example.css" />
     </list>
     <ignored path="cqlql.github.io.iws" />
     <ignored path=".idea/workspace.xml" />
@@ -169,14 +144,24 @@
               </provider>
             </entry>
           </file>
-          <file leaf-file-name="placetable_example.html" pinned="false" current-in-tab="true">
+          <file leaf-file-name="placetable_example.html" pinned="false" current-in-tab="false">
             <entry file="file://$PROJECT_DIR$/demo/20160801_座位表/placetable_example.html">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="225">
-                  <caret line="15" column="0" selection-start-line="15" selection-start-column="0" selection-end-line="26" selection-end-column="51" />
+                <state relative-caret-position="360">
+                  <caret line="24" column="6" selection-start-line="24" selection-start-column="6" selection-end-line="24" selection-end-column="6" />
                   <folding>
                     <element signature="n#style#0;n#div#0;n#body#0;n#html#0;n#!!top" expanded="true" />
                   </folding>
+                </state>
+              </provider>
+            </entry>
+          </file>
+          <file leaf-file-name="placetable_example.css" pinned="false" current-in-tab="true">
+            <entry file="file://$PROJECT_DIR$/demo/20160801_座位表/css/placetable_example.css">
+              <provider selected="true" editor-type-id="text-editor">
+                <state relative-caret-position="317">
+                  <caret line="44" column="15" selection-start-line="44" selection-start-column="15" selection-end-line="44" selection-end-column="15" />
+                  <folding />
                 </state>
               </provider>
             </entry>
@@ -704,7 +689,6 @@
   <component name="IdeDocumentHistory">
     <option name="CHANGED_PATHS">
       <list>
-        <option value="$PROJECT_DIR$/demo/20160805_HHZT/css/ieold.css" />
         <option value="$PROJECT_DIR$/demo/20160805_HHZT/播放.html" />
         <option value="$PROJECT_DIR$/demo/20160805_HHZT/js/index.js" />
         <option value="$PROJECT_DIR$/demo/20160805_HHZT/登录.html" />
@@ -755,6 +739,7 @@
         <option value="$PROJECT_DIR$/demo/20160801_座位表/placetable_example.html" />
         <option value="$PROJECT_DIR$/demo/20160801_座位表/index.html" />
         <option value="$PROJECT_DIR$/_posts/2016-08-01-座位表.html" />
+        <option value="$PROJECT_DIR$/demo/20160801_座位表/css/placetable_example.css" />
       </list>
     </option>
   </component>
@@ -910,6 +895,28 @@
             </PATH_ELEMENT>
             <PATH_ELEMENT>
               <option name="myItemId" value="20160801_座位表" />
+              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
+            </PATH_ELEMENT>
+          </PATH>
+          <PATH>
+            <PATH_ELEMENT>
+              <option name="myItemId" value="cqlql.github.io" />
+              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.ProjectViewProjectNode" />
+            </PATH_ELEMENT>
+            <PATH_ELEMENT>
+              <option name="myItemId" value="cqlql.github.io" />
+              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
+            </PATH_ELEMENT>
+            <PATH_ELEMENT>
+              <option name="myItemId" value="demo" />
+              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
+            </PATH_ELEMENT>
+            <PATH_ELEMENT>
+              <option name="myItemId" value="20160801_座位表" />
+              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
+            </PATH_ELEMENT>
+            <PATH_ELEMENT>
+              <option name="myItemId" value="css" />
               <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
             </PATH_ELEMENT>
           </PATH>
@@ -1138,7 +1145,7 @@
       <workItem from="1472089493660" duration="8509000" />
       <workItem from="1472126811536" duration="27000" />
       <workItem from="1472174459121" duration="20829000" />
-      <workItem from="1472266880795" duration="10857000" />
+      <workItem from="1472266880795" duration="11037000" />
     </task>
     <task id="LOCAL-00001" summary="新增 满屏轮播demo">
       <created>1470275799570</created>
@@ -1172,7 +1179,7 @@
     <servers />
   </component>
   <component name="TimeTrackingManager">
-    <option name="totallyTimeSpent" value="515148000" />
+    <option name="totallyTimeSpent" value="515328000" />
   </component>
   <component name="ToolWindowManager">
     <frame x="204" y="30" width="1932" height="1057" extended-state="0" />
@@ -1245,7 +1252,6 @@
     <watches-manager />
   </component>
   <component name="editorHistoryManager">
-    <entry file="file://$PROJECT_DIR$/demo/20151009_touch_zoom_/imgs/test2.jpg" />
     <entry file="file://$PROJECT_DIR$/demo/20151009_touch_zoom_/css/common.css" />
     <entry file="file://$PROJECT_DIR$/demo/20151009_touch_zoom_/20160816.js" />
     <entry file="file://$PROJECT_DIR$/demo/20151009_touch_zoom_/sass/common.scss" />
@@ -2087,16 +2093,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/demo/20160801_座位表/placetable_example.html">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="225">
-          <caret line="15" column="0" selection-start-line="15" selection-start-column="0" selection-end-line="26" selection-end-column="51" />
-          <folding>
-            <element signature="n#style#0;n#div#0;n#body#0;n#html#0;n#!!top" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/demo/20160801_座位表/index.html">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="165">
@@ -2111,6 +2107,24 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="90">
           <caret line="6" column="0" selection-start-line="6" selection-start-column="0" selection-end-line="6" selection-end-column="0" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/demo/20160801_座位表/placetable_example.html">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="360">
+          <caret line="24" column="6" selection-start-line="24" selection-start-column="6" selection-end-line="24" selection-end-column="6" />
+          <folding>
+            <element signature="n#style#0;n#div#0;n#body#0;n#html#0;n#!!top" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/demo/20160801_座位表/css/placetable_example.css">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="317">
+          <caret line="44" column="15" selection-start-line="44" selection-start-column="15" selection-end-line="44" selection-end-column="15" />
           <folding />
         </state>
       </provider>
