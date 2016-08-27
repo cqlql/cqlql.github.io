@@ -4,6 +4,7 @@
 
 'use strict';
 
+
 (function () {
     var c = commonInit();
 
