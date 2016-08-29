@@ -187,16 +187,16 @@ c.removeClass = function (elem, className) {
 };
 
 /**
- * css名称转换
+ * css名称转换    (已合并在getRightCssName中)
  * css中的属性名转为可直接操作style的属性名
  * 其实就是 减号连接 转为 驼峰
  * @param cssPropertyName {string} 减号方式的css名称
  * */
-c.toStyleName = function (cssPropertyName) {
-    return cssPropertyName.replace(/-\w/g, function (d) {
-        return d[1].toUpperCase();
-    });
-};
+// c.toStyleName = function (cssPropertyName) {
+//     return cssPropertyName.replace(/-\w/g, function (d) {
+//         return d[1].toUpperCase();
+//     });
+// };
 
 /**
  * 取css正确名称
@@ -206,14 +206,17 @@ c.toStyleName = function (cssPropertyName) {
  * @return {Array} 数组中有两个值，第一个是 减号风格，第二个是驼峰。如果不支持此属性，返回null
  *
  * */
-c.getRightCssName = function (cssPropertyName) {
+function getRightCssName(cssPropertyName) {
     var
         firstLetter = cssPropertyName[0],
         firstLetterUpper = firstLetter.toUpperCase(),
         cssPrefixes = ["ms" + firstLetterUpper, "Moz" + firstLetterUpper, "webkit" + firstLetterUpper, firstLetter],
         cssPrefixesReal = ["-ms-", "-Moz-", "-webkit-", ''],
         style = document.body.style,
-        name = c.toStyleName(cssPropertyName).substr(1);
+        // css名称转换
+        name = cssPropertyName.replace(/-\w/g, function (d) {
+            return d[1].toUpperCase();
+        }).substr(1);
 
     for (var i = cssPrefixes.length, newName; i--;) {
         newName = cssPrefixes[i] + name;
@@ -223,7 +226,7 @@ c.getRightCssName = function (cssPropertyName) {
         }
     }
     return null;
-};
+}
 
 /**
  * 取css名称
@@ -531,14 +534,17 @@ c.click = function (elem, listener) {
  @example
  var xy = c.relativeXY(initial, target);
  @param initial [element]  起始元素
- @param target [element] 目标元素，需是起始元素的上级，且必须为参照元素
+ @param target [element]* 目标元素，需是起始元素的上级，且必须为参照元素。默认是body(body即使position:static，也是定位参考元素，ie67例外，是html)。
  @return [obj] xy坐标
  @raise
  target必须为参照元素
  */
 c.relativeXY = function (initial, target) {
 
-    var x = 0, y = 0, _target = initial;
+    var x = 0, y = 0,
+        _target = initial;
+
+    target = target || document.body;
 
     while (_target !== target) {
         x += _target.offsetLeft;
@@ -593,7 +599,7 @@ c.imgSizeExcu = function (src, f, err) {
 c.imgCenter = function (imgw, imgh, boxw, boxh) {
     var imgWH = imgw / imgh,
         boxWH = boxw / boxh,
-        x=0, y=0, w, h;
+        x = 0, y = 0, w, h;
 
     if (imgWH > boxWH) {
         // 图片宽 比 窗口宽 大时
