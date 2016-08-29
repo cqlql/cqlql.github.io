@@ -28,7 +28,8 @@ header .logo {
 /*#region menu */
 
 menu {
-
+    margin: 0;
+    padding: 0;
     height:30px;
     background:#0077c6;
 }
