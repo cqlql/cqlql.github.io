@@ -156,22 +156,18 @@
           <file leaf-file-name="main.js" pinned="false" current-in-tab="false">
             <entry file="file://$PROJECT_DIR$/demo/20160830_简单放大镜效果/main.js">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="660">
-                  <caret line="121" column="22" selection-start-line="121" selection-start-column="22" selection-end-line="121" selection-end-column="22" />
+                <state relative-caret-position="330">
+                  <caret line="44" column="34" selection-start-line="44" selection-start-column="34" selection-end-line="44" selection-end-column="34" />
                   <folding>
                     <element signature="e#0#39#0" expanded="false" />
                     <element signature="e#335#342#0" expanded="false" />
                     <element signature="e#546#743#0" expanded="false" />
-                    <element signature="e#790#1414#0" expanded="false" />
                     <element signature="e#1218#1411#0" expanded="false" />
                     <element signature="e#1393#1404#0" expanded="false" />
-                    <element signature="e#1516#2098#0" expanded="false" />
                     <element signature="e#1781#1803#0" expanded="false" />
                     <element signature="e#1820#1842#0" expanded="false" />
                     <element signature="e#1862#1887#0" expanded="false" />
                     <element signature="e#1906#1931#0" expanded="false" />
-                    <element signature="n#!!block;n#selectMoveSizeUpdate#0" expanded="false" />
-                    <element signature="n#!!block;n#commonInit#0" expanded="false" />
                     <element signature="e#2512#2639#0" expanded="false" />
                     <element signature="e#2701#4186#0" expanded="false" />
                     <element signature="e#2974#3613#0" expanded="false" />
@@ -263,11 +259,11 @@
               </provider>
             </entry>
           </file>
-          <file leaf-file-name="view.html" pinned="false" current-in-tab="true">
+          <file leaf-file-name="view.html" pinned="false" current-in-tab="false">
             <entry file="file://$PROJECT_DIR$/demo/20160830_简单放大镜效果/view.html">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="225">
-                  <caret line="15" column="0" selection-start-line="15" selection-start-column="0" selection-end-line="15" selection-end-column="0" />
+                <state relative-caret-position="210">
+                  <caret line="14" column="48" selection-start-line="14" selection-start-column="4" selection-end-line="14" selection-end-column="48" />
                   <folding />
                 </state>
               </provider>
@@ -283,11 +279,11 @@
               </provider>
             </entry>
           </file>
-          <file leaf-file-name="index.html" pinned="false" current-in-tab="false">
+          <file leaf-file-name="index.html" pinned="false" current-in-tab="true">
             <entry file="file://$PROJECT_DIR$/demo/20160830_简单放大镜效果/index.html">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="120">
-                  <caret line="8" column="17" selection-start-line="8" selection-start-column="17" selection-end-line="8" selection-end-column="18" />
+                <state relative-caret-position="135">
+                  <caret line="9" column="48" selection-start-line="9" selection-start-column="48" selection-end-line="9" selection-end-column="48" />
                   <folding />
                 </state>
               </provider>
@@ -582,8 +578,8 @@
         <option value="$PROJECT_DIR$/demo/20160830_放大镜效果/main.css" />
         <option value="$PROJECT_DIR$/demo/20160826_移动端_确认弹框/css/common.css" />
         <option value="$PROJECT_DIR$/demo/20160830_简单放大镜效果/main.css" />
-        <option value="$PROJECT_DIR$/demo/20160830_简单放大镜效果/index.html" />
         <option value="$PROJECT_DIR$/demo/20160830_简单放大镜效果/view.html" />
+        <option value="$PROJECT_DIR$/demo/20160830_简单放大镜效果/index.html" />
       </list>
     </option>
   </component>
@@ -594,10 +590,10 @@
     <sorting>DEFINITION_ORDER</sorting>
   </component>
   <component name="ProjectFrameBounds">
-    <option name="x" value="-8" />
-    <option name="y" value="22" />
-    <option name="width" value="1936" />
-    <option name="height" value="1066" />
+    <option name="x" value="125" />
+    <option name="y" value="241" />
+    <option name="width" value="1924" />
+    <option name="height" value="869" />
   </component>
   <component name="ProjectLevelVcsManager" settingsEditedManually="false">
     <OptionsSetting value="true" id="Add" />
@@ -937,7 +933,7 @@
       <workItem from="1472266880795" duration="18843000" />
       <workItem from="1472433893645" duration="27670000" />
       <workItem from="1472521904629" duration="7351000" />
-      <workItem from="1472532135471" duration="12941000" />
+      <workItem from="1472532135471" duration="13320000" />
     </task>
     <task id="LOCAL-00001" summary="新增 满屏轮播demo">
       <created>1470275799570</created>
@@ -971,13 +967,13 @@
     <servers />
   </component>
   <component name="TimeTrackingManager">
-    <option name="totallyTimeSpent" value="571096000" />
+    <option name="totallyTimeSpent" value="571475000" />
   </component>
   <component name="ToolWindowManager">
-    <frame x="-8" y="22" width="1936" height="1066" extended-state="6" />
+    <frame x="125" y="241" width="1924" height="869" extended-state="1" />
     <editor active="true" />
     <layout>
-      <window_info id="Project" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.15384616" sideWeight="0.5" order="0" side_tool="false" content_ui="combo" />
+      <window_info id="Project" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.15482503" sideWeight="0.5" order="0" side_tool="false" content_ui="combo" />
       <window_info id="TODO" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="6" side_tool="false" content_ui="tabs" />
       <window_info id="Event Log" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.11310782" sideWeight="0.5" order="7" side_tool="true" content_ui="tabs" />
       <window_info id="Version Control" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.14435147" sideWeight="0.5" order="7" side_tool="false" content_ui="tabs" />
@@ -2044,51 +2040,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/demo/20160830_简单放大镜效果/main.js">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="660">
-          <caret line="121" column="22" selection-start-line="121" selection-start-column="22" selection-end-line="121" selection-end-column="22" />
-          <folding>
-            <element signature="e#0#39#0" expanded="false" />
-            <element signature="e#335#342#0" expanded="false" />
-            <element signature="e#546#743#0" expanded="false" />
-            <element signature="e#790#1414#0" expanded="false" />
-            <element signature="e#1218#1411#0" expanded="false" />
-            <element signature="e#1393#1404#0" expanded="false" />
-            <element signature="e#1516#2098#0" expanded="false" />
-            <element signature="e#1781#1803#0" expanded="false" />
-            <element signature="e#1820#1842#0" expanded="false" />
-            <element signature="e#1862#1887#0" expanded="false" />
-            <element signature="e#1906#1931#0" expanded="false" />
-            <element signature="n#!!block;n#selectMoveSizeUpdate#0" expanded="false" />
-            <element signature="n#!!block;n#commonInit#0" expanded="false" />
-            <element signature="e#2512#2639#0" expanded="false" />
-            <element signature="e#2701#4186#0" expanded="false" />
-            <element signature="e#2974#3613#0" expanded="false" />
-            <element signature="e#3074#3602#0" expanded="false" />
-            <element signature="e#3138#3191#0" expanded="false" />
-            <element signature="e#3261#3329#0" expanded="false" />
-            <element signature="e#3363#3552#0" expanded="false" />
-            <element signature="e#3642#4180#0" expanded="false" />
-            <element signature="e#3701#4170#0" expanded="false" />
-            <element signature="e#3750#3902#0" expanded="false" />
-            <element signature="e#3795#3883#0" expanded="false" />
-            <element signature="e#3924#4156#0" expanded="false" />
-            <element signature="e#3969#4137#0" expanded="false" />
-            <element signature="e#4235#4537#0" expanded="false" />
-            <element signature="e#4372#4501#0" expanded="false" />
-            <element signature="e#4583#5043#0" expanded="false" />
-            <element signature="e#4680#4748#0" expanded="false" />
-            <element signature="e#4847#5036#0" expanded="false" />
-            <element signature="e#4925#4988#0" expanded="false" />
-            <element signature="e#5098#5531#0" expanded="false" />
-            <element signature="e#5226#5351#0" expanded="false" />
-            <element signature="e#5365#5462#0" expanded="false" />
-            <element signature="e#5479#5525#0" expanded="false" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/_posts/2014-11-11-JQ_图片展示Metro风格.html">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="0">
@@ -2134,18 +2085,59 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/demo/20160830_简单放大镜效果/index.html">
+    <entry file="file://$PROJECT_DIR$/demo/20160830_简单放大镜效果/main.js">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="120">
-          <caret line="8" column="17" selection-start-line="8" selection-start-column="17" selection-end-line="8" selection-end-column="18" />
-          <folding />
+        <state relative-caret-position="330">
+          <caret line="44" column="34" selection-start-line="44" selection-start-column="34" selection-end-line="44" selection-end-column="34" />
+          <folding>
+            <element signature="e#0#39#0" expanded="false" />
+            <element signature="e#335#342#0" expanded="false" />
+            <element signature="e#546#743#0" expanded="false" />
+            <element signature="e#1218#1411#0" expanded="false" />
+            <element signature="e#1393#1404#0" expanded="false" />
+            <element signature="e#1781#1803#0" expanded="false" />
+            <element signature="e#1820#1842#0" expanded="false" />
+            <element signature="e#1862#1887#0" expanded="false" />
+            <element signature="e#1906#1931#0" expanded="false" />
+            <element signature="e#2512#2639#0" expanded="false" />
+            <element signature="e#2701#4186#0" expanded="false" />
+            <element signature="e#2974#3613#0" expanded="false" />
+            <element signature="e#3074#3602#0" expanded="false" />
+            <element signature="e#3138#3191#0" expanded="false" />
+            <element signature="e#3261#3329#0" expanded="false" />
+            <element signature="e#3363#3552#0" expanded="false" />
+            <element signature="e#3642#4180#0" expanded="false" />
+            <element signature="e#3701#4170#0" expanded="false" />
+            <element signature="e#3750#3902#0" expanded="false" />
+            <element signature="e#3795#3883#0" expanded="false" />
+            <element signature="e#3924#4156#0" expanded="false" />
+            <element signature="e#3969#4137#0" expanded="false" />
+            <element signature="e#4235#4537#0" expanded="false" />
+            <element signature="e#4372#4501#0" expanded="false" />
+            <element signature="e#4583#5043#0" expanded="false" />
+            <element signature="e#4680#4748#0" expanded="false" />
+            <element signature="e#4847#5036#0" expanded="false" />
+            <element signature="e#4925#4988#0" expanded="false" />
+            <element signature="e#5098#5531#0" expanded="false" />
+            <element signature="e#5226#5351#0" expanded="false" />
+            <element signature="e#5365#5462#0" expanded="false" />
+            <element signature="e#5479#5525#0" expanded="false" />
+          </folding>
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/demo/20160830_简单放大镜效果/view.html">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="225">
-          <caret line="15" column="0" selection-start-line="15" selection-start-column="0" selection-end-line="15" selection-end-column="0" />
+        <state relative-caret-position="210">
+          <caret line="14" column="48" selection-start-line="14" selection-start-column="4" selection-end-line="14" selection-end-column="48" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/demo/20160830_简单放大镜效果/index.html">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="135">
+          <caret line="9" column="48" selection-start-line="9" selection-start-column="48" selection-end-line="9" selection-end-column="48" />
           <folding />
         </state>
       </provider>
