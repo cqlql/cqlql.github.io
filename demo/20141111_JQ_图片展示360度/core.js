@@ -104,7 +104,7 @@ core.domLoad = function (callback) {
             try {
                 document.documentElement.doScroll('left');
             } catch (e) {
-                setTimeout(arguments.callee, 15);
+                setTimeout(core.domLoad, 15);
                 return;
             }
             callback();

@@ -100,7 +100,7 @@ c.scopeElements = function (targetElem, listener) {
     }
 };
 
-// 元素查询 强大
+// 元素查询
 c.queryElements = function (rootElem, names, callback) {
     var name,
         resultElems = [],
@@ -127,7 +127,6 @@ c.queryElements = function (rootElem, names, callback) {
             if (!nameId) {
                 nameId = nameIds[name] = '';
             }
-            console.log(name);
 
             if (test(elem)) {
 
@@ -540,10 +539,8 @@ c.click = function (elem, listener) {
  target必须为参照元素
  */
 c.relativeXY = function (initial, target) {
-
     var x = 0, y = 0,
         _target = initial;
-
     target = target || document.body;
 
     while (_target !== target) {
@@ -615,6 +612,31 @@ c.imgCenter = function (imgw, imgh, boxw, boxh) {
         h = boxh;
 
         x = (boxw - w) / 2;
+    }
+
+    return {
+        x: x, y: y, w: w, h: h
+    }
+};
+// 图片铺满显示。其实就是  c.imgCenter 中判断的反转
+c.imgFullCenter = function (imgw, imgh, boxw, boxh) {
+    var imgWH = imgw / imgh,
+        boxWH = boxw / boxh,
+        x = 0, y = 0, w, h;
+
+    if (imgWH > boxWH) {
+        // 图片宽 比 窗口宽 大时
+
+        w = boxh * imgWH;
+        h = boxh;
+
+        x = (boxw - w) / 2;
+    }
+    else {
+        w = boxw;
+        h = boxw / imgWH;
+
+        y = (boxh - h) / 2;
     }
 
     return {
