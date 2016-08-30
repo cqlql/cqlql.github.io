@@ -2,11 +2,8 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="41faba64-2323-4ec0-a3fd-5adaf7f21e6d" name="Default" comment="">
-      <change type="DELETED" beforePath="$PROJECT_DIR$/demo/20160829/view.html" afterPath="" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/demo/20141111_JQ_图片展示360度/core.js" afterPath="$PROJECT_DIR$/demo/20141111_JQ_图片展示360度/core.js" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/demo/20160826_移动端_确认弹框/css/common.css" afterPath="$PROJECT_DIR$/demo/20160826_移动端_确认弹框/css/common.css" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/js/backup/dom.js" afterPath="$PROJECT_DIR$/js/backup/dom.js" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/demo/20160830_简单放大镜效果/index.html" afterPath="$PROJECT_DIR$/demo/20160830_简单放大镜效果/index.html" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/demo/20160830_简单放大镜效果/view.html" afterPath="$PROJECT_DIR$/demo/20160830_简单放大镜效果/view.html" />
     </list>
     <ignored path="cqlql.github.io.iws" />
     <ignored path=".idea/workspace.xml" />
@@ -39,16 +36,6 @@
                     <element signature="n#!!block;n#OutsideClose#0;n#!!block;n#FollowPopup#0" expanded="false" />
                     <element signature="n#!!block;n#getRightCssName#0;n#!!block;n#FollowPopup#0" expanded="false" />
                   </folding>
-                </state>
-              </provider>
-            </entry>
-          </file>
-          <file leaf-file-name="2016-08-27-跟随式弹框.html" pinned="false" current-in-tab="false">
-            <entry file="file://$PROJECT_DIR$/_posts/2016-08-27-跟随式弹框.html">
-              <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="90">
-                  <caret line="6" column="0" selection-start-line="6" selection-start-column="0" selection-end-line="6" selection-end-column="0" />
-                  <folding />
                 </state>
               </provider>
             </entry>
@@ -276,21 +263,31 @@
               </provider>
             </entry>
           </file>
-          <file leaf-file-name="view.html" pinned="false" current-in-tab="false">
+          <file leaf-file-name="view.html" pinned="false" current-in-tab="true">
             <entry file="file://$PROJECT_DIR$/demo/20160830_简单放大镜效果/view.html">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="165">
-                  <caret line="11" column="0" selection-start-line="11" selection-start-column="0" selection-end-line="11" selection-end-column="0" />
+                <state relative-caret-position="225">
+                  <caret line="15" column="0" selection-start-line="15" selection-start-column="0" selection-end-line="15" selection-end-column="0" />
                   <folding />
                 </state>
               </provider>
             </entry>
           </file>
-          <file leaf-file-name="main.css" pinned="false" current-in-tab="true">
+          <file leaf-file-name="main.css" pinned="false" current-in-tab="false">
             <entry file="file://$PROJECT_DIR$/demo/20160830_简单放大镜效果/main.css">
               <provider selected="true" editor-type-id="text-editor">
                 <state relative-caret-position="414">
-                  <caret line="37" column="0" selection-start-line="37" selection-start-column="0" selection-end-line="37" selection-end-column="0" />
+                  <caret line="41" column="0" selection-start-line="41" selection-start-column="0" selection-end-line="41" selection-end-column="0" />
+                  <folding />
+                </state>
+              </provider>
+            </entry>
+          </file>
+          <file leaf-file-name="index.html" pinned="false" current-in-tab="false">
+            <entry file="file://$PROJECT_DIR$/demo/20160830_简单放大镜效果/index.html">
+              <provider selected="true" editor-type-id="text-editor">
+                <state relative-caret-position="120">
+                  <caret line="8" column="17" selection-start-line="8" selection-start-column="17" selection-end-line="8" selection-end-column="18" />
                   <folding />
                 </state>
               </provider>
@@ -536,7 +533,6 @@
   <component name="IdeDocumentHistory">
     <option name="CHANGED_PATHS">
       <list>
-        <option value="$PROJECT_DIR$/demo/20151009_移动端_双指放大/index.html" />
         <option value="$PROJECT_DIR$/demo/20151009_移动端_双指放大/css/common.css" />
         <option value="$PROJECT_DIR$/demo/20151009_移动端_双指放大/main.js" />
         <option value="$PROJECT_DIR$/_posts/2015-10-09-移动端双指放大.html" />
@@ -584,9 +580,10 @@
         <option value="$PROJECT_DIR$/demo/20160830_放大镜效果/view.html" />
         <option value="$PROJECT_DIR$/js/backup/dom.js" />
         <option value="$PROJECT_DIR$/demo/20160830_放大镜效果/main.css" />
-        <option value="$PROJECT_DIR$/demo/20160830_简单放大镜效果/view.html" />
         <option value="$PROJECT_DIR$/demo/20160826_移动端_确认弹框/css/common.css" />
         <option value="$PROJECT_DIR$/demo/20160830_简单放大镜效果/main.css" />
+        <option value="$PROJECT_DIR$/demo/20160830_简单放大镜效果/index.html" />
+        <option value="$PROJECT_DIR$/demo/20160830_简单放大镜效果/view.html" />
       </list>
     </option>
   </component>
@@ -940,7 +937,7 @@
       <workItem from="1472266880795" duration="18843000" />
       <workItem from="1472433893645" duration="27670000" />
       <workItem from="1472521904629" duration="7351000" />
-      <workItem from="1472532135471" duration="12746000" />
+      <workItem from="1472532135471" duration="12941000" />
     </task>
     <task id="LOCAL-00001" summary="新增 满屏轮播demo">
       <created>1470275799570</created>
@@ -974,10 +971,10 @@
     <servers />
   </component>
   <component name="TimeTrackingManager">
-    <option name="totallyTimeSpent" value="570901000" />
+    <option name="totallyTimeSpent" value="571096000" />
   </component>
   <component name="ToolWindowManager">
-    <frame x="-8" y="22" width="1936" height="1066" extended-state="7" />
+    <frame x="-8" y="22" width="1936" height="1066" extended-state="6" />
     <editor active="true" />
     <layout>
       <window_info id="Project" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.15384616" sideWeight="0.5" order="0" side_tool="false" content_ui="combo" />
@@ -1047,13 +1044,6 @@
     <watches-manager />
   </component>
   <component name="editorHistoryManager">
-    <entry file="file://$PROJECT_DIR$/demo/20160805_HHZT/视频点播.html">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="60">
-          <caret line="4" column="4" selection-start-line="4" selection-start-column="4" selection-end-line="4" selection-end-column="91" />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/../../project/workspace/TeachingEasy/assets/js/picture_slide_show.js">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="2070">
@@ -1953,14 +1943,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/demo/20160830_简单放大镜效果/view.html">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="165">
-          <caret line="11" column="0" selection-start-line="11" selection-start-column="0" selection-end-line="11" selection-end-column="0" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/demo/20160820_移动端_双指放大/main.js">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="49">
@@ -2147,7 +2129,23 @@
     <entry file="file://$PROJECT_DIR$/demo/20160830_简单放大镜效果/main.css">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="414">
-          <caret line="37" column="0" selection-start-line="37" selection-start-column="0" selection-end-line="37" selection-end-column="0" />
+          <caret line="41" column="0" selection-start-line="41" selection-start-column="0" selection-end-line="41" selection-end-column="0" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/demo/20160830_简单放大镜效果/index.html">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="120">
+          <caret line="8" column="17" selection-start-line="8" selection-start-column="17" selection-end-line="8" selection-end-column="18" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/demo/20160830_简单放大镜效果/view.html">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="225">
+          <caret line="15" column="0" selection-start-line="15" selection-start-column="0" selection-end-line="15" selection-end-column="0" />
           <folding />
         </state>
       </provider>
