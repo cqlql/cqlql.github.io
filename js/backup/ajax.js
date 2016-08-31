@@ -161,7 +161,6 @@ c.get = function (params) {
 
     xhr.responseType=dataType;
 
-
     xhr.addEventListener('readystatechange', onReadystatechange, false);
 
     xhr.open('get', url + dataStringify(data));

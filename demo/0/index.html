@@ -18,41 +18,20 @@
      style="min-height: 100px">
 <script src="jquery-1.11.0.js"></script>
 <script>
-    jQuery.fn.lazyload = function (params) {
-        var w = $(window),
-                imgs = $(),
-                winH=w.height(),
-                effect;
+document.body.innerHTML=window.navigator.userAgent;
+    var xhr = new XMLHttpRequest();
 
-        w.scroll(function () {
-            var maxY = w.scrollTop() + winH;
-            imgs.each(function () {
-                var img = $(this);
-                if (img.offset().top < maxY) {
-                    img.hide().prop('src', img.attr('data-src'))[effect]();
-                    img.prop('src', img.attr('data-src')).removeClass('loading');
-                    imgs = imgs.not(img);
-                }
-            });
-        });
-        w.resize(function () {
-            winH = w.height();
-        });
+    xhr.addEventListener('readystatechange', onReadystatechange, false);
 
-        jQuery.fn.lazyload = lazyload;
+    xhr.open('get', '/');
 
-        this.lazyload(params);
+    xhr.send(null);
 
-        function lazyload(params) {
-            params = params || {};
-            effect = params.effect || 'fadeIn';
-            imgs = imgs.add(this);
+    function onReadystatechange() {
+        if (xhr.readyState === 4) {
+            console.log(xhr.getResponseHeader('Date'));
         }
-    };
-
-    // 使用
-    $('img').lazyload()
-
+    }
 </script>
 </body>
 </html>
