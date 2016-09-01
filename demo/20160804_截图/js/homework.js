@@ -8,7 +8,7 @@ document.getElementById('popupBtn').onclick = transmitData;
 function transmitData() {
     doWork();
 
-    clipPicture('http://hbimg.b0.upaiyun.com/a49d57470640da79098ed203b9a8b79df7ba0f1a1566f-S9mkz0');
+    clipPicture('imgs/1.jpg');
 
     // 做作业
     function doWork() {

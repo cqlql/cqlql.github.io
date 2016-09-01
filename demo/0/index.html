@@ -12,16 +12,16 @@
 
 </head>
 <body>
-<a href="#"> test2</a>
 
+<a href="#"> test2</a>
+<p id="info"></p>
 <script src="jquery-1.11.0.js"></script>
 <script>
 
-
     window.onhashchange = function () {
-console.log(123123);
-    };
 
+        document.getElementById('info').innerHTML = location.hash;
+    };
 
 </script>
 </body>
