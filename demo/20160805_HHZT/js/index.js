@@ -9,12 +9,13 @@
     var
         transform = c.getRightCssName('transform')[1],
         transition = c.getRightCssName('transition')[1],
-    // c = commonInit(),
+        // c = commonInit(),
         eFullBanner = document.getElementById('fullBanner'),
         eShowBox,
         eItems, eTit, eDes, eAwL, eAwR,
         listSelect,
-        recordComplete = {};
+        recordComplete = {},
+        time=3000;
 
     c.queryElements(eFullBanner, '.fb-show,.list-select,.tit,.des,.aw,.aw', function (elems) {
         eShowBox = elems[0];
@@ -53,8 +54,15 @@
             setIndex: function () {
 
             }
-        }
+        };
     }
+    c.bind(eFullBanner, 'mouseleave', function () {
+        listSelect.timer();
+    });
+    c.bind(eFullBanner, 'mouseenter', function () {
+        listSelect.timer.stop();
+    });
+
 
     // ie8 9
     if (!transition) {
@@ -209,6 +217,8 @@
 
         itemCountReset();
 
+        timer();
+
         this.onchange = function () {
         };
         this.count = function () {
@@ -220,6 +230,7 @@
         this.setIndex = function (i) {
             currIndex = i;
         };
+        this.timer = timer;
 
         function active(currIndex, index) {
             c.addClass(eItems[index], 'active');
@@ -271,32 +282,63 @@
 
             return v;
         }
+
+        function timer() {
+            var stopId;
+
+            timer = function () {
+                stop();
+                stopId = setTimeout(function () {
+                    swipeLeft();
+                    timer();
+                }, time);
+            };
+
+            timer.stop = stop;
+
+            timer();
+
+            function stop() {
+                clearTimeout(stopId);
+            }
+
+            function swipeLeft() {
+                var index = currIndex;
+                index++;
+                if (index >= count) {
+                    index = 0;
+                }
+
+                go(index);
+            }
+
+        }
     }
 
     function slider(params) {
         var eBox = params.eBox,
             each = params.each,
             onchange = params.onchange,
-        // eMove = eBox.children[0],
-        // eItems = eMove.children,
+            // eMove = eBox.children[0],
+            // eItems = eMove.children,
             count = eItems.length,
 
             boxW = eBox.clientWidth,
 
-        // transform = c.getRightCssName('transform')[1],
-        // transition = c.getRightCssName('transition')[1],
+            // transform = c.getRightCssName('transform')[1],
+            // transition = c.getRightCssName('transition')[1],
 
-        // 拖动的长度
+            // 拖动的长度
             moveLength = 0,
 
-        // 拖动情况 松开时 是否进行滑动的最大偏移值
+            // 拖动情况 松开时 是否进行滑动的最大偏移值
             offset = boxW / 3,
 
             rightItem, leftItem,
             sideItem,// 当前要动画出来的项
             currItem,// 当前项，也可能是上一个项，按下时才会被正确初始
 
-        // 当前显示项索引
+            // 当前显示项索引
             index = 0;
 
         c.swipeXScroll({
@@ -322,6 +364,7 @@
                 }
             },
             onstart: function () {
+                listSelect.timer.stop();
 
                 moveLength = 0;
                 currItem = eItems[index],
@@ -339,6 +382,8 @@
 
                 rightItem.style[transition] = '0s';
                 leftItem.style[transition] = '0s';
+
+
             },
             onmove: function (to) {
                 moveLength += to;
@@ -360,6 +405,9 @@
                 }
 
                 moveShow(sideItem, r);
+            },
+            onend: function () {
+                listSelect.timer();
             }
         });
 
@@ -429,6 +477,7 @@
             item.style[transform] = 'scale(' + scale + ', ' + scale + ')';
         }
     }
+
 
 })();
 

@@ -74,17 +74,18 @@ function banner() {
             swipeNot = params.swipeNot,
             onstart = params.onstart,
             onmove = params.onmove,
+            onend = params.onend,
 
-            // 记录点下的坐标
+        // 记录点下的坐标
             startX, startY,
 
-            // 实现区分滚动条
-            // 0 没反映，1 x 方向，2 y 方向
+        // 实现区分滚动条
+        // 0 没反映，1 x 方向，2 y 方向
             status = 0,
 
             isStart = false,// 是否已经开始。true表示已经开始
 
-            // 记录多点数据
+        // 记录多点数据
             touchesData;
 
         eBox.addEventListener('touchstart', function (e) {
@@ -195,6 +196,7 @@ function banner() {
 
                 if (isStart) {
                     touchesData[touche.identifier].swipeBase.end(swipeLeft, swipeRight, swipeNot);
+                    onend();
                     isStart = false;
                 }
             }
@@ -213,7 +215,7 @@ function banner() {
      * 是因为 onmove、onend 有可能绕过 onstart ，紧跟着 transitionend 后触发。没发生移动就造成 swipe 执行，就是原地执行了anime，开启了 isRun，却没关闭 isRun，解决办法是，必须保证 onstart 后，才会触发 onmove、onend，这就100%保证只有发生移动才会触发swipe
      *
      * */
-    function slider(params) {
+    function Slider(params) {
         var eBox = params.eBox,
             each = params.each,
             onchange = params.onchange,
@@ -226,15 +228,15 @@ function banner() {
             transform = getRightCssName('transform')[1],
             transition = getRightCssName('transition')[1],
 
-            // 拖动的长度
+        // 拖动的长度
             moveLength = 0,
 
-            // 拖动情况 松开时 是否进行滑动的最大偏移值
+        // 拖动情况 松开时 是否进行滑动的最大偏移值
             offset = boxW / 3,
 
             isRun = false,// 是否动画进行中
 
-            // 当前显示项索引
+        // 当前显示项索引
             index = 0;
 
         for (var i = 0, btnHtml = ''; i < count; i++) {
@@ -268,17 +270,23 @@ function banner() {
             },
             onstart: function () {
                 if (isRun) return false;
+                // time.stop();
                 moveLength = 0;
                 eMove.style[transition] = '0s';
             },
             onmove: function (to) {
                 moveLength += to;
                 eMove.style[transform] = 'translate3d(' + ((-index * boxW) + moveLength ) + 'px,0,0)';
+            },
+            onend: function () {
+                // time();
             }
         });
 
-        eBox.addEventListener("webkitTransitionEnd", transitionend);
-        eBox.addEventListener("transitionend", transitionend);
+        // eBox.addEventListener("webkitTransitionEnd", transitionend);
+        // eBox.addEventListener("transitionend", transitionend);
+
+        // time();
 
         function transitionend() {
             isRun = false;
@@ -321,6 +329,39 @@ function banner() {
             isRun = true; // 将开启 只有动画结束后才能进行下一步操作
             eMove.style[transition] = '.3s';
             eMove.style[transform] = 'translate3d(' + (-index * boxW) + 'px,0,0)';
+
+            setTimeout(transitionend, 300)
+        }
+
+        function time() {
+            var stopId;
+
+            time = function () {
+                stop();
+                stopId = setTimeout(function () {
+                    swipeLeft();
+                    time();
+                }, 1000);
+            };
+
+            time.stop = stop;
+
+            time();
+
+            function stop() {
+                clearTimeout(stopId);
+            }
+
+            function swipeLeft() {
+                var i = index;
+                i++;
+                if (i >= count) {
+                    i = 0;
+                }
+                change(i);
+                anime();
+            }
+
         }
     }
 
@@ -336,7 +377,7 @@ function banner() {
 
             btnHtml = '';
 
-        slider({
+        var slider = new Slider({
             eBox: eBox,
             each: function (i) {
                 // 拼接按钮
@@ -368,7 +409,7 @@ function banner() {
             cssPrefixes = ["ms" + firstLetterUpper, "Moz" + firstLetterUpper, "webkit" + firstLetterUpper, firstLetter],
             cssPrefixesReal = ["-ms-", "-Moz-", "-webkit-", ''],
             style = document.body.style,
-            // css名称转换
+        // css名称转换
             name = cssPropertyName.replace(/-\w/g, function (d) {
                 return d[1].toUpperCase();
             }).substr(1);

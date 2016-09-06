@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+    <meta charset="UTF-8">
+    <title>消费系列</title>
+    <link rel="stylesheet" type="text/css" href="css/basic.css"/>
+    <link rel="stylesheet" type="text/css" href="css/xiaofen.css"/>
+    <!--<link rel="stylesheet" type="text/css" href="css/mobiscroll.custom-2.6.2.min.css">-->
+</head>
+<body>
+<header>
+    <div class="div-xflog-header">
+        <a href="index.html"><img class="back" src="images/fh.png"></a>
+        <span class="span-xflog-title">消费系列</span>
+        <a class="sx"><img src="images/sx.png"><input type="date" id="dateInput"></a>
+
+    </div>
+</header>
+<article>
+    <div class="div-xf-conten">
+        <div class="div-xf-list">
+            <div class="tol-sp">
+                <p>
+                    全联盟消费总额：3000元
+                </p>
+                <p id="datetaime">
+                    2016-03-03
+                </p>
+            </div>
+            <div class="customer-list">
+                <ul>
+                    <li class="li-t"><img src="images/icon-100.png"></li>
+                    <li class="td-l li-w">消费金额：96.00元</li>
+                </ul>
+                <ul>
+                    <li class="li-t"><img src="images/icon-50.png"></li>
+                    <li class="td-l li-w">消费金额：96599856.00元</li>
+                </ul>
+                <ul>
+                    <li class="li-t"><img src="images/icon-25.png"></li>
+                    <li class="td-l li-w">消费金额：96.00元</li>
+                </ul>
+            </div>
+        </div>
+        <div>
+
+            <a></a>
+        </div>
+    </div>
+</article>
+<!-- <script type="text/javascript" src="js/jquery.min.js"></script> -->
+<!-- <script type="text/javascript" src="js/mobiscroll.custom-2.6.2.min.js"></script> -->
+<script type="text/javascript">
+    /*$(function () {
+     var opt = {
+     theme: "android-ics light",
+     display: 'modal', //显示方式
+     lang: "zh",
+     setText: '确定', //确认按钮名称
+     cancelText: "取消",
+     dateFormat: 'yyyy-mm-dd', //返回结果格式化为年月格式
+     dateOrder: 'yyyymmdd', //面板中日期排列格式
+     onBeforeShow: function (inst) {
+     //  console.info( inst.settings.wheels);
+     },
+     headerText: function (valueText) { //自定义弹出框头部格式
+     //  console.info(valueText);
+     array = valueText.split('-');
+     return array[0] + "年" + array[1] + "月" + array[2] + "日";
+     }
+     };
+
+     // $("#txtBirthday").mobiscroll().date(opt);
+     });*/
+    dateInput.addEventListener('change', function () {
+        datetaime.innerHTML = dateInput.value;
+    });
+</script>
+</body>
+</html>

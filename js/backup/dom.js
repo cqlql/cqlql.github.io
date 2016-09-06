@@ -200,12 +200,17 @@ c.removeClass = function (elem, className) {
 /**
  * 取css正确名称
  * 自动加前缀
+ * 可用 box-flex 进行测试
  *
  * @param cssPropertyName {string} 减号方式的css名称
  * @return {Array} 数组中有两个值，第一个是 减号风格，第二个是驼峰。如果不支持此属性，返回null
  *
  * */
-function getRightCssName(cssPropertyName) {
+c.getRightCssName = function (cssPropertyName) {
+    // 如果有直接返回
+    var propertyName = c.getRightCssName[cssPropertyName];
+    if (propertyName !== undefined) return propertyName;
+
     var
         firstLetter = cssPropertyName[0],
         firstLetterUpper = firstLetter.toUpperCase(),
@@ -221,14 +226,20 @@ function getRightCssName(cssPropertyName) {
         newName = cssPrefixes[i] + name;
 
         if (newName in style) {
-            return [cssPrefixesReal[i] + cssPropertyName, newName];
+            propertyName = [cssPrefixesReal[i] + cssPropertyName, newName];
+            break;
         }
     }
-    return null;
-}
+
+    propertyName = propertyName || null;
+
+    c.getRightCssName[cssPropertyName] = propertyName;
+
+    return propertyName;
+};
 
 /**
- * 取css名称
+ * 取css名称 （已集成在 getRightCssName 中）
  *
  * 此处只是加了缓存机制，核心还是 getRightCssName
  *
@@ -236,13 +247,14 @@ function getRightCssName(cssPropertyName) {
  * @return {Array} 数组中有两个值，第一个是 减号风格，第二个是驼峰。如果不支持此属性，返回null
  *
  * */
-c.getCssName = function (cssPropertyName) {
-    // 如果有直接返回
-    var propertyName = c.getCssName[cssPropertyName];
-    if (propertyName) return propertyName;
-
-    return c.getRightCssName(cssPropertyName);
-};
+// c.getCssName = function (cssPropertyName) {
+//     // 如果有直接返回
+//     var propertyName = c.getCssName[cssPropertyName];
+//     if (propertyName) return propertyName;
+//     propertyName = c.getRightCssName(cssPropertyName);
+//
+//     return propertyName;
+// };
 
 /**
  * 取float style操作名称
@@ -514,7 +526,20 @@ c.removeNode = function (node) {
 // 以后会使用原型支持
 c.bind = function (elem, type, listener) {
     // elem.addEventListener(type,listener,useCapture);
-    elem.addEventListener(type, listener);
+    // elem.addEventListener(type, listener);
+    if (window.addEventListener) {
+        c.bind=function (elem, type, listener) {
+            console.log(type);
+            elem.addEventListener(type, listener);
+        }
+    }
+    else{
+        c.bind=function (elem, type, listener) {
+            elem.attachEvent('on'+type, listener);
+        }
+    }
+
+    c.bind(elem, type, listener);
 };
 
 // 删除事件

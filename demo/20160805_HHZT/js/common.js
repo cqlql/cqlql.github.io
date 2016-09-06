@@ -161,6 +161,23 @@ function commonInit() {
     // 移动端判断
     c.isMobile=/Android|iPhone|iPad/.test(navigator.appVersion);
 
+    c.bind = function (elem, type, listener) {
+        // elem.addEventListener(type,listener,useCapture);
+        // elem.addEventListener(type, listener);
+        if (window.addEventListener) {
+            c.bind=function (elem, type, listener) {
+                elem.addEventListener(type, listener);
+            }
+        }
+        else{
+            c.bind=function (elem, type, listener) {
+                elem.attachEvent('on'+type, listener);
+            }
+        }
+
+        c.bind(elem, type, listener);
+    };
+
     c.click = function (elem, fn) {
         if (window.addEventListener) {
             c.click = function (elem, fn) {
@@ -467,7 +484,7 @@ function commonInit() {
             swipeNot = params.swipeNot,
             onstart = params.onstart,
             onmove = params.onmove,
-            // onend = params.onend,
+            onend = params.onend,
 
             // 记录点下的坐标
             startX, startY,
@@ -589,6 +606,7 @@ function commonInit() {
 
                 if (isStart) {
                     touchesData[touche.identifier].swipeBase.end(swipeLeft, swipeRight, swipeNot);
+                    onend();
                     isStart = false;
                 }
             }
