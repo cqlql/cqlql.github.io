@@ -46,6 +46,21 @@ p{
     color: #C3000F;
 }
 
+.example-btns{
+    width: 250px;
+
+    margin-left: 360px;
+}
+.example-btns a{
+    display: inline-block;
+    color: #0061a9;
+}
+
+.introduce-text{
+    float: left;
+}
+
+/**/
 .follow-popup {
     position: fixed;
     left: 0;
@@ -68,32 +83,16 @@ p{
     pointer-events: auto;
     opacity: 1;
 }
-
 .follow-popup.confirm p {
     padding: 4px 0 8px;
     margin: 0;
 }
-
 .follow-popup.confirm .button {
     font-size: 14px;
     padding: 2px 12px;
     margin: 0 6px;
 }
-
 .follow-popup.confirm .btns {
     text-align: center;
 }
 
-.example-btns{
-    width: 250px;
-
-    margin-left: 360px;
-}
-.example-btns a{
-    display: inline-block;
-    color: #0061a9;
-}
-
-.introduce-text{
-    float: left;
-}

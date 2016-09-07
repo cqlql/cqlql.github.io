@@ -100,7 +100,11 @@ c.scopeElements = function (targetElem, listener) {
     }
 };
 
-// 元素查询
+/*
+* 元素查询
+*
+* id，className，tagName 包含着三种选择
+* */
 c.queryElements = function (rootElem, names, callback) {
     var name,
         resultElems = [],
@@ -147,9 +151,16 @@ c.queryElements = function (rootElem, names, callback) {
         name = names.shift();
 
         if (name) {
-            if (name.substr(0, 1) === '.') {
+            var lName=name.substr(0, 1),
+                rName=name.substr(1);
+            if (lName === '.') {
                 test = function (elem) {
-                    return c.hasClass(elem, name.substr(1));
+                    return c.hasClass(elem, rName);
+                };
+            }
+            else if (lName === '#') {
+                test = function (elem) {
+                    return elem.id === rName;
                 };
             }
             else {
@@ -528,14 +539,14 @@ c.bind = function (elem, type, listener) {
     // elem.addEventListener(type,listener,useCapture);
     // elem.addEventListener(type, listener);
     if (window.addEventListener) {
-        c.bind=function (elem, type, listener) {
+        c.bind = function (elem, type, listener) {
             console.log(type);
             elem.addEventListener(type, listener);
         }
     }
-    else{
-        c.bind=function (elem, type, listener) {
-            elem.attachEvent('on'+type, listener);
+    else {
+        c.bind = function (elem, type, listener) {
+            elem.attachEvent('on' + type, listener);
         }
     }
 

@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+    <meta charset="UTF-8">
+    <title>我的孝分</title>
+    <link rel="stylesheet" type="text/css" href="css/basic.css"/>
+    <link rel="stylesheet" type="text/css" href="css/xiaofen.css"/>
+    <script type="text/javascript" src="js/jquery.js"></script>
+    <style type="text/css">
+        .div-xf-conten .cx-select {
+            text-align: center;
+            margin-top: 10px;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+
+        #startime {
+            height: 40px;
+            width: 150px;
+            margin-top: 10px;
+            border: 1px solid #fa6c57;
+            color: #f8553d;
+            background-color: #ffffff;
+            font-size: 1rem;
+        }
+
+        #endtime {
+            height: 40px;
+            width: 150px;
+            margin-top: 10px;
+            border: 1px solid #fa6c57;
+            color: #f8553d;
+            font-size: 1rem;
+        }
+
+        .div-xf-conten .cx-select .selet-op {
+            height: 40px;
+            width: 168px;
+            margin-top: 10px;
+            border: 1px solid #fa6c57;
+            color: #f8553d;
+            font-size: 1rem;
+        }
+
+        #selec-butt {
+            width: 50px;
+            border: 1px solid #fa6c57;
+            height: 40px;
+            background-color: #ffffff;
+            color: #f8553d;
+            width: 150px;
+            margin-top: 10px;
+            font-size: 1rem;
+            -webkit-appearance: none;
+
+        }
+
+        /**/
+        .follow-popup {
+            position: fixed;
+            left: 0;
+            top: 0;
+            z-index: 1;
+            border-radius: 2px;
+            padding: 6px 10px;
+            box-sizing: border-box;
+            font-size: 14px;
+            word-wrap: break-word;
+            word-break: break-all;
+            background-color: #fff;
+            border: 1px solid #000;
+            box-shadow: 0 0 4px rgba(0, 0, 0, 0.5);
+
+            pointer-events: none;
+            opacity: 0;
+        }
+
+        .follow-popup.show {
+            pointer-events: auto;
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+<header>
+    <div class="div-xf-header">
+        <span class="span-xf-title">我的孝分</span>
+        <a href="#"><img src="images/sx.png"></a>
+    </div>
+</header>
+<article>
+    <div class="div-xf-conten">
+        <div class="cx-select">
+            <p> 开始时间：<input type="date" id="startime" autocomplete="on"></p>
+            <p> 结束时间：<input type="date" id="endtime"></p>
+            <p>
+                激励类型：
+                <select class="selet-op">
+                    <option value="jl">激励孝分</option>
+                    <option value="tj">推荐孝分</option>
+                    <option value="dz">激励到账</option>
+                </select>
+            </p>
+            <input type="button" id="selec-butt" value="查询">
+        </div>
+        <div class="div-xf-list">
+            <div class="div-xf-lj">
+                <p>累计获得激励孝分</p>
+                <p>300</p>
+            </div>
+            <table cellspacing="0" cellpadding="0">
+                <tr>
+                    <td>2016-01-07</td>
+                    <td class="fz">
+                        激励孝分
+                    </td>
+                    <td class="td-l">
+                        <img src="images/xb.png">
+                        +100
+                    </td>
+                </tr>
+                <tr>
+                    <td>2016-01-07</td>
+                    <td class="fz">
+                        推荐孝分
+                    </td>
+                    <td class="td-l">
+                        <img src="images/xb.png">
+                        +333100
+                    </td>
+                </tr>
+            </table>
+        </div>
+    </div>
+</article>
+<footer>
+    <div class="div-foot">
+        <ul>
+            <li>
+                <a href="index.html">
+                    <img src="images/home-1.png">
+                </a>
+            </li>
+            <li>
+                <a href="xiaofen.html">
+                    <img src="images/xf-1.png">
+                </a>
+            </li>
+            <li>
+                <a href="shop.html">
+                    <img src="images/shop.png">
+                </a>
+            </li>
+            <li>
+                <a href="my.html">
+                    <img src="images/my.png">
+                </a>
+            </li>
+        </ul>
+    </div>
+
+    <script>
+        (function () {
+            var
+                c = commonInit(),
+                queryBtn,
+                eStartime,
+                eEndtime
+                ;
+
+            c.queryElements(document.body, '#startime,#endtime,#selec-butt', function (elems) {
+                eStartime = elems[0];
+                eEndtime = elems[1];
+                queryBtn = elems[2];
+            });
+
+            var followPopup = new c.FollowPopup({
+                event: function (elem) {
+
+                    if (elem.classList.contains('caution')) {
+                        followPopup.hide();
+                        return false;
+                    }
+                    if (elem.classList.contains('button')) {
+                        console.log('确定');
+                        return false;
+                    }
+
+                },
+//                html: '<div class="alert-cont"><p>时间有误，请重新选择</p></div>',
+                onInit: function (params) {
+                    //params.eMsgBox.classList.add('confirm');
+                }
+            });
+
+
+            c.click(queryBtn, function () {
+                var sv = eStartime.value, ev = eEndtime.value, err = 1;
+                if (sv && ev) {
+                    if (timeNum(sv) < timeNum(ev)) {
+                        err = 0;
+
+                        msg({
+                            elem: queryBtn,
+                            msg: '<div class="alert-cont"><p>开始时间：' + sv + '</p><p>结束时间：' + ev + '</p></div>'
+                        });
+                    }
+                }
+
+                if (err) {
+                    msg({
+                        elem: queryBtn,
+                        msg: '<div class="alert-cont">时间有误，请重新选择</div>'
+                    });
+                }
+
+            });
+
+            function msg(params) {
+                var stopId;
+                msg = function (params) {
+                    var elem = params.elem,
+                            msg = params.msg;
+
+                    var xy = c.relativeXY(elem),
+//                            w = elem.clientWidth,
+                            h = elem.clientHeight;
+
+                    followPopup.show({
+                        x: xy.x,
+                        y: xy.y - window.pageYOffset,
+                        w: 0,
+                        h: h,
+                        ml: 0,
+                        mt: 10,
+                        d: 'rt',
+                        html: msg
+                    });
+
+                    clearTimeout(stopId);
+                    stopId = setTimeout(function () {
+                        followPopup.hide();
+                    }, 1000);
+                };
+                msg(params);
+            }
+
+            function timeNum(time) {
+                return time.replace(/[^\d]/g, '');
+            }
+
+            function commonInit() {
+                var c = {};
+
+                c.isMobile = /Android|iPhone|iPad/.test(navigator.appVersion);
+
+                c.relativeXY = function (initial, target) {
+
+                    var x = 0, y = 0,
+                            _target = initial;
+                    target = target || document.body;
+
+                    while (_target !== target) {
+                        x += _target.offsetLeft;
+                        y += _target.offsetTop;
+
+                        _target = _target.offsetParent;
+                    }
+
+                    return {x: x, y: y};
+                };
+
+                c.scopeElements = function (targetElem, listener) {
+                    targetElem = targetElem.nodeType === 1 ? targetElem : targetElem.parentElement
+                    go(targetElem);
+                    function go(that, child) {
+                        if (listener(that, child) !== false) {
+                            go(that.parentElement, that);
+                        }
+                    }
+                };
+
+                c.queryElements = function (rootElem, names, callback) {
+                    var name,
+                            resultElems = [],
+                            nameIds = {},
+                            test;
+
+                    if (typeof names === 'string') names = names.split(',');
+
+                    setName();
+
+                    go(rootElem.children);
+
+                    callback(resultElems);
+
+                    function go(childs) {
+                        var nameId = '';
+                        for (var i = 0, len = childs.length, elem; i < len; i++) {
+                            elem = childs[i];
+
+                            if (!name) {
+                                return false;
+                            }
+                            nameId = nameIds[name];
+                            if (!nameId) {
+                                nameId = nameIds[name] = '';
+                            }
+
+                            if (test(elem)) {
+
+                                resultElems.push(elem);
+                                resultElems[name + nameId] = elem;
+
+                                nameIds[name]++;
+
+                                setName();
+                            }
+
+                            go(elem.children);
+                        }
+
+                    }
+
+                    function setName() {
+                        name = names.shift();
+
+                        if (name) {
+                            var lName = name.substr(0, 1),
+                                    rName = name.substr(1);
+                            if (lName === '.') {
+                                test = function (elem) {
+                                    return c.hasClass(elem, rName);
+                                };
+                            }
+                            else if (lName === '#') {
+                                test = function (elem) {
+                                    return elem.id === rName;
+                                };
+                            }
+                            else {
+                                test = function (elem) {
+                                    // html标签 tagName 大写，但svg标签 tagName 小写
+                                    return elem.tagName.toUpperCase() === name.toUpperCase();
+                                };
+                            }
+                        }
+                    }
+                };
+
+                c.click = function (elem, fn) {
+
+                    if (c.isMobile) {
+                        c.click = function (elem, fn) {
+                            var touchcancel;
+                            elem.addEventListener('touchend', touchend);
+                            elem.addEventListener('touchstart', touchstart);
+                            elem.addEventListener('touchmove', touchmove);
+
+                            function touchend(e) {
+                                if (touchcancel) return;
+                                fn.call(this, e);
+                            }
+
+                            function touchstart() {
+                                touchcancel = false;
+                            }
+
+                            function touchmove() {
+                                touchcancel = true;
+                            }
+
+                            return function () {
+                                elem.removeEventListener('touchend', touchend);
+                                elem.removeEventListener('touchstart', touchstart);
+                                elem.removeEventListener('touchmove', touchmove);
+                            };
+                        };
+
+                    }
+                    else {
+                        c.click = function (elem, fn) {
+                            elem.addEventListener('click', fn);
+                            return function () {
+                                elem.removeEventListener('click', fn);
+                            };
+                        }
+                    }
+
+                    c.click(elem, fn);
+                };
+
+                /*
+                 * @params event
+                 * @params content
+                 * @params onInit
+                 *
+                 * # FollowPopup.eMsgBox
+                 *
+                 * # FollowPopup.hide
+                 *
+                 * # FollowPopup.show
+                 * @params d rb 右下 rt 右上 lb 左下 lt 左上
+                 * 考虑滚动条情况
+                 followPopup.show({
+                 y: y - window.pageYOffset,
+                 });
+                 *
+                 * */
+                c.FollowPopup = function FollowPopup(params) {
+
+                    var
+                            event = params.event || function () {
+                                    },
+                            html = params.html,
+                            onInit = params.onInit || function () {
+                                    },
+
+                            transform,
+                            eMsgBox, outsideClose;
+
+                    this.show = show;
+                    this.hide = hide;
+                    this.eMsgBox = eMsgBox;
+
+                    function init() {
+
+                        transform = getRightCssName('transform')[1];
+
+                        eMsgBox = document.createElement('div');
+                        eMsgBox.className = 'follow-popup';
+                        document.body.appendChild(eMsgBox);
+
+                        eMsgBox.addEventListener('click', function (e) {
+                            outsideClose.inside();
+                            c.scopeElements(e.target, function (elem) {
+                                if (elem === eMsgBox)return false;
+                                return event(elem);
+                            });
+                        });
+
+
+                        outsideClose = new OutsideClose(hide);
+
+                        if (html) eMsgBox.innerHTML = html;
+
+                        onInit({
+                            eMsgBox: eMsgBox
+                        });
+
+                        init = function () {
+                        };
+
+                    }
+
+                    function show(params) {
+                        init();
+
+                        outsideClose.inside();
+
+                        var
+                                ox = params.x, oy = params.y, // 某参照元素左上角坐标
+                                ml = params.ml || 0, mt = params.mt || 0,
+                                w = params.w || 0, h = params.h || 0,
+                                x, y,
+                                d = params.d || 'rb',
+                                html = params.html;
+
+                        var endX, endY, boxW, boxH, xd = 'r', yd = 'b',
+                                winW = window.innerWidth, winH = window.innerHeight;
+
+                        if (html) eMsgBox.innerHTML = html;
+
+                        boxW = eMsgBox.offsetWidth;
+                        boxH = eMsgBox.offsetHeight;
+
+                        switch (d) {
+                            case 'rb':// 右下
+                                right();
+                                bottom();
+                                break;
+                            case 'rt':// 右上
+                                right();
+                                top();
+                                break;
+                            case 'lb': // 左下
+                                left();
+                                bottom();
+                                break;
+                            case 'lt': // 左上
+                                left();
+                                top();
+                                break;
+                        }
+
+                        endX = x + boxW;
+                        endY = y + boxH;
+
+                        if (endX > winW) {
+                            left();
+                        }
+                        if (endY > winH) {
+                            top();
+                        }
+
+                        // 复位
+                        if (x < 0) {
+                            right();
+                        }
+                        if (y < 0) {
+                            bottom();
+                        }
+
+                        // 限制
+                        if (x < 0) {
+                            x = 0;
+                        }
+                        if (y < 0) {
+                            y = 0;
+                        }
+
+                        eMsgBox.classList.add('show');
+                        eMsgBox.style.setProperty(transform, 'translate3d(' + x + 'px,' + y + 'px,0)');
+
+                        function right() {
+                            x = ox + w + ml;
+                        }
+
+                        function bottom() {
+                            y = oy + h + mt;
+                        }
+
+                        function left() {
+                            x = ox - boxW - ml;
+                        }
+
+                        function top() {
+                            y = oy - boxH - mt;
+                        }
+                    }
+
+                    function hide() {
+                        eMsgBox.classList.remove('show');
+                    }
+
+                    function OutsideClose(close) {
+
+                        var inside = false;
+
+                        document.addEventListener('click', function () {
+                            if (inside) {
+                                inside = false;
+                            }
+                            else {
+                                close();
+                            }
+                        });
+
+                        this.inside = function () {
+                            inside = true;
+                        };
+
+                    }
+
+                    /// 基础功能
+                    function getRightCssName(cssPropertyName) {
+                        var
+                                firstLetter = cssPropertyName[0],
+                                firstLetterUpper = firstLetter.toUpperCase(),
+                                cssPrefixes = ["ms" + firstLetterUpper, "Moz" + firstLetterUpper, "webkit" + firstLetterUpper, firstLetter],
+                                cssPrefixesReal = ["-ms-", "-Moz-", "-webkit-", ''],
+                                style = document.body.style,
+                                name = cssPropertyName.replace(/-\w/g, function (d) {
+                                    return d[1].toUpperCase();
+                                }).substr(1);
+
+                        for (var i = cssPrefixes.length, newName; i--;) {
+                            newName = cssPrefixes[i] + name;
+
+                            if (newName in style) {
+                                return [cssPrefixesReal[i] + cssPropertyName, newName];
+                            }
+                        }
+                        return null;
+                    }
+
+
+                };
+
+                return c;
+            }
+
+        })();
+
+
+    </script>
+</footer>
+</body>
+</html>

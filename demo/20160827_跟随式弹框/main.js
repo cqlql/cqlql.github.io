@@ -1,7 +1,7 @@
 /**
  * Created by CQL on 2016/8/27.
  */
-
+var c = commonInit();
 var followPopup = new FollowPopup({
     event: function (elem) {
 
@@ -15,7 +15,7 @@ var followPopup = new FollowPopup({
         }
 
     },
-    content: '<div class="confirm-cont"><p>确认删除？？</p><div class="btns"><a class="button">确认</a><a class="button caution">取消</a></div></div>',
+    html: '<div class="confirm-cont"><p>确认删除？？</p><div class="btns"><a class="button">确认</a><a class="button caution">取消</a></div></div>',
     onInit: function (params) {
         params.eMsgBox.classList.add('confirm');
     }
@@ -23,14 +23,13 @@ var followPopup = new FollowPopup({
 
 document.addEventListener('click', function (e) {
 
-    scopeElements(e.target, function (elem) {
+    c.scopeElements(e.target, function (elem) {
         if (!elem || elem === document.body) {
 
             return false;
         }
 
         if (elem.className.indexOf('pbtn') > -1) {
-
 
 
             var xy = relativeXY(elem),
@@ -43,8 +42,8 @@ document.addEventListener('click', function (e) {
                 w: w,
                 h: h,
                 ml: 10,
-                mt:(elem.className.indexOf('center')>-1? -(66 + h) / 2:0),
-                d: elem.className.substr(0,2)
+                mt: (elem.className.indexOf('center') > -1 ? -(66 + h) / 2 : 0),
+                d: elem.className.split(' ')[0]
             });
             return false;
         }
@@ -52,8 +51,6 @@ document.addEventListener('click', function (e) {
 });
 
 /*
- *
- *
  * @params event
  * @params content
  * @params onInit
@@ -63,7 +60,11 @@ document.addEventListener('click', function (e) {
  * # FollowPopup.hide
  *
  * # FollowPopup.show
- * @params d rb 右下 rt 右上 lb 左下 lt 左上
+ * @params d rb 右下 rt 右上 lb 左下 lt 左上   t 上 r 右 b 下 l 左(单方向的边界限制如果力求完美估计需要针对限制)
+ * 考虑滚动条情况
+ followPopup.show({
+ y: y - window.pageYOffset,
+ });
  *
  * */
 function FollowPopup(params) {
@@ -71,7 +72,7 @@ function FollowPopup(params) {
     var
         event = params.event || function () {
             },
-        content = params.content,
+        html = params.html,
         onInit = params.onInit || function () {
             },
 
@@ -92,7 +93,7 @@ function FollowPopup(params) {
 
         eMsgBox.addEventListener('click', function (e) {
             outsideClose.inside();
-            scopeElements(e.target, function (elem) {
+            c.scopeElements(e.target, function (elem) {
                 if (elem === eMsgBox)return false;
                 return event(elem);
             });
@@ -101,7 +102,7 @@ function FollowPopup(params) {
 
         outsideClose = new OutsideClose(hide);
 
-        eMsgBox.innerHTML = content;
+        if (html) eMsgBox.innerHTML = html;
 
         onInit({
             eMsgBox: eMsgBox
@@ -120,12 +121,15 @@ function FollowPopup(params) {
         var
             ox = params.x, oy = params.y, // 某参照元素左上角坐标
             ml = params.ml || 0, mt = params.mt || 0,
-            w = params.w || 0, h = params.h || 0,
-            x, y,
-            d = params.d || 'rb';
+            w = params.w || 0, h = params.h || 0, // 参照元素高宽
+            x = ox, y = oy,
+            d = params.d || 'rb',
+            html = params.html;
 
         var endX, endY, boxW, boxH, xd = 'r', yd = 'b',
             winW = window.innerWidth, winH = window.innerHeight;
+
+        if (html) eMsgBox.innerHTML = html;
 
         boxW = eMsgBox.offsetWidth;
         boxH = eMsgBox.offsetHeight;
@@ -146,6 +150,18 @@ function FollowPopup(params) {
             case 'lt': // 左上
                 left();
                 top();
+                break;
+            case 't': // 上
+                top();
+                break;
+            case 'r': // 右
+                right();
+                break;
+            case 'b': // 下
+                bottom();
+                break;
+            case 'l': // 左
+                left();
                 break;
         }
 
@@ -178,6 +194,10 @@ function FollowPopup(params) {
         eMsgBox.classList.add('show');
         eMsgBox.style.setProperty(transform, 'translate3d(' + x + 'px,' + y + 'px,0)');
 
+        function top() {
+            y = oy - boxH - mt;
+        }
+
         function right() {
             x = ox + w + ml;
         }
@@ -188,10 +208,6 @@ function FollowPopup(params) {
 
         function left() {
             x = ox - boxW - ml;
-        }
-
-        function top() {
-            y = oy - boxH - mt;
         }
     }
 
@@ -218,7 +234,6 @@ function FollowPopup(params) {
 
     }
 
-
     /// 基础功能
     function getRightCssName(cssPropertyName) {
         var
@@ -244,6 +259,7 @@ function FollowPopup(params) {
 
 }
 
+
 function relativeXY(initial, target) {
 
     var x = 0, y = 0,
@@ -260,15 +276,24 @@ function relativeXY(initial, target) {
     return {x: x, y: y};
 }
 
-function scopeElements(targetElem, listener) {
-    targetElem = targetElem.nodeType === 1 ? targetElem : targetElem.parentElement;
-    go(targetElem);
-    function go(that, child) {
-        if (listener(that, child) !== false) {
-            go(that.parentElement, that);
+
+function commonInit() {
+    var c = {};
+
+    c.scopeElements = function (targetElem, listener) {
+        targetElem = targetElem.nodeType === 1 ? targetElem : targetElem.parentElement
+        go(targetElem);
+        function go(that, child) {
+            if (listener(that, child) !== false) {
+                go(that.parentElement, that);
+            }
         }
-    }
+    };
+
+
+    return c;
 }
+
 
 
 

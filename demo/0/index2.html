@@ -6,28 +6,50 @@
 
     <style>
 
-input{
-    height: 50px;
-    width: 50px;
-}
+        .d1 {
+            position: relative;
+            top:10px;
+            left:10px;
+            width: 100px;
+            height: 100px;
+            background-color: #00BAFF;
+        }
+        .d2{
+            position: absolute;
+            top:30px;
+            left:30px;
+            width: 100px;
+            height: 100px;
+            background-color: #000000;
+            z-index: 1;
+        }
+        .d3{
+            position: absolute;
+            top:60px;
+            left:60px;
+
+            width: 100px;
+            height: 100px;
+            background-color: #ff8d38;
+        }
     </style>
 
 
 </head>
 <body>
 
-<a id="test" href="#">弹出</a>
+<div>
+    <div class="d1">
+        <div class="d2"></div>
+    </div>
 
-<input type="date" id="date">
+</div>
 
-<!--<script src="jquery-1.11.0.js"></script>-->
+<div class="d3"></div>
 
-<p></p>
+
 <script>
 
-test.addEventListener('click',function () {
-    console.log(date);
-});
 
 </script>
 </body>
