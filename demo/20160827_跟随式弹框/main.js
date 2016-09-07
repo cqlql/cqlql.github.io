@@ -25,7 +25,6 @@ document.addEventListener('click', function (e) {
 
     c.scopeElements(e.target, function (elem) {
         if (!elem || elem === document.body) {
-
             return false;
         }
 
@@ -37,12 +36,12 @@ document.addEventListener('click', function (e) {
                 h = elem.clientHeight;
 
             followPopup.show({
-                x: xy.x,
-                y: xy.y,
+                x: xy.x - pageXOffset,
+                y: xy.y - pageYOffset,
                 w: w,
                 h: h,
-                ml: 10,
-                mt: (elem.className.indexOf('center') > -1 ? -(66 + h) / 2 : 0),
+                ml: 4,
+                mt: (elem.className.indexOf('center') > -1 ? -(66-h) / 2 : 4),
                 d: elem.className.split(' ')[0]
             });
             return false;
@@ -60,7 +59,7 @@ document.addEventListener('click', function (e) {
  * # FollowPopup.hide
  *
  * # FollowPopup.show
- * @params d rb 右下 rt 右上 lb 左下 lt 左上   t 上 r 右 b 下 l 左(单方向的边界限制如果力求完美估计需要针对限制)
+ * @params d t 上 r 右 b 下 l 左
  * 考虑滚动条情况
  followPopup.show({
  y: y - window.pageYOffset,
@@ -122,7 +121,7 @@ function FollowPopup(params) {
             ox = params.x, oy = params.y, // 某参照元素左上角坐标
             ml = params.ml || 0, mt = params.mt || 0,
             w = params.w || 0, h = params.h || 0, // 参照元素高宽
-            x = ox, y = oy,
+            x = ox + ml, y = oy + mt,
             d = params.d || 'rb',
             html = params.html;
 
@@ -135,22 +134,6 @@ function FollowPopup(params) {
         boxH = eMsgBox.offsetHeight;
 
         switch (d) {
-            case 'rb':// 右下
-                right();
-                bottom();
-                break;
-            case 'rt':// 右上
-                right();
-                top();
-                break;
-            case 'lb': // 左下
-                left();
-                bottom();
-                break;
-            case 'lt': // 左上
-                left();
-                top();
-                break;
             case 't': // 上
                 top();
                 break;
@@ -163,24 +146,6 @@ function FollowPopup(params) {
             case 'l': // 左
                 left();
                 break;
-        }
-
-        endX = x + boxW;
-        endY = y + boxH;
-
-        if (endX > winW) {
-            left();
-        }
-        if (endY > winH) {
-            top();
-        }
-
-        // 复位
-        if (x < 0) {
-            right();
-        }
-        if (y < 0) {
-            bottom();
         }
 
         // 限制
@@ -196,18 +161,66 @@ function FollowPopup(params) {
 
         function top() {
             y = oy - boxH - mt;
+
+            endX = x + boxW;
+
+            // 超出换向下显示
+            if (y < 0) {
+                bottom();
+            }
+            // 边界限制
+            if (endX > winW) {
+                x = winW - boxW;
+            }
         }
 
         function right() {
             x = ox + w + ml;
+
+            endX = x + boxW;
+            endY = y + boxH;
+
+            // 超出换向左显示
+            if (endX > winW) {
+                left();
+            }
+            // 边界限制
+            if (endY > winH) {
+                y = winH - boxH;
+            }
+
         }
 
         function bottom() {
             y = oy + h + mt;
+
+            endX = x + boxW;
+            endY = y + boxH;
+
+            // 超出换向上显示
+            if (endY > winH) {
+                top();
+            }
+            // 边界限制
+            if (endX > winW) {
+                x = winW - boxW;
+            }
+
         }
 
         function left() {
             x = ox - boxW - ml;
+
+            endY = y + boxH;
+
+            // 超出换向右显示
+            if (x < 0) {
+                right();
+            }
+            // 边界限制
+            if (endY > winH) {
+                y = winH - boxH;
+            }
         }
     }
 

@@ -78,10 +78,19 @@ p{
 
     pointer-events: none;
     opacity: 0;
+
+
+    -webkit-transition:opacity 0.3s ease;
+    transition:opacity 0.3s ease;
+    /*-webkit-transform: scale(0.8, 0.8);*/
+    /*transform: scale(0.8, 0.8);*/
 }
 .follow-popup.show{
     pointer-events: auto;
     opacity: 1;
+
+    /*-webkit-transform: scale(1, 1);*/
+    /*transform: scale(1, 1);*/
 }
 .follow-popup.confirm p {
     padding: 4px 0 8px;
