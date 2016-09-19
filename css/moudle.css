@@ -52,7 +52,7 @@
     height: 0;
     
 /*bottom 表示向上*/
-    border-bottom:15px #93D8F5 solid;
+    border-right:15px #93D8F5 solid;
 
 /*可通过调节全局 15 和下面的15 来改变高宽*/
 

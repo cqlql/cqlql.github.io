@@ -18,15 +18,14 @@ var c = function (elem) {
     };
 };
 
-// 根据className取
 /**
- 根据className取
- @param elem [element] 某祖先元素
- @param className string
-
- @return array,HTMLCollection 元素集合。旧版浏览器将返回array
-
- @兼容性 所有浏览器
+ * 根据className取
+ * @param elem {element} 某祖先元素
+ * @param className {string}
+ *
+ * @return {array,HTMLCollection} 元素集合。旧版浏览器将返回array
+ *
+ * @兼容性 所有浏览器
  */
 c.getElementsByClassName = function (elem, className) {
 
@@ -37,10 +36,9 @@ c.getElementsByClassName = function (elem, className) {
     return this.filtrateElementsByClassName(className, elem.getElementsByTagName("*"));
 };
 
-// 过滤 元素集合 根据className
 /**
-
- @return array 元素数组
+ * 过滤 元素集合 根据className
+ * @return {array} 元素数组
  */
 c.filtrateElementsByClassName = function (elems, className) {
 
@@ -101,10 +99,10 @@ c.scopeElements = function (targetElem, listener) {
 };
 
 /*
-* 元素查询
-*
-* id，className，tagName 包含着三种选择
-* */
+ * 元素查询
+ *
+ * id，className，tagName 包含着三种选择
+ * */
 c.queryElements = function (rootElem, names, callback) {
     var name,
         resultElems = [],
@@ -151,8 +149,8 @@ c.queryElements = function (rootElem, names, callback) {
         name = names.shift();
 
         if (name) {
-            var lName=name.substr(0, 1),
-                rName=name.substr(1);
+            var lName = name.substr(0, 1),
+                rName = name.substr(1);
             if (lName === '.') {
                 test = function (elem) {
                     return c.hasClass(elem, rName);
@@ -174,26 +172,45 @@ c.queryElements = function (rootElem, names, callback) {
 };
 
 c.hasClass = function (elem, className) {
-    if (elem) return (' ' + elem.className + ' ').indexOf(' ' + className.trim() + ' ') > -1;
-    return false;
-};
-c.addClass = function (elem, className) {
-
     if (elem.classList) {
-        elem.classList.add(className);
-    }
-    else if (c.hasClass(elem, className) === false) {
-        elem.className = c.trim((elem.className + ' ' + className).replace(/\s{2,}/g, ' '));
-    }
-};
-
-c.removeClass = function (elem, className) {
-    if (elem.classList) {
-        elem.classList.remove(className);
+        c.hasClass = function (elem, className) {
+            return elem.classList.contains(className);
+        };
     }
     else {
-        elem.className = (' ' + elem.className + ' ').replace(' ' + c.trim(className) + ' ', '');
+        c.hasClass = function (elem, className) {
+            return (' ' + elem.className + ' ').indexOf(' ' + className.trim() + ' ') > -1;
+        }
     }
+    c.hasClass(elem, className);
+};
+c.addClass = function (elem, className) {
+    if (elem.classList) {
+        c.addClass = function (elem, className) {
+            elem.classList.add(className);
+        };
+    }
+    else {
+        c.addClass = function (elem, className) {
+            if (c.hasClass(elem, className) === false) {
+                elem.className = c.trim((elem.className + ' ' + className).replace(/\s{2,}/g, ' '));
+            }
+        };
+    }
+    c.addClass(elem, className);
+};
+c.removeClass = function (elem, className) {
+    if (elem.classList) {
+        c.removeClass = function (elem, className) {
+            elem.classList.remove(className);
+        }
+    }
+    else {
+        c.removeClass = function (elem, className) {
+            elem.className = (' ' + elem.className + ' ').replace(' ' + c.trim(className) + ' ', '');
+        }
+    }
+    c.addClass(elem, className);
 };
 
 /**
@@ -313,7 +330,7 @@ c.setCss = function (elem, name, value) {
 
 /**
  * css值获取
- * @param elem
+ * @param elem {Element}
  * @param name
  * @return {string}
  * */
@@ -683,7 +700,7 @@ c.imgFullCenter = function (imgw, imgh, boxw, boxh) {
 /// ///
 
 /**
- * 切换
+ * 切换 单选
  * @param [className] 状态css名，默认active
  *
  * switchSelect.select
@@ -711,6 +728,37 @@ c.SwitchSelect = function (className) {
 
     this.getCurr = function () {
         return currItem;
+    };
+};
+
+// 多选 切换
+c.Multiselect = function (className) {
+    className = className ? className : 'active';
+
+    var selectData = {},
+        index = 0;
+
+    this.select = function (elem, goOn, must) {
+        var id = elem.getAttribute('data-id'),isSelect;
+
+        if (id === null) {
+            elem.setAttribute('data-id', index);
+            id = index;
+            index++;
+        }
+
+        if (c.hasClass(elem, className)) {
+            c.removeClass(elem, className);
+            delete selectData[id];
+        }
+        else {
+            c.addClass(elem, className);
+            selectData[id] = elem;
+            isSelect=1;
+        }
+        if(isSelect || must){
+            goOn && goOn();
+        }
     };
 };
 

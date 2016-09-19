@@ -1,0 +1,385 @@
+﻿@font-face {
+    font-family: "iconfont";
+    src: url('../iconfont/iconfont.eot?t=1473835560'); /* IE9*/
+    src: url('../iconfont/iconfont.eot?t=1473835560#iefix') format('embedded-opentype'), /* IE6-IE8 */
+    url('../iconfont/iconfont.woff?t=1473835560') format('woff'), /* chrome, firefox */
+    url('../iconfont/iconfont.ttf?t=1473835560') format('truetype'), /* chrome, firefox, opera, Safari, Android, iOS 4.2+*/
+    url('../iconfont/iconfont.svg?t=1473835560#iconfont') format('svg'); /* iOS 4.1- */
+}
+
+body{
+    font: 16px/1.4 Consolas, Microsoft Yahei, \5FAE\8F6F\96C5\9ED1;
+}
+
+
+.iconfont {
+    font-family: "iconfont" !important;
+    font-size: 16px;
+    font-style: normal;
+    -webkit-font-smoothing: antialiased;
+    -webkit-text-stroke-width: 0.2px;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+
+// 菜单
+.menu {
+    width: 302px;
+    position: absolute;
+    top: 0;
+    left: -1px;
+    bottom: 0;
+
+    background-color: #fff;
+    border-right: 1px solid #c5c5c5;
+
+    .op {
+        position: absolute;
+        right: 1px;
+        top: 1px;
+        font: 14px Microsoft Yahei, \5FAE\8F6F\96C5\9ED1;
+        background: #EFEFEF;
+        display: none;
+
+        a {
+            display: inline-block;
+            width: 20px;
+            text-align: center;
+            height: 20px;
+            font-size: 16px;
+            line-height: 1.2;
+            text-decoration: none;
+            color: #666;
+        }
+        a:hover {
+            outline: 1px solid red;
+        }
+        a.add {
+
+            background-position: 1px -39px;
+        }
+
+        a.level {
+            background-image: none;
+        }
+    }
+
+    .m-tool {
+        border: 1px solid #D8D8D8;
+        border-right: 0;
+        color: #333;
+        padding: 0 4px 0 18px;
+        margin: 0 0 -1px 0;
+        position: relative;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        cursor: pointer;
+        height: 22px;
+        line-height: 1.6;
+        background-color: #EFEFEF;
+
+        .op {
+            display: block;
+            left: 0;
+            text-align: right;
+
+            .set,.copy{
+                float: left;
+                font-size: 18px;
+            }
+
+            .set:before {
+                content: '\e604';
+            }
+
+            .copy:before {
+                content: '\e602';
+            }
+        }
+    }
+
+    .m-cont {
+        overflow: auto;
+        width: 100%;
+        position: absolute;
+        top: 23px;
+        bottom: 0;
+    }
+
+    .item {
+        border: 1px solid #D8D8D8;
+        border-right: 0;
+        color: #333;
+        padding: 0 4px 0 18px;
+        margin: 0 0 -1px 0;
+        position: relative;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        cursor: pointer;
+        height: 22px;
+        line-height: 1.6;
+
+        &.has-cont {
+            color: #019400;
+        }
+    }
+    .item.have .txt{
+        color: #199ED8;
+    }
+    .item:hover {
+        background-color: #EFEFEF;
+        /*         color: #000; */
+    }
+    .item.active {
+        background: #ffc;
+        /*         color: #000; */
+    }
+
+    // 文章已编辑
+    .item.edited .txt {
+        color: red;
+        &:after {
+            content: '*';
+            color: red;
+        }
+    }
+
+    .item:hover .op {
+        display: block;
+
+    }
+
+    //.item.tool .op {
+    //    display: block;
+    //}
+
+    .item.edit .op {
+        display: block;
+        top: 0;
+        left: 0;
+    }
+
+    .item .op a.edit {
+        background-position: 0px -1px;
+
+    }
+
+    .item .op a.bind {
+        background-position: 2px -56px;
+    }
+    .item .op a.del {
+        background-image: none;
+    }
+
+    .item.edit {
+        padding: 0 42px 0 1px;
+
+        .in {
+            border: 1px solid #D8D8D8;
+            margin-top: 1px;
+            height: 18px;
+            background-color: #fff;
+            padding: 0 2px;
+        }
+
+        input {
+            border: 0;
+            width: 100%;
+            height: 17px;
+            display: block;
+        }
+
+        .save {
+            position: absolute;
+            right: 21px;
+            top: 1px;
+            background: url("../imgs/ico.png") no-repeat 0 -20px;
+            background-size: 80px auto;
+        }
+        .del {
+            position: absolute;
+            right: 1px;
+            top: 1px;
+        }
+    }
+    .item.search {
+        padding: 0 22px 0 1px;
+        .search {
+            position: absolute;
+            right: 1px;
+            top: 1px;
+            background-position: 1px -58px;
+            background-size: 80px auto;
+        }
+    }
+
+    .list {
+        padding-left: 10px;
+        /* 		display:none; */
+    }
+
+    /*箭头*/
+    .item i {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 18px;
+        height: 23px;
+        background: transparent;
+    }
+    .item i:after {
+        content: "";
+        position: absolute;
+        border: 4px dashed transparent;
+        width: 0;
+        height: 0;
+        border-top-width: 8px;
+        border-top-style: solid;
+        border-top-color: #000;
+        left: 5px;
+        top: 8px;
+
+        -webkit-transform: rotate(0deg) translateY(0);
+        /* 		-webkit-transition: transform 0.4s ease;
+                -moz-transition: transform 0.4s ease;
+                transition: 0.4s ease; */
+    }
+
+    .item.fold i:after {
+        -webkit-transform: rotate(-90deg) translate(3px, 3px);
+        border-top-color: #0085FF;
+
+    }
+    .item i:hover:after {
+        border-top-color: #F0DD00 !important;
+    }
+}
+
+#content {
+
+
+    position: absolute;
+    top: 0;
+    left: 310px;
+    bottom: 0;
+    right: 0;
+    overflow: auto;
+
+    h1 {
+        font-size: 28px;
+        font-weight: bold;
+        padding: 8px 4px 4px;
+        outline: 0;
+        border-bottom: 2px solid #C5C5C5;
+        margin: 0 4px 16px;
+        color: #006cd6;
+    }
+    h2, h3, h4, h5, h6 {
+        font-size: 15px;
+        font-weight: bold;
+        //background: #f5f5f5;
+        padding: 6px 4px;
+        margin: 20px 4px 8px 0;
+        /* 		border-bottom: 2px solid #C5C5C5; */
+    }
+
+    h2 {
+        background: #fff;
+        font-size: 22px;
+        border-bottom: 1px solid #a0d0ff;
+    }
+
+    h3 {
+        font-size: 18px;
+        background: #edf6ff;
+    }
+}
+
+// 代码高亮
+/* http://prismjs.com/download.html?themes=prism&languages=markup+css */
+/**
+ * prism.js default theme for JavaScript, CSS and HTML
+ * Based on dabblet (http://dabblet.com)
+ * @author Lea Verou
+ */
+
+pre.language-javascript{
+    background-color: #f5f5f5;
+    margin: 2px 20px 2px 0;
+    padding: 4px 10px;
+    overflow: auto;
+}
+
+
+.token.comment,
+.token.prolog,
+.token.doctype,
+.token.cdata {
+    color: slategray;
+}
+
+.token.punctuation {
+    color: #999;
+}
+
+.namespace {
+    opacity: .7;
+}
+
+.token.property,
+.token.tag,
+.token.boolean,
+.token.number,
+.token.constant,
+.token.symbol,
+.token.deleted {
+    color: #905;
+}
+
+.token.selector,
+.token.attr-name,
+.token.string,
+.token.char,
+.token.builtin,
+.token.inserted {
+    color: #690;
+}
+
+.token.operator,
+.token.entity,
+.token.url,
+.language-css .token.string,
+.style .token.string {
+    color: #a67f59;
+    background: hsla(0, 0%, 100%, .5);
+}
+
+.token.atrule,
+.token.attr-value,
+.token.keyword {
+    color: #07a;
+}
+
+.token.function {
+    color: #DD4A68;
+}
+
+.token.regex,
+.token.important,
+.token.variable {
+    color: #e90;
+}
+
+.token.important,
+.token.bold {
+    font-weight: bold;
+}
+.token.italic {
+    font-style: italic;
+}
+
+.token.entity {
+    cursor: help;
+}
