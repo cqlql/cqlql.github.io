@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Document</title>
+</head>
+<body>
+
+
+<script>
+
+
+    var outsideClose = new OutsideClose(function () {
+
+    });
+
+    function OutsideClose(close) {
+
+        var inside = false;
+
+        document.addEventListener('click', function () {
+            if (inside) {
+                inside = false;
+            }
+            else {
+                close();
+            }
+        });
+
+        this.inside = function () {
+            inside = true;
+        };
+
+    }
+</script>
+
+</body>
+</html>
