@@ -1,7 +1,6 @@
-"use strict";
+﻿"use strict";
 
-
-reset({
+var d = {
     "data": {
         "seat_info": {
             "type_id": "1",
@@ -1758,4 +1757,240 @@ reset({
             "deleted_on": null
         }]
     }, "code": 0, "message": "success", "is_succeed": true
-});
+};
+
+d = {
+    "data": {
+        "seat_info": {
+            "type_id": "1",
+            "class_id": "5478845355475591557",
+            "column_count": 8,
+            "row_count": 1,
+            "seat_details": [{
+                "seat_id": "4823646647683776077",
+                "column_no": "1",
+                "row_no": "1",
+                "user_id": "362743",
+                "is_effective": "0",
+                "Id": "5258744786905066300",
+                "Name": null,
+                "CreatedBy": "11433",
+                "CreatedName": null,
+                "CreatedOn": "2016-08-13 15:36:39"
+            }, {
+                "seat_id": "4823646647683776077",
+                "column_no": "2",
+                "row_no": "1",
+                "user_id": "362741",
+                "is_effective": "0",
+                "Id": "5284690775340066964",
+                "Name": null,
+                "CreatedBy": "11433",
+                "CreatedName": null,
+                "CreatedOn": "2016-08-13 15:36:39"
+            }, {
+                "seat_id": "4823646647683776077",
+                "column_no": "3",
+                "row_no": "1",
+                "user_id": "362742",
+                "is_effective": "0",
+                "Id": "4960862124014920395",
+                "Name": null,
+                "CreatedBy": "11433",
+                "CreatedName": null,
+                "CreatedOn": "2016-08-13 15:36:39"
+            }, {
+                "seat_id": "4823646647683776077",
+                "column_no": "4",
+                "row_no": "1",
+                "user_id": "362744",
+                "is_effective": "0",
+                "Id": "4612105758795388903",
+                "Name": null,
+                "CreatedBy": "11433",
+                "CreatedName": null,
+                "CreatedOn": "2016-08-13 15:36:39"
+            }, {
+                "seat_id": "4823646647683776077",
+                "column_no": "5",
+                "row_no": "1",
+                "user_id": "362775",
+                "is_effective": "0",
+                "Id": "4999421778166395828",
+                "Name": null,
+                "CreatedBy": "11433",
+                "CreatedName": null,
+                "CreatedOn": "2016-08-13 15:36:39"
+            }, {
+                "seat_id": "4823646647683776077",
+                "column_no": "6",
+                "row_no": "1",
+                "user_id": "362776",
+                "is_effective": "0",
+                "Id": "5462254248238522740",
+                "Name": null,
+                "CreatedBy": "11433",
+                "CreatedName": null,
+                "CreatedOn": "2016-08-13 15:36:39"
+            }, {
+                "seat_id": "4823646647683776077",
+                "column_no": "7",
+                "row_no": "1",
+                "user_id": "362740",
+                "is_effective": "0",
+                "Id": "5030344768720522956",
+                "Name": null,
+                "CreatedBy": "11433",
+                "CreatedName": null,
+                "CreatedOn": "2016-08-13 15:36:39"
+            }, {
+                "seat_id": "4823646647683776077",
+                "column_no": "8",
+                "row_no": "1",
+                "user_id": "362745",
+                "is_effective": "0",
+                "Id": "5133435493145314959",
+                "Name": null,
+                "CreatedBy": "11433",
+                "CreatedName": null,
+                "CreatedOn": "2016-08-13 15:36:39"
+            }],
+            "Id": "4823646647683776077",
+            "Name": "",
+            "CreatedBy": "11433",
+            "CreatedName": null,
+            "CreatedOn": "2016-08-13 15:36:39"
+        },
+        "user_info": [{
+            "id": "362743",
+            "name": "张三",
+            "icon": "",
+            "seat_detail": {
+                "seat_id": "4823646647683776077",
+                "column_no": "1",
+                "row_no": "1",
+                "user_id": "362743",
+                "is_effective": "0",
+                "Id": "5258744786905066300",
+                "Name": null,
+                "CreatedBy": "11433",
+                "CreatedName": null,
+                "CreatedOn": "2016-08-13 15:36:39"
+            }
+        }, {
+            "id": "362741",
+            "name": "李四",
+            "icon": "http://i40.shenduxuetang.com/Flb-ZhfkREHONf_xrceYCbrgJ6BR",
+            "seat_detail": {
+                "seat_id": "4823646647683776077",
+                "column_no": "2",
+                "row_no": "1",
+                "user_id": "362741",
+                "is_effective": "0",
+                "Id": "5284690775340066964",
+                "Name": null,
+                "CreatedBy": "11433",
+                "CreatedName": null,
+                "CreatedOn": "2016-08-13 15:36:39"
+            }
+        }, {
+            "id": "362742",
+            "name": "王三",
+            "icon": "",
+            "seat_detail": {
+                "seat_id": "4823646647683776077",
+                "column_no": "3",
+                "row_no": "1",
+                "user_id": "362742",
+                "is_effective": "0",
+                "Id": "4960862124014920395",
+                "Name": null,
+                "CreatedBy": "11433",
+                "CreatedName": null,
+                "CreatedOn": "2016-08-13 15:36:39"
+            }
+        }, {
+            "id": "362744",
+            "name": "李四",
+            "icon": "",
+            "seat_detail": {
+                "seat_id": "4823646647683776077",
+                "column_no": "4",
+                "row_no": "1",
+                "user_id": "362744",
+                "is_effective": "0",
+                "Id": "4612105758795388903",
+                "Name": null,
+                "CreatedBy": "11433",
+                "CreatedName": null,
+                "CreatedOn": "2016-08-13 15:36:39"
+            }
+        }, {
+            "id": "0",
+            "name": "王实味",
+            "icon": null,
+            "seat_detail": {
+                "seat_id": "4823646647683776077",
+                "column_no": "5",
+                "row_no": "1",
+                "user_id": "362775",
+                "is_effective": "0",
+                "Id": "4999421778166395828",
+                "Name": null,
+                "CreatedBy": "11433",
+                "CreatedName": null,
+                "CreatedOn": "2016-08-13 15:36:39"
+            }
+        }, {
+            "id": "362776",
+            "name": "四分额额",
+            "icon": null,
+            "seat_detail": {
+                "seat_id": "4823646647683776077",
+                "column_no": "6",
+                "row_no": "1",
+                "user_id": "362776",
+                "is_effective": "0",
+                "Id": "5462254248238522740",
+                "Name": null,
+                "CreatedBy": "11433",
+                "CreatedName": null,
+                "CreatedOn": "2016-08-13 15:36:39"
+            }
+        }, {
+            "id": "362740",
+            "name": "张三",
+            "icon": "",
+            "seat_detail": {
+                "seat_id": "4823646647683776077",
+                "column_no": "7",
+                "row_no": "1",
+                "user_id": "362740",
+                "is_effective": "0",
+                "Id": "5030344768720522956",
+                "Name": null,
+                "CreatedBy": "11433",
+                "CreatedName": null,
+                "CreatedOn": "2016-08-13 15:36:39"
+            }
+        }, {
+            "id": "362745",
+            "name": "王三",
+            "icon": "",
+            "seat_detail": {
+                "seat_id": "4823646647683776077",
+                "column_no": "8",
+                "row_no": "1",
+                "user_id": "362745",
+                "is_effective": "0",
+                "Id": "5133435493145314959",
+                "Name": null,
+                "CreatedBy": "11433",
+                "CreatedName": null,
+                "CreatedOn": "2016-08-13 15:36:39"
+            }
+        }]
+    }, "code": 0, "message": "success", "is_succeed": true
+}
+
+reset(d);

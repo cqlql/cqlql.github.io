@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <link rel="stylesheet" href="css/placetable_example.css">
+    <style>
+        body{
+            background: #f0f0f0;
+        }
+    </style>
+    <script src="../../js/jquery-1.11.0.js"></script>
+
+</head>
+<body>
+
+<div style="color: #999;border-bottom: 1px dotted #999;font-size: 16px;margin: 10px;padding: 6px">
+    <p>可进行拖拽换位，宽度自适应（宽度改变后需刷新）</p>
+    <p>使用了css3实现动画</p>
+
+    <input type="checkbox" id="chk-toggle">
+
+
+</div>
+<div class="placetable placetable-plus">
+    <ul id="ctrCol" class="ctr-col">
+        <li>列1</li>
+        <li>列2</li>
+        <li>列3</li>
+    </ul>
+    <ul id="ctrRow" class="ctr-row">
+        <li>行1</li>
+        <li>行2</li>
+        <li>行3</li>
+    </ul>
+    <div id="listCont" class="list"></div>
+    <div class="platform">
+        讲 台
+    </div>
+</div>
+<script src="placetable_example_plus.js"></script>
+<script src="placetable_example_data_.js"></script>
+</body>
+</html>

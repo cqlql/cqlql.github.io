@@ -482,3 +482,57 @@ c.extend({
 });
 
 
+
+(function (c) {
+
+    c.click = function (elem, fn) {
+
+        if (/Android|iPhone|iPad/.test(navigator.appVersion)) {
+            c.click = function (elem, fn) {
+                var touchcancel;
+                elem.addEventListener('touchend', touchend);
+                elem.addEventListener('touchstart', touchstart);
+                elem.addEventListener('touchmove', touchmove);
+
+                function touchend(e) {
+                    if (touchcancel) return;
+                    fn.call(this, e);
+                }
+
+                function touchstart() {
+                    touchcancel = false;
+                }
+
+                function touchmove() {
+                    touchcancel = true;
+                }
+
+                return function () {
+                    elem.removeEventListener('touchend', touchend);
+                    elem.removeEventListener('touchstart', touchstart);
+                    elem.removeEventListener('touchmove', touchmove);
+                };
+            };
+
+        }
+        else if(window.addEventListener){
+            c.click = function (elem, fn) {
+                elem.addEventListener('click', fn);
+                return function () {
+                    elem.removeEventListener('click', fn);
+                };
+            }
+        }
+        else if(window.attachEvent){
+            c.click = function (elem, fn) {
+                elem.attachEvent('onclick', fn);
+                return function () {
+                    elem.detachEvent('onclick', fn);
+                };
+            }
+        }
+
+        c.click(elem, fn);
+    };
+
+})($);

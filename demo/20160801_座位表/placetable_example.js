@@ -513,12 +513,14 @@
 
         // 座位排列 反转
         function getIndex(i) {
-            return count - 1 - i;// 讲台在下
+            // return count - 1 - i;// 讲台在下
             // return i;// 讲台在上
-        }
 
-        // 讲台在下。左边开始
-        function getIndex(i) {
+            // 讲台在上，右边开始
+            // var colIndex= i % columnCount;
+            // return i - colIndex * 2 + columnCount - 1;
+
+            // 讲台在下，左边开始
             var newIndex = count - 1 - i,
                 colIndex = newIndex % columnCount;
             return newIndex - colIndex * 2 + columnCount - 1;

@@ -1,0 +1,30 @@
+
+
+
+
+.three-d{
+    border: 1px solid #333;
+
+    width:600px;
+    height:300px;
+    position: relative;
+    transform-style: preserve-3d;
+    perspective: 800px;
+}
+
+.three-d .item{
+    position: absolute;
+    width: 300px;
+    height:200px;
+    left:50%;
+    top:0;
+    background: #ddd;
+
+    transform:translate3d(-50%,0,0);
+
+    backface-visibility: hidden;
+
+    transition: 0.6s ease;
+    border:1px solid #333;
+
+}

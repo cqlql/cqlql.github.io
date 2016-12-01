@@ -1,46 +1,17 @@
 @charset "UTF-8";
 
-/*# 重置 */
-body, select {
+.placetable ul{
+    list-style-type:none;padding:0;margin:0;
+}
+.placetable dl,
+.placetable dd{
     margin: 0;
-}
-
-p, input, td, textarea, ul, dl, dt, dd, menu {
-    padding: 0;
-    margin: 0;
-}
-
-h1, h2, h3, h4, h5, h6 {
-    margin: 0;
-    font-size: inherit;
-    font-weight: normal;
-}
-
-ul {
-    list-style-type: none;
-}
-
-img {
-    border: 0 \9;
-}
-
-/*ie*/
-
-body {
-    color: #333;
-    font: 14px/1.2 Consolas, Microsoft Yahei, \5FAE\8F6F\96C5\9ED1, arial, SimSun, tahoma, Srial, helvetica;
-}
-
-a {
-    color: #333;
-    text-decoration: none;
-}
-
-input, textarea {
-    outline: none;
 }
 
 .placetable {
+    color: #333;
+    font: 14px/1.2 Consolas, Microsoft Yahei, \5FAE\8F6F\96C5\9ED1, arial, SimSun, tahoma, Srial, helvetica;
+
     position: relative;
     padding: 10px;
     overflow: hidden;
@@ -110,6 +81,7 @@ input, textarea {
     width: 100px;
     background: #fff;
     padding: 4px;
+    box-sizing: border-box;
     display: inline-block;
     vertical-align: middle;
     position: absolute;
@@ -170,4 +142,20 @@ input, textarea {
     height: 40px;
     margin-left: 38px;
     font-size: 14px;
+}
+
+.placetable-plus .ctr-col{
+    /*height: 50px;*/
+    position: relative;
+}
+.placetable-plus .ctr-row{
+    float: left;
+    position: relative;
+}
+.placetable-plus .ctr-col .item,
+.placetable-plus .ctr-row .item{
+    text-align: center;
+    border-radius: 7px;
+    box-shadow: 0 0 10px #d6d6d6;
+    color: #00a506;
 }

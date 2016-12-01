@@ -364,7 +364,7 @@ function MenuArticleContent(eMenu, eContent) {
             var elems = elem.getElementsByTagName('*');
             for (var i = 0, len = elems.length; i < len; i++) {
                 if (elems[i].classList.contains('lang-javascript')) {
-                    jsTxt = elems[i].innerHTML;
+                    jsTxt = elems[i].textContent;
                     return false;
                 }
             }

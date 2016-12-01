@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+
+    <style>
+
+        .seat-scheme{
+            color: #333;
+
+            font:14px/1.2 Microsoft Yahei,\5FAE\8F6F\96C5\9ED1
+        }
+
+        .seat-scheme .tit{
+            font-size: 24px;
+            margin: 10px 0;
+        }
+
+        .seat-scheme input{
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .seat-scheme .pf{
+            padding: 4px 12px;
+            background-color: #cfcece;
+            color: #fff;
+            display: inline-block;
+            vertical-align: middle;
+        }
+        .seat-scheme .c{
+            border: 1px solid #333;
+            width: 20px;
+            height: 80px;
+            float: left;
+        }
+        .seat-scheme .r{
+            border: 1px solid #333;
+            height: 20px;
+            width: 80px;
+            margin: 4px 0;
+        }
+        .seat-scheme .ca{
+            /*border: 1px solid #333;*/
+            height: 80px;
+            width: 20px;
+            line-height: 4;
+            text-align: center;
+            float: left;
+            font-size: 18px;
+        }
+        .seat-scheme .ra{
+            /*border: 1px solid #333;*/
+            width:  80px;
+            height: 22px;
+            text-align: center;
+            font-size: 18px;
+        }
+        .seat-scheme .diagram{
+            overflow: hidden;
+        }
+        .seat-scheme dt{
+            font-size: 20px;
+        }
+        .seat-scheme dl{
+            margin: 0;
+            float: left;
+        }
+        .seat-scheme dl:first-child{
+
+            margin-right:30px;
+        }
+        .seat-scheme dd{
+            margin:0;
+        }
+        .seat-scheme .num{
+            clear: both;
+            padding: 8px 0;
+        }
+        .seat-scheme .pf-t{
+            padding: 4px 0;
+            margin-left: -24px;
+        }
+        .seat-scheme .hint{
+            padding: 10px 24px;
+            float: left;
+        }
+        .seat-scheme .time{
+            padding: 10px 0;
+        }
+        .seat-scheme .btn{
+            text-align: center;
+            padding: 8px 0;
+        }
+        .seat-scheme .button{
+            background: #1B9AF7;
+            border: 0;
+            color: #fff;
+            font-size: 14px;
+            text-align: center;
+            font-family: Microsoft Yahei,\5FAE\8F6F\96C5\9ED1;
+            padding: 6px 28px;
+            border-radius: 4px;
+            text-overflow: ellipsis;  white-space: nowrap;
+
+            display: inline-block;
+            height: auto;
+            line-height: inherit;
+            outline:0;
+            text-decoration: none;
+        }
+        .seat-scheme .button:hover {
+            background: #4cb0f9;
+        }
+
+        .seat-scheme .button:active {
+
+            text-shadow: 0px 1px 0px rgba(255, 255, 255, 0.26);
+            box-shadow: inset 0px 1px 3px rgba(0, 0, 0, 0.4), 0 0 0 #FFF;
+
+            background: #2798eb;
+            color: #005b9c;
+        }
+
+        .button.s2 {
+            background: #FEAE1B;
+            padding: 6px 0;width: 128px
+        }
+
+        .button.s2:hover {
+            background: #fec04e;
+        }
+
+        .button.s2:active {
+            background:#f3ab26;
+            color: #a26900;
+        }
+
+        /*失效*/
+        .seat-scheme .button.disabled,
+        .seat-scheme .button.disabled:hover,
+        .seat-scheme .button.disabled:active {
+            background-color: #eeeeee;
+            border: 1px solid #bbb;
+            border-radius: 2px;
+            color: #b1b1b1;
+            text-align: center;
+            text-shadow: none;
+            cursor: default;
+            box-shadow: none;
+        }
+    </style>
+</head>
+<body>
+
+<div class="seat-scheme">
+    <div class="tit">行与列之间的联动调换</div>
+
+    <div class="diagram">
+        <dl>
+            <dt>列的调换方向：</dt>
+            <dd>
+                <div class="hint">
+                    <div class="pf-t"><input type="checkbox" /><span class="pf">讲台</span></div>
+                    <div class="c"></div>
+                    <div class="ca">→</div>
+                    <div class="c"></div>
+
+
+                    <!--<div class="r"></div>
+                    <div class="r"></div>
+                    <div class="ra"></div>-->
+                </div>
+                <div class="hint">
+                    <div class="pf-t"><input type="checkbox" /><span class="pf">讲台</span></div>
+                    <div class="c"></div>
+                    <div class="ca">←</div>
+                    <div class="c"></div>
+
+
+                    <!--<div class="r"></div>
+                    <div class="r"></div>
+                    <div class="ra"></div>-->
+                </div>
+                <div class="num">
+                    沿此方向移动
+                    <select>
+                        <option>1</option>
+                        <option>2</option>
+                        <option>3</option>
+                        <option>4</option>
+                    </select>
+                    列
+                </div>
+            </dd>
+        </dl>
+        <dl>
+            <dt>行的调换方向：</dt>
+            <dd>
+                <div class="hint">
+                    <div class="pf-t"><input type="checkbox" /><span class="pf">讲台</span></div>
+                    <div class="r"></div>
+                    <div class="ra">↓</div>
+                    <div class="r"></div>
+                </div>
+                <div class="hint">
+                    <div class="pf-t"><input type="checkbox" /><span class="pf">讲台</span></div>
+                    <div class="r"></div>
+                    <div class="ra">↑</div>
+                    <div class="r"></div>
+                </div>
+                <div class="num">
+                    沿此方向移动
+                    <select>
+                        <option>1</option>
+                        <option>2</option>
+                        <option>3</option>
+                        <option>4</option>
+                    </select>
+                    列
+                </div>
+            </dd>
+        </dl>
+    </div>
+
+    <div class="time">
+调换时间：每
+        <select>
+            <option>1</option>
+            <option>2</option>
+        </select>
+        周
+        <select>
+            <option>1</option>
+            <option>2</option>
+        </select>
+        的
+        <select>
+            <option>1</option>
+            <option>2</option>
+        </select>
+    </div>
+    <div class="btn">
+        <a href="javascript:;" class="button">应用此方案</a>
+    </div>
+    <div class="btn">
+        <a href="javascript:;" class="button disabled">方案应用中</a>
+    </div>
+    <div class="btn">
+        <a href="javascript:;" class="button s2">查看自动调换结果</a>
+    </div>
+</div>
+
+
+
+</body>
+</html>

@@ -580,6 +580,62 @@ c.click = function (elem, listener) {
     c.bind(elem, 'click', listener);
 };
 
+/*
+* 适用于pc、移动端的click事件
+*
+* @return {Function} 返回用来删除当前绑定的函数
+* */
+c.click = function (elem, fn) {
+
+    if ((this.getAndroidVersion() && this.getAndroidVersion() < 4.4) || c.isIOSMobile) {
+        c.click = function (elem, fn) {
+            var touchcancel;
+            elem.addEventListener('touchend', touchend);
+            elem.addEventListener('touchstart', touchstart);
+            elem.addEventListener('touchmove', touchmove);
+
+            function touchend(e) {
+                if (touchcancel) return;
+                fn.call(this, e);
+            }
+
+            function touchstart() {
+                touchcancel = false;
+            }
+
+            function touchmove() {
+                touchcancel = true;
+            }
+
+            return function () {
+                elem.removeEventListener('touchend', touchend);
+                elem.removeEventListener('touchstart', touchstart);
+                elem.removeEventListener('touchmove', touchmove);
+            };
+        };
+
+    }
+    else if(window.addEventListener){
+        c.click = function (elem, fn) {
+            elem.addEventListener('click', fn);
+            return function () {
+                elem.removeEventListener('click', fn);
+            };
+        }
+    }
+    else if(window.attachEvent){
+        c.click = function (elem, fn) {
+            elem.attachEvent('onclick', fn);
+            return function () {
+                elem.detachEvent('onclick', fn);
+            };
+        }
+    }
+
+    c.click(elem, fn);
+};
+
+
 /**
  起始元素到目标上级元素坐标
  @@ relativeXY
@@ -643,6 +699,52 @@ c.imgSizeExcu = function (src, f, err) {
         setTimeout(tryExcu, 100)
     }
 
+};
+
+// 图片唯一加载
+/*
+ 再次调用，将清理上一次用此方法加载的图片调用
+ 对于一些超时加载，依然会触发完成事件，而且可能后于当前有用加载触发，所以需清理
+ */
+c.ImgUniqueLoad = function () {
+    /*
+     属性事件，未发生前可更改设置清除。
+     兼容性：包括ie6的所有
+     */
+
+    var lastImg;
+
+    function stop() {
+        if (lastImg) lastImg.onload = null;
+        lastImg = undefined;
+    }
+
+    //每次执行都将清除上一次加载
+    this.excu = function (src, ready, err) {
+
+        var img = new Image();
+
+        stop();
+
+        img.onload = function () {
+            ready({
+                width: img.width,
+                height: img.height,
+                img: img
+            });
+
+            lastImg = undefined;// 图片加载好后清除占用。因为此变量只存储未加载好的图片
+        };
+        if (err) img.onerror = function () {
+            err({});
+        };
+
+        img.src = src;
+
+        lastImg = img;
+    };
+
+    this.stop = stop;
 };
 
 //图片整体 完全显示 居中

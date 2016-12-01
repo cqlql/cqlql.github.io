@@ -76,16 +76,16 @@ function banner() {
             onmove = params.onmove,
             onend = params.onend,
 
-        // 记录点下的坐标
+            // 记录点下的坐标
             startX, startY,
 
-        // 实现区分滚动条
-        // 0 没反映，1 x 方向，2 y 方向
+            // 实现区分滚动条
+            // 0 没反映，1 x 方向，2 y 方向
             status = 0,
 
             isStart = false,// 是否已经开始。true表示已经开始
 
-        // 记录多点数据
+            // 记录多点数据
             touchesData;
 
         eBox.addEventListener('touchstart', function (e) {
@@ -170,38 +170,35 @@ function banner() {
         }
 
         function move(touche, e) {
-            if (status === 0) {
-                var x = touche.pageX - startX,
-                    y = touche.pageY - startY;
+            if (isStart) {
+                if (status === 0) {
+                    var x = touche.pageX - startX,
+                        y = touche.pageY - startY;
 
-                if (Math.abs(x) > Math.abs(y)) {
-                    status = 1;
+                    if (Math.abs(x) > Math.abs(y)) {
+                        status = 1;
+                    }
+                    else {
+                        status = 2;
+                    }
                 }
-                else {
-                    status = 2;
-                }
-            }
 
-            if (status === 1) {
-                if (isStart) {
+                if (status === 1) {
+
                     touchesData[touche.identifier].swipeBase.move(touche.pageX, onmove);
+
+                    e.preventDefault();
                 }
-                e.preventDefault();
             }
         }
 
         function end(touche) {
-
-            if (status === 1) {
-
-                if (isStart) {
-                    touchesData[touche.identifier].swipeBase.end(swipeLeft, swipeRight, swipeNot);
-                    onend();
-                    isStart = false;
-                }
+            if (isStart && status === 1) {
+                touchesData[touche.identifier].swipeBase.end(swipeLeft, swipeRight, swipeNot);
+                onend();
+                isStart = false;
             }
         }
-
     }
 
 
@@ -228,15 +225,15 @@ function banner() {
             transform = getRightCssName('transform')[1],
             transition = getRightCssName('transition')[1],
 
-        // 拖动的长度
+            // 拖动的长度
             moveLength = 0,
 
-        // 拖动情况 松开时 是否进行滑动的最大偏移值
+            // 拖动情况 松开时 是否进行滑动的最大偏移值
             offset = boxW / 3,
 
             isRun = false,// 是否动画进行中
 
-        // 当前显示项索引
+            // 当前显示项索引
             index = 0;
 
         for (var i = 0, btnHtml = ''; i < count; i++) {
@@ -409,7 +406,7 @@ function banner() {
             cssPrefixes = ["ms" + firstLetterUpper, "Moz" + firstLetterUpper, "webkit" + firstLetterUpper, firstLetter],
             cssPrefixesReal = ["-ms-", "-Moz-", "-webkit-", ''],
             style = document.body.style,
-        // css名称转换
+            // css名称转换
             name = cssPropertyName.replace(/-\w/g, function (d) {
                 return d[1].toUpperCase();
             }).substr(1);

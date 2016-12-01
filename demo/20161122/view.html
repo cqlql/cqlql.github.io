@@ -1,0 +1,131 @@
+﻿<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Document</title>
+    <style>
+
+        .three-d {
+            border: 1px solid #333;
+
+            width: 600px;
+            height: 300px;
+            position: relative;
+            transform-style: preserve-3d;
+            perspective: 800px;
+        }
+
+        .three-d .item {
+            position: absolute;
+            width: 300px;
+            height: 200px;
+            left: 50%;
+            top: 0;
+            background: #ddd;
+
+            transform: translate3d(-50%, 0, 0);
+
+            backface-visibility: hidden;
+
+            transition: 0.6s ease;
+            -ms-transition: 0.6s ease;
+            border: 1px solid #333;
+
+        }
+    </style>
+</head>
+<body>
+
+
+<div class="three-d">
+    <div class="list">
+        <div class="item"></div>
+        <div class="item"></div>
+        <div class="item"></div>
+    </div>
+
+    <a class="aw" href="javascript:;">next</a>
+</div>
+
+<script>
+
+
+    var eBox = document.querySelector('.three-d'),
+        eItems = eBox.querySelector('.list').children,
+        count = eItems.length,
+        currIndex = 1,
+        css = [
+            'translate3d(-70%,0,-100px)',
+
+            'translate3d(-50%,0,0)',
+            'translate3d(-30%,0,-100px)'
+        ],
+//        css = [
+//            'translate(-70%,0) scale(0.7,0.7)',
+//
+//            'translate(-50%,0) scale(1,1)',
+//            'translate(-30%,0) scale(0.7,0.7)'
+//        ],
+        transform = getRightCssName('transform')[1];
+
+    animate();
+
+    eBox.querySelector('.aw').onclick = function () {
+        currIndex++;
+        if (currIndex > 2) currIndex = 0;
+        animate();
+    };
+
+    function animate() {
+
+        for (var i = count, index; i--;) {
+            index = currIndex + i - 1;
+            if (index < 0) index = 2;
+            if (index > 2) index = 0;
+
+            eItems[index].style[transform] = css[i];
+//            eItems[index].style[transform] = 'translate(-30%,0)';
+            console.log(css[i]);
+        }
+    }
+
+
+    function getRightCssName(cssPropertyName) {
+        // 如果有直接返回
+        var propertyName = getRightCssName[cssPropertyName];
+        if (propertyName !== undefined) return propertyName;
+
+        var
+            firstLetter = cssPropertyName[0],
+            firstLetterUpper = firstLetter.toUpperCase(),
+            cssPrefixes = ["ms" + firstLetterUpper, "Moz" + firstLetterUpper, "webkit" + firstLetterUpper, firstLetter],
+            cssPrefixesReal = ["-ms-", "-Moz-", "-webkit-", ''],
+            style = document.body.style,
+            // css名称转换
+            name = cssPropertyName.replace(/-\w/g, function (d) {
+                return d[1].toUpperCase();
+            }).substr(1);
+
+        for (var i = cssPrefixes.length, newName; i--;) {
+            newName = cssPrefixes[i] + name;
+
+            if (newName in style) {
+                propertyName = [cssPrefixesReal[i] + cssPropertyName, newName];
+                break;
+            }
+        }
+
+        propertyName = propertyName || null;
+
+        getRightCssName[cssPropertyName] = propertyName;
+
+        return propertyName;
+    }
+
+</script>
+
+</body>
+</html>
