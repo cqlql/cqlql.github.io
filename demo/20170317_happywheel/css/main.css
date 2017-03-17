@@ -150,15 +150,6 @@ padding: 2% 5%;
     /* text-align: center; */
     padding: 3% 0 0;
 }
-.lottery-page .ad {
-    background: #f65b49 url('imgs/ad.png') no-repeat center center;
-    background-size: 80% auto;
-    padding-top: 14%;
-	position: fixed;
-    bottom: 0;
-    width: 100%;
-	display:none;
-}
 
 
 .preloader-indicator-modal {

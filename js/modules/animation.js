@@ -1,7 +1,9 @@
+
+
+
 export default class Animation {
 
     constructor() {
-
         // this.stopId=null;
     }
 
@@ -43,8 +45,6 @@ export default class Animation {
         }
 
         run();
-
-
     }
 
     // 终止动画

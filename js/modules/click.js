@@ -4,20 +4,19 @@
  * 兼容性：ie9+
  * */
 
-
-function getAndroidVersion() {
-    let v;
-    let r = navigator.userAgent.match(/Android (\d.\d)/);
-    v = r && r[1];
-
-    getAndroidVersion = function () {
-        return v;
-    };
-
-    return v;
-}
-
 export default function click(elem, fn) {
+
+    function getAndroidVersion() {
+        let v;
+        let r = navigator.userAgent.match(/Android (\d.\d)/);
+        v = r && r[1];
+
+        getAndroidVersion = function () {
+            return v;
+        };
+
+        return v;
+    }
 
     if ((getAndroidVersion() && getAndroidVersion() < 4.4) || /iPad|iPhone/.test(navigator.userAgent)) {
         click = function (elem, fn) {

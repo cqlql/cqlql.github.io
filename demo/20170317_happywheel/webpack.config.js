@@ -17,8 +17,8 @@ module.exports = function (env, options) {
     let dev=!options.define;
     return {
         entry: {
-            common: ['base.pcss'],
-            main: ["./src/main.pcss", "./src/main.js"]
+            common: ['base.pcss','vue'],
+            main: ["./src/main.pcss", "./src/main.js"].concat(dev?["./src/data_.js"]:[])
         },
 
         output: {
@@ -27,7 +27,6 @@ module.exports = function (env, options) {
         },
         plugins: [
             extractCSS,
-
 
             new HtmlWebpackPlugin({
                 filename: 'view.html',
@@ -55,9 +54,6 @@ module.exports = function (env, options) {
 
                         use: ['css-loader?importLoaders=1', 'postcss-loader'+(dev?'?sourceMap=inline':'')]
                     })
-
-
-
                 },
                 {
                     test: /\.(png|jpe?g|gif|svg)(\?.*)?$/,

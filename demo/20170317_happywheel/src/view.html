@@ -5,11 +5,11 @@
     <meta charset="UTF-8">
     <meta content="width=device-width,initial-scale=1.0,user-scalable=no" name="viewport" />
 </head>
-<body class="lottery-page">
+<body lottery-page>
 
-    <div class="title">
 
-    </div>
+<div class="lottery-page" v-cloak>
+    <div class="title"></div>
 
     <div class="des">
         本级还有
@@ -18,9 +18,9 @@
     </div>
 
     <div class="dish">
-        <div class="rotate"></div>
+        <div class="rotate" :style="{backgroundImage:rotateBg}" ref="rotate"></div>
         <div class="bg"></div>
-        <div class="arrows"></div>
+        <div class="arrows" v-click="start"></div>
     </div>
 
     <div class="listshow">
@@ -32,17 +32,16 @@
                         <li>没有数据</li>
                     </ul>
                 </div>
-               
+
             </dd>
         </dl>
     </div>
-    
-    <a class="ad" href="http://math.shendupeiban.com/vipad/"></a>
 
     <div class="preloader-indicator-modal">
         <div class="preloader"></div>
-
     </div>
+
+</div>
 
 </body>
 

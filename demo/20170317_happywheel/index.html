@@ -38,8 +38,6 @@
             </dd>
         </dl>
     </div>
-    
-    <a class="ad" href="http://math.shendupeiban.com/vipad/"></a>
 
     <div class="preloader-indicator-modal">
         <div class="preloader"></div>
@@ -57,7 +55,7 @@
             }
 
             var dataNum = d.chances,// 抽奖次数
-                dataLevel = d.level,// 级别
+                dataLevel = d.level,// 级别，据此更换饼图
                 dataNoLotter = d.left == 0// 是否可以抽奖
             ;
 
@@ -123,10 +121,6 @@
                 scrollAnime();
 
                 c.removeElement(eLoading);
-
-                c.click(eGoVip, function () {
-                    c.deviceCallback([callName, 'openVipUrl'], 'openVipUrl:0');// 不带参
-                });
 
                 function startRotate() {
                     var i = 0, len = 200, halfLen = len / 2

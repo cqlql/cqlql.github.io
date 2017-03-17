@@ -1,10 +1,9 @@
 
 
-.lottery-page {
+body[lottery-page]{
     background: #fef6ae;
     font-size: 16px;
     font-size: 4.8vw;
-    /* position: relative; */
 }
 
 .lottery-page .title {
@@ -135,16 +134,11 @@
     /* text-align: center; */
     padding: 3% 0 0;
 }
-.lottery-page .ad {
-    background: #f65b49 url('imgs/ad.png') no-repeat center center;
-    background-size: 80% auto;
-    padding-top: 14%;
-    position: fixed;
-    bottom: 0;
-    width: 100%;
-    display:none;
-}
 
+
+.lottery-page[v-cloak] .preloader-indicator-modal{
+    display: block;
+}
 
 .preloader-indicator-modal {
     position: fixed;
@@ -152,6 +146,7 @@
     left: 0;
     height: 100%;
     width: 100%;
+    display: none;
 }
 .preloader-indicator-modal .preloader{
     position: absolute;
@@ -175,8 +170,6 @@
     background-repeat: no-repeat;
     animation: preloader-spin 1s steps(12, end) infinite;
 }
-
-
 @keyframes preloader-spin {
     100% {
         transform: rotate(360deg);
