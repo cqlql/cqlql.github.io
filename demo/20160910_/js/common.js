@@ -174,7 +174,7 @@ c.Multiselect = function (className) {
         index = 0;
 
     this.select = function (elem, goOn, must) {
-        var id = elem.getAttribute('data-id'),isSelect;
+        var id = elem.getAttribute('data-id'), isSelect;
 
         if (id === null) {
             elem.setAttribute('data-id', index);
@@ -189,15 +189,15 @@ c.Multiselect = function (className) {
         else {
             c.addClass(elem, className);
             selectData[id] = elem;
-            isSelect=1;
+            isSelect = 1;
         }
-        if(isSelect || must){
+        if (isSelect || must) {
             goOn && goOn();
         }
     };
-    
-    this.eachSelect=function (cb) {
-        for(var k in selectData){
+
+    this.eachSelect = function (cb) {
+        for (var k in selectData) {
             cb(selectData[k]);
         }
     };

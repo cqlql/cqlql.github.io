@@ -78,6 +78,7 @@ function getText(html) {
 }
 
 // 随机取数组
+// 注：这并不是洗牌。会将原数组清空
 // 使用模运算实现界限
 function shuffle(arr, cb) {
     var data = arr,
@@ -91,13 +92,14 @@ function shuffle(arr, cb) {
     }
 }
 // 随机取数组 - 新
+// 注：这并不是洗牌。会将原数组清空
 // 使用新的界限实现
 function shuffle(data, cb) {
     for (var i = data.length; i--;) {
         cb(data.splice(~~(Math.random()*(i+1)), 1)[0]);
     }
 }
-// 洗牌。打乱数组顺序。网上代码
+// 洗牌。打乱数组顺序。网上代码。更改原数组
 function shuffle(array) {
     var currentIndex = array.length, temporaryValue, randomIndex;
 

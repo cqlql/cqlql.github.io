@@ -226,7 +226,6 @@ c.removeClass = function (elem, className) {
 // };
 
 /**
- * 取css正确名称
  * 自动加前缀
  * 可用 box-flex 进行测试
  *
@@ -234,7 +233,7 @@ c.removeClass = function (elem, className) {
  * @return {Array} 数组中有两个值，第一个是 减号风格，第二个是驼峰。如果不支持此属性，返回null
  *
  * */
-c.getRightCssName = function (cssPropertyName) {
+c.autoPrefix = function (cssPropertyName) {
     // 如果有直接返回
     var propertyName = c.getRightCssName[cssPropertyName];
     if (propertyName !== undefined) return propertyName;
@@ -398,9 +397,12 @@ c.htmlToElem = function (html) {
     eTemp.innerHTML = html;
     return eTemp;
 };
+
 // html -> elems
 c.htmlToElems = function (html) {
-    return this.htmlToElem(html).children;
+    var eTemp = document.createElement('div');
+    eTemp.innerHTML = html;
+    return eTemp.children;
 };
 
 // html -> 节点对象  可以是文本节点任意组合，也可以是文本
@@ -803,6 +805,9 @@ c.imgFullCenter = function (imgw, imgh, boxw, boxh) {
 
 /**
  * 切换 单选
+ * 多个按钮，每次只会激活一个
+ * vue 等mvvm模式不再适用
+ *
  * @param [className] 状态css名，默认active
  *
  * switchSelect.select

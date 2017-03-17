@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <style>
+        .fade-enter-active, .fade-leave-active {
+            transition: opacity .5s
+        }
+        .fade-enter, .fade-leave-active {
+            opacity: 0
+        }
+    </style>
+
+</head>
+<body>
+<div id="app">
+    <h1>Hello App!</h1>
+    <p>
+        <!-- 使用 router-link 组件来导航. -->
+        <!-- 通过传入 `to` 属性指定链接. -->
+        <!-- <router-link> 默认会被渲染成一个 `<a>` 标签 -->
+        <router-link to="/">/</router-link>
+        <router-link to="/user/foo">Go to Foo</router-link>
+        <router-link to="/user/bar">Go to Bar</router-link>
+        <router-link to="/user/foo/profile">Go to Foo++</router-link>
+        <router-link to="/user/bar/posts">Go to Bar++</router-link>
+    </p>
+    <!-- 路由出口 -->
+    <!-- 路由匹配到的组件将渲染在这里 -->
+    <transition name="fade" mode="out-in">
+        <router-view></router-view>
+    </transition>
+</div>
+<script src="dist/manifest.js"></script>
+<script src="dist/vue.js"></script>
+
+<script src="dist/common.js"></script>
+<script src="dist/main.js"></script>
+</body>
+</html>

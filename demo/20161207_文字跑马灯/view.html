@@ -1,0 +1,168 @@
+﻿<!doctype html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>文字跑马灯</title>
+
+    <style>
+        body {
+            margin: 0;
+        }
+
+        .bottom-message {
+            width: 600px;
+            height: 66px;
+            color: #fff;
+            font-size: 30px;
+            background-color: rgba(42, 71, 80, 0.82);
+
+            white-space: nowrap;
+            line-height: 2.2;
+
+            overflow: hidden;
+            box-sizing: border-box;
+
+            top: 0;
+
+        }
+
+        .bottom-message span {
+            padding-left: 10px;
+        }
+
+        .box {
+
+            width: 300px;
+            height: 300px;
+            overflow: hidden;
+
+            background-color: #ddd;
+
+            margin-top: 20px;
+
+        }
+
+        .box .b {
+            padding: 20px;
+        }
+
+
+    </style>
+</head>
+<body>
+
+
+<div class="bottom-message"><span>紧急通知：请各位班主任带领各自班级下课后到操场集合，请有序入场，不要抢</span></div>
+
+<div class="box">
+
+    <div class="b">
+        韩梅梅在步入30岁的前一年，一下子想起了很多几乎快要忘掉的事情。这些事情都在破坏她进入30岁。
+
+        在这之前，韩梅梅对自己的生活还算满意，以她住的小区为界的话，她老公李雷出轨过，但没有把性病带回家，不像楼下张姐的老公。她儿子楠哥送到幼儿园半年，但她没有给阿姨包红包，阿姨也没有拿马桶刷刷楠哥的屁股，不像二单元的豆豆。
+
+        每一年到老公的生日都是韩梅梅最开心的时候，因为可以送礼物。她送过李雷锦旗，从她爸的按摩所里偷来的，改了俩字，为了提醒他多去看望老韩。送过他一个很丑的充气娃娃，为了让他明白她已经知道他出轨了。后来她知道他出轨的对象叫胡婷婷，心里竟有点莫名的安慰，出轨对象的名字跟她的是一个系列的，ABB组合。
+
+    </div>
+
+
+</div>
+
+<script>
+
+    'use strict'
+    /*
+     几乎完全使用css 控制 几点前提：
+     1 窗口元素
+     2 包裹文字元素，能通过此文字元素能获取文字的总长度
+     */
+    var eBox = document.querySelector('.bottom-message'),
+        eText = eBox.children[0];
+
+    textMarquee({
+        eBox: eBox,
+        eText: eText
+    });
+
+    textMarquee({
+        eBox: document.querySelector('.box'),
+        eText: document.querySelector('.box').children[0],
+        type: 1
+    });
+
+    function textMarquee(params) {
+        var eBox = params.eBox,
+            eText = params.eText,
+            type = params.type ? 'h' : 'w',// 默认是宽度
+
+            // 每秒滚动的像素
+            perSecMove = 120,
+
+            // 2段文字的间距（与后面的重复文字间距）
+            interval = 100;
+
+        if (type === 'w') {
+
+            var textW = eText.offsetWidth;
+
+            if (textW > eBox.clientWidth) {
+                eText.style.paddingRight = interval + 'px';
+                textW = eText.offsetWidth;
+
+                var html = eBox.innerHTML.trim(),
+                    moveId = 'move' + Date.now();// (Math.random()+'').substr(2)
+
+                eBox.innerHTML = '<div class="' + moveId + '">' + html + html + '</div>';
+
+                // css
+                var duration = (textW / perSecMove).toFixed(2);// 每秒滚动像素。计算需要多少秒
+                var eStyle = document.createElement('style');
+                eStyle.textContent = '.' + moveId + '{\
+-webkit-animation:' + moveId + ' ' + duration + 's infinite linear normal;\
+animation:' + moveId + ' ' + duration + 's infinite linear normal}\
+@keyframes ' + moveId + '{0%{\
+transform:translate3d(0,0,0)}100%{\
+transform:translate3d(-' + textW + 'px,0,0)}}\
+@-webkit-keyframes ' + moveId + '{0%{\
+-webkit-transform:translate3d(0,0,0)}100%{\
+-webkit-transform:translate3d(-' + textW + 'px,0,0)}}';
+                document.body.appendChild(eStyle);
+
+            }
+        }
+        else {
+
+            var textH = eText.offsetHeight;
+            if (textH > eBox.clientHeight) {
+
+                eText.style.paddingBottom = interval + 'px';
+
+                textH = eText.offsetHeight;
+
+                var html = eBox.innerHTML.trim(),
+                    moveId = 'move' + Date.now();// (Math.random()+'').substr(2)
+
+                eBox.innerHTML = '<div class="' + moveId + '">' + html + html + '</div>';
+
+                // css
+                var duration = (textH / perSecMove).toFixed(2);// 每秒滚动像素。计算需要多少秒
+                var eStyle = document.createElement('style');
+                eStyle.textContent = '.' + moveId + '{\
+-webkit-animation:' + moveId + ' ' + duration + 's infinite linear normal;\
+animation:' + moveId + ' ' + duration + 's infinite linear normal}\
+@keyframes ' + moveId + '{0%{\
+transform:translate3d(0,0,0)}100%{\
+transform:translate3d(0,-' + textH + 'px,0)}}\
+@-webkit-keyframes ' + moveId + '{0%{\
+-webkit-transform:translate3d(0,0,0)}100%{\
+-webkit-transform:translate3d(0,-' + textH + 'px,0)}}';
+                document.body.appendChild(eStyle);
+
+            }
+        }
+
+
+    }
+</script>
+</body>
+</html>

@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>随机数组</title>
+    <style>
+        body{
+            margin:0;
+        }
+        .random-arr {
+            position: fixed;
+            width: 100%;
+            height:100%;
+
+            background: #226294 url("css/imgs/random-arr-bg.png") no-repeat 0 bottom;
+            background-size: 100% auto;
+        }
+
+        .random-arr .c-list {
+            padding-top: 1.5rem;
+            text-align: center;
+        }
+
+        .random-arr .btn {
+            height: 1rem;
+            text-align: center;
+        }
+
+        .random-arr .btn button {
+            height: 0.8rem;
+            width: 2.8rem;
+            background-color: #ffc937;
+            color: #fff;
+            border: 0;
+            font-size: 0.5rem;
+            font-weight: bold;
+            border-radius: 1rem;
+            outline: 0;
+        }
+
+        .num-box {
+            height: 1rem;
+            width: 1rem;
+
+            overflow: hidden;
+
+            display: inline-block;
+
+            border-radius: 50%;
+            margin: 0 0.2rem;
+            position: relative;
+        }
+
+        .num-box .n-l {
+
+            list-style-type: none;
+            margin: 0;
+            padding: 0;
+            position: absolute;
+            top: 0;
+        }
+
+        .num-box .n-i {
+            height: 1rem;
+            width: 1rem;
+            font-size: 0.7rem;
+            line-height: 1.5;
+            text-align: center;
+            color: #fff;
+            font-family: calibri;
+        }
+
+
+    </style>
+</head>
+<body>
+
+<div class="random-arr">
+    <div class="c-list" ref="list">
+        <div v-for="item of list" class="num-box" :style="{backgroundColor:'#'+item}">
+            <ol class="n-l">
+                <li class="n-i">0</li>
+                <li class="n-i">1</li>
+                <li class="n-i">2</li>
+                <li class="n-i">3</li>
+                <li class="n-i">4</li>
+                <li class="n-i">5</li>
+                <li class="n-i">6</li>
+                <li class="n-i">7</li>
+                <li class="n-i">8</li>
+                <li class="n-i">9</li>
+                <li class="n-i">10</li>
+                <li class="n-i">11</li>
+                <li class="n-i">12</li>
+                <li class="n-i">13</li>
+                <li class="n-i">14</li>
+                <li class="n-i">15</li>
+                <li class="n-i">16</li>
+                <li class="n-i">17</li>
+                <li class="n-i">18</li>
+                <li class="n-i">19</li>
+                <li class="n-i">20</li>
+            </ol>
+        </div>
+    </div>
+
+    <div class="btn">
+        <button v-click>开 始</button>
+    </div>
+    <audio id="startAudio" src="media/roulette.mp3"></audio>
+</div>
+<script src="dist/common.js"></script>
+<script src="dist/random.js"></script>
+<script>
+
+
+
+</script>
+</body>
+</html>

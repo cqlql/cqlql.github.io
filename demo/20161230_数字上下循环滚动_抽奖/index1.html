@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <style>
+        .show {
+            border: 2px solid #333;
+            height: 50px;
+            width: 50px;
+            overflow: hidden;
+
+            margin-left: 6px;
+            float: left;
+
+        }
+
+        ol {
+
+            list-style-type: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        li {
+            height: 50px;
+            width: 50px;
+            font-size: 50px;
+            line-height: 1;
+            text-align: center;
+        }
+
+        button {
+            margin: 6px;
+        }
+    </style>
+</head>
+<body>
+<div class="show">
+
+    <ol id="move">
+        <li>0</li>
+        <li>1</li>
+        <li>2</li>
+        <li>3</li>
+        <li>4</li>
+        <li>5</li>
+        <li>6</li>
+        <li>7</li>
+        <li>8</li>
+        <li>9</li>
+        <li>0</li>
+    </ol>
+</div>
+
+<div class="show">
+
+    <ol id="move2">
+        <li>0</li>
+        <li>1</li>
+        <li>2</li>
+        <li>3</li>
+        <li>4</li>
+        <li>5</li>
+        <li>6</li>
+        <li>7</li>
+        <li>8</li>
+        <li>9</li>
+        <li>0</li>
+    </ol>
+</div>
+<button>start</button>
+
+<script>
+
+    var eBtn = document.querySelector('button'),
+        eShow = document.querySelector('.show'),
+        h = 50, fHgt = h * 10
+        ;
+
+    var animation = new Animation;
+    var animation2 = new Animation;
+
+    animation.easing=function (x, t, b, c, d) {
+        if ((t/=d) < (1/2.75)) {
+            return c*(7.5625*t*t) + b;
+        } else if (t < (2/2.75)) {
+            return c*(7.5625*(t-=(1.5/2.75))*t + .75) + b;
+        } else if (t < (2.5/2.75)) {
+            return c*(7.5625*(t-=(2.25/2.75))*t + .9375) + b;
+        } else {
+            return c*(7.5625*(t-=(2.625/2.75))*t + .984375) + b;
+        }
+    };
+
+    eBtn.onclick = function () {
+        effect();
+        effect2();
+    };
+
+
+
+    function effect() {
+        var eMove = document.getElementById('move');
+
+        // 可以在此设置圈数
+        var length = fHgt * 1 + h * ~~(Math.random() * 10);
+
+        animation.stop();
+        animation.start(function (v) {
+
+            v = v * length;
+
+            if (v > fHgt) {
+                v = v % fHgt;
+            }
+
+            eMove.style.marginTop = -v + 'px';
+
+        }, 2000);
+    }
+
+    function effect2() {
+        var eMove = document.getElementById('move2');
+
+        // 可以在此设置圈数
+        var length = 10 * 2 + 9;
+
+        var d = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+
+        shuffle(d);
+
+        animation2.stop();
+        animation2.start(function (v) {
+
+            v = ~~(v * length);
+
+            v = v % 10;
+
+            eMove.style.marginTop = -d[v] * h + 'px';
+
+        }, 2000);
+    }
+
+
+    compatibleInit();
+
+    /*
+    缓动研究：改用比例实现
+    */
+    function Animation() {
+
+    }
+
+    Animation.prototype.stopId = null;
+    //params: 反复执行的函数，动画持续时间(毫秒)，到达目标位置时回调
+    Animation.prototype.start = function (callback, duration, complete) {
+
+        duration = duration === undefined ? 400 : duration;
+        complete = complete || function () {
+            };
+
+        var
+            t = 0,//当前起始次数
+            interval = 16,//帧间隔
+            count = duration / interval,//总次数
+
+            position = 0, // 起始位置
+            endPosition = 1000,//目标位置
+            length = endPosition - position, //要走的总长度
+
+            that = this;
+
+        function run() {
+            t++;
+            if (t < count) {
+
+                callback(that.easing(null, t, position, length, count) / endPosition);
+
+                that.stopId = requestAnimationFrame(run, interval);
+            }
+            else {
+                // 最后一次
+
+                callback(1);
+
+                that.stopId = null;
+
+                complete();
+            }
+        }
+
+        run();
+
+
+    };
+    // 终止动画
+    Animation.prototype.stop = function () {
+        cancelAnimationFrame(this.stopId);
+    };
+    // 缓动类型
+    Animation.prototype.easing = function easing(x, t, b, c, d) {
+        return -c * (t /= d) * (t - 2) + b;
+    };
+
+    // 兼容性处理
+    function compatibleInit() {
+        window.requestAnimationFrame = window.requestAnimationFrame || window.webkitRequestAnimationFrame
+            || window.mozRequestAnimationFrame || window.msRequestAnimationFrame || function (callback, elem) {
+                return window.setTimeout(callback, 1000 / 60);
+            };
+
+        window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAnimationFrame || window.clearTimeout;
+    }
+
+    // 洗牌
+    function shuffle(array) {
+        var currentIndex = array.length, temporaryValue, randomIndex;
+
+        // While there remain elements to shuffle...
+        while (0 !== currentIndex) {
+
+            // Pick a remaining element...
+            randomIndex = Math.floor(Math.random() * currentIndex);
+            currentIndex -= 1;
+
+            // And swap it with the current element.
+            temporaryValue = array[currentIndex];
+            array[currentIndex] = array[randomIndex];
+            array[randomIndex] = temporaryValue;
+        }
+
+        return array;
+    }
+</script>
+</body>
+</html>

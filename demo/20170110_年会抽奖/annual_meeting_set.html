@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>设置</title>
+</head>
+<body>
+
+<table>
+    <tr>
+        <th>名额总数：</th>
+        <td><input type="text" id="countInt" value="25"></td>
+    </tr>
+    <tr>
+        <td colspan="2">
+            <button>设置并重置</button>
+        </td>
+    </tr>
+</table>
+
+
+<script>
+    var quota = localStorage.getItem("quota"),
+        count = 0;
+
+    if (quota) {
+        quota = (quota.replace(/:/g, function (v) {
+
+            count++;
+            return v;
+        }));
+
+        countInt.value = count;
+    }
+
+    document.querySelector('button').onclick = function () {
+        count = countInt.value;
+        if (count && !isNaN(count)) {
+
+            var d = {};
+            for (var i = count * 1; i--;) {
+                d[i] = i;
+            }
+
+            localStorage.setItem("quota", JSON.stringify(d));
+            localStorage.setItem("times",1);
+            localStorage.setItem("history",'');
+
+
+        }
+        else {
+            alert('请输入大于0的数字');
+
+        }
+    };
+
+</script>
+</body>
+</html>

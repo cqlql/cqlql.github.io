@@ -1,0 +1,391 @@
+/*图标引用*/
+@font-face {
+    font-family: 'iconfont';
+    src: url('iconfont.ttf') format('truetype');
+}
+
+:root {
+    /*声明字体*/
+    --iconfont: {
+        font-family: "iconfont";
+        font-size: 16px;
+        font-style: normal;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+    };
+}
+
+.iconfont {
+    @apply --iconfont;
+}
+
+.button {
+    background-color: #f29f3f;
+    color: #fff;
+    border: 1px solid #ea840d;
+    padding: 4px 10px;
+    border-radius: 4px;
+    display: inline-block;
+
+    &:hover {
+        background-color: #ffa63e;
+    }
+
+    &:active {
+        background-color: #ffa63e;
+        color: #bd6600;
+        text-shadow: 0 1px 0 rgba(255, 255, 255, 0.3);
+        transition-duration: 0s;
+        box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
+    }
+
+    &.s2 {
+        background-color: #60d0f0;
+        border-color: #44b3d2;
+        &:hover {
+
+            background-color: #00c6ff;
+        }
+
+        &:active {
+            background-color: #00c6ff;
+            color: #007292;
+        }
+    }
+
+    &.gray {
+        background-color: #dcdcdc;
+        border-color: #b9b9b9;
+        color: #777;
+        &:hover {
+
+            background-color: #e8e8e8;
+        }
+
+        &:active {
+            background-color: #dcdcdc;
+
+            color: #7b7b7b;
+        }
+    }
+
+    &.red {
+        background-color: #ff7575;
+        border-color: #e76148;
+        color: #fff;
+        &:hover {
+
+            background-color: #ff8080;
+        }
+
+        &:active {
+            background-color: #ff8e8e;
+            color: #c10000;
+        }
+    }
+
+    &.disabled {
+        background-color: #e4e4e4;
+        border-color: #c7c7c7;
+        color: #8e8e8e;
+        &:hover {
+
+            background-color: #e4e4e4;
+        }
+
+        &:active {
+            background-color: #e4e4e4;
+            color: #8a8a8a;
+            box-shadow: none;
+        }
+    }
+}
+
+.full-page-popup {
+
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+    z-index: 1;
+    .fgp-bg {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: #000;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+    .fgp-main {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        transition: 0.3s ease;
+        opacity: 0;
+        transform: scale(.8, .8);
+    }
+
+    .fgp-ctn {
+        border-radius: 8px;
+        width: 380px;
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        background-color: #fff;
+
+        transform: translateX(-50%) translateY(-50%);
+    }
+
+    &.show {
+        pointer-events: auto;
+        .fgp-bg {
+            opacity: .4;
+        }
+        .fgp-main {
+            transform: scale(1, 1);
+            opacity: 1;
+        }
+    }
+
+}
+
+.pw-list {
+    font-size: 16px;
+
+    .lb {
+
+        & {
+            color: #fff;
+            float: left;
+            width: 220px;
+            background-color: #f39f3e;
+            position: absolute;
+            top: 0;
+            left: 0;
+            bottom: 0;
+        }
+
+        .user {
+            height: 184px;
+        }
+        .list {
+            position: absolute;
+            top: 184px;
+            bottom: 112px;
+            overflow: auto;
+            width: 100%;
+        }
+        .bot {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 112px;
+            background-color: #db7908;
+        }
+
+        .add-btn {
+            display: block;
+            background-color: #fff;
+            border-radius: 50%;
+            width: 80px;
+            height: 80px;
+            text-align: center;
+            line-height: 1.4;
+            margin: 16px auto 0;
+        }
+        .add-btn:after {
+
+            @apply --iconfont;
+            content: "\e617";
+            color: #5e5b58;
+            font-size: 60px;
+        }
+
+        li {
+            height: 60px;
+            line-height: calc(60 / 16 + 0.06);
+
+            /*border-bottom: 1px solid #fad5a4;*/
+            /*margin: 0 30px;*/
+
+            text-align: center;
+            position: relative;
+
+            &.active {
+                background-color: #db7808;
+            }
+        }
+
+        .line {
+            & {
+                position: absolute;
+                bottom: 0px;
+                width: 100%;
+                z-index: 1;
+            }
+
+            &:after {
+                content: '';
+                display: block;
+                border-bottom: 1px solid #fad5a4;
+                margin: 0 60px;
+            }
+        }
+
+    }
+
+    .rb {
+
+        & {
+            position: absolute;
+            top: 0;
+            left: 220px;
+            right: 0;
+            bottom: 0;
+        }
+
+        .tit {
+
+            border-bottom: 2px solid #f29f3f;
+
+            h2 {
+                margin: 0;
+                font-size: 24px;
+                padding: 20px 30px 12px;
+            }
+
+            .op {
+
+                float: right;
+                margin: 14px 10px 0 0;
+            }
+            .edit, .del {
+
+                & {
+                    background-color: #f2753f;
+                    display: inline-block;
+                    width: 40px;
+                    height: 40px;
+                    border-radius: 50%;
+
+                    line-height: 1.8;
+                    text-align: center;
+
+                }
+                &:after {
+                    @apply --iconfont;
+                    content: "\e725";
+                    font-size: 22px;
+                    color: #fff;
+
+                }
+            }
+            .del {
+
+                &:after {
+
+                    content: "\e6d3";
+
+                }
+            }
+        }
+        p {
+            padding-left: 38px;
+        }
+        .pw {
+            font-size: 24px;
+            padding: 44px 38px 36px;
+            height: 28px;
+        }
+
+        label {
+            font-size: 18px;
+        }
+
+        .des {
+            padding-top: 20px;
+            font-size: 12px;
+        }
+        .key {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+
+            input {
+                border: 1px solid #f29f3f;
+                font-size: 30px;
+                border-radius: 50px;
+                width: 200px;
+                padding: 4px 20px;
+                outline: none;
+            }
+        }
+    }
+}
+
+.pw-op {
+
+    & {
+        color: #777;
+    }
+    .tit {
+        border-bottom: 2px solid #f29f3f;
+        font-size: 30px;
+        padding: 20px 40px;
+    }
+
+    .cont {
+        padding-top: 20px;
+        & {
+            margin: 0 42px;
+            font-size: 20px;
+        }
+
+        .t {
+
+            padding: 10px 0 0;
+        }
+        .n {
+            padding: 8px 0 10px;
+        }
+
+        input, textarea {
+            /*width: 298px;*/
+            width: 100%;
+            height: 38px;
+            border: 1px solid #aaa;
+            border-radius: 8px;
+            box-sizing: border-box;
+            padding: 8px 10px;
+            outline: 0;
+
+        }
+        textarea{
+            height: auto;
+        }
+
+        .btns {
+            padding: 10px 0 60px;
+            text-align: center;
+            height: 38px;
+
+            .button {
+
+                padding: 6px 30px;
+            }
+
+            .save {
+                float: left;
+            }
+            .cancel {
+                float: right;
+            }
+        }
+    }
+}

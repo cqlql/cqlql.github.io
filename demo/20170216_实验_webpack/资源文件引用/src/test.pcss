@@ -1,0 +1,42 @@
+
+/*@import "base.pcss";*/
+
+
+
+/*图标引用*/
+@font-face {
+    font-family: 'iconfont';
+    src: url('./assets/iconfont.ttf') format('truetype');
+}
+
+:root {
+    --fontSize: 1px;
+
+    /*声明字体*/
+    --iconfont: {
+        font-family: "iconfont";
+        font-size: 16px;
+        font-style: normal;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+    };
+}
+
+
+.iconfont {
+    @apply --iconfont;
+}
+
+
+
+h1 {
+    font-size: calc(var(--fontSize) * 2);
+}
+
+.test{
+    width: 200px;
+    height: 200px;
+    background: url(./assets/logo.png);
+    @apply --iconfont;
+}
+

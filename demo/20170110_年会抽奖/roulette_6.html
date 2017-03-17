@@ -1,0 +1,33 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <title></title>
+    <meta charset="UTF-8">
+    <meta content="width=device-width,initial-scale=1.0,user-scalable=no" name="viewport"/>
+
+    <link href="css/main.css" rel="stylesheet"/>
+
+</head>
+<body>
+
+<div class="lottery-page">
+    <div class="warp">
+        <div class="title"></div>
+
+        <div class="dish">
+            <div class="rotate" :style="{backgroundImage:'url('+dishImg+')'}" ref="eRotate"></div>
+            <div class="bg"></div>
+            <div class="arrows" v-click></div>
+        </div>
+        <audio id="startAudio" src="media/roulette.mp3"></audio>
+    </div>
+
+</div>
+
+
+<script src="dist/common.js"></script>
+<script src="dist/roulette_6.js"></script>
+
+</body>
+
+</html>

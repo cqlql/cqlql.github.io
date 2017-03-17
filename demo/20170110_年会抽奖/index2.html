@@ -1,0 +1,99 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <title></title>
+    <meta charset="UTF-8">
+    <meta content="width=device-width,initial-scale=1.0,user-scalable=no" name="viewport"/>
+
+    <style>
+        body,select{margin:0;}
+        p,input,td,textarea,ul,dl,dt,dd,menu{padding:0;margin:0;}
+        a {text-decoration: none;color:#005f82}
+
+        .book-langs-index {
+            width: 100%;
+            height: 100%;
+            padding: 40px 0;
+            margin: 0;
+
+            position: fixed;
+            top:0;
+            left:0;
+            box-sizing: border-box;
+            background: url("css/imgs/index-bg.png") no-repeat 0 center;
+            background-size: 100% auto;
+
+        }
+        .book-langs-index .inner {
+            max-width: 20rem;
+            width: 100%;
+            margin: 0 auto;
+            padding: 30px;
+            border-radius: 3px;
+        }
+        .book-langs-index .inner h3 {
+            margin: 0;
+            font-size: 1.2rem;
+        }
+        .book-langs-index .inner .languages {
+            list-style: none;
+            padding: 20px 30px;
+            margin-top: 20px;
+            border-top: 1px solid #eee;
+        }
+        .book-langs-index .inner .languages li {
+            width: 50%;
+            float: left;
+            padding: 10px 5px;
+            font-size: 1rem;
+            box-sizing: border-box;
+        }
+    </style>
+
+</head>
+<body>
+<div class="book-langs-index" role="navigation">
+    <div class="inner">
+        <h3>选择功能</h3>
+
+        <ul class="languages">
+            <li>
+                <a href="balloon.html">水果</a>
+            </li>
+
+            <li>
+                <a href="roulette_6.html">转盘6</a>
+            </li>
+            <li>
+                <a href="lantern.html">灯笼</a>
+            </li>
+            <li>
+                <a href="roulette_12.html">转盘12</a>
+            </li>
+
+            <li>
+                <a href="random.html">随机数组</a>
+            </li>
+            <li>
+                <a href="roulette_12zodiac.html">转盘12生肖</a>
+            </li>
+
+            <li>
+                <a href="random_han.html">随机汉字</a>
+            </li>
+            <li>
+                <a href="annual_meeting.html">年会</a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+
+
+<script>
+    document.documentElement.style.fontSize = (innerWidth / 1000 * 30).toFixed(4) + 'px';
+
+</script>
+</body>
+
+</html>

@@ -1,14 +1,9 @@
 "use strict";
 
-window.requestAnimationFrame = (function () {
-    return window.requestAnimationFrame ||
-        window.webkitRequestAnimationFrame ||
-        window.mozRequestAnimationFrame ||
-        window.msRequestAnimationFrame ||
-        function (callback, elem) {
-            return window.setTimeout(callback, 1000 / 60);
-        };
-})();
+window.requestAnimationFrame = window.requestAnimationFrame || window.webkitRequestAnimationFrame
+    || window.mozRequestAnimationFrame || window.msRequestAnimationFrame || function (callback, elem) {
+        return window.setTimeout(callback, 1000 / 60);
+    };
 window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAnimationFrame || window.clearTimeout;
 
 (function () {
@@ -252,8 +247,6 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
         }
     };
     // #endregion
-
-    //#endregion
 
     //#region 去两头空格
     // \uFEFF 为出现在开头的特殊字符
@@ -916,31 +909,28 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
 
     //#endregion
 
-    //#region 根据某后代元素(事件元素)，判断是否发生在某祖先元素范围内
-    /*
-   模版功能：
+    // 元素查找 目标元素逐个往上找 实现查找范围内的所有元素，或者说是赛选某元素内的所有元素
+    /**
+     使用
+     dom.scopeElements(selection.anchorNode,function (elem) {
 
-   function getAncestorElement(eventElem) {
-       cb(eventElem);
-       function cb(that) {
-           if (that === eBox) {
-               // 祖先情况跳出
-               return;
-           }
-           if (that.classList.contains('m-tit')) {
-               // do something
-               return;
-           }
-           if (that.tagName === 'A' && that.parentElement.classList.contains('i-header')) {
-               return;
-           }
-           cb(that.parentElement);
-       }
-   }
-
-    */
-
-    //#endregion
+    if(elem===eEnd)return false;
+    if(elem.tagName==='H2'){
+        // do something...
+        return false;
+    }
+    return otherFn();
+ });
+     */
+    c.scopeElements = function (targetElem, listener) {
+        targetElem = targetElem.nodeType === 1 ? targetElem : targetElem.parentElement
+        go(targetElem);
+        function go(that, child) {
+            if (listener(that, child) !== false) {
+                go(that.parentElement, that);
+            }
+        }
+    };
 
     //#region 取滚动条隐藏距离
     c.getWindowScrollTop = 'pageYOffset' in window ? function () {

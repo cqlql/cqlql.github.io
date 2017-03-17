@@ -1,0 +1,45 @@
+
+
+
+.banner{
+    max-width: 800px;
+    height: 300px;
+    margin: 0 auto;
+    background-color: #666;
+    overflow: hidden;
+    position: relative;
+    .move{
+        position: relative;
+        width:100%;
+        height: 100%;
+    }
+    .move li{
+        position: absolute;
+        left: 0;
+        top: 0;
+        width:100%;
+        height: 100%;
+        overflow: hidden;
+        text-align: center;
+    }
+    .btn{
+        position: absolute;
+        bottom:6px;
+        width: 100%;
+        height:10px;
+        text-align: center;
+    }
+    .btn li{
+        display: inline-block;
+        width: 10px;
+        height: 10px;
+        border-radius:50% ;
+        margin: 0 4px;
+        background-color: #fff;
+
+    }
+    .btn li.active {
+        background-color: #0077c6;
+    }
+    
+}

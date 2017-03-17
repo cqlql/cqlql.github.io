@@ -1,0 +1,139 @@
+/*#region 重置 css*/
+body,select{margin:0;}
+p,input,td,textarea,ul,dl,dt,dd,menu{padding:0;margin:0;}
+h1,h2,h3,h4,h5,h6{margin:0;font-size:inherit;font-weight:normal;}
+ul{list-style-type:none;}
+body{color:#333;font:12px/1.2 arial,SimSun,tahoma,Srial,helvetica;}
+table{border-collapse:collapse;}
+img{border:0\9;} /*ie*/
+
+a{color:#333;text-decoration:none;}
+input,textarea{outline:none;}
+
+/*#endregion*/
+
+.lottery-page {
+    position: absolute;
+    top:0;
+    bottom: 0;
+    width: 100%;
+    background: #ffdf5f url("imgs/roulette-bg.png") no-repeat;
+    background-size: 100% auto;
+}
+.lottery-page .warp{
+    font-size: 16px;
+    width: 600px;
+    margin: 0 auto;
+}
+
+.lottery-page .title {
+    padding-top: 16.7%;
+    background: url(imgs/ico.png) no-repeat center 0;
+    background-size: 100% auto;
+}
+
+.lottery-page .dish {
+    margin: 5% 6% 0;
+    padding-top: 88%;
+    position: relative;
+    overflow: hidden;
+}
+
+.lottery-page .dish .rotate {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    /*background: url(imgs/dish.png) no-repeat center center;*/
+    background-position:center center;
+    background-repeat:no-repeat;
+    background-size: 83% 83%;
+    /*-moz-transition: -moz-transform 8s cubic-bezier(0, 0, 0.2, 1);
+    -webkit-transition: -webkit-transform 8s cubic-bezier(0, 0, 0.2, 1);
+    transition: transform 8s cubic-bezier(0, 0, 0.2, 1);*/
+}
+.lottery-page .dish .bg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: url(imgs/dish-bg.png) no-repeat;
+    background-size: 100% auto;
+    pointer-events: none;
+}
+
+.lottery-page .dish .arrows {
+    position: absolute;
+    top: 33%;
+    left: 39%;
+    width: 23%;
+    height: 34%;
+    background: url(imgs/start.png) no-repeat;
+    background-size: 100% auto;
+}
+.lottery-page .dish .arrows:active {
+    -moz-transform: scale(0.9,0.9);
+    -ms-transform: scale(0.9,0.9);
+    -webkit-transform: scale(0.9,0.9);
+    transform: scale(0.9,0.9);
+}
+
+
+
+/*灯笼 + 气球*/
+.lantern-page{
+    position: fixed;
+    width: 100%;
+    height:100%;
+}
+.lantern-page .mask{
+    position: absolute;
+    width: 100%;
+    height:100%;
+    background: rgba(0, 0, 0, 0.6);
+    opacity: 0;
+}
+.lantern-page .lantern{
+
+    padding-top: 46%;
+    background: url(imgs/lantern.png) -4px 0;
+    background-size: 100% auto;
+    width: 22%;
+    margin: 0 auto;
+    position: relative;
+    opacity: 0;
+
+}
+.lantern-page .lantern .text{
+    width: 100%;
+    position: absolute;
+    top: 32%;
+    left: 0px;
+    color: #fff;
+    font-size: 10vw;
+    text-align: center;
+    color: #f2e5be;
+}
+
+/*气球*/
+.lantern-page .balloon{
+    padding-top: 33%;
+    background: url(imgs/balloon.png) 0 0.6rem no-repeat;
+    background-size: 100% auto;
+    width: 18%;
+    margin: 0 auto;
+    position: relative;
+    opacity: 0;
+}
+.lantern-page .balloon .text{
+    width: 100%;
+    position: absolute;
+
+    top: 22%;
+    left: 0px;
+    color: #fff;
+    font-size: 10vw;
+    text-align: center;
+}

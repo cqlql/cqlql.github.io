@@ -1,0 +1,110 @@
+/*翻页 */
+
+.page {
+
+    text-align: center;
+    /*clear: both;*/
+    padding-top: 10px;
+
+    a {
+        width: 28px;
+        height: 28px;
+        text-align: center;
+        border: 1px solid #ccc;
+        color: #666;
+        display: inline-block;
+        position: relative;
+        vertical-align: middle;
+
+        font-family: "Microsoft YaHei";
+        margin-right: 8px;
+        background-color: #fff;
+
+        transition: .3s all linear;
+
+        line-height: 26px;
+        text-decoration: none;
+    }
+
+    a:hover {
+        text-shadow: 1px 1px 1px #ccc;
+        border: 1px solid #a5d24a;
+        box-shadow: 0 0 5px #a5d24a;
+    }
+
+    a.disabled:hover,
+    a.disabled {
+        text-shadow: none;
+        box-shadow: 0 0 1px #EEE;
+        border: 1px solid #DADADA;
+        background: #F5F5F5;
+        color: #DADADA;
+        cursor: default;
+    }
+
+    a.disabled:before {
+        color: #fff;
+    }
+
+    a .enable {
+        border: 1px solid #8b1c22;
+    }
+
+    a.active {
+        background-color: #cde69c;
+        color: #638421;
+        border: 1px solid #a5d24a;
+        cursor: default;
+    }
+
+    a.enable {
+        /* border: 1px solid #8B1C22; */
+    }
+
+    a.prev:before,
+    a.next:before {
+        content: "";
+        /*background: url("../images/public/arrow.png") no-repeat -11px -12px;*/
+        width: 5px;
+        height: 9px;
+        position: absolute;
+        display: inline-block;
+        left: 10px;
+        top: 10px;
+    }
+
+    a.next:before {
+        background-position: -11px 0;
+    }
+
+    .prev.disabled:before {
+        background-position: 0 0;
+    }
+
+    a.next.disabled:before {
+        background-position: 0 -12px;
+    }
+
+    .prev,
+    .next {
+        font-size: 18px;
+        line-height: 24px;
+    }
+
+
+    /*跳转功能相关*/
+    .page_input {
+        width: 31px;
+        height: 24px;
+        padding: 2px;
+        border: 1px solid #ccc;
+        margin: 10px;
+        margin-left: 5px;
+        vertical-align: -2px;
+        text-align: center;
+    }
+
+    a.go {
+    }
+
+}

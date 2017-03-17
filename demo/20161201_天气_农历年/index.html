@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+    <title>__</title>
+    <meta charset="utf-8">
+
+    <style>
+        .box {
+
+            /*width: 100px;*/
+            height: 100px;
+            background-color: #8de638;
+            position: relative;
+            top: 0;
+        }
+
+    </style>
+    <script src="wtData_v2.js"></script>
+
+
+</head>
+<body>
+
+
+<div class="box">
+    点我
+</div>
+<!-- 2014天气js -->
+<script type="text/javascript">
+    var wTime = {
+        currenttime: '2016.12.08',
+        currentHours: '09',
+        currentWeek: 'Thu',
+        currentMinute: '54'
+    };
+
+    // page name
+    var indexName = "index.shtml";
+    var qualityName = "cityaqi.htm";
+    var yztqName = "yztqcx.htm";
+</script>
+
+
+<script src="http://weather.gtimg.cn/city/01010715.js"></script>
+
+<script charset="gb2312">
+
+
+    /*
+
+     腾讯
+     http://weather.gtimg.cn/city/01010715.js
+     http://weather.gtimg.cn/aqi/01010715.json?callback=city&_=1480565000407
+
+     360
+     http://cdn.weather.hao.360.cn/api_weather_info.php?app=hao360&_jsonp=sg_wt_cb&code=101190101
+
+
+     搜狗
+     http://123.sogou.com/get123.php?block=wt&ver=v32&city=CN110100
+
+     */
+
+    var Gan = "甲乙丙丁戊己庚辛壬癸";
+    var Zhi = "子丑寅卯辰巳午未申酉戌亥";
+    var Animals=new Array("鼠","牛","虎","兔","龙","蛇","马","羊","猴","鸡","狗","猪");
+
+    year(2016);
+
+    function year(SY) {
+        var yDisplay;
+
+        if(SY>1874 && SY<1909) yDisplay = '光绪' + (((SY-1874)==1)?'元':SY-1874);
+        if(SY>1908 && SY<1912) yDisplay = '宣统' + (((SY-1908)==1)?'元':SY-1908);
+
+        if(SY>1911) yDisplay = '建国' + (((SY-1949)==1)?'元':SY-1949);
+
+        return yDisplay + '年 农历 ' + cyclical(SY - 1900 + 36) + '年 【' + Animals[(SY - 4) % 12] + '年】';
+
+    }
+
+    //============================== 传入 offset 返回干支, 0=甲子
+    function cyclical(num) {
+        return(Gan[num%10]+Zhi[num%12]);
+    }
+
+    var c = {};
+
+
+    c.loadScript = function (params) {
+        var src = params.src,
+            callback = params.callback || function () {
+                },
+            charset = params.charset || 'utf-8',
+
+            script = document.createElement('script');
+
+        script.type = "text/javascript";
+        script.charset = charset;
+        script.src = src;
+        script.onload = callback;
+
+        document.head.appendChild(script);
+    };
+
+
+    c.loadScript({
+        src: 'http://weather.gtimg.cn/city/01010715.js',
+        charset: 'gb2312',
+        callback: function () {
+            var wInfo = __weather_city;
+            document.querySelector('.box').innerHTML +='<br/>'+ Site.weatherInfo.data[wInfo.sk_wt].name;
+
+        }
+    });
+
+
+</script>
+
+
+</body>
+</html>

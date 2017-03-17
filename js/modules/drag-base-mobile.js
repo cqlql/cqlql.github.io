@@ -1,0 +1,49 @@
+/**
+ * Created by cql on 2017/2/24.
+ *
+ * 拖动基础-移动端
+ * 针对移动端触摸事件实现
+ *
+ * @param eDrag 绑定元素
+ * @param onMove 移动时触发
+ * @param onStart 可选。拖动开始。本来可集成在onDown中，但考虑到多点，其中某点触摸结束，此时需单独重新计算移动，但不需要判断是否要移动
+ * @param onDown 可选。retrun false 可使拖动不触发
+ * @param onUp 可选。拖动结束
+ *
+ */
+export default function dragBaseMobile({eDrag, onMove, onStart=()=>{}, onDown=()=>{}, onUp=()=>{}}) {
+
+    let isStart = false;
+
+    eDrag.addEventListener('touchstart', function (e) {
+        if (onDown(e) === false) {
+            isStart = false;
+            return;
+        }
+        isStart = true;
+
+        onStart(e);
+    });
+
+    eDrag.addEventListener('touchmove', function (e) {
+        if (isStart === false) return;
+
+        onMove(e);
+
+    });
+
+    eDrag.addEventListener('touchend', function (e) {
+        if (isStart === false) return;
+
+        let touches = e.touches;
+
+        if (touches.length === 0) {
+            onUp();
+        }
+        else {
+            onStart(e);
+        }
+    });
+}
+
+

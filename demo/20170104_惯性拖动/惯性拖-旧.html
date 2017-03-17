@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title></title>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+        
+    <style type="text/css">
+        body { margin: 0px; background-color:#DCDBDF; font-size:14px; }
+        
+        #t {
+            height:100px;
+            width:100px;
+            background-color:#000;
+            position:absolute;
+
+            width: 1440px;
+            height: 900px;
+            background-color: #1f91d9;
+            background-image: url("1.jpg");
+        }
+    </style>
+    <script src="http://ajax.aspnetcdn.com/ajax/jQuery/jquery-3.1.1.min.js"></script>
+    <script type="text/javascript">
+
+        //速率计算
+        function velocity2() {
+
+            var startTime,
+                moveTimesArr = [],
+                target = this;
+
+
+            function getSustainTimes() {
+                return (new Date()).getTime() - startTime;
+            }
+
+            //速率计时
+            this.start = function () {
+                moveTimesArr = [];
+                startTime = (new Date()).getTime();
+            };
+            this.end = function () {
+
+                if (!moveTimesArr[1]) return 0;
+
+                //间隔时间
+                var intervalTime = getSustainTimes() - moveTimesArr[1][0];
+
+                //有惯性情况
+                if (intervalTime < 50) {
+                    return (moveTimesArr[0][1] - moveTimesArr[1][1]) / intervalTime*1000;
+                }
+                    //无惯性
+                else {
+                    return 0;
+                }
+            };
+
+            this.change = function (val) {
+                moveTimesArr.unshift([getSustainTimes(), val]);
+                moveTimesArr.length = 2;
+
+                //console.log('持续时间'+moveTimesArr[0][0] + '||滑动长度' + val);
+            };
+        }
+
+        var inertia = ((function () {
+
+            var startTimes, startX, startY, velo = new velocity2();
+
+            function getNowTime() {
+                return (new Date()).getTime();
+            }
+
+            function getSustainTimes() {
+                return getNowTime() - startTimes;
+            }
+
+            function drag(domJq, downExcu, changeExcu, upExcu) {
+
+                var jsdom = domJq[0],
+                    isIE678 = !-[1, ];
+
+                function mousedown(e) {
+                    e = e || window.event;
+
+                    //光标相对于元素坐标
+                    var offsetY = e.offsetY || e.layerY,
+                        offsetX = e.offsetX || e.layerX;
+
+                    //IE678 执行捕捉 来 避免 图片默认选择事件
+                    if (isIE678) jsdom.setCapture();
+
+                    //***记录开始时间和位置
+                    startTimes = getNowTime();
+                    startX = (e.pageX ? e.pageX : document.documentElement.scrollLeft + e.clientX);
+                    startY = (e.pageY ? e.pageY : document.documentElement.scrollTop + e.clientY);
+                    velo.start();
+                    info.innerHTML='起始位置：' + startX;
+
+                    document.onmousemove = function (eve) {
+                        eve = eve || window.event;
+
+                        //光标相对 于 浏览器内容窗口 坐标
+                        var pageX = eve.pageX ? eve.pageX : document.documentElement.scrollLeft + eve.clientX;
+                        var pageY = eve.pageY ? eve.pageY : document.documentElement.scrollTop + eve.clientY;
+
+                        //计算出 dragDom元素 相对于 浏览器内容窗口 坐标
+                        var x = pageX - offsetX;
+                        var y = pageY - offsetY;
+
+                        //执行 定位，参数：元素 相对于窗口坐标
+                        domJq.css({ left: x, top: y });
+
+                        //***移动
+                        changeExcu({ x: pageX - startX, y: pageY - startY });
+                        //console.log('***移动');
+                        //console.log('持续时间：' + getSustainTimes() + '||滑动长度:' + (pageX - startX));
+                        velo.change(pageX - startX);
+                        info.innerHTML +='<br/>移动：'+ pageX;
+                    };
+
+                    //注册松开事件
+                    document.onmouseup = function () {
+                        e = e || window.event;
+                        //console.log(e.pageX);
+                        info.innerHTML += '<br/>end：' + (e.pageX ? e.pageX : document.documentElement.scrollLeft + e.clientX);
+                        //***结束
+                        //console.log('***结束');
+                        //console.log('持续时间：' + getSustainTimes() + '||滑动长度:' + ((e.pageX ? e.pageX : document.documentElement.scrollLeft + e.clientX) - startX));
+                     //console.log(   velo.end());
+
+                        if (isIE678) jsdom.releaseCapture();
+                        this.onmousemove = this.onmouseup = null;//解除所有事件
+
+                        if (upExcu) upExcu(domJq);
+                    };
+
+                    if (downExcu) downExcu(domJq);
+
+                    return false;
+                }
+
+                jsdom.onmousedown = mousedown;
+            };
+
+            function velocity(domJq, cssAttr) {
+
+                var timesId, times = 20, arr = [];
+
+                function count() {
+                    var val = parseFloat(domJq.css(cssAttr)); val = val ? val : 0;
+
+                    arr.push([val, (new Date).getTime()]);
+                }
+
+                //速率计时
+                this.start = function () {
+                    count();
+
+                    timesId = setTimeout(arguments.callee, times);
+                };
+                this.end = function () {
+
+                    clearTimeout(timesId);
+
+                    if (arr.length < 2) { arr = []; return 0; }
+
+                    var lastArr = arr[arr.length - 2],
+                        last2Arr = arr[arr.length - 1],
+                        velocityVal = (lastArr[0] - last2Arr[0]) / (lastArr[1] - last2Arr[1]) * 10;
+
+                    arr = [];
+
+                    return velocityVal;
+                };
+            }
+
+            function anime(domJq, cssAttr, vel) {
+                var times =20;
+                setTimeout(function () {
+
+                    vel = parseFloat((vel * .9).toFixed(4));
+
+                    var currVal = parseFloat(domJq.css(cssAttr)); currVal = currVal ? currVal : 0;
+
+                    domJq.css(cssAttr, currVal + vel);
+
+                    if (Math.abs(vel) > 0.009) setTimeout(arguments.callee, times);
+
+                }, times);
+            }
+
+            return function (domJq) {
+                /*
+                实现拖动
+
+                计算速率
+
+                减速运动
+
+                */
+
+                var xVel = new velocity2();
+                var yVel = new velocity2();
+
+                drag(domJq, function (domJq) {
+                    xVel.start();
+                    yVel.start();
+                }, function (v) {
+                    xVel.change(v.x);
+                    yVel.change(v.y);
+                }, function (domJq) {
+                    anime(domJq, "left", xVel.end()/70);
+                    anime(domJq, "top", yVel.end()/70);
+                });
+
+            };
+        })());
+
+        $(function () {
+            inertia($("#t"));
+        });
+    </script>
+</head>
+<body>
+    <div id="info"></div>
+    <div id="t"></div>
+</body>
+</html>

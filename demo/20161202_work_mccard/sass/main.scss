@@ -1,0 +1,488 @@
+﻿@import "base.scss";
+
+// 转换
+$baseFontSize: 14px;
+@function pxToRem($px:$baseFontSize) {
+    @return $px / $baseFontSize * 1rem;
+}
+
+// 字体1 华康海报体W12(P)
+@mixin fontFamily1 {
+    font-family: '\534E\5EB7\6D77\62A5\4F53W12\28P\29';
+    -webkit-text-stroke-width: 0.2px;
+}
+
+// 字体2 方正艺黑简体
+@mixin fontFamily2 {
+    font-family: '\65B9\6B63\827A\9ED1\7B80\4F53';
+    -webkit-text-stroke-width: 0.2px;
+}
+
+[v-cloak] {
+
+    position: relative;
+
+    &:after {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgb(33, 172, 206);
+
+    }
+}
+
+.header {
+    height: 126px;
+    background-color: rgba(0, 92, 115, 0.35);
+    overflow: hidden;
+}
+
+.wt-date-time {
+    overflow: hidden;
+    color: #fff;
+
+    .wt {
+
+        float: left;
+
+        .ico {
+
+            width: 96px;
+            height: 98px;
+
+            text-align: center;
+            display: table-cell;
+            vertical-align: middle;
+        }
+        .wd{
+            text-align: center;
+            margin-top: -10px;
+        }
+    }
+
+    .date {
+        float: left;
+
+        .big {
+            font-size: 48px;
+            padding: 12px 0 6px;
+        }
+        .other {
+            font-size: 32px;
+        }
+    }
+
+    .time {
+        float: right;
+        font-size: 72px;
+        line-height: 1.7;
+        padding: 0 24px;
+    }
+}
+
+// 底部通知条
+.bottom-message-bar {
+    height: 66px;
+    color: #fff;
+    position: absolute;
+    bottom: 0;
+    font-size: 30px;
+    background-color: rgba(42, 71, 80, 0.82);
+    width: 100%;
+
+    white-space: nowrap;
+    line-height: 2.2;
+    padding: 0 10px;
+    overflow: hidden;
+    box-sizing: border-box;
+}
+
+// 展示页
+.mccard-main.s1 {
+    width: 1080px;
+    height: 1920px;
+    position: relative;
+    background: #0cf url("imgs/bg1.png") no-repeat;
+
+    .class-name {
+        @include fontFamily1;
+
+        font-size: 80px;
+        text-align: center;
+        color: #fff;
+        margin-top: 78px;
+    }
+
+    .class-mottos {
+        width: 1022px;
+        height: 590px;
+        background: url('imgs/intro1.png') no-repeat;
+        margin: 108px auto 0;
+        position: relative;
+
+        .teacher {
+            @include fontFamily2;
+            position: absolute;
+            width: 397px;
+            .t-big-name {
+                font-size: 28px;
+                color: #cd561b;
+                padding: 52px 0 0;
+                text-align: center;
+            }
+
+            .t-ava {
+                width: 115px;
+                height: 115px;
+                background-color: #ddd;
+                border-radius: 50%;
+                margin: 29px auto 0;
+                border: 3px solid #e7b63f;
+            }
+
+            .t-name {
+                padding-top: 26px;
+            }
+            .t-name, .t-title {
+                font-size: 28px;
+                color: #cd561b;
+
+                padding-left: 28px;
+                padding-right: 28px;
+                text-align: justify;
+            }
+        }
+
+        .mottos {
+            @include fontFamily2;
+            font-size: 28px;
+            color: #cd561b;
+
+            width: 446px;
+            text-align: justify;
+            position: absolute;
+            left: 496px;
+
+            top: 78px;
+
+        }
+        .catchphrase {
+            @include fontFamily2;
+            font-size: 28px;
+            color: #737373;
+            width: 492px;
+            position: absolute;
+            top: 278px;
+            left: 488px;
+            text-align: justify;
+            .bt {
+                text-align: right;
+                padding-top: 40px;
+            }
+        }
+
+        .praise-abuse {
+            display: none;
+        }
+    }
+
+    .show-frame {
+        width: 1062px;
+        height: 715px;
+        clear: both;
+        position: relative;
+        margin: 20px auto 0;
+
+        &:after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: url("imgs/frame1.png");
+        }
+
+        .win {
+            width: 932px;
+            height: 547px;
+            overflow: hidden;
+            position: absolute;
+            left: 66px;
+            top: 101px;
+        }
+    }
+
+    .b-bg {
+        background: url("imgs/b-bg1.png") no-repeat;
+        width: 1080px;
+        height: 394px;
+        position: absolute;
+        bottom: 0;
+
+    }
+
+    &.s1-s2 {
+
+        .class-mottos {
+            background-image: url('imgs/intro2.png');
+
+            .teacher {
+                @include fontFamily2;
+                width: 386px;
+                .t-big-name {
+                    display: none;
+                }
+
+                .t-ava {
+                    width: 72px;
+                    height: 72px;
+                    margin: 38px auto 0;
+                }
+
+                .t-name, .t-title {
+                    font-size: 24px;
+                    color: #cd561b;
+                    line-height: 1.1;
+                    padding: 0 42px 0 44px;
+                }
+                .t-name {
+                    padding-top: 20px;
+                    color: #8e3509;
+                    padding-bottom: 4px;
+                    color: #8e3509;
+
+                }
+
+            }
+
+            .mottos {
+                width: 442px;
+            }
+
+            .catchphrase {
+                font-size: 26px;
+                margin: 106px 0 0 52px;
+                width: 308px;
+                line-height: 1.2;
+                top: 278px;
+                left: 8px;
+
+                .bt {
+                    padding-top: 0;
+                }
+            }
+
+            .praise-abuse {
+                @include fontFamily2;
+                font-size: 28px;
+                width: 544px;
+                position: absolute;
+                top: 244px;
+                left: 452px;
+                display: block;
+                .name {
+                    color: #737373;
+                }
+                .behavior {
+                    color: #ba8e2f;
+                    text-align: center;
+                    display: inline-block;
+                    min-width: 250px;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    white-space: nowrap;
+                    max-width: 420px;
+                    vertical-align: middle;
+                }
+                .score {
+                    color: #66cd12;
+                }
+                .wrong {
+                    color: #ff5e5e;
+                }
+                table {
+                    width: 100%;
+                }
+                td {
+
+                    height: 46px;
+
+                }
+            }
+        }
+    }
+
+}
+
+// 考场页
+.examination-page.s1 {
+    width: 1080px;
+    height: 1920px;
+    background: #00c6f8 url("imgs/kc-bg1.png") no-repeat;
+
+    .id {
+        -webkit-text-stroke: 5px rgba(255, 255, 255, 0.9);
+        text-stroke: 5px rgba(255, 255, 255, 0.8);
+
+        font-size: 110px;
+        text-align: center;
+        color: #093a46;
+        font-weight: bold;
+        padding: 64px 0;
+        span {
+            color: #f26a6a;
+        }
+    }
+
+    .info {
+        width: 936px;
+        height: 742px;
+
+        margin: 130px auto 115px;
+        text-align: center;
+        .subject {
+            font-size: 220px;
+            -webkit-text-stroke: 10px #fff;
+            text-stroke: 10px #fff;
+            font-weight: bold;
+            color: #00303c;
+            padding: 80px 0 0;
+        }
+        .remain {
+            font-size: 70px;
+            color: #f85a5a;
+
+        }
+        .time {
+            font-size: 40px;
+            color: #002f3a;
+            padding: 26px 0;
+        }
+        .remind {
+            width: 50%;
+            float: right;
+            text-align: left;
+
+            font-size: 30px;
+            color: #002f3a;
+            padding-top: 45px;
+            li {
+                padding: 8px 0;
+            }
+
+            span {
+                -webkit-text-stroke-width: 5px;
+                padding-right: 14px;
+                color: #ffa912;
+            }
+        }
+    }
+
+    .invigilate {
+        width: 970px;
+        height: 612px;
+        margin: 0 auto;
+        overflow: hidden;
+
+        .tc {
+            width: 390px;
+            height: 440px;
+            background-color: rgba(255, 255, 255, 0.62);
+            overflow: hidden;
+            border-radius: 34px;
+
+            margin: 100px auto;
+            .a {
+                width: 104px;
+                height: 104px;
+                border-radius: 50%;
+                border: 7px solid rgba(225, 199, 100, 0.48);
+                box-shadow: 0 2px 10px #676565;
+                margin: 34px auto;
+                .b {
+                    width: 98px;
+                    height: 98px;
+                    border: 3px solid #e7b63f;
+                    overflow: hidden;
+                    border-radius: 50%;
+                }
+                img {
+                    background-color: #fff;
+                    width: 150px;
+                    height: 150px;
+                }
+            }
+
+            .intr {
+                @include fontFamily2;
+                font-size: 28px;
+                color: #0084a6;
+                width: 342px;
+                margin: 0 auto;
+                text-align: justify;
+
+                p {
+                    margin: 6px 0;
+                }
+
+                .t-name {
+                    color: #005166;
+                }
+            }
+
+        }
+        .un {
+            @include fontFamily2;
+            font-size: 100px;
+            text-align: center;
+            display: table-cell;
+            vertical-align: middle;
+            width: 970px;
+            height: 612px;
+        }
+    }
+
+    .invigilate.two {
+        .tc {
+            //margin:auto;
+            margin-right: 36px;
+            float: right;
+        }
+
+        .tc:first-child {
+            float: left;
+            margin-left: 36px;
+        }
+    }
+}
+
+// 通知页
+.message-page.s1 {
+    width: 1080px;
+    height: 1920px;
+    position: relative;
+
+    background: #0cf url("imgs/msg-bg1.png") no-repeat;
+
+    .msg-cont {
+        width: 970px;
+        height: 1672px;
+
+        background-color: rgba(255, 255, 255, 0.3);
+        border-radius: 20px;
+        margin: 28px auto 0;
+        overflow: hidden;
+
+        .m-c {
+            padding: 30px;
+            line-height: 1.3;
+            font-size: 50px;
+        }
+    }
+}
+
+// 图片展示 932 548

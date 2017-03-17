@@ -8,17 +8,16 @@ c.isWX = /micromessenger/i.test(navigator.appVersion);
 
 // 取安卓版本
 c.getAndroidVersion = function () {
-    var v;
-    return function () {
+    let v;
+    let r = window.navigator.userAgent.match(/Android (\d.\d)/);
+    v = r && r[1];
 
-        if (v === undefined) {
-            var r = window.navigator.userAgent.match(/Android (\d.\d)/);
-            v = r && r[1];
-        }
-
+    c.getAndroidVersion=function () {
         return v;
     };
-}();
+
+    return v;
+};
 
 
 // click 重写。解决 1、4.4以下webview 原始click灰色；2、ios原始click问题
