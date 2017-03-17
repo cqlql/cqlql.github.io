@@ -11,7 +11,7 @@ const extractCSS = new ExtractTextPlugin({
     filename: 'css/[name].css'
 
 });
-123
+
 module.exports = function (env, options) {
 
     let dev = !options.define;
