@@ -173,6 +173,22 @@
 
         .user {
             height: 184px;
+
+            .ava{
+                width: 100px;
+                height: 100px;
+
+                margin: 22px auto 10px;
+                overflow: hidden;
+                border-radius: 50%;
+
+
+            }
+            .uname{
+                color: #fff;
+                text-align: center;
+                font-size:22px;
+            }
         }
         .list {
             position: absolute;
@@ -180,6 +196,31 @@
             bottom: 112px;
             overflow: auto;
             width: 100%;
+
+
+            &::-webkit-scrollbar-track-piece {
+                /*background-color: #609fdd; !*滚动条的背景颜色*!*/
+                -webkit-border-radius: 0; /*滚动条的圆角宽度*/
+            }
+
+            &::-webkit-scrollbar {
+                width: 10px; /*滚动条的宽度*/
+                height: 10px; /*滚动条的高度*/
+            }
+
+            &::-webkit-scrollbar-thumb:vertical { /*垂直滚动条的样式*/
+                height: 50px; /*最小高度*/
+                background-color: #db7908;
+                /*-webkit-border-radius: 8px;*/
+                /*border: 1px solid #fff;*/
+            }
+
+            &::-webkit-scrollbar-thumb:hover { /*滚动条的hover样式*/
+                height: 50px;
+                background-color: #e88108;
+                /*-webkit-border-radius: 12px;*/
+            }
+
         }
         .bot {
             position: absolute;

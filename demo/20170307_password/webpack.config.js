@@ -65,7 +65,7 @@ module.exports = function (env, options) {
                     query: {
                         limit: 100,//单位 字节，1千字节(kb)=1024字节(b)
                         publicPath: '../',
-                        name: 'imgs/[name].[hash:7].[ext]'
+                        name: 'imgs/[name].[ext]'
                     }
                 },
                 {

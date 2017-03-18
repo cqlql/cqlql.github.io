@@ -107,6 +107,20 @@ let handles = {
             reData(data,res);
         });
     },
+    // 重新生成data.js
+    reset(req, res){
+        getData(function (datastr) {
+
+            fs.writeFileSync('./dist/data.js', 'var mainData='+datastr,'utf8');
+
+            res.setHeader('Content-Type', 'application/json;charset=utf-8');
+            res.writeHead(200);
+            res.end(JSON.stringify({
+                state:true
+            }) );
+        });
+
+    },
     file(req, res, pathname){
 
         fs.readFile(path.join('dist/', pathname), function (err, file) {
