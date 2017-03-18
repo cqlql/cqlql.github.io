@@ -1,7 +1,7 @@
 /**
  * Created by cql on 2017/3/17.
  *
- * 方式1：非常精准，但加速到减速过渡不完美，但影响极小
+ * 方式2，不够精准，但加速到减速过度非常完美
  */
 
 require('./imgs/dish1.png');
@@ -29,6 +29,7 @@ window.transmitData = function (d) {
     /*
      d.chances,// 抽奖次数
      d.level,// 级别，据此更换饼图
+
      */
     let
 
@@ -69,7 +70,7 @@ window.transmitData = function (d) {
                     eBox: this.$refs.textMarquee,
                     eText: this.$refs.textMarquee.children[0],
                     type: 1
-                });
+                })
             },
             methods: {
                 start(){
@@ -129,11 +130,25 @@ window.transmitData = function (d) {
             // 抽奖成功。
             vm.isSuccess = true;
 
-            t++;
+            /*
+             5 1
+             0 2
+             1 3
+             2 4
+             3 5
+             4 6
+             */
+
+            if (t == 1) {
+                t = 6 - 1;
+            }
+            else {
+                t = t - 2;
+            }
         }
         else {
             // 抽奖失败
-            t = 1;
+            t = 6 - 1;
             vm.isSuccess = false;
         }
 
@@ -150,6 +165,7 @@ class WheelSurf {
         this.animation = new Animation;
 
         this.deg = 0;
+        this.pre = 0;//加速情况的上一个角度
         this.targetDeg = 0;
         this.result = 0;// 是否返回结果
 
@@ -158,14 +174,41 @@ class WheelSurf {
         // 此处参数可能会根据实际情况有所调整
         this.count = 6;// 盘数
         this.pieDeg = 360 / this.count;
-        // 最大的角度
-        this.maxDeg = 360;
-        this.maxSpeed = 16;// 最高速度，单位deg
+        // 最大的角度。根据减速运动的距离来调整，必需大于减速所累加的距离，必须是360的整数倍
+        // 比如下面减速运动的距离味390，那么maxDeg 则为720
+        this.maxDeg = 360 * 2;
+        this.extraDeg = this.maxDeg - 390;//额外的角度。可根据实际情况调整。390 根据 animation.start 参数2所得
+        this.maxSpeed = 20;// 最高速度，单位deg
         this.time = 1600;
 
-        // 偏差角度，转盘图片所致
-        this.offsetDeg=15;
+    }
 
+    // 减速距离计算
+    slowCalculate() {
+        let run = p => {
+            this.deg = this.deg + this.maxSpeed * p;
+            return this.deg;
+        };
+        console.log('计算中，请等待结果');
+
+        this.animation.start(
+            p => {
+                p = 1 - p;
+
+                this.deg = run(p);
+
+                if (p === 0) {
+
+                    console.log('减速运动的距离:' + this.deg);
+                    this.deg = 0;
+                    return 2;
+                }
+            },
+            function () {
+
+            },
+            this.time
+        );
     }
 
     // @params cb 动画完成回调
@@ -177,33 +220,33 @@ class WheelSurf {
         }
         this.isRun = true;
 
+        let run = p => {
+            this.deg = (this.deg + this.maxSpeed * p) % this.maxDeg;
 
-        let dp;// 减速比例。强行衔接最高加速
+            f(this.deg);
+
+            return this.deg;
+        };
 
         this.animation.start(
             p => {
 
-                this.deg = (this.deg + this.maxSpeed * p) % this.maxDeg;
+                this.deg = run(p);
 
-                f(this.deg);
-
-                if (this.result && p === 1) {
-
-                    dp = this.deg / this.targetDeg;
-                    // console.log('当前' + this.deg);
-                    // console.log('目标' + this.targetDeg);
-                    // console.log('比例' + dp);
+                if (this.result && this.deg > this.targetDeg && this.pre < this.targetDeg && p === 1) {
                     return 1;
                 }
 
+                this.pre = this.deg;
+
             },
+            // 已这个函数作为第一个参数即可得到 extraDeg
             p => {
-                this.deg = (dp + (1 - dp) * p) * this.targetDeg;
+                p = 1 - p;
 
-                f(this.deg);
-                console.log(this.deg);
+                this.deg = run(p);
 
-                if (p === 1) {
+                if (p === 0) {
                     return 2
                 }
             },
@@ -216,10 +259,9 @@ class WheelSurf {
 
     }
 
-    // 0起始
     stop(t) {
         this.result = 1;
-        this.targetDeg = t * this.pieDeg + this.offsetDeg + this.maxDeg;
+        this.targetDeg = (t * this.pieDeg + this.extraDeg ) % this.maxDeg;
     }
 }
 
@@ -228,18 +270,6 @@ class Animation {
     constructor() {
 
     }
-
-    // 加速缓动
-    // aeasing(x, t, b, c, d) {
-    //     return c * ((t = t / d - 1) * t * t + 1) + b;
-    //
-    // }
-
-    // 减速缓动
-    // deasing(x, t, b, c, d) {
-    //     return -c *(t/=d)*(t-2) + b;
-    //
-    // };
 
     //params: 反复执行的函数，动画持续时间(毫秒)，到达目标位置时回调
     start(callback, rCallback, duration = 400, complete = () => {
@@ -257,9 +287,6 @@ class Animation {
 
             that = this;
 
-        // 切换到加速
-        // that.easing = this.aeasing;
-
         function run() {
             t++;
 
@@ -273,12 +300,15 @@ class Animation {
                     t = 0;
                     callback = rCallback;
 
-                    // 切换到减速
-                    // that.easing =that.deasing;
-
+                    that.easing = function (x, t, b, c, d) {
+                        return -c / 2 * (Math.cos(Math.PI * t / d) - 1) + b;
+                    };
                     break;
 
                 case 2:
+                    that.easing = function (x, t, b, c, d) {
+                        return c * ((t = t / d - 1) * t * t + 1) + b;
+                    };
                     on = false;
                     complete();
                     break;

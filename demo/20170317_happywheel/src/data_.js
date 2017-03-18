@@ -56,5 +56,5 @@ transmitData({
 
 // 从1 
 setTimeout(function(){
-	priceResult(6)
+	priceResult(1)
 },1000);
