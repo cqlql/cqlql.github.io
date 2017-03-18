@@ -4,17 +4,13 @@
 export default class Animation {
 
     constructor() {
-        // this.stopId=null;
+
     }
 
     //params: 反复执行的函数，动画持续时间(毫秒)，到达目标位置时回调
-    start(callback, duration, complete) {
+    start(callback, duration = 400, complete = ()=>{}) {
 
-        duration = duration === undefined ? 400 : duration;
-        complete = complete || function () {
-            };
-
-        var
+        let
             t = 0,//当前起始次数
             interval = 20,//帧间隔
             count = duration / interval,//总次数
@@ -53,6 +49,7 @@ export default class Animation {
     }
 
     // 缓动类型：可进行更换
+    // easeOutQuad
     easing(x, t, b, c, d) {
         return -c * (t /= d) * (t - 2) + b;
     }
