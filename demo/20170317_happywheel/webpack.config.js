@@ -96,15 +96,9 @@ module.exports = function (env, options) {
 
             // 别名
             alias: {
-
-
                 // webpack -p 情况使用 mim 包
                 'vue$': dev ?  'vue/dist/vue.js':'vue/dist/vue.min.js'
-
-
             }
-
-
         }
     }
 };

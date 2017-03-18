@@ -13,13 +13,13 @@
 
     <div class="des">
         本级还有
-        <span><b>2</b></span>
+        <span><b>{{chances}}</b></span>
         次抽奖机会
     </div>
 
     <div class="dish">
         <div class="rotate" :style="{backgroundImage:rotateBg}" ref="rotate"></div>
-        <div class="bg"></div>
+        <div class="bg" ref="flicker"></div>
         <div class="arrows" v-click="start"></div>
     </div>
 
@@ -27,9 +27,11 @@
         <dl>
             <dt>今日奖学金运气王</dt>
             <dd>
-                <div class="win">
+                <div class="win" ref="textMarquee">
                     <ul>
-                        <li>没有数据</li>
+                        <li v-if="!nominates.length">没有数据</li>
+                        <li v-for="n of nominates">{{n.name}}<br/>{{n.prize}}<br/></li>
+
                     </ul>
                 </div>
 

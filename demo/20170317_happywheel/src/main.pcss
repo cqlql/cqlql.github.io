@@ -41,6 +41,7 @@ body[lottery-page]{
     font-weight: normal;
 }
 
+
 .lottery-page .dish {
     margin: 0 3%;
     padding-top: 94%;
@@ -58,6 +59,7 @@ body[lottery-page]{
     background-position:center center;
     background-repeat:no-repeat;
     background-size: 83% 83%;
+    background-image: url(imgs/dish1.png);
     /*transition: transform 8s cubic-bezier(0, 0, 0.2, 1);*/
 }
 .lottery-page .dish .bg {
@@ -136,9 +138,7 @@ body[lottery-page]{
 }
 
 
-.lottery-page[v-cloak] .preloader-indicator-modal{
-    display: block;
-}
+
 
 .preloader-indicator-modal {
     position: fixed;
@@ -174,4 +174,21 @@ body[lottery-page]{
     100% {
         transform: rotate(360deg);
     }
+}
+
+
+.lottery-page[v-cloak] .preloader-indicator-modal{
+    display: block;
+}
+.lottery-page[v-cloak] .des b{
+    color: rgba(0, 0, 0, 0);
+}
+.lottery-page[v-cloak] .des b::before{
+    content: '0';
+    display: block;
+    color: #7c6211;
+
+}
+.lottery-page[v-cloak] .listshow .win{
+    display: none;
 }
