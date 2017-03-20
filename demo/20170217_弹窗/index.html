@@ -7,51 +7,143 @@
 </head>
 <body>
 
-<h1></h1>
-
-<p>
-
-    弹窗：
-</p>
+<h1>弹窗</h1>
 
 
-<a href="javascript:void(0);">弹窗</a>
+<h2>1 基础自定义弹窗</h2>
+
+可实现 确认弹窗。带缓存特性
+
+<pre>
+
+// popup.show 　有返回值。
+//   cache为true 情况，返回当前缓存的窗口实例
+//   cache为false 情况，返回null
+var popup1 = popup.show({
+
+    // 可选
+    // false: 默认值
+    // true : 关闭后不会删掉元素，再次弹出可直接使用。
+    //        这种情况会返回实例，只有通过此实例才能操作缓存的弹窗
+    cache:false
+
+    // 标题
+    title:''
+
+    // 用于填充弹窗的内容
+    content:''
+
+    // 点外面关闭, 是否开启
+    // 可选，默认开启
+    outsideClose:true
+
+    /// 钩子
+    //   元素已在页面中，但未显示
+    //   参数：内容根元素
+    //   主要进行显示前的准备工作，比如注册事件
+    beforeShow(rootContentElem){
+
+    }
+    // 关闭前调用
+    // retrue false 可控制不关闭窗口
+    beforeClose(){
 
 
-<!--
+    }
 
-<div class="full-page-popup show">
-    <div class="fgp-bg"></div>
-    <div class="fgp-main">
-        <div class="fgp-ctn">
+});
 
+// cache为false的单实例弹窗关闭
+popup.close();
+
+
+// 缓存情况
+popup1.show({
+    // 钩子
+    //   元素已在页面中，但未显示
+    //   可以进行一些必要的修改操作
+    beforeShow(rootContentElem){
+
+    }
+});
+
+
+</pre>
+
+
+<h2>2 确认弹窗</h2>
+
+<p>以基础自定义弹窗实现，缓存特性</p>
+<p>几乎完全模拟了 浏览器的 confirm</p>
+<p>不支持也不推荐 在comfirm 窗口上进行异步的加载中展示。推荐在操作项或者整个界面上进行加载中展示</p>
+
+<pre>
+
+    confirmPopup({
+        title: '删除',
+        des: '确认删除？',
+        confirm() {
+            console.log('confirm');
+        }
+    });
+
+</pre>
+
+-----------------------------------
+
+
+<ul style="font-size: 22px; color: red;">
+    <li><a href="javascript:void(0);" id="sole">全局弹窗</a></li>
+    <li><a href="javascript:void(0);" id="alone">新实例弹窗</a></li>
+    <li><a href="javascript:void(0);" id="confirmbtn">确认弹窗</a></li>
+</ul>
+
+<!--<div class="full-page-popup show">-->
+    <!--<div class="fgp-bg"></div>-->
+    <!--<div class="fgp-main">-->
+        <!--<div class="fgp-bd">-->
+            <!--<div class="fgp-top-bar">-->
+                <!--<div class="tit">确认</div>-->
+                <!--<b class="close">✖</b></div>-->
+            <!--<div class="fgp-cont">-->
+            <!--</div>-->
+        <!--</div>-->
+    <!--</div>-->
+<!--</div>-->
+
+    <!--
+
+    <div class="full-page-popup show">
+        <div class="fgp-bg"></div>
+        <div class="fgp-main">
+            <div class="fgp-ctn">
+
+            </div>
         </div>
     </div>
-</div>
 
-<div class="confirm-box">
-    <div class="top-bar">
-        <div class="tit">确认</div>
-        <b class="close">✖</b></div>
-    <div class="cont">
-        <div class="des">确定删除？</div>
-        <div class="btns">
-            <a class="button sure-btn" href="javascript:;">确认</a>
-            <a class="button cancel-btn" href="javascript:;">取消</a>
+    <div class="confirm-box">
+        <div class="top-bar">
+            <div class="tit">确认</div>
+            <b class="close">✖</b></div>
+        <div class="cont">
+            <div class="des">确定删除？</div>
+            <div class="btns">
+                <a class="button sure-btn" href="javascript:;">确认</a>
+                <a class="button cancel-btn" href="javascript:;">取消</a>
+            </div>
         </div>
     </div>
-</div>
--->
+    -->
 
-<!--<div class="full-page-popup show">
-    <div class="fgp-bg"></div>
-    <div class="fgp-main">
-        <div class="fgp-ctn">
-            <a id="popupbtn" href="javascript:void(0);">弹窗</a>
+    <!--<div class="full-page-popup show">
+        <div class="fgp-bg"></div>
+        <div class="fgp-main">
+            <div class="fgp-ctn">
+                <a id="popupbtn" href="javascript:void(0);">弹窗</a>
+            </div>
         </div>
-    </div>
-</div>-->
-
+    </div>-->
 
 
 </body>

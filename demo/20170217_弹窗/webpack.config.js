@@ -9,14 +9,15 @@ let path = require('path');
 const webpack = require('webpack');
 let HtmlWebpackPlugin = require('html-webpack-plugin');
 const ExtractTextPlugin = require('extract-text-webpack-plugin');
-const extractCSS = new ExtractTextPlugin('stylesheets/[name].css');
+const extractCSS = new ExtractTextPlugin('css/[name].css');
 
 module.exports = function (env, options) {
+    let dev=!options.define;
     return {
         entry: {
             // common:["vue","base"],
-            common:["click","base"],
-            main: "./src/main.js",
+            common:["base.pcss","click"],
+            main: ["./src/main.pcss", "./src/main-v2.js"]
             // b: ["./app/entry-b1", "./app/entry-b2"]
             // main: ["./src/main.js", "./src/main2.js"]
         },
@@ -35,7 +36,8 @@ module.exports = function (env, options) {
                 chunks: ['manifest',"common",'main']
             }),
             new webpack.optimize.CommonsChunkPlugin({
-                name: ['common','manifest'],
+                // name: ['common','manifest'],
+                name: ['common'],
             })
         ],
 
@@ -49,11 +51,12 @@ module.exports = function (env, options) {
                 },
                 {
                     test: /\.(css|pcss)$/,
-                    // use: ['style-loader',
-                    //         'css-loader',
-                    //         'postcss-loader'],
-                    use: extractCSS.extract([ 'css-loader', 'postcss-loader' ]),
-                }
+                    use: ExtractTextPlugin.extract({
+                        fallback:'style-loader',
+
+                        use: ['css-loader?importLoaders=1', 'postcss-loader'+(dev?'?sourceMap=inline':'')]
+                    })
+                },
             ]
         },
         // 分解
@@ -74,9 +77,8 @@ module.exports = function (env, options) {
 
             // 别名
             alias: {
-
                 // webpack -p 情况使用 mim 包
-                'vue$': options.define ? 'vue/dist/vue.min.js' : 'vue/dist/vue.js'
+                'vue$': dev ?  'vue/dist/vue.js':'vue/dist/vue.min.js'
             }
 
 
