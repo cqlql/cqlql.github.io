@@ -34,7 +34,7 @@ module.exports = function (env, options) {
                 chunks: ['manifest', 'common', 'main']
             }),
             new webpack.optimize.CommonsChunkPlugin({
-                name: ['common', 'manifest'],
+                name: ['common'],
             }),
 
         ],
