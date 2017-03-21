@@ -1,13 +1,23 @@
+/* http://prismjs.com/download.html?themes=prism&languages=markup+css */
+/**
+ * prism.js default theme for JavaScript, CSS and HTML
+ * Based on dabblet (http://dabblet.com)
+ * @author Lea Verou
+ */
 
-    /* http://prismjs.com/download.html?themes=prism&languages=markup+css */
-    /**
-     * prism.js default theme for JavaScript, CSS and HTML
-     * Based on dabblet (http://dabblet.com)
-     * @author Lea Verou
-     */
-code{
+
+
+pre[class*="language-"] {
+    padding: 0 1em;
+    margin: .5em 0;
+    overflow: auto;
+
+    background: #f5f2f0;
+}
+code[class*="language-"]{
     font-family: 'Consolas,Microsoft Yahei';
 }
+
 .token.comment,
 .token.prolog,
 .token.doctype,
@@ -71,6 +81,7 @@ code{
 .token.bold {
     font-weight: bold;
 }
+
 .token.italic {
     font-style: italic;
 }

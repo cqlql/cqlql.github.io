@@ -16,7 +16,7 @@ module.exports = function (env, options) {
     return {
         entry: {
             // common:["vue","base"],
-            common:["base.pcss","click"],
+            common:["base.pcss","prism/prism.css","dom/click"],
             main: ["./src/main.pcss", "./src/main-v2.js"]
             // b: ["./app/entry-b1", "./app/entry-b2"]
             // main: ["./src/main.js", "./src/main2.js"]
@@ -33,7 +33,7 @@ module.exports = function (env, options) {
             new HtmlWebpackPlugin({
                 // filename: 'test.html',
                 template: './index.html',
-                chunks: ['manifest',"common",'main']
+                chunks: ["common",'main']
             }),
             new webpack.optimize.CommonsChunkPlugin({
                 // name: ['common','manifest'],
@@ -67,9 +67,10 @@ module.exports = function (env, options) {
                 "node_modules",
 
                 // cqlql.github.io 项目
+                'E:/Dropbox/github/cqlql.github.io/libr',
                 'E:/Dropbox/github/cqlql.github.io/js/modules',
+                // 'E:/Dropbox/github/cqlql.github.io/js/modules/dom',
                 'E:/Dropbox/github/cqlql.github.io/css/modules'
-
             ],
 
             extensions: [".js",'.pcss'],

@@ -86,7 +86,7 @@ module.exports = function (env, options) {
             modules: [
                 "node_modules",
 
-                'E:/Dropbox/github/cqlql.github.io/js/libr',
+                'E:/Dropbox/github/cqlql.github.io/libr',
 
 
                 // cqlql.github.io 项目

@@ -2,31 +2,86 @@
  * Created by cql on 2017/3/20.
  */
 
-import click from 'click';
+import click from 'dom/click';
 
 class Popup {
 
-    constructor({ePopup, ePopupMain, beforeClose}) {
-        this.ePopup = ePopup;
-        this.ePopupMain = ePopupMain;
+    constructor({
+        title = '',
+        content = '',
+        outsideClose = true,
+        beforeShow = () => {
+        },
+        beforeClose = () => {
+        },
+        afterClose = () => {
+        }
+    }={}) {
+
+        this.title = title;
+        this.content = content;
+        this.outsideClose = outsideClose;
+        this.beforeShow = beforeShow;
         this.beforeClose = beforeClose;
+        this.afterClose = afterClose;
 
         // 禁止操作 开关。关闭动画进行中标识
         this.no = false;
     }
 
-    show({
-        beforeShow = () => {
-        }
-    }={}) {
+    init() {
+        this.init = function () {
+        };
 
-        beforeShow(this.ePopupMain);
+
+        let html = `<div class="full-page-popup">
+    <div class="fgp-bg"></div>
+    <div class="fgp-main">
+        <div class="fgp-bd">
+            <div class="fgp-top-bar">
+                <div class="tit">${this.title}</div>
+                <b class="close">✖</b></div>
+            <div class="fgp-cont">${this.content}</div>
+        </div>
+    </div>
+</div>`;
+
+        let template = document.createElement('div');
+        template.innerHTML = html;
+
+        this.ePopup = template.children[0];
+        this.ePopupMain = this.ePopup.children[1];
+
+        document.body.appendChild(this.ePopup);
+
+        // 关闭处理
+        click(this.ePopupMain, e => {
+            let classList = e.target.classList;
+            if (classList.contains('close')) {
+                // 关闭按钮关闭
+
+                this.close();
+            }
+            else if (this.outsideClose && classList.contains('fgp-main')) {
+                // 点外面关闭
+
+                this.close();
+            }
+
+        });
+
+    }
+
+    show() {
+
+        this.init();
+
+        this.beforeShow(this.ePopupMain);
 
         setTimeout(() => {
             this.ePopup.classList.add('show');
         }, 0);
 
-        return this;
     }
 
     close() {
@@ -36,119 +91,109 @@ class Popup {
         this.ePopup.classList.remove('show');
         setTimeout(() => {
             this.no = false;
+            this.afterClose(this.ePopup);
         }, 300);
     }
 }
 
-Popup._init = function ({title, content}) {
-    let html = `<div class="full-page-popup">
-    <div class="fgp-bg"></div>
-    <div class="fgp-main">
-        <div class="fgp-bd">
-            <div class="fgp-top-bar">
-                <div class="tit">${title}</div>
-                <b class="close">✖</b></div>
-            <div class="fgp-cont">${content}</div>
-        </div>
-    </div>
-</div>`;
-
-    let template = document.createElement('div');
-    template.innerHTML = html;
-
-    this.ePopup = template.children[0];
-    this.ePopupMain = this.ePopup.children[1];
-
-    document.body.appendChild(this.ePopup);
-};
-
-/**
- * @param cache
- * @param content
- * @param beforeShow
- * */
-Popup.show = function ({
-    cache = false,
-    outsideClose = true,
-    title = '',
-    content = '',
+export function popup({
+    title,
+    content,
     beforeShow = () => {
     },
     beforeClose = () => {
-    }
+    },
+
 }) {
 
-    this._init({
+    let newPopup = new Popup({
         title,
-        content
+        content,
+        beforeShow,
+        beforeClose,
+        afterClose(rootElem){
+            // 清理元素
+            rootElem.remove();
+        }
     });
 
-    let that;
+    newPopup.show();
 
-    if (cache) {
-        // 新弹窗情况
+    popup.close = function () {
+        newPopup.close();
+    }
+}
 
-        let p = that = new this({
-            ePopup: this.ePopup,
-            ePopupMain: this.ePopupMain,
-            beforeClose
+
+export function confirmPopup({
+    title, des,
+    confirm = () => {
+    },
+    cancel = () => {
+    }
+
+}) {
+
+    let popup,
+        eTitle,
+        eDes,
+        gConfirm = confirm,
+        gCancel = cancel;
+
+    function init(rootElem) {
+        init = function () {
+        };
+        console.log('init');
+        eTitle = rootElem.querySelector('.tit');
+        eDes = rootElem.querySelector('.des');
+
+        click(rootElem.querySelector('.btns'), function (e) {
+
+
+            let classList = e.target.classList;
+            if (classList.contains('sure-btn')) {
+                gConfirm();
+            }
+            else if (classList.contains('cancel-btn')) {
+                popup.close();
+                // gCancel();
+            }
         });
-
-        p.show({beforeShow});
-
-    }
-    else {
-        // 全局弹窗情况
-
-        that = this;
-
-        this.beforeClose = beforeClose;
-
-        beforeShow(this.ePopupMain);
-
-        setTimeout(() => {
-            this.ePopup.classList.add('show');
-        }, 0);
     }
 
-    // 公共部分
-    click(that.ePopupMain, e => {
-        let classList = e.target.classList;
-        if (classList.contains('close')) {
-            // 关闭按钮关闭
-
-            that.close();
+    confirmPopup = function ({
+        title, des,
+        confirm = () => {
+        },
+        cancel = () => {
         }
-        else if (outsideClose && classList.contains('fgp-main')) {
-            // 点外面关闭
+    }) {
+        gConfirm = confirm;
+        gCancel = cancel;
 
-            that.close();
+        eTitle.textContent = title;
+        eDes.textContent = des;
+
+        popup.show();
+
+    };
+    popup = new Popup({
+
+        title: title,
+        content: `<div class="confirm-box">
+<div class="des">${des}</div>
+<div class="btns">
+    <a class="button sure-btn" href="javascript:;">确认</a>
+    <a class="button cancel-btn" href="javascript:;">取消</a>
+</div>
+</div>`,
+        beforeShow: function (rootElem) {
+            init(rootElem);
         }
 
     });
 
-
-    return that;
-
-};
-
-
-// 禁止操作 开关。关闭动画进行中标识
-let no = false;
-/**
- * 全局关闭
- * */
-Popup.close = function () {
-    if (no || this.beforeClose() === false)return;
-    no = true;
-
-    this.ePopup.classList.remove('show');
-    setTimeout(() => {
-        this.ePopup.remove();
-        no = false;
-    }, 300);
-};
-
-
+    popup.show();
+}
 
 export default Popup;
