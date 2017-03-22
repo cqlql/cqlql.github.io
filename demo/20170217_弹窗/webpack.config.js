@@ -16,10 +16,7 @@ module.exports = function (env, options) {
     return {
         entry: {
             // common:["vue","base"],
-            // common:["dom/click"],
-            main: ["base.pcss","popup.pcss","./src/main.pcss","./src/main-v2.js"]
-            // b: ["./app/entry-b1", "./app/entry-b2"]
-            // main: ["./src/main.js", "./src/main2.js"]
+            main: ["base.pcss","popup.pcss","./src/main.pcss","./src/main.js"]
         },
 
         output: {
@@ -32,7 +29,7 @@ module.exports = function (env, options) {
             extractCSS,
             new HtmlWebpackPlugin({
                 // filename: 'test.html',
-                template: './index.html',
+                template: './src/index.html',
                 chunks: ['main']
             }),
             // new webpack.optimize.CommonsChunkPlugin({
