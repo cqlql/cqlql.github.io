@@ -35,10 +35,10 @@ module.exports = function (env, options) {
                 template: './index.html',
                 chunks: ['main']
             }),
-            new webpack.optimize.CommonsChunkPlugin({
-                // name: ['common','manifest'],
-                name: ['common'],
-            })
+            // new webpack.optimize.CommonsChunkPlugin({
+            //     // name: ['common','manifest'],
+            //     name: ['common'],
+            // })
         ],
 
         module: {
