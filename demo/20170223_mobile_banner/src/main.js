@@ -6,7 +6,7 @@
  *
  */
 
-import autoPrefix from 'autoprefix';
+import autoPrefix from 'dom/autoprefix';
 import Slider from 'slider';
 
 let

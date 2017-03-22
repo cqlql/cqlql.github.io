@@ -2,7 +2,7 @@
  * Created by cql on 2017/3/2.
  */
 
- import autoPrefix from 'autoprefix';
+ import autoPrefix from 'dom/autoprefix';
 import Swipe from 'swipe';
 
 /**
@@ -140,6 +140,8 @@ export default function Slider({
         isRun = false;
 
         if (isChange) complete();
+
+
     }
 
     // 定时器

@@ -14,7 +14,7 @@ const extractCSS = new ExtractTextPlugin('css/[name].css');
 module.exports = function (env, options) {
     return {
         entry: {
-            common:['base.pcss','base.js'],
+            common:['base.pcss'],
             main: ["./src/main.pcss","./src/main.js"]
         },
 
