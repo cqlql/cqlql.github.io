@@ -1,9 +1,29 @@
 
+
 # 弹窗
-主要针对移动端。考虑到移动端性能问题，动画主要采用css3
+主要针对移动端。考虑到移动端性能问题，动画主要采用css3  
+[demo](http://cqlql.github.io/demo/20170217_弹窗/dist/index.html)  
+
+弹窗Popup模块
+
+[js](https://github.com/cqlql/cqlql.github.io/blob/master/js/modules/popup.js)
+[css](https://github.com/cqlql/cqlql.github.io/blob/master/js/modules/popup.js)
 
 
-## 1 基础弹窗，多实例，可定制 [demo](http://cqlql.github.io/demo/20170217_弹窗/dist/index.html)
+
+## 1 基础弹窗：多实例，灵活定制
+
+### 快速使用
+
+``` javascript
+import Popup from 'popup';
+let newPopup = new Popup({
+    title: '测试标题',
+    content: '<p style="padding:10px">测试内容</p>',
+});
+```
+
+### 实例选项
 ``` javascript
 var popup = Popup({
 
@@ -45,10 +65,31 @@ popup.close()
 ```
 
 ## 2 一次性弹窗：简单直接的调用方式 [demo](https://baidu.com/)
+使用基础弹窗实现  
+关闭则销毁
+
+
+### 快速使用
+``` javascript
+import {popup} from 'popup';
+
+// 弹窗
+let popup1 = popup({
+    title: 'test标题',
+    content: '<p style="padding:10px">test 内容。一次性弹窗</p>',
+});
+
+// 关窗
+popup.close();
+// 或者。原因见下
+// popup1.close();
+```
+
+### 弹窗选项
 
 ``` javascript
 // 弹窗
-popup({
+let popup1 = popup({
     // 标题
     // 可选
     title:'',
@@ -65,25 +106,36 @@ popup({
     beforeShow(rootContentElem){ },
 
     /// 钩子
-    // 关闭前调用
-    // 可选
-    // retrue false 可控制不关闭窗口
+    //   关闭前调用
+    //   可选
+    //   retrue false 可控制不关闭窗口
     beforeClose(){ },
 
 });
 
+```
 
-// 关窗
-// 关闭后会删除元素
+### 手动关窗
+关闭后会删除元素  
+考虑到不关窗多次调用情况，弹窗操作会有返回值，用来关掉指定弹窗，而 `popup.close` 只会关闭最新弹窗。
+``` javascript
+// 方式1
 popup.close();
+
+// 方式2。通过 popup() 返回值
+popup1.close();
 ```
 
 ## 3 确认弹窗
-以基础多实例弹窗实现  
+使用基础弹窗实现  
 简单直接的调用方式，关闭后不会被销毁，以便再次被使用  
-不支持也不推荐 在comfirm 窗口上进行异步的加载中展示。推荐在操作项或者整个界面上进行加载中展示
+不支持也不推荐 在comfirm 窗口上进行异步的加载中展示。推荐在操作项或者整个界面上进行加载中展示  
+不关窗，多次调用，只会更改当前实例
 
+### 快速使用
 ``` javascript
+import {confirmPopup} from 'popup';
+// 弹窗
 confirmPopup({
     title: '删除',
     des: '确认删除？',
@@ -91,4 +143,7 @@ confirmPopup({
         console.log('确认触发');
     }
 });
+
+// 手动关闭
+confirmPopup.close();
 ```

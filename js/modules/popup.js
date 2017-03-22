@@ -121,8 +121,14 @@ export function popup({
 
     popup.close = function () {
         newPopup.close();
-    }
+    };
+
+    return newPopup;
 }
+
+// 避免还没调用过弹窗，此时弹窗未初始首先调用close报错
+popup.close = function () {
+};
 
 
 export function confirmPopup({
@@ -193,7 +199,14 @@ export function confirmPopup({
 
     });
 
+    confirmPopup.close=function () {
+        popup.close();
+    };
+
     popup.show();
 }
+// 避免还没调用过弹窗，此时弹窗未初始首先调用close报错
+confirmPopup.close=function () {
+};
 
 export default Popup;
