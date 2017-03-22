@@ -2,11 +2,11 @@
 
 # 弹窗
 主要针对移动端。考虑到移动端性能问题，动画主要采用css3  
+
 [demo](http://cqlql.github.io/demo/20170217_弹窗/dist/index.html)  
 
-弹窗Popup模块
-
-[js](https://github.com/cqlql/cqlql.github.io/blob/master/js/modules/popup.js)
+弹窗Popup模块源码：  
+[js](https://github.com/cqlql/cqlql.github.io/blob/master/js/modules/popup.js)  
 [css](https://github.com/cqlql/cqlql.github.io/blob/master/js/modules/popup.js)
 
 

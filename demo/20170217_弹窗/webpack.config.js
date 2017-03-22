@@ -16,8 +16,8 @@ module.exports = function (env, options) {
     return {
         entry: {
             // common:["vue","base"],
-            common:["base.pcss","prism/prism.css","dom/click"],
-            main: ["./src/main.pcss", "./src/main-v2.js"]
+            // common:["dom/click"],
+            main: ["base.pcss","popup.pcss","./src/main.pcss","./src/main-v2.js"]
             // b: ["./app/entry-b1", "./app/entry-b2"]
             // main: ["./src/main.js", "./src/main2.js"]
         },
@@ -33,7 +33,7 @@ module.exports = function (env, options) {
             new HtmlWebpackPlugin({
                 // filename: 'test.html',
                 template: './index.html',
-                chunks: ["common",'main']
+                chunks: ['main']
             }),
             new webpack.optimize.CommonsChunkPlugin({
                 // name: ['common','manifest'],
