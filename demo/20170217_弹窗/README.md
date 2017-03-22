@@ -3,7 +3,7 @@
 主要针对移动端。考虑到移动端性能问题，动画主要采用css3
 
 
-## 1 基础弹窗，多实例，可定制 [demo](https://baidu.com/)
+## 1 基础弹窗，多实例，可定制 [demo](/demo/20170217_弹窗/dist/index.html)
 ``` javascript
 var popup = Popup({
 
