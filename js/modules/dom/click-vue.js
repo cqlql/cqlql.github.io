@@ -16,7 +16,7 @@ let vm = new Vue({
 
 */
 import Vue from 'vue';
-import click from 'click';
+import click from 'dom/click';
 
 
 /*

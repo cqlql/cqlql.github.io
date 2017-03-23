@@ -2,8 +2,8 @@
  * Created by cql on 2017/1/6.
  */
 
-// import drag from 'drag';
-import drag from 'drag-mobile';
+import drag from 'drag';
+// import drag from 'drag-mobile';
 import Animation from 'animation';
 import easing from 'easing';
 

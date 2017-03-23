@@ -919,7 +919,6 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
         // do something...
         return false;
     }
-    return otherFn();
  });
      */
     c.scopeElements = function (targetElem, listener) {

@@ -1,15 +1,24 @@
 /**
  * Created by cql on 2017/1/6.
  *
+ *
+ *
  * 针对pc鼠标事件实现
+ *
+ * 此处使用了点点相加处理，如需更加灵活，请使用drag-base
  *
  * 兼容性：ie9+
  *
  *
  *
+ *
+ *
  */
 
+import dargBase from 'drag-base';
+
 // 计算坐标
+// 点与点相加
 function Figure() {
     let prevX, prevY;
 
@@ -29,34 +38,24 @@ function Figure() {
     };
 }
 
-export default function drag({eDrag, onMove, onDown, onUp}) {
-    eDrag.addEventListener('mousedown', down);
+let figure = new Figure;
 
-    function down(e) {
+export default function drag({eDrag, onMove, onDown=()=>{}, onUp=()=>{}}) {
 
-        if (onDown && onDown(e) === false) return;
-
-        let figure = (new Figure).start(e.pageX, e.pageY);
-
-        document.addEventListener('mousemove', mousemove);
-        document.addEventListener('mouseup', mouseup);
-
-        e.preventDefault();
-
-        function mousemove(event) {
+    dargBase({
+        eDrag,
+        onMove(event){
             figure.move(event.pageX, event.pageY, function (x, y) {
                 onMove({x, y, event});
             });
-        }
+        },
+        onDown(e){
 
-        function mouseup() {
-            if (onUp) onUp();
+            if(onDown()===false)return false;
 
-            //解除所有事件
-            document.removeEventListener('mousemove', mousemove);
-            document.removeEventListener('mouseup', mouseup);
-        }
-    }
+            figure.start(e.pageX, e.pageY);
+
+        },
+        onUp
+    })
 }
-
-

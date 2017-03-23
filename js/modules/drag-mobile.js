@@ -7,11 +7,12 @@
  *
  * 兼容性：ie9+
  *
- * @param onDown 可选。retrun false 可使拖动不触发
  *
  */
+import dargBase from 'drag-base-mobile';
 
 // 计算坐标
+// 点与点相加
 function Figure() {
     let prevX, prevY;
 
@@ -31,50 +32,29 @@ function Figure() {
     };
 }
 
+let figure = new Figure;
 
-export default function dragMobile({eDrag, onMove, onDown, onUp}) {
+// @param onMove 使用点点相加
+// 其他参数见 drag-base-mobile
+export default function dragMobile({eDrag, onMove, onStart=()=>{}, onDown=()=>{}, onUp}) {
+    dargBase({
+        eDrag,
+        onMove(event){
+            let touche = event.touches[0];
 
-    let isStart = false;
-    let figure;
+            figure.move(touche.pageX, touche.pageY, function (x, y) {
+                onMove({x, y, event});
+            });
+        },
+        onDown,
+        onStart(){
 
-    eDrag.addEventListener('touchstart', function (e) {
-        if (onDown && onDown(e) === false) {
-            isStart = false;
-            return;
-        }
-
-        isStart = true;
-
-        let touche = e.touches[0];
-
-        figure = (new Figure).start(touche.pageX, touche.pageY);
-
-    });
-
-    eDrag.addEventListener('touchmove', function (event) {
-        if (isStart === false) return;
-
-        let touche = event.touches[0];
-
-        figure.move(touche.pageX, touche.pageY, function (x, y) {
-            onMove({x, y, event});
-        });
-
-
-    });
-
-    eDrag.addEventListener('touchend', function (e) {
-        if (isStart === false) return;
-        let touches = e.touches;
-
-        if (touches.length === 0) {
-            if (onUp) onUp();
-        }
-        else {
             let touche = e.touches[0];
-            figure = (new Figure).start(touche.pageX, touche.pageY);
-        }
+
+            figure.start(touche.pageX, touche.pageY);
+
+            onStart();
+        },
+        onUp
     });
 }
-
-
