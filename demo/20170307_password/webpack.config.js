@@ -1,7 +1,6 @@
 /*
  * extract-text-webpack-plugin
  * 此处结合了 html-webpack-plugin。能很完美的生成对于的css文件引用
- *
  * */
 
 let path = require('path');
