@@ -1,1 +1,41 @@
 
+body{
+
+}
+
+.box{
+    &{
+        font-size: 14px;
+        margin:10px;
+        border: 1px solid #333;
+        height:200px;
+        width: 300px;
+        position: relative;
+    }
+
+
+    .item{
+
+        &{
+            height: 32px;
+            padding: 3px;
+            position: absolute;
+            left: 0;
+            top: 0;
+        }
+
+        .item-cont{
+            border:1px solid #333;
+            line-height:calc(30 / 14 + 0.06);
+            height:30px;
+            padding: 0 10px;
+        }
+
+
+        .txt{
+
+        }
+    }
+
+
+}

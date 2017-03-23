@@ -18,7 +18,7 @@ module.exports = function (env, options) {
     return {
         entry: {
             // common: ['vue', 'aes', 'base.pcss'],
-            main: ["./src/main.pcss", "./src/main.js"]
+            main: ["base.pcss","./src/main.pcss", "./src/main.js"]
         },
 
         output: {
