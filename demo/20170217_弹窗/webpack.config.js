@@ -9,7 +9,7 @@ let path = require('path');
 const webpack = require('webpack');
 let HtmlWebpackPlugin = require('html-webpack-plugin');
 const ExtractTextPlugin = require('extract-text-webpack-plugin');
-const extractCSS = new ExtractTextPlugin('[name].css');
+const extractCSS = new ExtractTextPlugin('css/[name].css');
 
 module.exports = function (env, options) {
     let dev=!options.define;
