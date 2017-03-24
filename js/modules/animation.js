@@ -1,6 +1,5 @@
 
 
-
 export default class Animation {
 
     constructor() {
@@ -54,3 +53,50 @@ export default class Animation {
         return -c * (t /= d) * (t - 2) + b;
     }
 }
+
+
+// 此处用来方便转 es5语法
+/*function Animation() {
+
+ }
+ Animation.prototype.start=function (callback, duration = 400, complete = ()=>{}) {
+
+ let
+ t = 0,//当前起始次数
+ interval = 20,//帧间隔
+ count = duration / interval,//总次数
+
+ position = 0, // 起始位置
+ endPosition = 100,//目标位置
+ length = endPosition - position, //要走的总长度
+
+ that = this;
+
+ function run() {
+ t++;
+ if (t < count) {
+
+ callback(that.easing(null, t, position, length, count) / endPosition);
+
+ that.stopId = requestAnimationFrame(run, interval);
+ }
+ else {
+ // 最后一次
+
+ callback(1);
+
+ that.stopId = undefined;
+
+ complete();
+ }
+ }
+
+ run();
+ }
+ Animation.prototype.stop=function () {
+ cancelAnimationFrame(this.stopId);
+ }
+ Animation.prototype.easing=function(x, t, b, c, d) {
+ return -c * (t /= d) * (t - 2) + b;
+ }
+ export default Animation;*/

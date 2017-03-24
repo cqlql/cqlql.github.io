@@ -15,30 +15,7 @@
  *
  */
 
-import dargBase from 'drag-base';
-
-// 计算坐标
-// 点与点相加
-function Figure() {
-    let prevX, prevY;
-
-    this.start = function (x, y) {
-        prevX = x;
-        prevY = y;
-
-        return this;
-    };
-
-    this.move = function (x, y, fn) {
-
-        fn(x - prevX, y - prevY);
-
-        prevX = x;
-        prevY = y;
-    };
-}
-
-let figure = new Figure;
+import dargBase,{figure} from 'drag-base';
 
 export default function drag({eDrag, onMove, onDown=()=>{}, onUp=()=>{}}) {
 

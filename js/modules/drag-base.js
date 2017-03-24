@@ -39,3 +39,20 @@ export default function drag({eDrag, onMove, onDown=()=>{}, onUp=()=>{}}) {
 }
 
 
+// 计算坐标
+// 点与点相加
+export let figure={
+    start:function (x, y) {
+        this.prevX = x;
+        this.prevY = y;
+
+        return this;
+    },
+    move:function (x, y, fn) {
+
+        fn(x - this.prevX, y - this.prevY);
+
+        this.prevX = x;
+        this.prevY = y;
+    }
+};
