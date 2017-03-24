@@ -9,7 +9,7 @@ const webpack = require('webpack');
 let HtmlWebpackPlugin = require('html-webpack-plugin');
 const ExtractTextPlugin = require('extract-text-webpack-plugin');
 const extractCSS = new ExtractTextPlugin({
-    filename: '[name].css'
+    filename: 'css/[name].css'
 
 });
 

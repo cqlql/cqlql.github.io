@@ -9,33 +9,60 @@ body{
         margin:10px;
         border: 1px solid #333;
         height:200px;
-        width: 300px;
+        width: 600px;
         position: relative;
     }
 
 
+    &.animate .item{
+        transition: 500ms ease;
+    }
+    &.animate .item.drag{
+        transition-duration:0s;
+    }
+    &.animate .item.move{
+        transition-duration:0s;
+    }
+
     .item{
 
-        &{
             height: 32px;
             padding: 3px;
             position: absolute;
             left: 0;
             top: 0;
-        }
 
-        .item-cont{
+
+    }
+    .item-cont{
+        &{
             border:1px solid #333;
             line-height:calc(30 / 14 + 0.06);
             height:30px;
             padding: 0 10px;
+
+            background-color: #fff;
         }
+
 
 
         .txt{
 
         }
     }
+
+    .item.drag .item-cont{
+        border:1px dashed #333;
+        *{
+            opacity: 0;
+
+        }
+    }
+
+
+
+
+
 
 
 }
