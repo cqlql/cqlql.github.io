@@ -2,29 +2,16 @@
  * Created by cql on 2017/3/22.
  */
 
-import drag, {figure} from 'drag-base';
+import drag, {Figure} from 'drag-base';
 import offsetXY from 'dom/offsetxy';
 import scopeElements from 'dom/scope-elements';
 import htmlToElem from 'dom/html-To-Elem';
 import ExcuInterval from 'Excu-Interval';
 
-
+// 拖动累加计算
+let figure=new Figure;
 // 方向计算
-let dFigure = {
-    start: function (x, y) {
-        this.prevX = x;
-        this.prevY = y;
-
-        return this;
-    },
-    move: function (x, y, fn) {
-
-        fn(x - this.prevX, y - this.prevY);
-
-        this.prevX = x;
-        this.prevY = y;
-    }
-};
+let dFigure = new Figure;
 
 
 /**
@@ -128,6 +115,8 @@ function initArrange() {
         item.style.top = d.y + 'px';
 
     });
+
+    // 动态更正容器高度
     eBox.style.height = currY + itemH + 'px';
 
 }
@@ -137,19 +126,20 @@ function reset(startIndex) {
 
     let startData = data[startIndex];
 
-    if (startIndex === 0) {
-        startData.x = startData.y = 0;
-
-        let
-            d = startData,
-            item = items[d.i];
+    function setElemItem(d,index) {
+        let item = items[d.i];
 
         // 坐标设置到元素
         item.style.left = d.x + 'px';
         item.style.top = d.y + 'px';
 
         // 并更正元素 data-index
-        items[d.i].dataset.index = 0;
+        items[d.i].dataset.index = index;
+    }
+
+    if (startIndex === 0) {
+        startData.x = startData.y = 0;
+        setElemItem(startData,0);
     }
 
     let preEndX = startData.x + startData.w, currY = startData.y;
@@ -169,15 +159,12 @@ function reset(startIndex) {
         }
         preEndX = d.x + d.w;
 
-        let item = items[d.i];
+        setElemItem(d,index);
 
-        // 坐标设置到元素
-        item.style.left = d.x + 'px';
-        item.style.top = d.y + 'px';
-
-        // 并更正元素 data-index
-        items[d.i].dataset.index = index;
     }
+
+    // 动态更正容器高度
+    eBox.style.height = currY + itemH + 'px';
 }
 
 
@@ -230,8 +217,13 @@ drag({
             // 方向
             let isLeft;
             dFigure.move(e.pageX, e.pageY, function (xlen, ylen) {
-                console.log(xlen, ylen);
-                isLeft = xlen < 0;
+                // 角度判断 。当偏向左下角或者右上角时，以y轴判断方向
+                if (Math.atan(ylen / xlen) < -0.2) {
+                    isLeft = ylen < 0;
+                }
+                else {
+                    isLeft = xlen < 0;
+                }
             });
 
             let x = e.pageX - boxXY.left, y = e.pageY - boxXY.top;
@@ -275,7 +267,7 @@ drag({
 
             });
 
-        }, 100);
+        }, 80);
 
     },
     onDown(e){
