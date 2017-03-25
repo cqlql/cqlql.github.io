@@ -1,7 +1,26 @@
 /**
  * Created by cql on 2017/1/6.
- *
- * 更基础的拖动
+ */
+
+
+// 计算坐标
+// 点与点相加
+export function Figure() {
+    this.start=function (x, y) {
+        this.prevX = x;
+        this.prevY = y;
+    };
+
+    this.move=function (x, y, fn) {
+        fn(x - this.prevX, y - this.prevY);
+
+        this.prevX = x;
+        this.prevY = y;
+    };
+}
+
+
+/** 更基础的拖动
  *
  * 针对pc鼠标事件实现
  *
@@ -38,21 +57,3 @@ export default function drag({eDrag, onMove, onDown=()=>{}, onUp=()=>{}}) {
     }
 }
 
-
-// 计算坐标
-// 点与点相加
-export let figure={
-    start:function (x, y) {
-        this.prevX = x;
-        this.prevY = y;
-
-        return this;
-    },
-    move:function (x, y, fn) {
-
-        fn(x - this.prevX, y - this.prevY);
-
-        this.prevX = x;
-        this.prevY = y;
-    }
-};

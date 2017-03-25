@@ -15,9 +15,15 @@
  *
  */
 
-import dargBase,{figure} from 'drag-base';
+import dargBase, {Figure} from 'drag-base';
 
-export default function drag({eDrag, onMove, onDown=()=>{}, onUp=()=>{}}) {
+let figure = new Figure;
+
+export default function drag({
+                                 eDrag, onMove, onDown = () => {
+                                 }, onUp = () => {
+                                 }
+                             }) {
 
     dargBase({
         eDrag,
@@ -28,7 +34,7 @@ export default function drag({eDrag, onMove, onDown=()=>{}, onUp=()=>{}}) {
         },
         onDown(e){
 
-            if(onDown()===false)return false;
+            if (onDown() === false)return false;
 
             figure.start(e.pageX, e.pageY);
 
