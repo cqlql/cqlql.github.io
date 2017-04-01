@@ -41,8 +41,6 @@ export default function drag({eDrag, onMove, onDown=()=>{}, onUp=()=>{}}) {
         document.addEventListener('mousemove', mousemove);
         document.addEventListener('mouseup', mouseup);
 
-        e.preventDefault();
-
         function mousemove(e) {
             onMove(e);
         }

@@ -1104,8 +1104,8 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
      @兼容性 如需支持ie67，需修改其中判断手法，已标注
      */
     c.toFragment = function (newItems) {
-        var fragment = document.createDocumentFragment(),
-           nodes = [];
+        var fragment = document.createDocumentFragment();
+            // nodes = [];
 
         switch (this.getType(newItems)) {
             case 'string':
@@ -1117,24 +1117,30 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
                 }
         }
 
-        if (newItems instanceof HTMLCollection) {
-            // 此种判断手法不支持ie67
-            // HTMLCollection 集合情况。此集合特性将取一个就会少一个
-            for (var i = 0, that, len = newItems.length; i < len; i++) {
-                that = newItems[0];
-                fragment.appendChild(that);
-                nodes.push(that);
+        var newCount = newItems.length;
+
+        /// 1 先处理第一个，识别 HTMLCollection 与 数组、jq对象
+        let getItem = function (i) {
+            return newItems[i]
+        };
+        let item = newItems[0];
+        df.appendChild(item);
+        // nodes[0] = item;
+        // HTMLCollection 情况
+        if (newItems.length < newCount) {
+            getItem = function () {
+                return newItems[0];
             }
         }
-        else {
-            this.each(newItems, function (i, that) {
-                fragment.appendChild(that);
-            });
-            nodes = newItems;
+        /// 2 处理剩下的
+        for (var i = 1; i < newCount; i++) {
+            var item = getItem(i);
+            fragment.appendChild(item);
+            // nodes[i] = item;
         }
 
-        return [fragment, nodes];
-    }
+        return fragment;
+    };
 
     // 紧邻元素之后插入
     /*

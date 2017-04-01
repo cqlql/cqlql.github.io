@@ -23,6 +23,8 @@ export default function dragBaseMobile({eDrag, onMove, onStart=()=>{}, onDown=()
         isStart = true;
 
         onStart(e);
+
+        // e.preventDefault();
     });
 
     eDrag.addEventListener('touchmove', function (e) {

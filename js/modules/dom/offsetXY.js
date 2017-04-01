@@ -13,8 +13,8 @@ export default function offsetXY(elem) {
     let top = 0,
         left = 0;
     do {
-        top += elem.offsetLeft;
-        left += elem.offsetTop;
+        top += elem.offsetTop;
+        left += elem.offsetLeft;
 
         elem = elem.offsetParent;
     } while (elem);
