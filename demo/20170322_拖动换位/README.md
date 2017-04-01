@@ -12,7 +12,7 @@
 
 [demo](https://cqlql.github.io/demo/20170322_拖动换位/dist/index.html)
  
-[drag-exchange.js 模块源码](https://github.com/cqlql/cqlql.github.io/blob/master/js/modules/popup.js)  
+[drag-exchange.js 模块源码](https://github.com/cqlql/cqlql.github.io/blob/master/js/modules/drag-exchange.js)  
 
 
 ### 快速使用
