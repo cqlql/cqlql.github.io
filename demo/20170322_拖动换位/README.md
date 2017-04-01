@@ -107,12 +107,13 @@ let dragExchange = new DragExchange(eBox);
 eBox.addEventListener('click', function (e) {
     if (e.target.classList.contains('del')) {
         
-        // 根据索引删除。此索引与坐标顺序一致
+        // 根据索引删除。此索引与坐标顺序一致，可通过 drag-item 元素的 data-index 获取
         dragExchange.delItem(e.target.parentElement.parentElement.dataset.index);
     }
 });
 
 // 新增项。可增加多项
+// 参数：元素集合，可以是装载元素的数组,或者是jq对象，或者 HTMLCollection
 dragExchange.addItems(htmlToElems(`
 <div class="drag-item">
     <div class="drag-item-cont">
