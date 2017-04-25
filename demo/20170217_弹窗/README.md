@@ -14,6 +14,8 @@
 ## 1 基础弹窗：多实例，灵活定制
 - 默认关闭不销毁元素
 - 调用`popup.show()`之后才会初始化
+- 关于设置宽度，可实例化时进行，也可通过传参给popup.show
+- 关于自定义元素，比如加类名，可在钩子created中进行
 
 
 ### 快速使用
@@ -37,6 +39,10 @@ var popup = Popup({
     // 用于填充弹窗的内容
     // 可选
     content:'',
+    
+    // 设置宽度
+    // 可选
+    width:288
 
     // 点外面关闭, 是否开启
     // 可选，默认开启
@@ -50,6 +56,7 @@ var popup = Popup({
     
     // 初始化之后调用
     // 只会执行一次
+    // 方便对元素进行初始化更改，比如增加class，增加其他自定义元素
     created(){}
     
     //   关闭前调用
@@ -71,10 +78,27 @@ var popup = Popup({
 });
 
 // 弹窗显示
-popup.show();
+popup.show({
+    // 设置宽度
+    // 可选
+    width:288
+});
 
 // 弹窗关闭
 popup.close()
+
+
+// .full-page-popup 元素
+// 可在 created 中自定义操作
+popup.ePopup
+
+// .fgp-main 元素
+// 可在 created 中自定义操作
+popup.ePopupMain
+
+// .fgp-bd 元素
+// 可在 created 中自定义操作。可控制窗口宽度
+popup.ePopupCont
 ```
 
 ## 2 一次性弹窗：简单直接的调用方式

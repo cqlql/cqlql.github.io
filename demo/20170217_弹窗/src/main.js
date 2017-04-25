@@ -11,7 +11,11 @@ import Popup, {popup, confirmPopup} from 'popup';
 let newPopup = new Popup({
     title: 'test标题',
     hasTopBar:false,
+    width:100,
     content: '<p style="padding:10px">基础弹窗，多实例，可复用</p>',
+    created(){
+        console.log('初始化成功');
+    }
 });
 
 // demo2
@@ -24,8 +28,8 @@ disposable.addEventListener('click', function () {
     let popup1 = popup({
         title: '测试标题',
         content: '<p style="padding:10px">test 内容。一次性弹窗<a>再次弹窗</a></p>',
-        beforeShow: function (rElem) {
-            rElem.querySelector('a').addEventListener('click', function () {
+        beforeShow () {
+            this.rootElem.querySelector('a').addEventListener('click', function () {
 
                 popup({
                     title: '第二次标题',

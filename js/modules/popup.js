@@ -9,23 +9,25 @@ import {} from 'popup.pcss';
 class Popup {
 
     constructor({
-        title = '',
-        content = '',
-        outsideClose = true,
-        hasTopBar = true,
-        created = () => {
-        },
-        beforeShow = () => {
-        },
-        beforeClose = () => {
-        },
-        afterClose = () => {
-        }
-    }={}) {
+                    title = '',
+                    content = '',
+                    width,
+                    outsideClose = true,
+                    hasTopBar = true,
+                    created = () => {
+                    },
+                    beforeShow = () => {
+                    },
+                    beforeClose = () => {
+                    },
+                    afterClose = () => {
+                    }
+                } = {}) {
 
         this.title = title;
         this.content = content;
         this.outsideClose = outsideClose;
+        this.width = width;
         this.hasTopBar = hasTopBar;
         this.created = created;
         this.beforeShow = beforeShow;
@@ -36,6 +38,9 @@ class Popup {
         this.no = false;
 
         // 公开
+        this.rootElem = null;// 根元素
+        this.ePopupMain = null;// 居中内容的上一层
+        this.ePopupCont = null;// 内容层，可控制窗口宽度
     }
 
     init() {
@@ -47,7 +52,7 @@ class Popup {
     <div class="fgp-bg"></div>
     <div class="fgp-main">
         <div class="fgp-bd">
-            ${this.hasTopBar?'<div class="fgp-top-bar"><div class="tit">'+this.title+'</div><b class="close">✖</b></div>':''}
+            ${this.hasTopBar ? '<div class="fgp-top-bar"><div class="tit">' + this.title + '</div><b class="close">✖</b></div>' : ''}
             <div class="fgp-cont">${this.content}</div>
         </div>
     </div>
@@ -56,10 +61,15 @@ class Popup {
         let template = document.createElement('div');
         template.innerHTML = html;
 
-        this.ePopup = template.children[0];
-        this.ePopupMain = this.ePopup.children[1];
+        this.rootElem = template.children[0];
+        this.ePopupMain = this.rootElem.children[1];
+        this.ePopupCont = this.ePopupMain.children[0];
 
-        document.body.appendChild(this.ePopup);
+        if (this.width) {
+            this.ePopupCont.style.width = this.width + 'px';
+        }
+
+        document.body.appendChild(this.rootElem);
 
         // 关闭处理
         click(this.ePopupMain, e => {
@@ -80,14 +90,19 @@ class Popup {
         this.created();
     }
 
-    show() {
+    show({width}={}) {
 
         this.init();
 
-        this.beforeShow(this.ePopupMain);
+        if (width) {
+            this.width = width;
+            this.ePopupCont.style.width = width + 'px';
+        }
+
+        this.beforeShow();
 
         setTimeout(() => {
-            this.ePopup.classList.add('show');
+            this.rootElem.classList.add('show');
         }, 0);
 
     }
@@ -96,23 +111,23 @@ class Popup {
         if (this.no || this.beforeClose())return;
         this.no = true;
 
-        this.ePopup.classList.remove('show');
+        this.rootElem.classList.remove('show');
         setTimeout(() => {
             this.no = false;
-            this.afterClose(this.ePopup);
+            this.afterClose(this.rootElem);
         }, 300);
     }
 }
 
 export function popup({
-    title,
-    content,
-    beforeShow = () => {
-    },
-    beforeClose = () => {
-    },
+                          title,
+                          content,
+                          beforeShow = () => {
+                          },
+                          beforeClose = () => {
+                          },
 
-}) {
+                      }) {
 
     let newPopup = new Popup({
         title,
@@ -140,13 +155,13 @@ popup.close = function () {
 
 
 export function confirmPopup({
-    title, des,
-    confirm = () => {
-    },
-    cancel = () => {
-    }
+                                 title, des,
+                                 confirm = () => {
+                                 },
+                                 cancel = () => {
+                                 }
 
-}) {
+                             }) {
 
     let popup,
         eTitle,
@@ -154,14 +169,13 @@ export function confirmPopup({
         gConfirm = confirm,
         gCancel = cancel;
 
-    function init(rootElem) {
+    function init(mainElem) {
         init = function () {
         };
-        console.log('init');
-        eTitle = rootElem.querySelector('.tit');
-        eDes = rootElem.querySelector('.des');
+        eTitle = mainElem.querySelector('.tit');
+        eDes = mainElem.querySelector('.des');
 
-        click(rootElem.querySelector('.btns'), function (e) {
+        click(mainElem.querySelector('.btns'), function (e) {
 
 
             let classList = e.target.classList;
@@ -176,12 +190,12 @@ export function confirmPopup({
     }
 
     confirmPopup = function ({
-        title, des,
-        confirm = () => {
-        },
-        cancel = () => {
-        }
-    }) {
+                                 title, des,
+                                 confirm = () => {
+                                 },
+                                 cancel = () => {
+                                 }
+                             }) {
         gConfirm = confirm;
         gCancel = cancel;
 
@@ -201,20 +215,20 @@ export function confirmPopup({
     <a class="button cancel-btn" href="javascript:;">取消</a>
 </div>
 </div>`,
-        beforeShow: function (rootElem) {
-            init(rootElem);
+        created(){
+            init(this.ePopupMain);
         }
 
     });
 
-    confirmPopup.close=function () {
+    confirmPopup.close = function () {
         popup.close();
     };
 
     popup.show();
 }
 // 避免还没调用过弹窗，此时弹窗未初始首先调用close报错
-confirmPopup.close=function () {
+confirmPopup.close = function () {
 };
 
 export default Popup;
