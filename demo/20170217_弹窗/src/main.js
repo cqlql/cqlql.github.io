@@ -10,6 +10,7 @@ import Popup, {popup, confirmPopup} from 'popup';
 // demo1
 let newPopup = new Popup({
     title: 'test标题',
+    hasTopBar:false,
     content: '<p style="padding:10px">基础弹窗，多实例，可复用</p>',
 });
 

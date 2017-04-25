@@ -16,7 +16,7 @@ module.exports = function (env, options) {
     return {
         entry: {
             // common:["vue","base"],
-            main: ["base.pcss","popup.pcss","./src/main.pcss","./src/main.js"]
+            main: ["base.pcss","./src/main.pcss","./src/main.js"]
         },
 
         output: {
@@ -64,10 +64,10 @@ module.exports = function (env, options) {
                 "node_modules",
 
                 // cqlql.github.io 项目
-                'E:/Dropbox/github/cqlql.github.io/libr',
-                'E:/Dropbox/github/cqlql.github.io/js/modules',
+                'E:/_work/Dropbox/github/cqlql.github.io/libr',
+                'E:/_work/Dropbox/github/cqlql.github.io/js/modules',
                 // 'E:/Dropbox/github/cqlql.github.io/js/modules/dom',
-                'E:/Dropbox/github/cqlql.github.io/css/modules'
+                'E:/_work/Dropbox/github/cqlql.github.io/css/modules'
             ],
 
             extensions: [".js",'.pcss'],

@@ -51,8 +51,6 @@ console.log(router);
 
 Vue.use(VueRouter);
 
-// app.router=router;
-
 const app = new Vue({
     router
 }).$mount('#app');

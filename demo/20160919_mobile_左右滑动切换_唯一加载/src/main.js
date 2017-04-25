@@ -1,39 +1,29 @@
 /**
- * Created by cql on 2016/9/19.
+ * Created by cql on 2017/04/15.
  *
- * 修改于 2017/03/2
+ *
  */
 
-import autoPrefix from 'autoprefix';
-import Slider from 'slider';
+import SliderOneLoad from 'slider-one-load';
 
-let
-    eBox = document.querySelector('.slide-loader'),
 
-    eMove = eBox.children[0],
-    eItems = eMove.children,
-    count = eItems.length,
-    boxW = eBox.clientWidth,
+let eBox=document.querySelector('.ques-test');
+let xhr;
+let sliderOneLoad=new SliderOneLoad({
+    eBox:document.querySelector('.slide-loader'),
+    count:10,
+    // 加载完成后必须执行 complete。
+    onLoad(page,complete){
 
-    // eBtnBox = eBox.children[1],
-    // eBtns = eBtnBox.children,
+        clearTimeout(xhr);
 
-    transform = autoPrefix('transform')[1],
-    transition = autoPrefix('transition')[1],
-    btnHtml = '';
+        xhr=setTimeout(() => {
 
-let slider = new Slider({
-    eBox,
-    count,
-    boxW,
-    index:1,
-    change(prevIndex, index) {
+            eBox.textContent='当前加载页数'+(page+1);
+            complete();
 
-    },
-    complete(){
-        slider.setIndex(1);
-        eMove.style[transition] = '0s';
-        eMove.style[transform] = 'translate3d(-' + boxW + 'px,0,0)';
-
+        }, 1000);
     }
 });
+
+

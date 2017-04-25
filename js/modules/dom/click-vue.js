@@ -35,6 +35,8 @@ Vue.directive('click', {
 
 Vue.directive('click', {
     inserted: function (el, binding, vnode) {
-        click(el, binding.value);
+        click(el, function (e) {
+            binding.value(e, vnode);
+        });
     }
 });

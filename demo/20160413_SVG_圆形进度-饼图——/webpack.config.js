@@ -13,12 +13,15 @@ const extractCSS = new ExtractTextPlugin({
 
 });
 
+let currPath='./src/half_circle/';
+
 module.exports = function (env, options) {
     let dev=!options.define;
+
     return {
         entry: {
-            common: ['vue', 'aes', 'base.pcss'],
-            main: ["./src/main.pcss", "./src/main.js"]
+            common: [ 'base.pcss'],
+            main: [currPath+"main.pcss", currPath+"main.js"]
         },
 
         output: {
@@ -30,12 +33,12 @@ module.exports = function (env, options) {
 
 
             new HtmlWebpackPlugin({
-                filename: 'view.html',
-                template: './src/view.html',
-                chunks: ['manifest', 'common', 'main']
+                filename: 'index.html',
+                template: currPath+'index.html',
+                chunks: ['common', 'main']
             }),
             new webpack.optimize.CommonsChunkPlugin({
-                name: ['common', 'manifest'],
+                name: ['common'],
             }),
 
         ],
@@ -86,12 +89,12 @@ module.exports = function (env, options) {
             modules: [
                 "node_modules",
 
-                'E:/Dropbox/github/cqlql.github.io/js/libr',
+                'E:/_work/Dropbox/github/cqlql.github.io/libr',
 
 
                 // cqlql.github.io 项目
-                'E:/Dropbox/github/cqlql.github.io/js/modules',
-                'E:/Dropbox/github/cqlql.github.io/css/modules',
+                'E:/_work/Dropbox/github/cqlql.github.io/js/modules',
+                'E:/_work/Dropbox/github/cqlql.github.io/css/modules',
 
 
             ],

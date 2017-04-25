@@ -5,7 +5,7 @@
 /*
  html转对象
 
- 返回 HTMLCollection集合
+ 返回 HTMLCollection 集合
 
  */
 export default function htmlToElems(html) {

@@ -1,6 +1,8 @@
 /**
  * 滑动手势判断算法
  *
+ * 虽然代码中使用了X来命名，但不代表只限定X方向，因为只传入一个值，所以传入Y方向的值也就是Y方向了
+ *
  * 移动端最稳定方式
  * 还可以用于pc端(根据情况可能要调节敏感度)
  *
@@ -53,8 +55,8 @@ export default function SwipeBase() {
                 to += track[i][0];
                 time += track[i][1];
 
-                // 3 次将调出
-                if (count - i >= 3) {
+                // 4 次将调出
+                if (count - i >= 4) {
                     break;
                 }
             }
@@ -83,7 +85,7 @@ export default function SwipeBase() {
             // }
 
             /// 敏感判断-新。新的判断方式将支持pc鼠标
-            let f = .1;// 敏感度，越小越敏感
+            let f = .4;// 敏感度，越小越敏感
             let r = to / time;
 
             if (r > f) {

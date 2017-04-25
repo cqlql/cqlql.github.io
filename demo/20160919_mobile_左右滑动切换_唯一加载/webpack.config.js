@@ -15,8 +15,10 @@ module.exports = function (env, options) {
     return {
         entry: {
 
-            common:'base.pcss',
-            main: ["./src/main.pcss", "./src/main.js"]
+            baseCss:'base.pcss',
+            mainCss:'main.pcss',
+            // common:'base.pcss',
+            main: ["main.js"]
         },
 
         output: {
@@ -28,12 +30,13 @@ module.exports = function (env, options) {
 
             new HtmlWebpackPlugin({
                 filename: 'index.html',
-                template: './view.html',
-                chunks: ['manifest','common','main']
+                template: './src/index.html',
+                // chunks: ['common','main']
+                chunks: ['baseCss','mainCss','main']
             }),
-            new webpack.optimize.CommonsChunkPlugin({
-                name: ['common', 'manifest'],
-            }),
+            // new webpack.optimize.CommonsChunkPlugin({
+            //     name: ['common'],
+            // }),
 
         ],
 
@@ -79,10 +82,14 @@ module.exports = function (env, options) {
             modules: [
                 "node_modules",
 
-                // cqlql.github.io 项目
-                'E:/Dropbox/github/cqlql.github.io/js/modules',
-                'E:/Dropbox/github/cqlql.github.io/css/modules'
+                'E:/_work/Dropbox/github/cqlql.github.io/libr',
 
+
+                // cqlql.github.io 项目
+                'E:/_work/Dropbox/github/cqlql.github.io/js/modules',
+                'E:/_work/Dropbox/github/cqlql.github.io/css/modules',
+
+'E:/_work/Dropbox/github/cqlql.github.io/demo/20160919_mobile_左右滑动切换_唯一加载/src'
             ],
 
             extensions: [".js"],

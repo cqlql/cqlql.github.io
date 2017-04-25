@@ -14,7 +14,7 @@ import dargBase from 'drag-base-mobile';
 
 // @param onMove 使用点点相加
 // 其他参数见 drag-base-mobile
-export default function dragMobile({eDrag, onMove, onStart=()=>{}, onDown=()=>{}, onUp}) {
+export default function dragMobile({eDrag, onMove, onStart=()=>{}, onDown=()=>{}, onEnd}) {
     dargBase({
         eDrag,
         onMove(event){
@@ -33,6 +33,6 @@ export default function dragMobile({eDrag, onMove, onStart=()=>{}, onDown=()=>{}
 
             onStart();
         },
-        onUp
+        onEnd
     });
 }

@@ -141,7 +141,6 @@ export default function Slider({
 
         if (isChange) complete();
 
-
     }
 
     // 定时器

@@ -1,5 +1,7 @@
 /**
  * Created by cql on 2017/3/22.
+ *
+ * 拖动换位 v1.0.1
  */
 
 import drag, {Figure} from 'drag-base';
@@ -9,68 +11,6 @@ import htmlToElems from 'dom/html-to-elems';
 import ExcuInterval from 'Excu-Interval';
 
 export default function DragExchange(eBox) {
-
-    /**
-     * 拖动识别
-     *  允许点击的拖动
-     *  支持双击选择
-     *
-     *
-     * @param {function} onDown  可通过 return false 阻止拖动触发
-     * @param {function} onStart  传入的是 down 事件的event。可通过 return false 阻止拖动触发，onDown 之后的阻止
-     * */
-    function dragRecognition({
-                                 eDrag,
-                                 onDown,
-                                 onStart,
-                                 onMove,
-                                 onUp
-                             }) {
-
-        let startX, startY,
-
-            downEvent,
-
-            // 是否开始
-            isStart = false;
-
-
-        drag({
-            eDrag: eBox,
-            onMove(e){
-
-                if (!isStart) {
-                    let lenX = e.pageX - startX,
-                        lenY = e.pageY - startY;
-
-                    if (Math.abs(lenX) > 2 || Math.abs(lenY) > 2) {
-                        isStart = onStart(downEvent) === false ? false : true;
-                    }
-                }
-
-                if (isStart) {
-                    onMove(e);
-
-                }
-            },
-            onDown(e){
-                if (onDown(e) === false) return false;
-
-                isStart = false;
-
-                startX = e.pageX;
-                startY = e.pageY;
-
-                downEvent = e;
-
-            },
-            onUp(){
-                if (isStart) onUp();
-            }
-
-        });
-    }
-
 
     /**
      * 范围判断
@@ -132,6 +72,66 @@ export default function DragExchange(eBox) {
             }
         }
 
+    }
+
+    /**
+     * 拖动识别
+     *  允许点击的拖动
+     *  支持双击选择
+     *
+     * @param {function} onDown  可通过 return false 阻止拖动触发
+     * @param {function} onStart  传入的是 down 事件的event。可通过 return false 阻止拖动触发，onDown 之后的阻止
+     * */
+    function dragRecognition({
+                                 eDrag,
+                                 onDown,
+                                 onStart,
+                                 onMove,
+                                 onUp
+                             }) {
+
+        let startX, startY,
+
+            downEvent,
+
+            // 是否开始
+            isStart = false;
+
+
+        drag({
+            eDrag: eBox,
+            onMove(e){
+
+                if (!isStart) {
+                    let lenX = e.pageX - startX,
+                        lenY = e.pageY - startY;
+
+                    if (Math.abs(lenX) > 2 || Math.abs(lenY) > 2) {
+                        isStart = onStart(downEvent) === false ? false : true;
+                    }
+                }
+
+                if (isStart) {
+                    onMove(e);
+
+                }
+            },
+            onDown(e){
+                if (onDown(e) === false) return false;
+
+                isStart = false;
+
+                startX = e.pageX;
+                startY = e.pageY;
+
+                downEvent = e;
+
+            },
+            onUp(){
+                if (isStart) onUp();
+            }
+
+        });
     }
 
     /**
@@ -203,20 +203,18 @@ export default function DragExchange(eBox) {
 
         count = eItems.length;
 
-
         if (count > 0) {
-            itemH = eItems[0].clientHeight;
             that.initNewItems(0, 0, eItems);
         }
-        else {
-            eBox.innerHTML = '<div class="drag-item"><div class="drag-item-cont">-</div></div>';
-            itemH = eBox.children[0].clientHeight;
-            eBox.innerHTML = '';
-        }
 
-        setTimeout(function () {
-            eBox.classList.add('animate');
-        }, 0);
+        eBox.classList.add('animate');
+
+    }
+
+    // 初始项高，只会执行一次
+    function initItemH() {
+        itemH = eBox.children[0].clientHeight;
+        initItemH=function () { };
     }
 
     // 返回项数据，能对应正确的位置
@@ -294,6 +292,7 @@ export default function DragExchange(eBox) {
      *
      * */
     this.initNewItems = function (dataStartIndex, itemStartIndex, newitems) {
+        initItemH();
 
         let
             preEndX,

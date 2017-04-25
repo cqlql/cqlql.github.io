@@ -5,10 +5,8 @@
 - 目前 drag-box 容器宽度没有考虑变宽，觉得没有必要
 - 所有元素默认坐标位置都为0，重叠隐藏，隐藏使用opacity，这样方能获取高宽，进而计算坐标
 
-  
 
-
-## 两个方向，宽度不一，高度固定 
+## xy方向，宽度不一，高度固定 
 
 [demo](https://cqlql.github.io/demo/20170322_拖动换位/dist/index.html)
  
@@ -139,8 +137,4 @@ dragExchange.addItems(htmlToElems(`
 
 ##### dragExchange.getItems
 返回数组对象，元素集合，不能对应正确的位置
-
-
-
-
 

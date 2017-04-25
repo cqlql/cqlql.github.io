@@ -1,0 +1,220 @@
+
+body{
+    background-color: #eee;
+}
+
+/*
+main{
+    position: fixed;
+    left:0;
+    top:0;
+    bottom: 0;
+    right: 0;
+
+    background-color: rgba(0, 0, 0, 0.6);
+
+
+}
+*/
+
+/*渐变动画，取自Animate.css*/
+@keyframes fadeIn {
+    0% {
+        opacity: 0
+    }
+
+    100% {
+        opacity: 1
+    }
+}
+@keyframes bounceIn {
+    0%,100%,20%,40%,60%,80% {
+        animation-timing-function: cubic-bezier(0.215,.61,.355,1)
+    }
+
+    0% {
+        opacity: 0;
+        transform: scale3d(.3,.3,.3)
+    }
+
+    20% {
+        transform: scale3d(1.1,1.1,1.1)
+    }
+
+    40% {
+        transform: scale3d(.9,.9,.9)
+    }
+
+    60% {
+        opacity: 1;
+        transform: scale3d(1.03,1.03,1.03)
+    }
+
+    80% {
+        transform: scale3d(.97,.97,.97)
+    }
+
+    100% {
+        opacity: 1;
+        transform: scale3d(1,1,1)
+    }
+}
+@keyframes zoomIn {
+    0% {
+        opacity: 0;
+        transform: scale(.9,.9)
+    }
+
+    100% {
+        opacity: 1;
+        transform: scale(1,1)
+    }
+}
+
+
+/*图片放大*/
+.picture-zoom{
+    &{
+        position: relative;
+        width: 320px;
+        height: 600px;
+
+        overflow: hidden;
+        background-color: #000;
+    }
+
+    img{
+        position: absolute;
+        left: 0;
+        top: 0;
+        display: block;
+    }
+}
+.picture-zoom.picture-zoom-popup{
+    &{
+        position: fixed;
+        left: 0;
+        right: 0;
+        top:0;
+        bottom: 0;
+        width:auto;
+        height:auto;
+
+        transition: 0.3s ease;
+        opacity: 0;
+        pointer-events: none;
+
+
+    }
+    &.show{
+
+        opacity: 1;
+        pointer-events: auto;
+    }
+
+    .confirm-btn,
+    .cancel-btn{
+        position: absolute;
+        left: 16px;
+        top: 10px;
+        border: 1px solid #fff;
+        padding: 4px;
+        color: #fff;
+        font-size: 16px;
+        border-radius: 3px;
+        z-index: 1;
+    }
+
+    .confirm-btn{
+        left: auto;
+        right: 16px;
+    }
+}
+
+/*裁剪*/
+.picture-clip{
+    
+
+    &{
+        position: relative;
+        width: 320px;
+        height: 600px;
+
+        overflow: hidden;
+        background-color: #000;
+    }
+
+
+
+    img{
+        position: absolute;
+        left: 0;
+        top: 0;
+        display: block;
+    }
+
+    .picture-clip-mask{
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 0;
+        bottom: 0;
+        background-color: rgba(0, 0, 0, 0.5);
+    }
+
+    .picture-clip-select{
+        position: absolute;
+        background-color: #fff;
+        overflow: hidden;
+    }
+
+}
+/*裁剪-弹窗*/
+.picture-clip.picture-clip-popup{
+    &{
+        position: fixed;
+        left: 0;
+        right: 0;
+        top:0;
+        bottom: 0;
+        width:auto;
+        height:auto;
+
+        transition: 0.3s ease;
+        opacity: 0;
+        pointer-events: none;
+
+
+    }
+    &.show{
+
+        opacity: 1;
+        pointer-events: auto;
+    }
+
+    .confirm-btn,
+    .cancel-btn{
+        position: absolute;
+        left: 16px;
+        top: 10px;
+        border: 1px solid #fff;
+        padding: 4px;
+        color: #fff;
+        font-size: 16px;
+        border-radius: 3px;
+        z-index: 1;
+    }
+
+    .confirm-btn{
+        left: auto;
+        right: 16px;
+    }
+
+
+}
+
+/*裁剪-绑定*/
+
+main{
+    padding: 10px;
+}

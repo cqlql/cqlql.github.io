@@ -3,6 +3,8 @@
  */
 
 import click from 'dom/click';
+import {} from 'popup.pcss';
+
 
 class Popup {
 
@@ -10,6 +12,9 @@ class Popup {
         title = '',
         content = '',
         outsideClose = true,
+        hasTopBar = true,
+        created = () => {
+        },
         beforeShow = () => {
         },
         beforeClose = () => {
@@ -21,12 +26,16 @@ class Popup {
         this.title = title;
         this.content = content;
         this.outsideClose = outsideClose;
+        this.hasTopBar = hasTopBar;
+        this.created = created;
         this.beforeShow = beforeShow;
         this.beforeClose = beforeClose;
         this.afterClose = afterClose;
 
         // 禁止操作 开关。关闭动画进行中标识
         this.no = false;
+
+        // 公开
     }
 
     init() {
@@ -38,9 +47,7 @@ class Popup {
     <div class="fgp-bg"></div>
     <div class="fgp-main">
         <div class="fgp-bd">
-            <div class="fgp-top-bar">
-                <div class="tit">${this.title}</div>
-                <b class="close">✖</b></div>
+            ${this.hasTopBar?'<div class="fgp-top-bar"><div class="tit">'+this.title+'</div><b class="close">✖</b></div>':''}
             <div class="fgp-cont">${this.content}</div>
         </div>
     </div>
@@ -70,6 +77,7 @@ class Popup {
 
         });
 
+        this.created();
     }
 
     show() {

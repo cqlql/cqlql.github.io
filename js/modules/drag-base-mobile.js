@@ -6,12 +6,14 @@
  *
  * @param eDrag 绑定元素
  * @param onMove 移动时触发
- * @param onStart 可选。拖动开始。本来可集成在onDown中，但考虑到多点，其中某点触摸结束，此时需单独重新计算移动，但不需要判断是否要移动
+ * @param onStart 可选。拖动开始。
+ *                onEnd触发前可能会触发多次。只要还有手指在屏幕，松开或者接触都会触发
+ *                 本来可集成在onDown中，但考虑到多点，其中某点触摸结束，此时需单独重新计算移动，但不需要判断是否要移动
  * @param onDown 可选。retrun false 可使拖动不触发
- * @param onUp 可选。拖动结束
+ * @param onEnd 可选。拖动结束
  *
  */
-export default function dragBaseMobile({eDrag, onMove, onStart=()=>{}, onDown=()=>{}, onUp=()=>{}}) {
+export default function dragBaseMobile({eDrag, onMove, onStart=()=>{}, onDown=()=>{}, onEnd=()=>{}}) {
 
     let isStart = false;
 
@@ -40,7 +42,7 @@ export default function dragBaseMobile({eDrag, onMove, onStart=()=>{}, onDown=()
         let touches = e.touches;
 
         if (touches.length === 0) {
-            onUp();
+            onEnd();
         }
         else {
             onStart(e);
