@@ -1,6 +1,7 @@
 
 body{
     background-color: #eee;
+    overflow: hidden;
 }
 
 /*
@@ -213,7 +214,26 @@ main{
 
 }
 
-/*裁剪-绑定*/
+/*旋转*/
+.zoom-rotate{
+    &{
+        position: relative;
+        width: 320px;
+        height: 600px;
+
+        overflow: hidden;
+        background-color: #000;
+    }
+
+    img{
+        position: absolute;
+        left: 0;
+        top: 0;
+        display: block;
+    }
+}
+
+
 
 main{
     padding: 10px;

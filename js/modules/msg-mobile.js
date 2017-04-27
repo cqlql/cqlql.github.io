@@ -3,6 +3,7 @@
  */
 
 import htmlToElems from 'dom/html-to-elems';
+import {click} from 'dom-handle';
 
 
 function debugMsg() {
@@ -21,18 +22,27 @@ opacity: .8;
 max-height:50%;
 overflow: auto;
     "><i style="
-padding: 4px 6px;
+padding: 6px;
+width: 20px;
+height: 20px;
 background-color: red;
 color: #fff;
 position: fixed;
-right: 6px;
-top: 6px;
+right: 5px;
+top: 5px;
 font-style: normal;
+text-align: center;
+    font-size: 22px;
+    line-height: 1;
     ">✖</i>${debugMsg.html}</div>`)[0];
 
-    debugMsg.$el.children[0].onclick = function () {
+    click(debugMsg.$el.children[0],function () {
         debugMsg.close();
-    };
+    });
+    // debugMsg.$el.children[0].onclick = function () {
+    //     debugMsg.$el.innerHTML=123;
+    // debugMsg.close();
+    // };
 
     document.body.appendChild(debugMsg.$el);
 
