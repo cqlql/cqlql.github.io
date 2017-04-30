@@ -37,22 +37,37 @@ function createXHR({
 
     let xhr = new XMLHttpRequest();
 
-    xhr.responseType=dataType;
-
-    xhr.addEventListener('readystatechange', function () {
+    function readystatechange() {
         if (xhr.readyState === 4) {
+            // if (xhr.readyState === xhr.DONE) {
 
             if (xhr.status === 200) {
                 // success(xhr.responseText); 如果不指定responseType，这将是默认值！！！
-                success(xhr.response);
+                let response=xhr.response;
+
+                // android 4.4以下，ajax不会根据后台响应要求自动转换 json为对象。所以只能手动转换
+                if(typeof response==='string'){
+                    success(JSON.parse(response));
+                }
+                else{
+                    success(response);
+                }
 
             } else {
-                error(xhr, xhr.status, arguments);
+                error(xhr, arguments);
             }
 
             complete();
         }
-    }, false);
+    }
+
+    try {
+        xhr.responseType = "json";
+        xhr.onreadystatechange = readystatechange;
+    }
+    catch( e ) {
+        xhr.onload = readystatechange;
+    }
 
     return xhr;
 }
@@ -86,7 +101,7 @@ export function get({
         }
     }
 
-    xhr.open('get', url);
+    xhr.open('GET', url);
 
     //xhr.setRequestHeader("Content-type", contentType + ";charset=utf-8");
 
@@ -108,7 +123,8 @@ export function post({
 
     let xhr=createXHR(arguments[0]);
 
-    xhr.open('post', url);
+
+    xhr.open('POST', url);
 
     xhr.setRequestHeader("Content-type", contentType + ";charset=utf-8");
 

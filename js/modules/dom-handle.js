@@ -102,6 +102,7 @@ export function getWindowScrollLeft() {
 export {
     addCssText,
     addScript,
-    click
+    click,
+    scopeElements
 }
 

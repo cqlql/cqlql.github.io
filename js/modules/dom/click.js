@@ -18,7 +18,9 @@ export default function click(elem, fn) {
         return v;
     }
 
-    if ((getAndroidVersion() && getAndroidVersion() < 4.4) || /iPad|iPhone/.test(navigator.userAgent)) {
+    // if ((getAndroidVersion() && getAndroidVersion() < 4.4) || /iPad|iPhone/.test(navigator.userAgent)) {
+    // 鉴于华为手机的奇葩性质，Android 7 依然click高亮。。。
+    if (/Android|iPad|iPhone/.test(navigator.userAgent)) {
         click = function (elem, fn) {
             let touchcancel;
 
