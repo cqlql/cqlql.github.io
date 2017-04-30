@@ -26,12 +26,12 @@ module.exports = function (env, options) {
             extractCSS,
 
             new HtmlWebpackPlugin({
-                filename: 'view.html',
-                template: './view.html',
-                chunks: ['manifest','common','main']
+                filename: 'index.html',
+                template: './src/index.html',
+                chunks: ['common','main']
             }),
             new webpack.optimize.CommonsChunkPlugin({
-                name: ['common', 'manifest'],
+                name: ['common',],
             }),
 
         ],
@@ -54,7 +54,7 @@ module.exports = function (env, options) {
                     query: {
                         limit: 100,//单位 字节，1千字节(kb)=1024字节(b)
                         publicPath:'../',
-                        name: 'imgs/[name].[hash:7].[ext]'
+                        name: 'imgs/[name].[ext]'
                     }
                 },
                 {
@@ -76,8 +76,8 @@ module.exports = function (env, options) {
                 "node_modules",
 
                 // cqlql.github.io 项目
-                'E:/Dropbox/github/cqlql.github.io/js/modules',
-                'E:/Dropbox/github/cqlql.github.io/css/modules'
+                'E:/_work/Dropbox/github/cqlql.github.io/js/modules',
+                'E:/_work/Dropbox/github/cqlql.github.io/css/modules'
 
             ],
 
