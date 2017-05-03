@@ -1,2 +1,2 @@
 # cqlql.github.io
-blog
+The website.
