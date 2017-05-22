@@ -1,0 +1,107 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="initial-scale=1,user-scalable=no"/>
+    <title>管理</title>
+<link href="css/common.css" rel="stylesheet"><link href="css/main.css" rel="stylesheet"></head>
+<body>
+
+<div class="key-ipt" style="display: none;">
+    <h2>kye</h2>
+    <input type="text">
+    <a href="javascript:void(0)">go</a>
+</div>
+
+<div class="pw-list">
+
+    <div class="lb">
+
+        <div class="user">
+            <div class="ava"><img width="100" src="../imgs/avatar.png"></div>
+            <div class="uname">cql</div>
+        </div>
+        <ul class="list" v-click="itemActive">
+            <!--{{ }}-->
+            <li v-for="(n,i) in list" :data-index="i" :class="{active:i===item.index}">
+                {{ n.name }}
+                <p class="line"></p>
+            </li>
+        </ul>
+        <div class="bot">
+            <a href="javascript:void(0)" class="add-btn" v-click="add"></a>
+        </div>
+
+
+    </div>
+    <div class="rb">
+
+        <template v-if="item">
+            <div class="tit">
+                <div class="op">
+                    <a class="edit" href="javascript:void(0)" v-click="edit"></a>
+                    <a class="del" href="javascript:void(0)" v-click="del"></a>
+                </div>
+                <h2>{{ item.name }}</h2>
+            </div>
+            <p ref="pw" class="pw" v-click="checkPwd">●●●●●●</p>
+            <!--<p class="pw">{{ item.pw}}</p>-->
+            <template v-if="item.des">
+                <p><label>说明</label></p>
+                <p class="des" :inner-text.prop="item.des"></p>
+            </template>
+
+        </template>
+        <div v-else>
+            请添加密码
+        </div>
+        <div class="key">
+            <input type="password" v-model="key" ref="key">
+        </div>
+    </div>
+
+    <div class="full-page-popup" ref="pwop">
+        <div class="fgp-bg"></div>
+        <div class="fgp-main" v-click="clickLiveWin">
+            <div class="fgp-ctn">
+                <div class="pw-op">
+                    <div class="tit">{{popupTitle}}</div>
+
+                    <div class="cont">
+                        <div class="t">
+                            <label for="">名称</label>
+                        </div>
+                        <div class="n">
+                            <input type="text" v-model="itemEdit.name"/>
+                        </div>
+                        <div class="t">
+                            <label for="">密码</label>
+                        </div>
+                        <div class="n">
+                            <input type="text" v-model="itemEdit.pw"/>
+                        </div>
+                        <div class="t">
+                            <label for="">说明</label>
+                        </div>
+                        <div class="n">
+                            <textarea type="text" v-model="itemEdit.des" rows="3" cols="3"></textarea>
+                        </div>
+
+                        <div class="btns">
+                            <a href="javascript:void(0)" class="button save">保存</a>
+                            <a href="javascript:void(0)" class="button gray cancel">取消</a>
+
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<script src="data.js"></script>
+
+
+<script type="text/javascript" src="js/manifest.js"></script><script type="text/javascript" src="js/common.js"></script><script type="text/javascript" src="js/main.js"></script></body>
+</html>

@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <title></title>
+    <meta charset="UTF-8">
+    <meta content="width=device-width,initial-scale=1.0,user-scalable=no" name="viewport" />
+<link href="css/common.css" rel="stylesheet"><link href="css/main.css" rel="stylesheet"></head>
+<body lottery-page>
+
+
+<div class="lottery-page" v-cloak>
+    <div class="title"></div>
+
+    <div class="des">
+        本级还有
+        <span><b>{{chances}}</b></span>
+        次抽奖机会
+    </div>
+
+    <div class="dish">
+        <div class="rotate" :style="{backgroundImage:rotateBg}" ref="rotate"></div>
+        <div class="bg" ref="flicker"></div>
+        <div class="arrows" v-click="start"></div>
+    </div>
+
+    <div class="listshow">
+        <dl>
+            <dt>今日奖学金运气王</dt>
+            <dd>
+                <div class="win" ref="textMarquee">
+                    <ul>
+                        <li v-if="!nominates.length">没有数据</li>
+                        <li v-for="n of nominates">{{n.name}}<br/>{{n.prize}}<br/></li>
+
+                    </ul>
+                </div>
+
+            </dd>
+        </dl>
+    </div>
+
+    <div class="preloader-indicator-modal">
+        <div class="preloader"></div>
+    </div>
+
+</div>
+
+<script type="text/javascript" src="js/common.js"></script><script type="text/javascript" src="js/main.js"></script></body>
+
+</html>

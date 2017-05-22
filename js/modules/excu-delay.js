@@ -61,4 +61,8 @@ export default function ExcuDelay() {
 
     this.clear = clear;
 
+    /*是否正在计时执行*/
+    this.getStatus = function () {
+        return timeId !== null;
+    };
 }

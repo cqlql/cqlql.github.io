@@ -18,7 +18,7 @@ module.exports = function (env, options) {
         entry: {
             // common: ['vue', 'aes', 'base.pcss'],
             // main: ["base.pcss","./src/main.pcss", "./src/main.js"]
-
+            "picture-zoom-popup":"./src/picture-zoom-popup.js",
             common:['vue',"base.pcss"],
             main: ["./src/main.pcss", "./src/main.js"]
         },
@@ -37,9 +37,15 @@ module.exports = function (env, options) {
                 // chunks: ['common', 'main']
                 chunks: ['common', 'main']
             }),
-            new webpack.optimize.CommonsChunkPlugin({
-                name: ['common'],
-            }),
+            // new HtmlWebpackPlugin({
+            //     filename: 'picture-zoom-popup.html',
+            //     template: './src/picture-zoom-popup.html',
+            //     // chunks: ['common', 'main']
+            //     chunks: [ "./src/picture-zoom-popup.js", 'main']
+            // }),
+            // new webpack.optimize.CommonsChunkPlugin({
+            //     name: ['common'],
+            // }),
 
         ],
 
@@ -59,7 +65,7 @@ module.exports = function (env, options) {
                         use: ['css-loader?importLoaders=1', 'postcss-loader'+(dev?'?sourceMap=inline':'')]
                     })
 
-
+                    // use: ['style-loader','css-loader?importLoaders=1', 'postcss-loader'+(dev?'?sourceMap=inline':'')]
 
                 },
                 {

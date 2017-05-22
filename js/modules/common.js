@@ -3,3 +3,13 @@
  *
  * Created by cql on 2017/4/24.
  */
+
+
+/**
+ * 原型扩展
+ * */
+if (!String.prototype.trim) {
+    String.prototype.trim = function () {
+        return this.replace(/(^[\s\uFEFF]*)|(\s*$)/g, '');
+    }
+}

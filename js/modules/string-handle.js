@@ -23,5 +23,5 @@ export function toLowerLetter(index) {
  * */
 export function letterToIndex(letter) {
     return letter.charCodeAt() - 65;
-};
+}
 

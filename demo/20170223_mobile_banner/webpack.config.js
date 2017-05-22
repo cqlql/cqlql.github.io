@@ -14,8 +14,9 @@ const extractCSS = new ExtractTextPlugin('css/[name].css');
 module.exports = function (env, options) {
     return {
         entry: {
-            common:['base.pcss'],
-            main: ["./src/main.pcss","./src/main.js"]
+            // common:['base.pcss'],
+
+            main: ['base.pcss',"./src/main.pcss","./src/main.js"]
         },
 
         output: {
@@ -28,11 +29,11 @@ module.exports = function (env, options) {
             new HtmlWebpackPlugin({
                 filename: 'index.html',
                 template: './src/index.html',
-                chunks: ['common','main']
+                chunks: ['main']
             }),
-            new webpack.optimize.CommonsChunkPlugin({
-                name: ['common',],
-            }),
+            // new webpack.optimize.CommonsChunkPlugin({
+            //     name: ['common',],
+            // }),
 
         ],
 

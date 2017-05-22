@@ -14,11 +14,10 @@ const extractCSS = new ExtractTextPlugin('css/[name].css');
 module.exports = function (env, options) {
     return {
         entry: {
+            common:['base.pcss'],
+            index: ['./src/v1/index.pcss',"./src/v1/index.js"],
+            index2: ['./src/v2/index.pcss',"./src/v2/index.js"],
 
-            baseCss:'base.pcss',
-            mainCss:'main.pcss',
-            // common:'base.pcss',
-            main: ["main.js"]
         },
 
         output: {
@@ -30,9 +29,15 @@ module.exports = function (env, options) {
 
             new HtmlWebpackPlugin({
                 filename: 'index.html',
-                template: './src/index.html',
+                template: './src/v1/index.html',
                 // chunks: ['common','main']
-                chunks: ['baseCss','mainCss','main']
+                chunks: ['common','index']
+            }),
+            new HtmlWebpackPlugin({
+                filename: 'index2.html',
+                template: './src/v2/index.html',
+                // chunks: ['common','main']
+                chunks: ['common','index2']
             }),
             // new webpack.optimize.CommonsChunkPlugin({
             //     name: ['common'],
@@ -89,7 +94,6 @@ module.exports = function (env, options) {
                 'E:/_work/Dropbox/github/cqlql.github.io/js/modules',
                 'E:/_work/Dropbox/github/cqlql.github.io/css/modules',
 
-'E:/_work/Dropbox/github/cqlql.github.io/demo/20160919_mobile_左右滑动切换_唯一加载/src'
             ],
 
             extensions: [".js"],

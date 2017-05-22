@@ -17,7 +17,8 @@ import autoPrefix from 'dom/autoprefix';
 import Swipe from 'swipe';
 import Animation from 'animation';
 
-import {} from 'slide-loader.pcss';
+import {} from 'preloader-mobile.pcss';
+import {} from 'slider-one-load.pcss';
 
 let transform = autoPrefix('transform')[1],
     transition = autoPrefix('transition')[1];
@@ -149,7 +150,7 @@ class SliderOneLoadBase {
             this.isChange = false;
         }
     }
-
+    // 执行改变
     change(i) {
         this.isChange = true;
         this.onChange(this.currIndex, i);

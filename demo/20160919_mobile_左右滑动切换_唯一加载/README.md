@@ -1,4 +1,26 @@
 
+
+- 索引从0起始
+
+
+
+
+## 直接加载 sliderOneLoad.load(index)
+初屏可用
+
+
+
+
+
+
+
+
+
+
+  
+---
+ 
+
 - 跟数据没有关系，只是单纯的切换动画。输出当前页索引
 
 # SliderOneLoadBase
@@ -35,8 +57,6 @@ constructor({
 
 ## 加载新项情况回调 SliderOneLoadBase.onLoad(index)
 - 有动画则在动画结束后回调。没动画则直接回调
-
-
 
 
 ## 只要动画结束就将回调 SliderOneLoadBase.onAnimeEnd()

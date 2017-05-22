@@ -125,6 +125,7 @@ class Popup {
 export function popup({
                           title,
                           content,
+                          hasTopBar,
                           beforeShow = () => {
                           },
                           beforeClose = () => {
@@ -135,6 +136,7 @@ export function popup({
     let newPopup = new Popup({
         title,
         content,
+        hasTopBar,
         beforeShow,
         beforeClose,
         afterClose(rootElem){
@@ -193,7 +195,8 @@ export function confirmPopup({
     }
 
     confirmPopup = function ({
-                                 title, des,
+                                 title,
+                                 des,
                                  confirm = () => {
                                  },
                                  cancel = () => {
@@ -202,8 +205,8 @@ export function confirmPopup({
         gConfirm = confirm;
         gCancel = cancel;
 
-        eTitle.textContent = title;
-        eDes.textContent = des;
+        eTitle.innerHTML = title;
+        eDes.innerHTML = des;
 
         popup.show();
 

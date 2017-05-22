@@ -1120,10 +1120,10 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
         var newCount = newItems.length;
 
         /// 1 先处理第一个，识别 HTMLCollection 与 数组、jq对象
-        let getItem = function (i) {
+        var getItem = function (i) {
             return newItems[i]
         };
-        let item = newItems[0];
+        var item = newItems[0];
         df.appendChild(item);
         // nodes[0] = item;
         // HTMLCollection 情况
@@ -1133,8 +1133,8 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
             }
         }
         /// 2 处理剩下的
-        for (var i = 1; i < newCount; i++) {
-            var item = getItem(i);
+        for (var i = 1,item; i < newCount; i++) {
+            item = getItem(i);
             fragment.appendChild(item);
             // nodes[i] = item;
         }

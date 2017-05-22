@@ -2,12 +2,15 @@
  * Created by cql on 2017/4/21.
  */
 
+import {} from 'common-mobile';
 import htmlToElems from 'dom/html-to-elems';
 import {click} from 'dom-handle';
 
+import {} from 'msg-mobile.pcss';
+
 
 function debugMsg() {
-    removeElem();
+    debugMsg.removeElem();
     debugMsg.html += '<p>' + ([].join.call(arguments, ' ')) + '</p>';
 
     debugMsg.$el = htmlToElems(`<div style="
@@ -36,7 +39,7 @@ text-align: center;
     line-height: 1;
     ">✖</i>${debugMsg.html}</div>`)[0];
 
-    click(debugMsg.$el.children[0],function () {
+    click(debugMsg.$el.children[0], function () {
         debugMsg.close();
     });
     // debugMsg.$el.children[0].onclick = function () {
@@ -49,16 +52,35 @@ text-align: center;
     // 滚动到底部
     debugMsg.$el.scrollTop = debugMsg.$el.scrollHeight;
 }
-
 debugMsg.html = '';
 debugMsg.close = function () {
-    removeElem();
-    debugMsg.html = '';
+    this.removeElem();
+    this.html = '';
+};
+debugMsg.removeElem = function () {
+    this.$el && this.$el.remove();
+    this.$el = null;
 };
 
-function removeElem() {
-    debugMsg.$el && debugMsg.$el.remove();
-    debugMsg.$el = null;
+
+function simpleMsg(msgCont) {
+
+    let msg = document.createElement('div');
+    msg.className='simple-msg';
+    msg.textContent=msgCont;
+    document.body.appendChild(msg);
+
+    msg.addEventListener("transitionend", function () {
+        msg.remove();
+    });
+    msg.addEventListener("webkitTransitionEnd", function () {
+        msg.remove();
+    });
+
+    setTimeout(function () {
+        msg.classList.add('hide');
+    }, 1200);
+
 }
 
-export {debugMsg};
+export {debugMsg as dMsg, simpleMsg};

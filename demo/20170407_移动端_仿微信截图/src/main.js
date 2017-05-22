@@ -12,12 +12,9 @@ import {
     ZoomTouch
 } from './zoom-touch.js';
 // import {pictureZoomPopup,PictureZoom,pictureClipPopup,PictureClipPopup,PictureClip,ZoomTouch} from './main3.js';
-import {imgSizeComplete} from 'dom/img-handle';
-import autoPrefix from 'dom/autoprefix'
-import click from 'dom/click'
+
+import {imgSizeComplete,autoPrefix,htmlToElems,toFragment,click,offsetXY} from 'dom-handle'
 import {debugMsg} from 'msg-mobile'
-import htmlToElems from 'dom/html-to-elems'
-import toFragment from 'dom/to-fragment'
 
 
 let transform = autoPrefix('transform')[1];
