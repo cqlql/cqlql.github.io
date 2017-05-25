@@ -20,7 +20,7 @@
 
 ### 快速使用
 
-``` javascript
+```js
 import Popup from 'popup';
 let newPopup = new Popup({
     title: '测试标题',
@@ -29,7 +29,7 @@ let newPopup = new Popup({
 ```
 
 ### 实例选项
-``` javascript
+```js
 var popup = Popup({
 
     // 标题
