@@ -1,0 +1,325 @@
+
+
+/*# 重置 */
+body,select{margin:0;}
+p,input,td,textarea,ul,dl,dt,dd,menu{padding:0;margin:0;}
+/*h1,h2,h3,h4,h5,h6{margin:0;font-size:inherit;font-weight:normal;}*/
+ul{list-style-type:none;}
+table{border-collapse:collapse;}
+/*input,textarea,select{outline:none;}*/
+body{color:#333;font:12px/1.2 Consolas,Microsoft Yahei,arial,SimSun,tahoma,Srial,helvetica;}
+a{color:#333;text-decoration:none;}
+/*# 公共 */
+.cf:after {
+    content: '';
+    display: block;
+    height: 0;
+    overflow: hidden;
+    clear: both;
+}
+/*ff_st,.ff_st a{font-family:SimSun,\5B8B\4F53;}*/
+/*.ff_wryh,.ff_wryh a{font-family:Microsoft Yahei,\5FAE\8F6F\96C5\9ED1;}*/
+
+
+
+
+
+:root {
+  /*声明字体*/;
+
+
+}
+
+/*图标引用*/
+
+@font-face {
+    font-family: 'iconfont';
+    src: url(../fonts/iconfont.ttf) format('truetype');
+}
+
+.classes-estimate-editor{}
+
+.classes-estimate-editor .cee-edit{
+  font-size: 16px;
+  position: fixed;
+  width: 100%;
+  top:0;
+  bottom:50px;
+  padding: 8px;
+  box-sizing: border-box;
+  overflow: auto;;
+
+
+}
+
+.classes-estimate-editor .cee-edit .audio{
+  color: #2dc990;
+  font-size: 20px;
+  margin: 6px 2px;
+  display: inline-block;;
+
+
+}
+
+.classes-estimate-editor .cee-edit .audio:before{
+  font-family: "iconfont";
+  font-size: 16px;
+  font-style: normal;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  display: inline-block;
+  content: '\E611';
+  background-color: #f6f6f6;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  text-align: center;
+  padding: 4px 0;
+  box-sizing: border-box;
+  font-size: 26px;
+  color: #2dc990;;
+
+
+}
+
+.classes-estimate-editor .cee-edit .merit,.classes-estimate-editor .cee-edit .suggest{
+  /*text-indent: 46px;*/
+  position: relative;
+  padding: 8px 3px;
+  outline: none;
+  color: #2dc990;;
+
+
+}
+
+/*div:first-child{
+                text-indent: 46px;
+            }*/
+
+.classes-estimate-editor .cee-edit .merit:before,.classes-estimate-editor .cee-edit .suggest:before{
+  content: '\4F18\70B9';
+  /*position: absolute;
+                left:0;*/
+  /*top:0;*/
+  background-color: #2dc990;
+  color:#fff;
+  text-indent: 0;
+  padding: 0px 3px;
+  border-radius: 2px;
+  margin-right: 2px;;
+
+
+}
+
+.classes-estimate-editor .cee-edit .suggest{
+  color: #ff8b8b;;
+
+
+}
+
+.classes-estimate-editor .cee-edit .suggest:before{
+  content: '\5EFA\8BAE';
+  background-color: #ff8b8b;;
+
+
+}
+
+.classes-estimate-editor .cee-edit .suggest .audio{
+  color: #ff8b8b;;
+
+
+}
+
+.classes-estimate-editor .cee-edit .suggest .audio:before{
+  color: #ff8b8b;;
+
+
+}
+
+.classes-estimate-editor .cee-edit .general{
+  border: 1px dashed #ccc;
+  border-radius: 3px;
+  outline:none;
+  /*padding:3px;*/
+  padding: 3px 5px;
+  margin: 8px 0;;
+
+
+}
+
+.classes-estimate-editor .cee-edit .general.none:before{
+  content: '\8FC7\7A0B\8BB0\5F55';
+  color: #ccc;;
+
+
+}
+
+.classes-estimate-editor .cee-edit .general.have:before,.classes-estimate-editor .cee-edit .general:focus:before{
+  display: none;;
+
+
+}
+
+.classes-estimate-editor .cee-edit .general .audio{
+  color: #666;;
+
+
+}
+
+.classes-estimate-editor .cee-edit .general .audio:before{
+  color: #666;;
+
+
+}
+
+.classes-estimate-editor .cee-bottom-tool-bar{
+  background-color: #def6ff;
+  height: 52px;
+  width:100%;
+  position: fixed;
+  bottom:0;;
+
+
+}
+
+.classes-estimate-editor .cee-bottom-tool-bar .group{
+  float: right;
+  width: 60%;;
+
+
+}
+
+.classes-estimate-editor .cee-bottom-tool-bar .group .item{
+  width: 33.33%;;
+
+
+}
+
+.classes-estimate-editor .cee-bottom-tool-bar .group:first-child{
+  float: left;
+  width: 40%;
+  background-color: #effbff;
+  height: 52px;;
+
+
+}
+
+.classes-estimate-editor .cee-bottom-tool-bar .group:first-child .item{
+  width: 50%;;
+
+
+}
+
+.classes-estimate-editor .cee-bottom-tool-bar .item{
+  float: left;
+  font-family: "iconfont";
+  font-size: 16px;
+  font-style: normal;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;;
+
+
+}
+
+.classes-estimate-editor .cee-bottom-tool-bar .item i{
+  color: #999;
+  border: 1px solid #999;
+  border-radius: 50%;
+  width:30px;
+  height: 30px;
+  display: block;
+  font-size: 18px;
+  /*text-align: center;*/
+  box-sizing: border-box;
+  line-height: 1;
+  margin: 5px auto 1px;
+  font-style: normal;;
+
+
+}
+
+.classes-estimate-editor .cee-bottom-tool-bar .item label{
+  display: block;
+  font-size: 12px;
+  text-align: center;
+  color: #999;;
+
+
+}
+
+.classes-estimate-editor .cee-bottom-tool-bar .merit-btn{
+  padding: 3px 5px;;
+
+
+}
+
+.classes-estimate-editor .cee-bottom-tool-bar .merit-btn.active{
+  border-color: #50d89e;
+  background-color: #50d89e;
+  color: #fff;;
+
+
+}
+
+.classes-estimate-editor .cee-bottom-tool-bar .suggest-btn{
+  padding: 5px 5px;;
+
+
+}
+
+.classes-estimate-editor .cee-bottom-tool-bar .suggest-btn.active{
+  border-color: #ffa6a6;
+  background-color: #ffa6a6;
+  color: #fff;;
+
+
+}
+
+.classes-estimate-editor .cee-bottom-tool-bar .enamel-btn{
+  padding:3px 5px;;
+
+
+}
+
+.classes-estimate-editor .cee-bottom-tool-bar .camera-btn{
+  padding:5px;;
+
+
+}
+
+.classes-estimate-editor .cee-bottom-tool-bar .voice-btn{
+  padding:5px;;
+
+
+}
+
+
+/*简单消息*/
+.simple-msg{
+
+    position: fixed;
+    left:50%;
+    bottom: 10%;
+    -webkit-transform:translateX(-50%);
+            transform:translateX(-50%);
+
+    color: #fff;
+    background-color: rgba(0, 0, 0, .7);
+    padding: 4px 10px;
+    font-size: 14px;
+    line-height: 1.2;
+
+    max-width: 86%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+
+    pointer-events: none;
+
+    transition: 0.6s ease;
+}
+.simple-msg.hide{
+
+    opacity: 0;
+
+}
+

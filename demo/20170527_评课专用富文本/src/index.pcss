@@ -1,0 +1,217 @@
+@import "./root.pcss";
+
+/*图标引用*/
+@font-face {
+    font-family: 'iconfont';
+    src: url('./iconfont.ttf') format('truetype');
+}
+
+
+.classes-estimate-editor{
+
+    &{
+
+    }
+
+    .cee-edit{
+        font-size: 16px;
+        position: fixed;
+        width: 100%;
+        top:0;
+        bottom:50px;
+        padding: 8px;
+        box-sizing: border-box;
+        overflow: auto;
+
+        .audio{
+            color: #2dc990;
+            font-size: 20px;
+            margin: 6px 2px;
+            display: inline-block;
+            &:before{
+                @apply --iconfont;
+                display: inline-block;
+                content: '\e611';
+                background-color: #f6f6f6;
+                width: 38px;
+                height: 38px;
+                border-radius: 50%;
+                text-align: center;
+                padding: 4px 0;
+                box-sizing: border-box;
+                font-size: 26px;
+                color: #2dc990;
+            }
+        }
+
+        .merit,.suggest{
+
+            &{
+                /*text-indent: 46px;*/
+                position: relative;
+                padding: 8px 3px;
+                outline: none;
+                color: #2dc990;
+            }
+
+            /*div:first-child{
+                text-indent: 46px;
+            }*/
+
+            &:before{
+                content: '优点';
+                /*position: absolute;
+                left:0;*/
+                /*top:0;*/
+                background-color: #2dc990;
+                color:#fff;
+                text-indent: 0;
+                padding: 0px 3px;
+                border-radius: 2px;
+                margin-right: 2px;
+            }
+        }
+        .suggest{
+            color: #ff8b8b;
+            &:before{
+                content: '建议';
+                background-color: #ff8b8b;
+            }
+
+            .audio{
+                color: #ff8b8b;
+                &:before{
+                    color: #ff8b8b;
+                }
+            }
+        }
+        .general{
+
+            &{
+                border: 1px dashed #ccc;
+                border-radius: 3px;
+                outline:none;
+                /*padding:3px;*/
+                padding: 3px 5px;
+                margin: 8px 0;
+            }
+
+
+            &.none:before{
+                content: '过程记录';
+                color: #ccc;
+
+            }
+            &.have,
+            &:focus{
+                &:before{
+                    display: none;
+
+                }
+            }
+
+            .audio{
+                color: #666;
+                &:before{
+                    color: #666;
+                }
+            }
+
+        }
+
+
+    }
+
+    .cee-bottom-tool-bar{
+        --h: 52px;
+        &{
+            background-color: #def6ff;
+            height: var(--h);
+            width:100%;
+
+            position: fixed;
+            bottom:0;
+        }
+
+        .group{
+            float: right;
+            width: 60%;
+
+            .item{
+                width: 33.33%;
+            }
+        }
+        .group:first-child{
+            float: left;
+            width: 40%;
+            background-color: #effbff;
+            height: var(--h);
+            .item{
+                width: 50%;
+            }
+        }
+        .item{
+            float: left;
+
+
+            @apply --iconfont;
+
+
+            i{
+                color: #999;
+                border: 1px solid #999;
+                border-radius: 50%;
+                width:30px;
+                height: 30px;
+                display: block;
+
+                font-size: 18px;
+                /*text-align: center;*/
+                box-sizing: border-box;
+                line-height: 1;
+                margin: 5px auto 1px;
+                font-style: normal;
+
+            }
+            
+            label{
+                display: block;
+                font-size: 12px;
+                text-align: center;
+                color: #999;
+            }
+        }
+
+        .merit-btn{
+
+            padding: 3px 5px;
+
+            &.active{
+
+                border-color: #50d89e;
+                background-color: #50d89e;
+                color: #fff;
+            }
+
+        }
+        .suggest-btn{
+            padding: 5px 5px;
+            &.active{
+
+                border-color: #ffa6a6;
+                background-color: #ffa6a6;
+                color: #fff;
+            }
+        }
+        .enamel-btn{
+            padding:3px 5px;
+        }
+        .camera-btn{
+            padding:5px;
+        }
+        .voice-btn{
+            padding:5px;
+        }
+
+    }
+}

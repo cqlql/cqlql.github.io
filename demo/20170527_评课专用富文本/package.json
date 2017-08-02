@@ -1,0 +1,33 @@
+{
+  "name": "work_test",
+  "version": "1.0.0",
+  "description": "A Vue.js project",
+  "author": "cql <cql.ql@qq.com>",
+  "private": true,
+  "scripts": {
+    "dev_new": "webpack -w -d --env=d,ios,new",
+    "dev_new2": "webpack -w --env=d,ios,new",
+    "dev_old": "webpack -w -d --env=d,ios,old",
+    "dev_app_new": "webpack -w --env=,,new",
+    "dev_app_old": "webpack -w --env=,,old",
+    "buildnew":"webpack -w -p --env=,,new",
+    "buildold":"webpack -w -p --env=,,old",
+    "buildnew_ios":"webpack -w -p --env=,ios,new",
+    "buildold_ios":"webpack -w -p --env=,ios,old"
+  },
+  "dependencies": {
+
+  },
+  "devDependencies": {
+
+  },
+  "engines": {
+    "node": ">= 4.0.0",
+    "npm": ">= 3.0.0"
+  },
+  "browserslist": [
+    "> 1%",
+    "last 2 versions",
+    "not ie <= 8"
+  ]
+}

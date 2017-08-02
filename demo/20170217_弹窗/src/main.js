@@ -3,7 +3,10 @@
  */
 
 
-import Popup, {popup, confirmPopup} from 'popup';
+import {Popup, popup, confirmPopup} from 'popup';
+import 'css-base/dist/button.min.css'
+import 'popup/dist/full-page-popup.min.css'
+import 'popup/dist/confirm-popup.min.css'
 // import {} from 'prism/prism.css';
 // import {} from 'prism/prism.js';
 

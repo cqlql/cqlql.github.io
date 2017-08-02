@@ -10,13 +10,21 @@ let HtmlWebpackPlugin = require('html-webpack-plugin');
 const ExtractTextPlugin = require('extract-text-webpack-plugin');
 const extractCSS = new ExtractTextPlugin('css/[name].css');
 
+
 module.exports = function (env, options) {
+
+
+    let params=env?env.split(','):[];
+    let dev = params[0] === 'd';
+    let ios = params[1] === 'ios';
+    let old=params[2] === 'old';
+
     return {
         entry: {
-            common:['base.pcss'],
-            index: ['./src/v1/index.pcss',"./src/v1/index.js"],
-            index2: ['./src/v2/index.pcss',"./src/v2/index.js"],
 
+
+            // common:'base.pcss',
+            index: ['base.css','./src/index.pcss', 'common-mobile',"./src/index.js"].concat(dev ? ["./src/index_data_.js"] : []),
         },
 
         output: {
@@ -28,15 +36,9 @@ module.exports = function (env, options) {
 
             new HtmlWebpackPlugin({
                 filename: 'index.html',
-                template: './src/v1/index.html',
+                template: './src/index.html',
                 // chunks: ['common','main']
-                chunks: ['common','index']
-            }),
-            new HtmlWebpackPlugin({
-                filename: 'index2.html',
-                template: './src/v2/index.html',
-                // chunks: ['common','main']
-                chunks: ['common','index2']
+                chunks: ['index']
             }),
             // new webpack.optimize.CommonsChunkPlugin({
             //     name: ['common'],
@@ -54,9 +56,6 @@ module.exports = function (env, options) {
                 },
                 {
                     test: /\.(css|pcss)$/,
-                    // use: ['style-loader',
-                    //     'css-loader',
-                    //     'postcss-loader'],
                     use: extractCSS.extract(['css-loader','postcss-loader']),
                 },
                 {
@@ -65,7 +64,7 @@ module.exports = function (env, options) {
                     query: {
                         limit: 100,//单位 字节，1千字节(kb)=1024字节(b)
                         publicPath:'../',
-                        name: 'imgs/[name].[hash:7].[ext]'
+                        name: 'imgs/[name].[ext]'
                     }
                 },
                 {
@@ -74,13 +73,11 @@ module.exports = function (env, options) {
                     query: {
                         limit: 100,
                         publicPath:'../',
-                        name: 'fonts/[name].[hash:7].[ext]'
+                        name: 'fonts/[name].[ext]'
                     }
                 }
             ]
         },
-
-
         // 分解
         resolve: {
 
@@ -88,17 +85,21 @@ module.exports = function (env, options) {
             modules: [
                 "node_modules",
 
-                'E:/_work/Dropbox/github/cqlql.github.io/libr',
-
-
-                // cqlql.github.io 项目
                 'E:/_work/Dropbox/github/modules/base-libs/css',
                 'E:/_work/Dropbox/github/modules/base-libs/js',
                 'E:/_work/Dropbox/github/modules/base-libs/js/dom',
 
+// 'E:/_work/Dropbox/github/cqlql.github.io/demo/20170428_paginator/src'
             ],
 
             extensions: [".js"],
+
+            alias: {
+                // 'j':'./src/js',
+
+                // webpack -p 情况使用 mim 包
+                'vue$': dev ? 'vue/dist/vue.js' : 'vue/dist/vue.min.js'
+            },
 
 
         }
