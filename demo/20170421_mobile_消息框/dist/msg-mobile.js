@@ -1,1 +1,368 @@
-!function(e){function t(o){if(n[o])return n[o].exports;var i=n[o]={i:o,l:!1,exports:{}};return e[o].call(i.exports,i,i.exports,t),i.l=!0,i.exports}var n={};t.m=e,t.c=n,t.i=function(e){return e},t.d=function(e,n,o){t.o(e,n)||Object.defineProperty(e,n,{configurable:!1,enumerable:!0,get:o})},t.n=function(e){var n=e&&e.__esModule?function(){return e.default}:function(){return e};return t.d(n,"a",n),n},t.o=function(e,t){return Object.prototype.hasOwnProperty.call(e,t)},t.p="",t(t.s=14)}([function(e,t,n){"use strict";function o(e){var t=document.createElement("div");return t.innerHTML=e,t.children}Object.defineProperty(t,"__esModule",{value:!0}),t.default=o},function(e,t,n){"use strict";var o=n(13);window.simpleMsg=o.simpleMsg,(0,o.simpleMsg)("消息123！！")},function(e,t){},function(e,t,n){"use strict";n(4).isMobileIOS&&(document.body.ontouchstart=function(){}),String.prototype.trim||(String.prototype.trim=function(){return this.replace(/(^[\s\uFEFF]*)|(\s*$)/g,"")}),Element.prototype.remove||(Element.prototype.remove=function(){this.parentNode.removeChild(this)})},function(e,t,n){"use strict";function o(){r?t.deviceCallback=o=function(e,t,n){void 0===n?window[e[0]][e[1]]():window[e[0]][e[1]](n)}:i&&(t.deviceCallback=o=function(e,t,n){void 0!==t&&(window.location.href=void 0===n?t:t+":"+encodeURIComponent(n))}),o.apply(void 0,arguments)}Object.defineProperty(t,"__esModule",{value:!0}),t.deviceCallback=o;var i=t.isIOS=navigator.appVersion.indexOf("Mac OS")>-1,r=(t.isMobileIOS=/iPad|iPhone/.test(navigator.userAgent),t.isAndroid=/Android/.test(navigator.userAgent));t.isWX=/micromessenger/i.test(navigator.userAgent)},function(e,t,n){"use strict";function o(e){return e&&e.__esModule?e:{default:e}}function i(e){var t=0,n=0;if(e===document)return{top:t,left:n};for(;;){t+=e.offsetTop,n+=e.offsetLeft;var o=e;if(null===(e=e.offsetParent)){"BODY"!==o.tagName&&(t+=r(),n+=u());break}}return{top:t,left:n}}function r(){return t.getWindowScrollTop=r="pageYOffset"in window?function(){return pageYOffset}:function(){return document.documentElement.scrollTop},r()}function u(){return t.getWindowScrollLeft=u="pageXOffset"in window?function(){return pageXOffset}:function(){return document.documentElement.scrollLeft},u()}function c(e,t,n){function o(){if(!r)return i.complete||i.width?void t(i):void setTimeout(o,100)}var i=new Image,r=!1;i.onerror=function(){n&&n(i),r=!0},i.src=e,o()}Object.defineProperty(t,"__esModule",{value:!0}),t.scopeElements=t.click=t.addScript=t.addCssText=void 0,t.offsetXY=i,t.getWindowScrollTop=r,t.getWindowScrollLeft=u,t.imgSizeComplete=c;var d=n(6),l=o(d),s=n(7),f=o(s),a=n(8),p=(o(a),n(9)),v=o(p),m=n(0),h=(o(m),n(10)),g=(o(h),n(11)),y=(o(g),n(12)),b=o(y);t.addCssText=l.default,t.addScript=f.default,t.click=v.default,t.scopeElements=b.default},function(e,t,n){"use strict";function o(e){var t=document.createElement("style");"textContent"in t?(t.textContent=e,document.head.appendChild(t)):(t.setAttribute("type","text/css"),t.styleSheet.cssText=e,document.body.appendChild(t))}Object.defineProperty(t,"__esModule",{value:!0}),t.default=o},function(e,t,n){"use strict";function o(e){var t=arguments.length>1&&void 0!==arguments[1]?arguments[1]:function(){},n=document.createElement("script");n.src=e,"onload"in n?n.onload=function(){t()}:n.attachEvent("onreadystatechange",function(){"complete"!==n.readyState&&"loaded"!==n.readyState||t()}),(document.head||document.body).appendChild(n)}Object.defineProperty(t,"__esModule",{value:!0}),t.default=o},function(e,t,n){"use strict";function o(e){var t=o[e];if(void 0!==t)return t;for(var n,i=e[0],r=i.toUpperCase(),u=["ms"+r,"Moz"+r,"webkit"+r,i],c=["-ms-","-Moz-","-webkit-",""],d=document.body.style,l=e.replace(/-\w/g,function(e){return e[1].toUpperCase()}).substr(1),s=u.length;s--;)if((n=u[s]+l)in d){t=[c[s]+e,n];break}return t=t||null,o[e]=t,t}Object.defineProperty(t,"__esModule",{value:!0}),t.default=o},function(e,t,n){"use strict";function o(e,n){/Android|iPad|iPhone/.test(navigator.userAgent)?t.default=o=function(e,t){function n(e){r||t.call(this,e)}function o(){r=!1}function i(){r=!0}var r=void 0;return e.addEventListener("touchend",n),e.addEventListener("touchstart",o),e.addEventListener("touchmove",i),function(){e.removeEventListener("touchend",n),e.removeEventListener("touchstart",o),e.removeEventListener("touchmove",i)}}:t.default=o=function(e,t){return e.addEventListener("click",t),function(){e.removeEventListener("click",t)}},o(e,n)}Object.defineProperty(t,"__esModule",{value:!0}),t.default=o},function(e,t,n){"use strict";function o(e,t){function n(){++r===o&&t()}for(var o=e.length,i=void 0,r=0,u=o;u--;)i=e[u],i.complete?n():(i.onload=function(){n()},i.onerror=function(){n()})}Object.defineProperty(t,"__esModule",{value:!0}),t.default=o},function(e,t,n){"use strict";function o(e,t){function n(e){++i===o&&t()}for(var o=e.length,i=0,r=o;r--;)!function(t){var o=e[t],i=new Image;i.onload=function(){n(i)},i.onerror=function(){n(i)},i.src=o}(r)}Object.defineProperty(t,"__esModule",{value:!0}),t.default=o},function(e,t,n){"use strict";function o(e,t){function n(e,o){!1!==t(e,o)&&n(e.parentElement,e)}e=1===e.nodeType?e:e.parentElement,n(e)}Object.defineProperty(t,"__esModule",{value:!0}),t.default=o},function(e,t,n){"use strict";function o(){o.removeElem(),o.html+="<p>"+[].join.call(arguments," ")+"</p>",o.$el=(0,u.default)('<div style="\nposition: fixed;\ntop: 0;\nleft: 0;right:0;\nfont-size: 16px;\nbackground-color: #eee;\nz-index: 999;\npadding: 36px 6px 6px;\nopacity: .8;\nmax-height:50%;\noverflow: auto;\n    "><i style="\npadding: 6px;\nwidth: 20px;\nheight: 20px;\nbackground-color: red;\ncolor: #fff;\nposition: fixed;\nright: 5px;\ntop: 5px;\nfont-style: normal;\ntext-align: center;\n    font-size: 22px;\n    line-height: 1;\n    ">✖</i>'+o.html+"</div>")[0],(0,c.click)(o.$el.children[0],function(){o.close()}),document.body.appendChild(o.$el),o.$el.scrollTop=o.$el.scrollHeight}function i(e){var t=document.createElement("div");t.className="simple-msg",t.textContent=e,document.body.appendChild(t),t.addEventListener("transitionend",function(){t.remove()}),t.addEventListener("webkitTransitionEnd",function(){t.remove()}),setTimeout(function(){t.classList.add("hide")},1200)}Object.defineProperty(t,"__esModule",{value:!0}),t.simpleMsg=t.dMsg=void 0,n(3);var r=n(0),u=function(e){return e&&e.__esModule?e:{default:e}}(r),c=n(5);n(2),o.html="",o.close=function(){this.removeElem(),this.html=""},o.removeElem=function(){this.$el&&this.$el.remove(),this.$el=null},t.dMsg=o,t.simpleMsg=i},function(e,t,n){e.exports=n(1)}]);
+/******/ (function(modules) { // webpackBootstrap
+/******/ 	// The module cache
+/******/ 	var installedModules = {};
+/******/
+/******/ 	// The require function
+/******/ 	function __webpack_require__(moduleId) {
+/******/
+/******/ 		// Check if module is in cache
+/******/ 		if(installedModules[moduleId]) {
+/******/ 			return installedModules[moduleId].exports;
+/******/ 		}
+/******/ 		// Create a new module (and put it into the cache)
+/******/ 		var module = installedModules[moduleId] = {
+/******/ 			i: moduleId,
+/******/ 			l: false,
+/******/ 			exports: {}
+/******/ 		};
+/******/
+/******/ 		// Execute the module function
+/******/ 		modules[moduleId].call(module.exports, module, module.exports, __webpack_require__);
+/******/
+/******/ 		// Flag the module as loaded
+/******/ 		module.l = true;
+/******/
+/******/ 		// Return the exports of the module
+/******/ 		return module.exports;
+/******/ 	}
+/******/
+/******/
+/******/ 	// expose the modules object (__webpack_modules__)
+/******/ 	__webpack_require__.m = modules;
+/******/
+/******/ 	// expose the module cache
+/******/ 	__webpack_require__.c = installedModules;
+/******/
+/******/ 	// define getter function for harmony exports
+/******/ 	__webpack_require__.d = function(exports, name, getter) {
+/******/ 		if(!__webpack_require__.o(exports, name)) {
+/******/ 			Object.defineProperty(exports, name, {
+/******/ 				configurable: false,
+/******/ 				enumerable: true,
+/******/ 				get: getter
+/******/ 			});
+/******/ 		}
+/******/ 	};
+/******/
+/******/ 	// getDefaultExport function for compatibility with non-harmony modules
+/******/ 	__webpack_require__.n = function(module) {
+/******/ 		var getter = module && module.__esModule ?
+/******/ 			function getDefault() { return module['default']; } :
+/******/ 			function getModuleExports() { return module; };
+/******/ 		__webpack_require__.d(getter, 'a', getter);
+/******/ 		return getter;
+/******/ 	};
+/******/
+/******/ 	// Object.prototype.hasOwnProperty.call
+/******/ 	__webpack_require__.o = function(object, property) { return Object.prototype.hasOwnProperty.call(object, property); };
+/******/
+/******/ 	// __webpack_public_path__
+/******/ 	__webpack_require__.p = "";
+/******/
+/******/ 	// Load entry module and return exports
+/******/ 	return __webpack_require__(__webpack_require__.s = 0);
+/******/ })
+/************************************************************************/
+/******/ ([
+/* 0 */
+/***/ (function(module, exports, __webpack_require__) {
+
+module.exports = __webpack_require__(1);
+
+
+/***/ }),
+/* 1 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+var _msgMobile = __webpack_require__(2);
+
+__webpack_require__(4);
+
+window.simpleMsg = _msgMobile.simpleMsg;
+
+(0, _msgMobile.simpleMsg)('消息123！！');
+
+/***/ }),
+/* 2 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+Object.defineProperty(exports, '__esModule', { value: true });
+
+var corejs = __webpack_require__(3);
+
+function debugMsg() {
+  debugMsg.removeElem();
+  debugMsg.html += '<p>' + [].join.call(arguments, ' ') + '</p>';
+
+  debugMsg.$el = corejs.htmlToElems('<div style="\nposition: fixed;\ntop: 0;\nleft: 0;right:0;\nfont-size: 16px;\nbackground-color: #eee;\nz-index: 999;\npadding: 36px 6px 6px;\nopacity: .8;\nmax-height:50%;\noverflow: auto;\n    "><i style="\npadding: 6px;\nwidth: 20px;\nheight: 20px;\nbackground-color: red;\ncolor: #fff;\nposition: fixed;\nright: 5px;\ntop: 5px;\nfont-style: normal;\ntext-align: center;\n    font-size: 22px;\n    line-height: 1;\n    ">\u2716</i>' + debugMsg.html + '</div>')[0];
+
+  corejs.click(debugMsg.$el.children[0], function () {
+    debugMsg.close();
+  });
+  // debugMsg.$el.children[0].onclick = function () {
+  //     debugMsg.$el.innerHTML=123;
+  // debugMsg.close();
+  // };
+
+  document.body.appendChild(debugMsg.$el);
+
+  // 滚动到底部
+  debugMsg.$el.scrollTop = debugMsg.$el.scrollHeight;
+}
+debugMsg.html = '';
+debugMsg.close = function () {
+  this.removeElem();
+  this.html = '';
+};
+debugMsg.removeElem = function () {
+  this.$el && this.$el.remove();
+  this.$el = null;
+};
+
+function simpleMsg(msgCont) {
+
+  var msg = document.createElement('div');
+  msg.className = 'simple-msg';
+  msg.textContent = msgCont;
+  document.body.appendChild(msg);
+
+  msg.addEventListener("transitionend", function () {
+    msg.remove();
+  });
+  msg.addEventListener("webkitTransitionEnd", function () {
+    msg.remove();
+  });
+
+  setTimeout(function () {
+    msg.classList.add('hide');
+  }, 1200);
+}
+
+/**
+ * Created by cql on 2017/4/21.
+ */
+
+exports.dMsg = debugMsg;
+exports.simpleMsg = simpleMsg;
+
+/***/ }),
+/* 3 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+Object.defineProperty(exports, '__esModule', { value: true });
+
+/**
+ * Created by cql on 2017/3/14.
+ */
+
+var isIOS = navigator.appVersion.indexOf('Mac OS') > -1;
+var isMobileIOS = /iPad|iPhone/.test(navigator.userAgent);
+var isAndroid = /Android/.test(navigator.userAgent);
+var isWX = /micromessenger/i.test(navigator.userAgent);
+
+// js 调用执行 设备 接口
+/*
+ @example
+ c.deviceCallback(['contact', 'jumppointsCallback'], 'jumppoints', data[curIndex].id);// 都带参
+ c.deviceCallback(['contact', 'thisLevelCallback'], 'goBack:0');// 不带参
+ c.deviceCallback(['answer', 'uploadPicture'], 'uploadPictureShort:' + iArr[0] + '_' + iArr[1]); // 只给ios带参
+ */
+/*export function deviceCallback() {
+    if (isAndroid) {
+        deviceCallback = function (aName, iName, str) {
+            if (str === undefined) {
+                window[aName[0]][aName[1]]();
+            }
+            else {
+                window[aName[0]][aName[1]](str);
+            }
+        };
+    }
+    else if (isIOS) {
+        deviceCallback = function (aName, iName, str) {
+            if (iName === undefined) return;
+
+            if (str === undefined) window.location.href = iName;
+            else window.location.href = iName + ':' + encodeURIComponent(str);
+        };
+    }
+
+    deviceCallback(...arguments);
+}*/
+
+/**.
+ * android 版本获取
+ *
+ * @return {string|null} 返会此格式的'4.4'字符串 | 非android设备返会null
+ * */
+
+/**
+ * 公共的必须初始化的小功能 - 全端适用
+ *
+ * Created by cql on 2017/4/24.
+ */
+
+/**
+ * 原型扩展
+ * */
+if (!String.prototype.trim) {
+    String.prototype.trim = function () {
+        return this.replace(/(^[\s\uFEFF]*)|(\s*$)/g, '');
+    };
+}
+if (!Element.prototype.remove) {
+    Element.prototype.remove = function () {
+        this.parentNode.removeChild(this);
+    };
+}
+
+/**
+ * ios 移动端 解决 css active 不生效问题
+ *
+ * */
+if (isMobileIOS) {
+    document.body.ontouchstart = function () {};
+}
+
+/**
+ * Created by cql on 2017/1/6.
+ */
+
+// 计算坐标
+// 点与点相加
+function Figure() {
+    this.start = function (x, y) {
+        this.prevX = x;
+        this.prevY = y;
+    };
+
+    this.move = function (x, y, fn) {
+        fn(x - this.prevX, y - this.prevY);
+
+        this.prevX = x;
+        this.prevY = y;
+    };
+}
+
+/**
+ * 更基础的拖动
+ *
+ * 针对pc鼠标事件实现
+ *
+ * 兼容性：ie9+
+ *
+ *
+ *
+ * @param onDown 可通过 return false 阻止拖动发送
+ *
+ */
+function drag(_ref) {
+    var eDrag = _ref.eDrag,
+        onMove = _ref.onMove,
+        _ref$onDown = _ref.onDown,
+        onDown = _ref$onDown === undefined ? function () {} : _ref$onDown,
+        _ref$onUp = _ref.onUp,
+        onUp = _ref$onUp === undefined ? function () {} : _ref$onUp;
+
+    eDrag.addEventListener('mousedown', down);
+
+    function down(e) {
+
+        if (onDown(e) === false) return;
+
+        document.addEventListener('mousemove', mousemove);
+        document.addEventListener('mouseup', mouseup);
+
+        function mousemove(e) {
+            onMove(e);
+        }
+
+        function mouseup() {
+            onUp();
+
+            //解除所有事件
+            document.removeEventListener('mousemove', mousemove);
+            document.removeEventListener('mouseup', mouseup);
+        }
+    }
+}
+
+/*
+ * click
+ * pc+移动端都适用。 对移动端有优化
+ * 兼容性：ie9+
+ * */
+function click(elem, fn) {
+
+    /*function getAndroidVersion() {
+        let v;
+        let r = navigator.userAgent.match(/Android (\d.\d)/);
+        v = r && r[1];
+         getAndroidVersion = function () {
+            return v;
+        };
+         return v;
+    }*/
+
+    // if ((getAndroidVersion() && getAndroidVersion() < 4.4) || /iPad|iPhone/.test(navigator.userAgent)) {
+    // 鉴于华为手机的奇葩性质，Android 7 依然click高亮。。。
+    if (/Android|iPad|iPhone/.test(navigator.userAgent)) {
+        click = function click(elem, fn) {
+            var touchcancel = void 0;
+
+            elem.addEventListener('touchend', touchend, true);
+            elem.addEventListener('touchstart', touchstart, true);
+            elem.addEventListener('touchmove', touchmove, true);
+
+            function touchend(e) {
+                if (touchcancel) return;
+                fn.call(this, e);
+            }
+
+            function touchstart() {
+                touchcancel = false;
+            }
+
+            function touchmove() {
+                touchcancel = true;
+            }
+
+            return function () {
+                elem.removeEventListener('touchend', touchend);
+                elem.removeEventListener('touchstart', touchstart);
+                elem.removeEventListener('touchmove', touchmove);
+            };
+        };
+    } else {
+        click = function click(elem, fn) {
+            elem.addEventListener('click', fn);
+            return function () {
+                elem.removeEventListener('click', fn);
+            };
+        };
+    }
+
+    click(elem, fn);
+}
+
+exports.Figure = Figure;
+exports.drag = drag;
+exports.click = click;
+
+/***/ }),
+/* 4 */
+/***/ (function(module, exports) {
+
+// removed by extract-text-webpack-plugin
+
+/***/ })
+/******/ ]);

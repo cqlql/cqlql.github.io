@@ -4,6 +4,7 @@
 
 
 import {simpleMsg} from 'msg-mobile';
+import 'msg-mobile/dist/msg-mobile.css';
 
 window.simpleMsg=simpleMsg;
 

@@ -51,10 +51,54 @@ module.exports = function (env, options) {
                 },
                 {
                     test: /\.(css|pcss)$/,
-                    // use: ['style-loader',
-                    //     'css-loader',
-                    //     'postcss-loader'],
-                    use: extractCSS.extract(['css-loader','postcss-loader']),
+
+                    use: ExtractTextPlugin.extract({
+                        fallback: 'style-loader',
+                        use: [{
+                            loader: 'css-loader',
+                            options: {
+                                import: false,
+                                alias: {
+                                    // "../imgs": "E:\\_work\\mobile_webview\\smallpitch\\src\\imgs"
+                                    // "../imgs/": "../../imgs/"
+                                },
+                                importLoaders: 1,
+                                sourceMap: true,
+
+                            }
+                        }, {
+                            loader: 'postcss-loader',
+                            options: {
+                                sourceMap: 'inline',
+                                // syntax: require('postcss-scss'),
+                                // plugins: [
+                                //     require('postcss-import')({
+                                //         path: ['E:/_work/Dropbox/github/modules/base-libs/css']
+                                //     }),
+                                // ]
+                                plugins: [
+                                    // require('postcss-cssnext')({
+                                    // browsers:["last 10 versions",'Firefox < 20','ie 10']
+                                    // autoprefixer:{
+                                    //   remove: false
+                                    // }
+                                    // }),
+                                    // require('postcss-smart-import')({
+                                    //     path: ['E:/_work/mobile_webview/smallpitch.webview/src/modules/base-libs/css']
+                                    // }),
+                                    // require('postcss-inline-comment'),
+                                    require('postcss-calc'),
+                                    require('postcss-apply'),
+                                    require('autoprefixer')({
+                                        remove: false
+                                    }),
+                                    require('postcss-custom-properties'),
+                                    require('postcss-nested'),
+                                    require('postcss-css-variables'),
+                                ]
+                            }
+                        }]
+                    })
                 },
                 {
                     test: /\.(png|jpe?g|gif|svg)(\?.*)?$/,
@@ -83,12 +127,7 @@ module.exports = function (env, options) {
             modules: [
                 "node_modules",
 
-                'E:/_work/Dropbox/github/cqlql.github.io/libr',
-
-
-                // cqlql.github.io 项目
-                'E:/_work/Dropbox/github/cqlql.github.io/js/modules',
-                'E:/_work/Dropbox/github/cqlql.github.io/css/modules',
+                'e:\\github'
 
 // 'E:/_work/Dropbox/github/cqlql.github.io/demo/20170428_paginator/src'
             ],
