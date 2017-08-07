@@ -1,4 +1,4 @@
-
+node_modules
 .idea/
 
 # 忽略所有 */*/ 这种目录，但 demo/0/ 除外

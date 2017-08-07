@@ -42,7 +42,7 @@ var popup = Popup({
     
     // 设置宽度
     // 可选
-    width:288
+    width:288,
 
     // 点外面关闭, 是否开启
     // 可选，默认开启
@@ -57,7 +57,7 @@ var popup = Popup({
     // 初始化之后调用
     // 只会执行一次
     // 方便对元素进行初始化更改，比如增加class，增加其他自定义元素
-    created(){}
+    created(){},
     
     //   关闭前调用
     // 每次关闭都会调用
@@ -124,7 +124,7 @@ popup.close();
 
 ### 弹窗选项
 
-``` javascript
+```js
 // 弹窗
 let popup1 = popup({
     // 标题
@@ -156,7 +156,7 @@ let popup1 = popup({
 - 关闭后会删除元素  
 - 考虑到不关窗多次调用情况，弹窗操作会返回当前弹窗实例，用来关掉当前弹窗，而 `popup.close` 只会关闭最新弹窗。  
 
-``` javascript
+```js
 // 方式1
 popup.close();
 
@@ -171,7 +171,7 @@ popup1.close();
 - 不关窗，多次调用，只会更改当前实例
 
 ### 快速使用
-``` javascript
+```js
 import {confirmPopup} from 'popup';
 // 弹窗
 confirmPopup({

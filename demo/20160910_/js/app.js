@@ -1,13 +1,12 @@
 /**
  * Created by cql on 2016/9/10.
  */
-
+let path = require('path');
 const fs = require('fs');
 // const Vue = require(__dirname + '/js/libr/vue.min.js');
 const marked = require(__dirname + '/libr/marked.min.js');
 var c = require(__dirname + '/common.js');
 var flicker = require(__dirname + '/module/flicker.js');
-
 
 var eContent = document.getElementById('content');
 
@@ -21,7 +20,7 @@ var
     regH4 = /^####\s+(.+)$/gm,
     regJs = /^```\s*javascript([^]+?)\n```[\s]*(?=\n)/m;
 
-fs.readFile('E:/Dropbox/github/cqlql.github.io/demo/20160910_/test.md', 'utf8', (err, data)=> {
+fs.readFile(path.resolve(__dirname,'../test.md'), 'utf8', (err, data)=> {
     var html = marked(data);
 
     // html = html.replace(/(<\/h[\d]>)([^]+?)(<h[\d][^>]*>)/g, '$1<div class="des">$2</div>$3');
