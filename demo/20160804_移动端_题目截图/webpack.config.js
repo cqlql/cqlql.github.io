@@ -1,5 +1,7 @@
 let path = require('path');
+
 let webpack = require('webpack');
+
 let HtmlWebpackPlugin = require('html-webpack-plugin');
 let ExtractTextPlugin = require("extract-text-webpack-plugin");
 // let CleanWebpackPlugin = require('clean-webpack-plugin');
@@ -79,7 +81,7 @@ module.exports = function (env, options) {
 
             // 寻找模块的目录
             modules: [
-                "node_modules",
+                "E:\\github\\cqlql.github.io\\node_modules",
                 "E:\\github"
             ],
 
