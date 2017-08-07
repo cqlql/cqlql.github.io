@@ -12,18 +12,15 @@ const ExtractTextPlugin = require('extract-text-webpack-plugin');
 const extractCSS = new ExtractTextPlugin('css/[name].css');
 
 module.exports = function (env, options) {
-    let dev=!options.define;
+
     return {
         entry: {
-            // common:["vue","base"],
-            main: ["base.pcss","./src/main.pcss","./src/main.js"]
+            main: ["css-base/dist/base.css","./src/main.pcss","./src/main.js"]
         },
 
         output: {
-            // publicPath: "dist/",
             path: path.resolve(__dirname, "dist"), // string
             filename: "[name].js",
-            // publicPath: "/assets/", // string
         },
         plugins: [
             extractCSS,
@@ -31,11 +28,7 @@ module.exports = function (env, options) {
                 // filename: 'test.html',
                 template: './src/index.html',
                 chunks: ['main']
-            }),
-            // new webpack.optimize.CommonsChunkPlugin({
-            //     // name: ['common','manifest'],
-            //     name: ['common'],
-            // })
+            })
         ],
 
         module: {
@@ -43,15 +36,58 @@ module.exports = function (env, options) {
             rules: [
                 {
                     test: /\.js$/,
-                    exclude: /node_modules/,
+                    include:[path.resolve(__dirname, "src")],
                     loader: 'babel-loader'
                 },
                 {
                     test: /\.(css|pcss)$/,
-                    use: ExtractTextPlugin.extract({
-                        fallback:'style-loader',
 
-                        use: ['css-loader?importLoaders=1', 'postcss-loader'+(dev?'?sourceMap=inline':'')]
+                    use: ExtractTextPlugin.extract({
+                        fallback: 'style-loader',
+                        use: [{
+                            loader: 'css-loader',
+                            options: {
+                                import: false,
+                                alias: {
+                                    // "../imgs": "E:\\_work\\mobile_webview\\smallpitch\\src\\imgs"
+                                    // "../imgs/": "../../imgs/"
+                                },
+                                importLoaders: 1,
+                                sourceMap: true,
+
+                            }
+                        }, {
+                            loader: 'postcss-loader',
+                            options: {
+                                sourceMap: 'inline',
+                                // syntax: require('postcss-scss'),
+                                // plugins: [
+                                //     require('postcss-import')({
+                                //         path: ['E:/_work/Dropbox/github/modules/base-libs/css']
+                                //     }),
+                                // ]
+                                plugins: [
+                                    // require('postcss-cssnext')({
+                                    // browsers:["last 10 versions",'Firefox < 20','ie 10']
+                                    // autoprefixer:{
+                                    //   remove: false
+                                    // }
+                                    // }),
+                                    // require('postcss-smart-import')({
+                                    //     path: ['E:/_work/mobile_webview/smallpitch.webview/src/modules/base-libs/css']
+                                    // }),
+                                    // require('postcss-inline-comment'),
+                                    require('postcss-calc'),
+                                    require('postcss-apply'),
+                                    require('autoprefixer')({
+                                        remove: false
+                                    }),
+                                    require('postcss-custom-properties'),
+                                    require('postcss-nested'),
+                                    require('postcss-css-variables'),
+                                ]
+                            }
+                        }]
                     })
                 },
             ]
@@ -62,21 +98,14 @@ module.exports = function (env, options) {
             // 寻找模块的目录
             modules: [
                 "node_modules",
-
-                // cqlql.github.io 项目
-                'E:/_work/Dropbox/github/cqlql.github.io/libr',
-                'E:/_work/Dropbox/github/cqlql.github.io/js/modules',
-                // 'E:/Dropbox/github/cqlql.github.io/js/modules/dom',
-                'E:/_work/Dropbox/github/cqlql.github.io/css/modules'
+                'E:\\github'
             ],
 
-            extensions: [".js",'.pcss'],
-
+            extensions: [".js"],
 
             // 别名
             alias: {
-                // webpack -p 情况使用 mim 包
-                'vue$': dev ?  'vue/dist/vue.js':'vue/dist/vue.min.js'
+
             }
 
 
