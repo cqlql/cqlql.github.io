@@ -12,9 +12,10 @@ require('./imgs/dish5.png');
 require('./imgs/dish6.png');
 require('./imgs/dish7.png');
 
-import imgsLoader from 'imgs-loader';
-import {} from 'click-vue';
-import autoPrefix from 'autoPrefix';
+import {imgsLoader,autoPrefix}from 'corejs';
+
+import 'vue-basejs';
+
 import {deviceCallback} from 'device';
 import textMarquee from 'text-marquee';
 import Vue from 'vue';

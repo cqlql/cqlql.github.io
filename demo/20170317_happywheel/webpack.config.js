@@ -80,16 +80,10 @@ module.exports = function (env, options) {
 
             // 寻找模块的目录
             modules: [
-                "node_modules",
-
-                'E:/Dropbox/github/cqlql.github.io/js/libr',
-
-
-                // cqlql.github.io 项目
-                'E:/Dropbox/github/cqlql.github.io/js/modules',
-                'E:/Dropbox/github/cqlql.github.io/css/modules',
-
-
+                path.resolve(__dirname,'../../node_modules'),
+                'E:\\_work\\sd_umd_modules',
+                'E:\\github',
+                'E:\\github\\css-base\\dist'
             ],
 
             extensions: [".js"],
