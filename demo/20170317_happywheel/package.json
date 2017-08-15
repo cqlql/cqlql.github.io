@@ -1,0 +1,14 @@
+{
+  "name": "cqlql.github.io",
+  "version": "0.0.1",
+  "description": "个人demo",
+  "main": "./src/main.js",
+  "scripts": {
+    "d": "E:\\github\\cqlql.github.io\\node_modules\\.bin\\webpack-dev-server --open"
+  },
+  "author": "Jony c",
+  "license": "ISC",
+  "dependencies": {},
+  "devDependencies": {
+  }
+}

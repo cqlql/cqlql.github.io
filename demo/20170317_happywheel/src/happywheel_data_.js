@@ -54,7 +54,7 @@ transmitData({
 })
 
 
-// 从1 
+// 模拟服务器返回奖品编号。并减速停止转盘
 setTimeout(function(){
-	priceResult(1)
+	// priceResult(1)
 },1000);

@@ -1,6 +1,4 @@
 /**
- * Created by cql on 2017/3/17.
- *
  * 方式1：非常精准，但加速到减速过渡不完美，但影响极小
  */
 
@@ -13,14 +11,12 @@ require('./imgs/dish6.png');
 require('./imgs/dish7.png');
 
 import {imgsLoader,autoPrefix}from 'corejs';
-
-import 'vue-basejs';
-
-import {deviceCallback} from 'device';
+import 'vue-basejs/dist/click.cjs.js';
 import textMarquee from 'text-marquee';
 import Vue from 'vue';
 
 let transform = autoPrefix('transform')[1];
+let global = window;
 
 window.transmitData = function (d) {
     if (typeof d === 'string') {
@@ -77,7 +73,7 @@ window.transmitData = function (d) {
                     if (!wheelSurf.isRun) {
 
                         // 开始抽奖、次数用完
-                        deviceCallback([callName, 'getLottery'], 'getLottery:0');
+                        global[callName].getLottery();
 
                         if (dataNoLotter && this.chances > 0) {
 
@@ -85,9 +81,9 @@ window.transmitData = function (d) {
                             wheelSurf.start(deg => {
                                 vm.$refs.rotate.style[transform] = 'rotate3d(0,0,1,' + deg + 'deg)';
                             }, () => {
-                                // 一轮抽奖结束
 
-                                deviceCallback([callName, 'showResult'], 'showResult:0');
+                                // 一轮抽奖结束
+                                global[callName].showResult();
 
                                 this.flickerTime = 600;
 
@@ -144,7 +140,6 @@ window.transmitData = function (d) {
 
 };
 
-
 class WheelSurf {
 
     constructor() {
@@ -166,7 +161,6 @@ class WheelSurf {
 
         // 偏差角度，转盘图片所致
         this.offsetDeg=15;
-
     }
 
     // @params cb 动画完成回调
@@ -177,7 +171,7 @@ class WheelSurf {
             return;
         }
         this.isRun = true;
-
+        this.result = 0;
 
         let dp;// 减速比例。强行衔接最高加速
 
@@ -191,9 +185,7 @@ class WheelSurf {
                 if (this.result && p === 1) {
 
                     dp = this.deg / this.targetDeg;
-                    // console.log('当前' + this.deg);
-                    // console.log('目标' + this.targetDeg);
-                    // console.log('比例' + dp);
+
                     return 1;
                 }
 
@@ -202,7 +194,6 @@ class WheelSurf {
                 this.deg = (dp + (1 - dp) * p) * this.targetDeg;
 
                 f(this.deg);
-                console.log(this.deg);
 
                 if (p === 1) {
                     return 2
@@ -286,7 +277,6 @@ class Animation {
             }
 
             if (on) that.stopId = requestAnimationFrame(run, interval);
-
         }
 
         run();

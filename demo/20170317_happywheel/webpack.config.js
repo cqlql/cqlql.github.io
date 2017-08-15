@@ -10,33 +10,34 @@ let HtmlWebpackPlugin = require('html-webpack-plugin');
 const ExtractTextPlugin = require('extract-text-webpack-plugin');
 const extractCSS = new ExtractTextPlugin({
     filename: 'css/[name].css'
-
 });
 
 module.exports = function (env, options) {
-    let dev=!options.define;
+    let params = env ? env.split(',') : []
+    let dev = params[0] !== 'p';
+
+    let outputPath = path.resolve(__dirname, "dist")
     return {
         entry: {
-            common: ['base.pcss','vue'],
-            main: ["./src/main.pcss", "./src/main.js"].concat(dev?["./src/data_.js"]:[])
+            common: ['vue'],
+            main: ['css-base/dist/base.css',"./src/happywheel.css", "./src/happywheel.js"].concat(dev?["./src/happywheel_data_.js"]:[])
         },
 
         output: {
-            path: path.resolve(__dirname, "dist"), // string
+            path:outputPath, // string
             filename: "js/[name].js",
         },
         plugins: [
             extractCSS,
 
             new HtmlWebpackPlugin({
-                filename: 'view.html',
-                template: './src/view.html',
+                filename: 'happywheel.html',
+                template: './src/happywheel.html',
                 chunks: ['manifest', 'common', 'main']
             }),
             new webpack.optimize.CommonsChunkPlugin({
                 name: ['common'],
             }),
-
         ],
 
         module: {
@@ -44,7 +45,9 @@ module.exports = function (env, options) {
             rules: [
                 {
                     test: /\.js$/,
-                    exclude: /node_modules|libr/,
+                    include: [
+                        path.resolve(__dirname, "src")
+                    ],
                     loader: 'babel-loader'
                 },
                 {
@@ -91,8 +94,17 @@ module.exports = function (env, options) {
             // 别名
             alias: {
                 // webpack -p 情况使用 mim 包
-                'vue$': dev ?  'vue/dist/vue.js':'vue/dist/vue.min.js'
+                'vue$': 'vue/dist/vue.min.js',
+                // 'vue$': dev ?  'vue/dist/vue.js':'vue/dist/vue.min.js'
             }
+        },
+
+        devServer: {
+            contentBase: outputPath,
+            compress: true,
+            host:'192.168.1.222',
+            port: 3006,
+            // hot:true
         }
     }
 };
