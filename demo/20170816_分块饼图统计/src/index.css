@@ -1,0 +1,23 @@
+.part-pie{
+  width: 300px;height: 300px;border:1px solid #333;
+  position: relative;
+}
+.part-pie svg{
+  width: 100%;
+}
+.part-pie .lb{
+  position: absolute;
+  width:0;
+  transform: translateY(-50%);
+}
+.part-pie .lb span{
+  white-space: nowrap;
+  font-size: 14px;
+}
+.part-pie .tscore{
+  position: absolute;
+  top:50%;
+  left: 50%;
+  transform: translate(-50%,-50%);
+
+}
