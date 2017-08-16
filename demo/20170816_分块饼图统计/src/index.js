@@ -1,4 +1,3 @@
-
 import './index.css'
 import getxyByRad from './getxy-by-rad'
 import pie from './pie'
