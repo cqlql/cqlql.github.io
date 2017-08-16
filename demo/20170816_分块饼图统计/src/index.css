@@ -1,5 +1,6 @@
 .part-pie{
-  width: 300px;height: 300px;border:1px solid #333;
+  width: 500px;height: 500px;
+  border:1px solid #333;
   position: relative;
 }
 .part-pie svg{

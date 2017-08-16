@@ -7,7 +7,7 @@ import pie from './pie'
 // let eachData=[.5,.3,.2,.6,.6,.7]
 // let labels=['课堂任务','课堂文化','课堂内容','课堂管理','策略','xx']
 let data = [.1,.2,.3,.2,.2]
-let eachData=[.5,.3,.2,.6,.6]
+let eachData=[.5,.3,.7,.6,.5]
 let labels=['课堂任务','课堂文化','课堂内容','课堂管理','策略']
 let tscore = 86
 
