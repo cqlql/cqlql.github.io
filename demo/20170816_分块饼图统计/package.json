@@ -4,6 +4,7 @@
   "description": "个人demo",
   "scripts": {
     "d": "E:\\github\\cqlql.github.io\\node_modules\\.bin\\webpack-dev-server --open",
+    "p-demo": "webpack -p",
     "p":"webpack -p --env=p"
   },
   "author": "Jony c",

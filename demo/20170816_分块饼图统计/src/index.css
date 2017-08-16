@@ -1,6 +1,9 @@
+body{
+  margin:0;
+}
 .part-pie{
-  width: 500px;height: 500px;
-  border:1px solid #333;
+  /*width: 320px;height: 500px;*/
+  /*border:1px solid #333;*/
   position: relative;
 }
 .part-pie svg{
