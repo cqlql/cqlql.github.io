@@ -11,10 +11,16 @@ module.exports = function (env, options) {
 
   let outputPath = path.resolve(__dirname, dev?"dist":'assets')
 
+  let entry = {
+    'chart-pie': ["./src/index.js"].concat(dev?"./src/test-data.js":[])
+  }
+
+  if (dev){
+    entry.index = entry['chart-pie']
+  }
+
   return {
-    entry: {
-      index: ["./src/index.js"].concat(dev?"./src/test-data.js":[])
-    },
+    entry,
 
     output: {
       path: outputPath,
@@ -22,7 +28,7 @@ module.exports = function (env, options) {
     },
     plugins: [
       new HtmlWebpackPlugin({
-        filename: './index.html',
+        filename: dev?'./index.html':'./chart-pie.html',
         template: './src/index.html',
         chunks: ['index']
       }),
