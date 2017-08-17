@@ -1,8 +1,4 @@
 
-
-
-
-
 transmitData([
   {
     "dimension_id": "12",

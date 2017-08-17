@@ -2,6 +2,7 @@ let path = require('path');
 let webpack = require('webpack');
 let HtmlWebpackPlugin = require('html-webpack-plugin');
 let ExtractTextPlugin = require("extract-text-webpack-plugin");
+let HtmlWebpackInlineSourcePlugin = require('html-webpack-inline-source-plugin');
 // let CleanWebpackPlugin = require('clean-webpack-plugin');
 
 module.exports = function (env, options) {
@@ -11,16 +12,10 @@ module.exports = function (env, options) {
 
   let outputPath = path.resolve(__dirname, dev?"dist":'assets')
 
-  let entry = {
-    'chart-pie': ["./src/index.js"].concat(dev?"./src/test-data.js":[])
-  }
-
-  if (dev){
-    entry.index = entry['chart-pie']
-  }
-
   return {
-    entry,
+    entry:{
+      index: ["./src/index.js"].concat(dev?"./src/test-data.js":[])
+    },
 
     output: {
       path: outputPath,
@@ -30,9 +25,19 @@ module.exports = function (env, options) {
       new HtmlWebpackPlugin({
         filename: dev?'./index.html':'./chart-pie.html',
         template: './src/index.html',
-        chunks: ['index']
+        chunks: ['index'],
+        inlineSource: '.(js|css)$',
+        minify:{
+          removeComments: true,
+          collapseWhitespace: true,
+          removeAttributeQuotes: true,
+          minifyCSS: true
+          // more options:
+          // https://github.com/kangax/html-minifier#options-quick-reference
+        }
       }),
       new ExtractTextPlugin('css/[name].css'),
+      new HtmlWebpackInlineSourcePlugin(),
       // new webpack.NamedModulesPlugin(),
       // new webpack.optimize.CommonsChunkPlugin({
       //     name: ['common', 'manifest'],

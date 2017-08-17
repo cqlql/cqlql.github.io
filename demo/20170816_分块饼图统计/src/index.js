@@ -65,8 +65,8 @@ stroke-width="0.5"
 // 总分
   texts += `<div class="tscore">${tscore}分</div>`
 
-// document.querySelector('.part-pie').innerHTML=`<svg viewbox="0,0,200,200">${paths}${texts}</svg>`
-  document.querySelector('.part-pie').innerHTML = `<svg viewbox="0,0,200,200">${paths}</svg>${texts}`
+// document.querySelector('.chart-pie').innerHTML=`<svg viewbox="0,0,200,200">${paths}${texts}</svg>`
+  document.querySelector('.chart-pie').innerHTML = `<svg viewbox="0,0,200,200">${paths}</svg>${texts}`
 }
 
 window.transmitData = function (baseData) {
