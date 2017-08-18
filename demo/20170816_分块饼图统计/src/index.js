@@ -34,6 +34,7 @@ fill="${bgcs[i % 5]}"
 ></path>`
 
     let r2 = r * eachData[i]
+    console.log(r2)
     paths += `<path d="${pie({
       ox, oy, r: r2, sRad, rad, oft
     })}"
@@ -42,14 +43,16 @@ fill="${eachBgcs[i % 5]}"
 
     // 画线，并记录文本坐标
     let ra = sRad + rad / 2
+    let rOft = oft / Math.sin(rad/2) // 真实偏移值
     // 末端折线偏移、文本偏移
     let exOft = 3
     let txOft = 1
     if (180 / Math.PI * ra + angOft > 180) {
       exOft = -exOft
-       txOft = -txOft
+      txOft = -txOft
     }
-    let {x: sx, y: sy} = getxyByRad(ra, r2 / 1.2, ox, oy)
+    let lR2 = r2 / 1.2 // 内部饼图线条起始半径，用来算坐标
+    let {x: sx, y: sy} = getxyByRad(ra, lR2>0?lR2:rOft, ox, oy)// 起始坐标
     let {x: ex, y: ey} = getxyByRad(ra, r+2, ox, oy)
     let tx = ex + exOft, ty = ey
     paths += `<polyline points="${sx},${sy} ${ex},${ey} ${tx},${ty}"
@@ -67,7 +70,7 @@ stroke-width="0.5"
 
 // 总分
 // texts += `<div class="tscore">${tscore}分</div>`
-texts+=`<text x="${ox}" y="${oy+3}" font-size="6" text-anchor="middle" fill="#333" style="font-weight:bold;">${tscore}分</text>`
+// texts+=`<text x="${ox}" y="${oy+3}" font-size="6" text-anchor="middle" fill="#333" style="font-weight:bold;">${tscore}分</text>`
 
 document.querySelector('.chart-pie').innerHTML=`<svg viewbox="0,0,200,120">${paths}${texts}</svg>`
   // document.querySelector('.chart-pie').innerHTML = `<!--<svg viewbox="0,0,200,200">${paths}</svg>-->${texts}`

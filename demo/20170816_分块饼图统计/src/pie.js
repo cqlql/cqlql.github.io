@@ -25,6 +25,8 @@ export default function ({
   ox = rox
   oy = roy
   r = r - oft// 新半径
+  if (r < 0) r = 0
+
 
   // 起始弧度点
   let {x: sx, y: sy} = getxyByRad(sRad, r, ox, oy)

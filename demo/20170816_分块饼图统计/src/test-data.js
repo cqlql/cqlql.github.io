@@ -21,7 +21,7 @@ transmitData([
   {
     "dimension_id": "38",
     "dimension_name": "教学效果",
-    "score": "90",
+    "score": "-10",
     "weight":20
   }
 ])
