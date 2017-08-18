@@ -6,7 +6,7 @@ function chartPie({data,eachData,labels,tscore}) {
 
 // 圆心
   let ox = 100
-  let oy = 100
+  let oy = 60
 
 // 半径
   let r = 50
@@ -20,7 +20,8 @@ function chartPie({data,eachData,labels,tscore}) {
   let lcs = ['#f96902', '#ffad14', '#ff4b4b', '#5980ff', '#5bacfe']
 
 // 起始弧度
-  let sRad = Math.PI / 180 * -90
+  let angOft = 120
+  let sRad = Math.PI / 180 * -angOft
   let paths = ''
   let texts = ''
   data.forEach(function (p, i) {
@@ -41,13 +42,15 @@ fill="${eachBgcs[i % 5]}"
 
     // 画线，并记录文本坐标
     let ra = sRad + rad / 2
-    // 末端折线偏移
-    let exOft = 6
-    if (180 / Math.PI * ra + 90 > 180) {
+    // 末端折线偏移、文本偏移
+    let exOft = 3
+    let txOft = 1
+    if (180 / Math.PI * ra + angOft > 180) {
       exOft = -exOft
+       txOft = -txOft
     }
     let {x: sx, y: sy} = getxyByRad(ra, r2 / 1.2, ox, oy)
-    let {x: ex, y: ey} = getxyByRad(ra, r + 6, ox, oy)
+    let {x: ex, y: ey} = getxyByRad(ra, r+2, ox, oy)
     let tx = ex + exOft, ty = ey
     paths += `<polyline points="${sx},${sy} ${ex},${ey} ${tx},${ty}"
 fill="none"
@@ -55,18 +58,19 @@ stroke="${lcs[i % 5]}"
 stroke-width="0.5"
 ></polyline>`
     // div文本
-    texts += `<div class="lb" style="left:${(tx) / 200 * 100}%;top:${(ty) / 200 * 100}%;"><span style="${exOft > 0 ? '' : 'float:right;'}color:${lcs[i % 5]}">${labels[i]}</span></div>`
+    // texts += `<div class="lb" style="left:${(tx) / 200 * 100}%;top:${(ty) / 200 * 100}%;"><span style="${exOft > 0 ? '' : 'float:right;'}color:${lcs[i % 5]}">${labels[i]}</span></div>`
     // svg 文本
-    // texts+=`<text x="${tx}" y="${ty}" font-size="10" text-anchor="${exOft>0?'start':'end'}">${labels[i]}</text>`
+    texts+=`<text x="${tx+txOft}" y="${ty+3}" font-size="6" text-anchor="${exOft>0?'start':'end'}" fill="${lcs[i % 5]}">${labels[i]}</text>`
 
     sRad += rad
   })
 
 // 总分
-  texts += `<div class="tscore">${tscore}分</div>`
+// texts += `<div class="tscore">${tscore}分</div>`
+texts+=`<text x="${ox}" y="${oy+3}" font-size="6" text-anchor="middle" fill="#333" style="font-weight:bold;">${tscore}分</text>`
 
-// document.querySelector('.chart-pie').innerHTML=`<svg viewbox="0,0,200,200">${paths}${texts}</svg>`
-  document.querySelector('.chart-pie').innerHTML = `<svg viewbox="0,0,200,200">${paths}</svg>${texts}`
+document.querySelector('.chart-pie').innerHTML=`<svg viewbox="0,0,200,120">${paths}${texts}</svg>`
+  // document.querySelector('.chart-pie').innerHTML = `<!--<svg viewbox="0,0,200,200">${paths}</svg>-->${texts}`
 }
 
 window.transmitData = function (baseData) {
