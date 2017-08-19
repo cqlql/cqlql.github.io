@@ -1,12 +1,8 @@
 /**
  * 画弧
  *
- * 容器120，圆半径50，10为居中偏离值
- *
  * @param {number} sRad
  * @param {number} eRad
- *
- *
  *
  * 返回 path A指令
  * */

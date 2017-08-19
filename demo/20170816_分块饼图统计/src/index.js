@@ -33,26 +33,32 @@ function chartPie({data,eachData,labels,tscore}) {
 fill="${bgcs[i % 5]}"
 ></path>`
 
-    let r2 = r * eachData[i]
-    console.log(r2)
+    let r2 = (r-3) * (eachData[i])+1.5
     paths += `<path d="${pie({
       ox, oy, r: r2, sRad, rad, oft
     })}"
 fill="${eachBgcs[i % 5]}"
 ></path>`
 
+    // 画边框
+    paths += `<path d="${pie({
+      ox, oy, r, sRad, rad, oft
+    })}"
+fill="transparent"
+stroke="#fff" stroke-width="3"
+></path>`
+
     // 画线，并记录文本坐标
     let ra = sRad + rad / 2
-    let rOft = oft / Math.sin(rad/2) // 真实偏移值
-    // 末端折线偏移、文本偏移
-    let exOft = 3
-    let txOft = 1
-    if (180 / Math.PI * ra + angOft > 180) {
+    let exOft = 3 // 末端折线偏移
+    let txOft = 1 // 文本偏移
+
+    if (180 / Math.PI * ra + 90 > 180) {
       exOft = -exOft
       txOft = -txOft
     }
     let lR2 = r2 / 1.2 // 内部饼图线条起始半径，用来算坐标
-    let {x: sx, y: sy} = getxyByRad(ra, lR2>0?lR2:rOft, ox, oy)// 起始坐标
+    let {x: sx, y: sy} = getxyByRad(ra, lR2>0?lR2:0, ox, oy)// 起始坐标
     let {x: ex, y: ey} = getxyByRad(ra, r+2, ox, oy)
     let tx = ex + exOft, ty = ey
     paths += `<polyline points="${sx},${sy} ${ex},${ey} ${tx},${ty}"
@@ -63,14 +69,14 @@ stroke-width="0.5"
     // div文本
     // texts += `<div class="lb" style="left:${(tx) / 200 * 100}%;top:${(ty) / 200 * 100}%;"><span style="${exOft > 0 ? '' : 'float:right;'}color:${lcs[i % 5]}">${labels[i]}</span></div>`
     // svg 文本
-    texts+=`<text x="${tx+txOft}" y="${ty+3}" font-size="6" text-anchor="${exOft>0?'start':'end'}" fill="${lcs[i % 5]}">${labels[i]}</text>`
+    texts+=`<text x="${tx+txOft}" y="${ty+3}" font-size="6.5" text-anchor="${exOft>0?'start':'end'}" fill="${lcs[i % 5]}">${labels[i]}</text>`
 
     sRad += rad
   })
 
 // 总分
 // texts += `<div class="tscore">${tscore}分</div>`
-// texts+=`<text x="${ox}" y="${oy+3}" font-size="6" text-anchor="middle" fill="#333" style="font-weight:bold;">${tscore}分</text>`
+texts+=`<text x="${ox}" y="${oy+3}" font-size="6.5" text-anchor="middle" fill="#333" style="font-weight:bold;">${tscore}分</text>`
 
 document.querySelector('.chart-pie').innerHTML=`<svg viewbox="0,0,200,120">${paths}${texts}</svg>`
   // document.querySelector('.chart-pie').innerHTML = `<!--<svg viewbox="0,0,200,200">${paths}</svg>-->${texts}`

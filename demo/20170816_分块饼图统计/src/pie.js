@@ -19,12 +19,12 @@ export default function ({
                          }) {
 
   // 新圆心，新起点，根据偏移值
-  let halfRad = rad/2
-  oft = oft / Math.sin(halfRad) // 真实偏移值
-  let {x: rox, y: roy} = getxyByRad(halfRad + sRad, oft, ox, oy)
-  ox = rox
-  oy = roy
-  r = r - oft// 新半径
+  // let halfRad = rad/2
+  // oft = oft / Math.sin(halfRad) // 真实偏移值
+  // let {x: rox, y: roy} = getxyByRad(halfRad + sRad, oft, ox, oy)
+  // ox = rox
+  // oy = roy
+  // r = r - oft// 新半径
   if (r < 0) r = 0
 
 
