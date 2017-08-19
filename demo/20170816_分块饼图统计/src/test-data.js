@@ -9,8 +9,8 @@ transmitData([
   {
     "dimension_id": "36",
     "dimension_name": "教学行为",
-    "score": "5",
-    "weight":70
+    "score": "-100",
+    "weight":40
   },
   // {
   //   "dimension_id": "37",
