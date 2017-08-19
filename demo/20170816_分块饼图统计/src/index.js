@@ -9,7 +9,7 @@ function chartPie({data,eachData,labels,tscore}) {
   let oy = 60
 
 // 半径
-  let r = 50
+  let r = 46
 
 // 圆心发散偏移值
   let oft = 1
@@ -58,9 +58,8 @@ stroke="#fff" stroke-width="3"
       txOft = -txOft
     }
     let lR2 = r2 / 1.2 // 内部饼图线条起始半径，用来算坐标
-    console.log(lR2)
     let {x: sx, y: sy} = getxyByRad(ra, lR2>1.5?lR2:1.5, ox, oy)// 起始坐标
-    let {x: ex, y: ey} = getxyByRad(ra, r+2, ox, oy)
+    let {x: ex, y: ey} = getxyByRad(ra, r+1.5, ox, oy)
     let tx = ex + exOft, ty = ey
     paths += `<polyline points="${sx},${sy} ${ex},${ey} ${tx},${ty}"
 fill="none"
