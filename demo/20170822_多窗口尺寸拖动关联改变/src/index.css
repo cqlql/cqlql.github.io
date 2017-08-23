@@ -11,7 +11,6 @@ body{
   border-right: 1px solid #efefef;
   -webkit-box-sizing: border-box;
   box-sizing: border-box;
-  position: relative;
 }
 
 .menu {
@@ -21,6 +20,7 @@ body{
   background-color: #fff;
   border-right: 1px solid #efefef;
   font-size: 14px;
+
 }
 
 .left-nav{
@@ -33,14 +33,16 @@ body{
 
 .left-nav .type-menu {
   float: left;
-  width: 200px;
+
   overflow: auto;
+  width: 180px;
+  overflow-x: hidden;
 }
 
 .left-nav .menu {
-  width: 200px;
-  float: left;
+
   height: 100%;
+  overflow: hidden;
 }
 
 .right-cont {
