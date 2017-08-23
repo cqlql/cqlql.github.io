@@ -8,11 +8,29 @@
 <body>
 <div class="header"></div>
 <div class="left-nav">
-  <div class="type-menu"></div>
-  <div class="menu"></div>
+  <div class="type-menu">
+    <ul><li data-index="3">js</li><li data-index="1" class="selected">css</li><li data-index="2">html</li><li data-index="4">linux</li><li data-index="5">nodejs</li><li data-index="6">reactjs</li><li data-index="7">sass</li><li data-index="8">svg</li><li data-index="9">vuejs</li><li data-index="10">其他语言</li><li data-index="11">功能代码临时记录</li><li data-index="12">单元测试</li><li data-index="13">工具</li><li data-index="14">工程-webpack</li><li data-index="15">工程-其他</li><li data-index="16">综合</li></ul>
+  </div>
+  <div class="menu"><div class="menu-tool"><div class="op"><a href="javascript:;" class="level">1</a> <a href="javascript:;" class="level">2</a> <a href="javascript:;" class="level">3</a> <a href="javascript:;" class="level">4</a></div></div><div class="menu-list"><div class="menu-item fold"><div class="item" data-index="0"><i class="hidden"></i><span class="txt">后代选择写法原则</span></div><div class="list"></div></div><div class="menu-item fold"><div class="item" data-index="1"><i class=""></i><span class="txt">比例单位</span></div><div class="list"><div class="menu-item fold"><div class="item" data-index="2"><i class="hidden"></i><span class="txt">em</span></div><div class="list"></div></div><div class="menu-item fold"><div class="item" data-index="3"><i class="hidden"></i><span class="txt">rem</span></div><div class="list"></div></div><div class="menu-item fold"><div class="item" data-index="4"><i class="hidden"></i><span class="txt">px 转 rem (编辑器替换)</span></div><div class="list"></div></div></div></div><div class="menu-item"><div class="item" data-index="5"><i class=""></i><span class="txt">postcss</span></div><div class="list"><div class="menu-item fold"><div class="item" data-index="6"><i class="hidden"></i><span class="txt">@import 导入控制 - <code>postcss-smart-import</code> 插件</span></div><div class="list"></div></div><div class="menu-item"><div class="item selected" data-index="7"><i class="hidden"></i><span class="txt">去掉斜杠注释，插件形式调用</span></div><div class="list"></div></div><div class="menu-item fold"><div class="item" data-index="8"><i class="hidden"></i><span class="txt">转换斜杠注释</span></div><div class="list"></div></div></div></div><div class="menu-item fold"><div class="item" data-index="9"><i class=""></i><span class="txt">文本</span></div><div class="list"><div class="menu-item fold"><div class="item" data-index="10"><i class="hidden"></i><span class="txt">word-spacing：html 空格宽度控制</span></div><div class="list"></div></div><div class="menu-item fold"><div class="item" data-index="11"><i class="hidden"></i><span class="txt">不换行</span></div><div class="list"></div></div><div class="menu-item fold"><div class="item" data-index="12"><i class="hidden"></i><span class="txt">裁剪</span></div><div class="list"></div></div></div></div><div class="menu-item fold"><div class="item" data-index="13"><i class="hidden"></i><span class="txt">毛玻璃</span></div><div class="list"></div></div></div></div>
 </div>
 <div class="right-cont">
-  <h2 data-index="22">table 等不能包含 template 问题</h2><h1 data-index="3" class="">01待完成效果</h1><h2 data-index="4" class="">瀑布流式有移动端底部加载封装</h2><h1 data-index="5" class="">cmd</h1><h2 data-index="6" class="">多窗口，命令打开 cmd</h2><p>实现打开多个cmd，并附带命令执行</p><p>关于双引号可有可没有，但意义不一样：<br>双引号可让命令完全为新弹出的命令<br>不用双引号，&amp;后面的命令为当前窗口，非新弹出的窗口</p><pre><code class="lang-cmd">start cmd /k <span class="hljs-string">"cd/d d:\&amp;echo xx&amp;&amp;pause&amp;&amp;ping 172.30.218.1&amp;&amp;ping 172.30.218.111"</span></code></pre>
+  <h2 data-index="7" class="selected">去掉斜杠注释，插件形式调用</h2><p><a href="https://github.com/moczolaszlo/postcss-inline-comment">https://github.com/moczolaszlo/postcss-inline-comment</a></p><pre><code class="lang-js"><span class="hljs-built_in">module</span>.exports = {
+    <span class="hljs-attr">plugins</span>: [
+
+        <span class="hljs-built_in">require</span>(<span class="hljs-string">'postcss-inline-comment'</span>),
+
+        <span class="hljs-built_in">require</span>(<span class="hljs-string">'postcss-smart-import'</span>),
+        <span class="hljs-built_in">require</span>(<span class="hljs-string">'postcss-calc'</span>),
+        <span class="hljs-built_in">require</span>(<span class="hljs-string">'postcss-apply'</span>),
+        <span class="hljs-built_in">require</span>(<span class="hljs-string">'autoprefixer'</span>)({
+        <span class="hljs-attr">remove</span>: <span class="hljs-literal">false</span>
+        }),
+        <span class="hljs-built_in">require</span>(<span class="hljs-string">'postcss-custom-properties'</span>),
+        <span class="hljs-built_in">require</span>(<span class="hljs-string">'postcss-nested'</span>),
+        <span class="hljs-built_in">require</span>(<span class="hljs-string">'postcss-css-variables'</span>),
+    ]
+}
+</code></pre>
 </div>
 
 </body>

@@ -3,24 +3,174 @@ body{
 }
 .header {
   height: 70px;
-  background-color: #428fdc;
+  background-color: #24292e;
 }
-.type-menu {
+.type-menu{
   height: 100%;
   background-color: #f7f7f7;
   border-right: 1px solid #efefef;
-  -webkit-box-sizing: border-box;
   box-sizing: border-box;
+  ul{
+    list-style-type: none;
+    margin:0;
+    padding: 0;
+  }
+  li{
+    padding: 8px 10px;
+    font-size: 14px;
+    white-space: nowrap;
+    color:#555;
+    cursor: pointer;
+
+  }
+  li:hover{
+    background-color: #e4e4e4;
+
+  }
+  li.selected{
+    background-color: #3998d6;
+    color: #fff;
+
+  }
 }
 
 .menu {
+
+  /*position: fixed;
+  top: 30px;
+  left: -1px;
+  bottom: 0;*/
   position: relative;
-  -webkit-box-sizing: border-box;
   box-sizing: border-box;
   background-color: #fff;
   border-right: 1px solid #efefef;
-  font-size: 14px;
+  /*box-shadow: 1px 0 4px 0px #bdbdbd;*/
+  font-size: 14px
+}
 
+.menu .menu-tool {
+  border-right: 0;
+  color: #333;
+  padding: 0 4px 0 18px;
+  position: relative;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+  height: 25px;
+  line-height: 1.6;
+  border-bottom: 1px solid #efefef;
+  /*box-shadow: 0px 1px 2px 0px #d6d6d6;*/
+}
+
+.menu .menu-tool a {
+  float: left;
+  width: 20px;
+  text-align: center;
+  height: 20px;
+  font-size: 16px;
+  line-height: 1.2
+}
+
+.menu .menu-tool a:hover {
+  outline: 1px solid red
+}
+
+.menu .menu-tool .op {
+  position: absolute;
+  right: 1px;
+  top: 3px;
+  font: 14px Microsoft Yahei,\5FAE\8F6F\96C5\9ED1
+}
+
+.menu .menu-list {
+  position: absolute;
+  top: 26px;
+  width: 100%;
+  bottom: 0;
+  overflow: auto
+}
+
+.menu .item {
+  color: #333;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+  height: 26px;
+  line-height: 2
+}
+
+.menu .item:before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 26px;
+  background-color: #efefef;
+  opacity: 0
+}
+
+.menu .item .txt {
+  position: relative
+}
+
+.menu .item:hover:before {
+  opacity: 1
+}
+
+.menu .item.selected:before {
+  opacity: 1;
+  background-color: #ffc
+}
+
+.menu .list {
+  padding-left: 16px
+}
+
+.menu .item i {
+  float: left;
+  width: 19px;
+  height: 26px;
+  background: transparent;
+  position: relative
+}
+
+.menu .item i:after {
+  content: "";
+  position: absolute;
+  border: 0 dashed transparent;
+  width: 0;
+  height: 0;
+  border-width: 4px;
+  border-top-width: 8px;
+  border-top-style: solid;
+  border-top-color: #000;
+  left: 5px;
+  top: 10px
+}
+
+.menu .item i.hidden {
+  visibility: hidden
+}
+
+.menu .menu-item i:after {
+  -webkit-transform: rotate(0deg) translateY(0);
+  transform: rotate(0deg) translateY(0)
+}
+
+.menu .menu-item.fold>.item i:after {
+  -webkit-transform: rotate(-90deg) translate(3px,3px);
+  transform: rotate(-90deg) translate(3px,3px);
+  border-top-color: #0085ff
+}
+
+.menu .menu-item.fold>.list {
+  display: none
+}
+
+.menu .item i:hover:after {
+  border-top-color: #f0dd00
 }
 
 .left-nav{
