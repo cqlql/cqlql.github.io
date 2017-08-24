@@ -54,7 +54,10 @@ module.exports = function (env, options) {
         {
           test: /\.js$/,
           // exclude: /node_modules/,
-          include: [path.resolve(__dirname, "src")],
+          include: [
+            path.resolve(__dirname, "src"),
+            'E:\\github\\cqlql.github.io\\modules'
+          ],
           loader: 'babel-loader',
           options: {
             "presets": ["env"],
@@ -103,7 +106,7 @@ module.exports = function (env, options) {
       contentBase: outputPath,
       compress: true,
       host: '192.168.1.222',
-      port: 3001,
+      port: 1234,
       hot: false
     }
   }

@@ -21,5 +21,5 @@ export default function drawArc ({
 
   if (eRad === 2 * Math.PI) ex -= 0.001
 
-  return 'A ' + r + ' ' + r + ', 0, ' + (eRad - sRad > Math.PI ? 1 : 0) + ', 1, ' + ex.toFixed(3) + ' ' + ey.toFixed(3)
+  return 'A ' + r + ' ' + r + ', 0, ' + (eRad - sRad > Math.PI ? 1 : 0) + ', 1, ' + ex + ' ' + ey
 }
