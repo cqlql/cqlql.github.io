@@ -1,6 +1,6 @@
 
-import getxyByRad from './pie/getxy-by-rad'
-import pie from './pie/pie'
+import getxyByRad from '../../../modules/pie/getxy-by-rad'
+import pie from '../../../modules/pie/pie'
 
 export default function ({labels}) {
   // let labels = [11111,2,3,4,'谢谢参与',6,7]
