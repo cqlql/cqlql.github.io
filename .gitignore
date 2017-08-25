@@ -3,6 +3,6 @@ node_modules
 
 # 忽略所有 */*/ 这种目录，但 demo/0/ 除外
 #*/*/
-demo/0/
 npm-debug.log
 web.config
+*--gnore
