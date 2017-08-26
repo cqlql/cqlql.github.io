@@ -11,7 +11,7 @@ module.exports = {
       // }
     // }),
     require('postcss-smart-import')({
-      path: ['E:/_work/mobile_webview/smallpitch.webview/src/modules/base-libs/css']
+      // path: ['E:/_work/mobile_webview/smallpitch.webview/src/modules/base-libs/css']
     }),
     // require('postcss-inline-comment'),
     require('postcss-calc'),
