@@ -100,9 +100,17 @@ window.transmitData = function (baseData) {
   baseData.forEach(function (d) {
     let {weight,score,dimension_name} = d
     let w = weight/100
+    let labelTxt
+    score=score*1
+    if(score<0){
+      labelTxt = dimension_name+':未评价'
+      score = 0
+    } else{
+      labelTxt = dimension_name+':'+(score.toFixed(1) * 1)+'分'
+    }
     data.push(w)
+    labels.push(labelTxt)
     eachData.push(score/100)
-    labels.push(dimension_name+':'+score+'分')
     tscore+=score * w
   })
 
@@ -110,6 +118,6 @@ window.transmitData = function (baseData) {
     data,
     eachData,
     labels,
-    tscore
+    tscore:tscore.toFixed(1) * 1
   })
 }
