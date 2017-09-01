@@ -1,0 +1,49 @@
+
+.weather {
+  /*overflow: hidden;*/
+  color:#fff;
+  font-size: 20px;
+  /*width: 220px;*/
+  height: 108px;
+  text-shadow: 0px 1px 3px #7b7b7b;
+  .wtdate {
+    span{
+      padding-left: 10px;
+    }
+  }
+  .wt {
+    float: left;
+    margin-top: -4px;
+  }
+  .wtimg {
+
+    width: 60px;
+    height: 60px;
+    img{
+      width: 100%;
+      /*height: 100%;*/
+    }
+  }
+  .wtname {
+    color: #fbf164;
+    text-align: center;
+    margin-top: -6px;
+  }
+  .ot {
+    overflow: hidden;
+    padding-left: 10px;
+    span{
+      color: #fbf164;
+    }
+    label{
+      padding-right: 10px;
+    }
+  }
+  .tp {
+    padding: 12px 0 5px;
+    padding: 16px 0 6px;
+  }
+  .api {
+
+  }
+}

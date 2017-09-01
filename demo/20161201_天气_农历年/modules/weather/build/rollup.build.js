@@ -2,7 +2,7 @@ const rollup = require('rollup');
 let {inputOptions,outputOptions} = require('./rollup.comm');
 const uglify = require('rollup-plugin-uglify');
 
-inputOptions.plugins.push(uglify())
+// inputOptions.plugins.push(uglify())
 
 async function build() {
   // create a bundle

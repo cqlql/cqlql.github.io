@@ -1,73 +1,78 @@
-import loadJs from './load-js'
-import Site from './wtData_v2'
+import './index.css'
 
-let {weatherInfo} = Site
+import {getWeatherInfo, getCityRank} from '../modules/weather'
 
-function imgInfo({wInfo, wTime}) {
-  var icoOnNight = "";
-  var bgOnNight = "";
-  // 图片名及路径
-  var wtObj = weatherInfo.data[wInfo.sk_wt];
+let vm,cityName='深圳'
 
-  function dayOrNightFn() {
-    return wTime.currentHours > wInfo.bi_sr.split(":")[0] && wTime.currentHours < wInfo.bi_ss.split(":")[0] ? '_baitian' : '_yejian';
-  }
+vm = new Vue({
+  el: '#weather',
+  data: {
+    wtInfo: {},
+    rank: {quality: ''}
+  },
+  template: `
+    <div class="weather">
+  <div class="wtdate">{{wtInfo.currentDate}} <span>{{wtInfo.currentWeek}}</span></div>
+  <div class="wt">
+    <div class="wtimg"><img :src="wtInfo.icoImg" alt=""></div>
+    <div class="wtname">{{wtInfo.name}}</div>
+  </div>
+  <div class="ot">
+    <div class="tp"><label>温度</label><span>{{wtInfo.tp}}°C</span></div>
+    <div class="api"><label>空气质量</label><span>{{rank.quality}}</span></div>
+  </div>
+</div>
+    `
+})
 
-  switch (wInfo.sk_wt) {
-    case "00":
-    case "01":
-      icoOnNight = dayOrNightFn();
-      bgOnNight = dayOrNightFn();
-      break;
-    case "02":
-    case "04":
-    case "05":
-    case "18":
-    case "53":
-      bgOnNight = dayOrNightFn();
-      break;
-    case "03":
-    case "13":
-      icoOnNight = dayOrNightFn();
-      break;
-  }
-  ;
 
-  var icoUrl = weatherInfo.icoUrl;
+let update = async function () {
 
-  var bgImg = icoUrl + wtObj.bg + bgOnNight + ".jpg";
-  var icoImg = icoUrl + "TB_" + wtObj.ico + icoOnNight + ".png";
+  let wtInfo = await new Promise(function (resolve) {
+    getWeatherInfo(cityName, function (d) {
+      resolve(d)
+    })
+  })
 
-  return {
-    bgImg, icoImg
-  }
+  vm.wtInfo = wtInfo
+
+  let rank = await new Promise(function (resolve) {
+    getCityRank(cityName, function (d) {
+      resolve(d)
+    })
+  })
+
+  vm.rank.quality = rank.quality
 
 }
 
-loadJs({
-  // src: 'http://weather.gtimg.cn/city/01010715.js',
-  src: '../backup/01010715.js',
-  charset: 'gb2312',
-  callback: function () {
-    var wTime = {
-      currenttime: '2016.12.08',
-      currentHours: '09',
-      currentWeek: 'Thu',
-      currentMinute: '54'
-    };
+function setCity(name) {
+  cityName=name
+  update()
+}
 
-    var wInfo = __weather_city;
+// 每小时更新，可配置
+function timeUpdate() {
+  // 值为 1000*60 表示每分钟更换
+  // 值为 1000*60*60 表示每小时更换
+  let time = 1000*60*60
 
-    let {bgImg, icoImg} = imgInfo({wInfo, wTime})
-
-    let wtData = {
-      bgImg,
-      icoImg,
-      tp:wInfo.sk_tp
-    }
-
-    console.log(wtData)
-
-
+  function ex() {
+    update()
   }
-});
+
+  function fn() {
+
+    setTimeout(function () {
+      ex()
+    },time-(Date.now()%time))// 此处进行了减少误差计算
+  }
+  fn()
+}
+
+update()
+
+timeUpdate()
+
+
+window.weather = {update,setCity}
