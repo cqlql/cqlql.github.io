@@ -24,5 +24,5 @@ module.exports = function (err, stats) {
     console.warn(info.warnings)
   }
 
-  // console.log(info)
+  console.log(info)
 }
