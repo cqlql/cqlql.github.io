@@ -3,9 +3,8 @@
   "version": "0.0.1",
   "description": "个人demo",
   "scripts": {
-    "d": "E:\\github\\cqlql.github.io\\node_modules\\.bin\\webpack-dev-server --open",
-    "p-demo": "webpack -p",
-    "p":"webpack -p --env=p"
+    "webpack.build.prod.mccard":"node webpack.build.prod.mccard",
+    "build.deom":"webpack --env=p"
   },
   "author": "Jony c",
   "license": "ISC",

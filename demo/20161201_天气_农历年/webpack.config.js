@@ -1,3 +1,4 @@
+
 let path = require('path');
 let merge = require('webpack-merge');
 let webpack = require('webpack');
@@ -17,13 +18,12 @@ module.exports = function (env) {
 
   return merge(conf, {
     entry: {
-      // common:['vue'],
-      index: ["./src/index.js"]
+      index: ["./src/weather.mccard.js"]
     },
 
     output: {
       filename: "js/weather.js",
-      chunkFilename: 'js/[name].bundle.js',
+      // chunkFilename: 'js/[name].bundle.js',
     },
 
     plugins: [

@@ -1,8 +1,26 @@
-import './index.css'
+import './weather.css'
 
 import {getWeatherInfo, getCityRank} from '../modules/weather'
 
 let vm,cityName='深圳'
+
+// let el = document.createElement('div')
+// el.className = 'weather'
+// el.innerHTML = `<div class="wtdate">{{wtInfo.currentDate}} <span>{{wtInfo.currentWeek}}</span></div>
+//   <div class="wt">
+//     <div class="wtimg"><img :src="wtInfo.icoImg" alt=""></div>
+//     <div class="wtname">{{wtInfo.name}}</div>
+//   </div>
+//   <div class="ot">
+//     <div class="tp"><label>温度</label><span>{{wtInfo.tp}}°C</span></div>
+//     <div class="api"><label>空气质量</label><span>{{rank.quality}}</span></div>
+//   </div>`
+// let wtdate,wtimg,wtname,tp,api
+// let elems = el.querySelectorAll('.wtdate,.wtimg,.wtname,.tp,.api')
+// wtdate=elems[0]
+// wtimg=elems[1]
+// tp=elems[2]
+// api=elems[3]
 
 vm = new Vue({
   el: '#weather',

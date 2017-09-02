@@ -1,7 +1,7 @@
 const karma = require('karma')
 const cfg = karma.config;
 const path = require('path');
-const karmaConfig = cfg.parseConfig(path.resolve('../karma.conf.js'));
+const karmaConfig = cfg.parseConfig(path.resolve('./karma.conf.js'));
 
 var Server = karma.Server
 var server = new Server(karmaConfig, function(exitCode) {

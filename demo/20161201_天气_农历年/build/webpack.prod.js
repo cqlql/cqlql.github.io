@@ -6,12 +6,8 @@ let HtmlWebpackInlineSourcePlugin = require('html-webpack-inline-source-plugin')
 let HtmlWebpackPlugin = require('html-webpack-plugin');
 // let CleanWebpackPlugin = require('clean-webpack-plugin');
 
-let HtmlPlugin = require('./html-plugin')
-
 module.exports = {
   output: {
-    // path: path.resolve(__dirname, '../../Content'),
-    publicPath: "/Areas/Mccard/Content/",
     path: path.resolve(__dirname, '../dist'),
     filename: "js/weather.js"
   },
@@ -41,7 +37,6 @@ module.exports = {
         NODE_ENV: JSON.stringify('production')
       }
     }),
-    // new HtmlPlugin({options: ''})
   ],
 
   module: {
