@@ -7,9 +7,8 @@
  *
  */
 
-import Banner from 'banner-mobile';
-
-window.Banner=Banner;
+import './modules/banner-mobile/banner-mobile.pcss';
+import Banner from './modules/banner-mobile/banner-mobile';
 
 new Banner({
     eBox:document.querySelector('.banner')
