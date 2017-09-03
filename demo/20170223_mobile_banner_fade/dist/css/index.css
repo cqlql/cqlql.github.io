@@ -1,0 +1,25 @@
+.imgs{
+  position: relative;
+  height: 340px;
+}
+
+  .imgs.animate img{
+    -webkit-transition: 0.3s ease;
+    transition: 0.3s ease;
+  }
+
+  .imgs img{
+    position: absolute;
+    left: 0;
+    right: 0;
+    opacity: 0;
+  }
+
+  .imgs img.fade-in{
+
+      opacity: 1;
+    }
+
+.btn1 .r{
+    float: right;
+  }

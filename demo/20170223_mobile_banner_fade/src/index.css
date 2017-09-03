@@ -1,0 +1,27 @@
+.imgs{
+  position: relative;
+  height: 340px;
+
+  &.animate img{
+    transition: 0.3s ease;
+  }
+
+  img{
+    position: absolute;
+    left: 0;
+    right: 0;
+    opacity: 0;
+
+    &.fade-in{
+
+      opacity: 1;
+    }
+  }
+}
+
+.btn1{
+  .r{
+    float: right;
+  }
+
+}
