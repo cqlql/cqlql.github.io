@@ -106,7 +106,7 @@ window.transmitData = function (baseData) {
       labelTxt = dimension_name+':未评价'
       score = 0
     } else{
-      labelTxt = dimension_name+':'+(score.toFixed(1) * 1)+'分'
+      labelTxt = dimension_name+':'+((score*w).toFixed(1) * 1)+'分'
     }
     data.push(w)
     labels.push(labelTxt)

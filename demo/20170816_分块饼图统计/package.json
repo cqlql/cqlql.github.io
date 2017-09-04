@@ -3,11 +3,11 @@
   "version": "0.0.1",
   "description": "个人demo",
   "scripts": {
-    "d": "E:\\github\\cqlql.github.io\\node_modules\\.bin\\webpack-dev-server --open",
-    "p-demo": "webpack -p",
-    "p":"webpack -p --env=p"
+    "d": "node webpack.dev.run",
+    "p-demo": "node webpack.build.demo",
+    "p":"node webpack.build"
   },
-  "author": "Jony c",
+  "author": "桥黎",
   "license": "ISC",
   "dependencies": {},
   "devDependencies": {

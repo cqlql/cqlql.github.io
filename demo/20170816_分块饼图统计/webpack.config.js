@@ -10,11 +10,11 @@ module.exports = function (env, options) {
   let params = env ? env.split(',') : []
   let dev = params[0] !== 'p'
 
-  let outputPath = path.resolve(__dirname, dev?"dist":'assets')
+  let outputPath = path.resolve(__dirname, "dist")
 
   return {
     entry:{
-      index: ["./src/index.js"].concat(dev?"./src/test-data.js":[])
+      index: ["./src/index.js"]
     },
 
     output: {
@@ -23,7 +23,7 @@ module.exports = function (env, options) {
     },
     plugins: [
       new HtmlWebpackPlugin({
-        filename: dev?'./index.html':'./chart-pie.html',
+        filename: './index.html',
         template: './src/index.html',
         chunks: ['index'],
         inlineSource: '.(js|css)$',
@@ -37,16 +37,15 @@ module.exports = function (env, options) {
         }
       }),
       new ExtractTextPlugin('css/[name].css'),
-      new HtmlWebpackInlineSourcePlugin(),
-      // new webpack.NamedModulesPlugin(),
-      // new webpack.optimize.CommonsChunkPlugin({
-      //     name: ['common', 'manifest'],
-      // }),
-
-      // new CleanWebpackPlugin(['dist']),// 清理dist
-      // new webpack.HotModuleReplacementPlugin(), // 启用 HMR
-
-    ],
+      new HtmlWebpackInlineSourcePlugin()
+    ].concat(dev?[]:[
+      new webpack.optimize.UglifyJsPlugin(),
+      new webpack.DefinePlugin({
+        'process.env': {
+          NODE_ENV: JSON.stringify('production')
+        }
+      }),
+    ]),
 
     module: {
       //加载器配置

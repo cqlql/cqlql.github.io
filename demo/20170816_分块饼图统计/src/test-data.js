@@ -3,31 +3,25 @@ transmitData([
   {
     "dimension_id": "12",
     "dimension_name": "教学目标",
-    "score": "5.766",
-    "weight":20
+    "score": "80",
+    "weight":25
   },
   {
     "dimension_id": "36",
     "dimension_name": "教学行为",
-    "score": "0",
-    "weight":40
+    "score": "100",
+    "weight":25
   },
   {
-    "dimension_id": "37",
+    "dimension_id": "60",
     "dimension_name": "学习方式",
     "score": "0",
-    "weight":10
+    "weight":25
   },
   {
-    "dimension_id": "38",
+    "dimension_id": "70",
     "dimension_name": "教学效果",
     "score": "0",
-    "weight":20
-  },
-  {
-    "dimension_id": "38",
-    "dimension_name": "教学效果",
-    "score": "-1",
-    "weight":10
+    "weight":25
   }
 ])
