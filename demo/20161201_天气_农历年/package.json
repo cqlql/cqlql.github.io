@@ -4,7 +4,7 @@
   "description": "个人demo",
   "scripts": {
     "webpack.build.prod.mccard":"node webpack.build.prod.mccard",
-    "build.deom":"webpack --env=p"
+    "build.demo":"webpack --env=p"
   },
   "author": "Jony c",
   "license": "ISC",

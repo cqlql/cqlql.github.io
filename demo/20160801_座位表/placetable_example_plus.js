@@ -11,7 +11,7 @@
         placetable.reset(data);
 
         // setTimeout(function () {
-        placetable.print();
+        // placetable.print();
         // },1000)
 
     };
