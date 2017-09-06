@@ -11,15 +11,15 @@
 
 ## 目前前端主要技术栈：
 
-核心 html css js es6/7 
+核心 html css js es6/7
 
 框架 vuejs
 
 css 预处理 less sass postcss
 
-工程工具 nodejs webpack rollup gulp 
+工程工具 nodejs webpack rollup gulp
 
-自动化测试 karma + mocha + chai 
+自动化测试 karma + mocha + chai
 
 ## 工作经验：6年
 
