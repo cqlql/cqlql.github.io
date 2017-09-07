@@ -1759,7 +1759,7 @@ var d = {
     }, "code": 0, "message": "success", "is_succeed": true
 };
 
-d = {
+var d2 = {
     "data": {
         "seat_info": {
             "type_id": "1",
