@@ -5,21 +5,21 @@
 
 出生年月：1988年9月
 
-手机：13923401527
-
 邮箱：cql130@gmail.com
 
 ## 目前前端主要技术栈：
 
-核心 html css js es6/7
+基础：html css js es6/7 
 
-框架 vuejs
+框架：vuejs、reactjs
 
-css 预处理 less sass postcss
+css 预处理：sass postcss
 
-工程工具 nodejs webpack rollup gulp
+工程工具：webpack gulp rollup
 
-自动化测试 karma + mocha + chai
+后端/工具：nodejs express
+
+自动化测试：karma + mocha + chai 
 
 ## 工作经验：6年
 
