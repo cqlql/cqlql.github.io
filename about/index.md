@@ -9,7 +9,7 @@
 
 ## 目前前端主要技术栈：
 
-基础：html css js es6/7 
+基础：html css js es6/7
 
 框架：vuejs、reactjs
 
@@ -19,11 +19,11 @@ css 预处理：sass postcss
 
 后端/工具：nodejs express
 
-自动化测试：karma + mocha + chai 
+自动化测试：karma + mocha + chai
 
 ## 工作经验：6年
 
-[前端笔记](http://cqlql.github.io/note/#19)：目前只记录一小部分，后续会不断增加，完善
+[前端笔记](http://cqlql.github.io/note)：目前只记录一小部分，后续会不断增加，完善
 
 [移动端_左右滑动切换_唯一加载](http://cqlql.github.io/demo/20160919_mobile_左右滑动切换_唯一加载/dist)：永远只会展示3页数据，动画只是错觉，解决了性能瓶颈
 
