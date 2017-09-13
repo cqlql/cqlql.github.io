@@ -61,23 +61,10 @@ export default function Swipe() {
             }
 
             /// 敏感判断-新。新的判断方式将支持pc鼠标
-            let f = .4;// 敏感度，越小越敏感
             let r = to / time;
 
             cb(r)
 
-            // if (r > f) {
-            //     // console.log('右 滑动 ||距离:' + to + '||时间:' + time);
-            //     swipeRight();
-            // }
-            // else if (r < -f) {
-            //     // console.log('左 滑动 ||距离:' + to + '||时间:' + time);
-            //     swipeLeft();
-            // }
-            // else {
-            //     // console.log('未发生 滑动 ||距离:' + to + '||时间:' + time);
-            //     swipeNot();
-            // }
         }
         else {
             // 模拟了click事件
