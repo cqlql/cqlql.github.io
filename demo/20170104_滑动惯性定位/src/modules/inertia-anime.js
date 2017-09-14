@@ -104,11 +104,12 @@ export default class {
 
         change(cur);
 
-        window.requestAnimationFrame(excu);
+        excu()
+        // window.requestAnimationFrame(excu);
       }
     }
-
-    window.requestAnimationFrame(excu);
+    excu()
+    // window.requestAnimationFrame(excu);
   }
 
   stop() {

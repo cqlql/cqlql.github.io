@@ -1,6 +1,28 @@
-#app{
+#app {
   width: 100px;
-  height: 100px;
-  background-color: #1B9AF7;
-  position: relative;
+  height: 38px;
+  background-color: rgba(0, 0, 0, 0.65);
+  position: absolute;
+  top: 0;
 }
+
+.ls {
+position: relative;
+  ul{
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+
+  li {
+    height: 38px;
+
+    background-color: #ddd;
+
+    &:nth-child(2n){
+      background-color: #1B9AF7;
+    }
+  }
+}
+
