@@ -1,0 +1,244 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <title></title>
+    <meta charset="UTF-8">
+    <meta content="width=device-width,initial-scale=1.0,user-scalable=no" name="viewport"/>
+
+    <style>
+        body, select {
+            margin: 0
+        }
+
+        dd, dl, dt, input, menu, p, td, textarea, ul {
+            padding: 0;
+            margin: 0
+        }
+
+        h1, h2, h3, h4, h5, h6 {
+            margin: 0;
+            font-size: inherit;
+            font-weight: 400
+        }
+
+        ul {
+            list-style-type: none
+        }
+
+        body {
+            color: #333;
+            font: 16px/1.4 arial, SimSun, tahoma, Srial, helvetica
+        }
+
+        table {
+            border-collapse: collapse
+        }
+
+        a {
+            color: #333;
+            text-decoration: none
+        }
+
+        input, textarea {
+            outline: none
+        }
+
+        .fr {
+            float: right
+        }
+
+        .cf {
+            clear: both
+        }
+
+        .button {
+            border: 0;
+            color: #fff;
+            font-size: 16px;
+            background-color: #00bba2;
+            padding: 4px 20px;
+            display: inline-block;
+            cursor: pointer;
+            line-height: 20px
+        }
+
+        .button:active {
+            background-color: #03af97;
+            color: #085248;
+            text-shadow: 0 1px 0 hsla(0, 0%, 100%, .3);
+            text-decoration: none;
+            -webkit-box-shadow: inset 0 1px 3px rgba(0, 0, 0, .2);
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, .2)
+        }
+
+        .button:hover {
+            background-color: #1fbfa9
+        }
+
+        .placetable {
+            position: relative;
+            padding: 10px
+        }
+
+        .placetable .platform {
+            width: 300px;
+            height: 40px;
+            background: #cfcece;
+            color: #fff;
+            margin: 10px auto;
+            text-align: center;
+            font-size: 26px;
+            position: relative
+        }
+
+        .placetable .handle {
+            position: absolute;
+            right: -140px;
+            top: 0;
+            width: 100%
+        }
+
+        .placetable .handle .criticism, .placetable .handle .manage, .placetable .handle .praise, .placetable .handle .save {
+            width: 64px;
+            height: 40px;
+            float: left;
+            background: #ff7070;
+            font-size: 18px;
+            color: #fff;
+            line-height: 2.3;
+            position: absolute;
+            right: 0;
+            border-radius: 8px;
+            box-shadow: 0 0 4px hsla(0, 100%, 72%, .6)
+        }
+
+        .placetable .handle .manage, .placetable .handle .praise, .placetable .handle .save {
+            background: #2dceb8;
+            right: -70px;
+            box-shadow: 0 0 4px rgba(45, 206, 184, .6)
+        }
+
+        .placetable .handle .manage, .placetable .handle .save {
+            right: 70px
+        }
+
+        .placetable .list {
+            margin: 0 auto;
+            position: relative
+        }
+
+        .placetable .item {
+            height: 36px;
+            width: 100px;
+            background: #fff;
+            padding: 4px;
+            display: inline-block;
+            vertical-align: middle;
+            position: absolute;
+            left: 0;
+            top: 0;
+            margin: 0;
+            border-radius: 6px;
+            -webkit-transition: -webkit-transform .6s ease;
+            transition: -webkit-transform .6s ease;
+            transition: transform .6s ease;
+            transition: transform .6s ease, -webkit-transform .6s ease
+        }
+
+        .placetable .item.selected {
+            background: #ffba00;
+            color: #886300
+        }
+
+        .placetable .item.drag {
+            outline: 2px solid #ff6767;
+            -webkit-transition: none;
+            transition: none
+        }
+
+        .placetable .item.drag * {
+            display: none
+        }
+
+        .placetable .item.move {
+            position: absolute;
+            left: 0;
+            top: 0;
+            opacity: .8;
+            filter: alpha(opacity=80);
+            background: #fff;
+            -webkit-transition: none;
+            transition: none
+        }
+
+        .placetable .item.disable {
+            -webkit-filter: grayscale(100%);
+            filter: grayscale(100%);
+            opacity: .5
+        }
+
+        .placetable dt {
+            position: absolute;
+            top: 4px;
+            bottom: 4px;
+            text-align: center;
+        }
+
+        .placetable dt img {
+            height: 100%;
+            max-width: 100%;
+
+        }
+
+        .placetable dd {
+            overflow: hidden;
+            height: 40px;
+            margin-left: 38px;
+            font-size: 14px
+        }
+
+        .placetable i {
+            position: absolute;
+            right: -8px;
+            top: -6px;
+            border-radius: 50%;
+            font-style: normal;
+            width: 24px;
+            height: 24px;
+            color: #fff;
+            text-align: center;
+            font-size: .8em;
+            background-color: #2dceb8;
+            line-height: 1.8;
+            box-shadow: 0 0 4px rgba(45, 206, 184, .6)
+        }
+
+        .placetable i.warn {
+            background-color: #ff7070;
+            box-shadow: 0 0 4px hsla(0, 100%, 72%, .6)
+        }
+
+        body {
+            background: #f0f0f0;
+        }
+    </style>
+
+
+</head>
+<body>
+<div class="placetable">
+    <div class="platform">讲 台
+        <div class="handle">
+            <a id="criticismBtn" class="criticism" href="javascript:;" style="display:none">批评</a>
+            <a id="praiseBtn" class="praise" href="javascript:;" style="display:none">表扬</a>
+            <a id="saveBtn" class="save" href="javascript:;" style="display:none">保存</a>
+            <a id="manageBtn" class="manage" href="javascript:;" style="display:none">管理</a>
+        </div>
+    </div>
+    <div id="listCont" class="list"></div>
+</div>
+<script src="js/seating.js"></script>
+<script src="js/test-data/seating.js"></script>
+</body>
+
+</html>
