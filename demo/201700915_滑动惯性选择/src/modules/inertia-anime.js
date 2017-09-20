@@ -58,32 +58,27 @@
   };
 }*/
 
-window.requestAnimationFrame = window.requestAnimationFrame || window.webkitRequestAnimationFrame
-  || window.mozRequestAnimationFrame || window.msRequestAnimationFrame || function (callback) {
-    return window.setTimeout(callback, 1000 / 60);
-  };
-// window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAnimationFrame || window.clearTimeout;
-
 export default class {
-  constructor(change=()=>{},rate=.2) {
+  constructor({move=()=>{},rate=.2,complete=()=>{}}) {
 
     this.rate = rate;
-    this.change = change
+    this.move = move
 
     //开关。 是否进行中。true 进行中
     this.sw = false;
 
     this.cur = 0;
 
-    this.complete = function () {}
+    this.complete = complete
 
   }
 
   start(to, cur=this.cur) {
-    let {sw,rate,change} = this
+    let {sw,rate,move} = this
 
     this.to = to
     this.cur = cur
+    this.stopId
 
     if (sw) return;
     sw = true;
@@ -102,17 +97,17 @@ export default class {
           this.complete()
         }
 
-        change(cur);
+        move(cur);
 
-        excu()
-        // window.requestAnimationFrame(excu);
+        this.stopId = window.requestAnimationFrame(excu);
       }
     }
-    excu()
-    // window.requestAnimationFrame(excu);
+
+    this.stopId = window.requestAnimationFrame(excu);
   }
 
   stop() {
     this.sw = false;
+    window.cancelAnimationFrame(this.stopId)
   }
 }

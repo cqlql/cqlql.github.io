@@ -39,7 +39,7 @@ export default function Swipe() {
 
     };
 
-    this.end = function (cb) {
+    this.end = function (cb,noHappen) {
         if (i) {
             let now = Date.now();
 
@@ -68,6 +68,7 @@ export default function Swipe() {
         }
         else {
             // 模拟了click事件
+          noHappen()
         }
     };
 }

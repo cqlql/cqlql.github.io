@@ -1,3 +1,6 @@
+/**
+ * 速度衔接方案
+ * */
 import './index.css'
 import Swipe from './swipe'
 import drag from './modules/drag'
@@ -44,10 +47,6 @@ inertiaAnime.complete = function () {
     if (i > firstIndex) {
       let s = startAnimeData[firstIndex]
       let len = end - s
-      animation.start(function (p) {
-        // eDrag.style.top = s + len * p + 'px'
-        eDrag.style[transform] = 'translate3d(0,'+(s + len * p)+'px,0)'
-      }, 400)
 
       return
     }

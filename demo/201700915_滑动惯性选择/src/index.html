@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no"/>
+  <title>Title</title>
+  <style>
+
+  </style>
+
+</head>
+<body>
+
+<!--
+<div class="full-mask">
+
+</div>
+-->
+
+<div class="slide-select">
+  <div class="s-bar">
+    <a class="cl-btn">取消</a>
+    <a class="cfm-btn">确认</a>
+  </div>
+  <div class="s-cont">
+    <div class="s-mask s-t-mask"></div>
+    <div class="s-mask s-b-mask"></div>
+    <div class="s-sel-list">
+      <ul class="s-move">
+        <li class="s-item">2017</li>
+        <li class="s-item">2016</li>
+        <li class="s-item">2015</li>
+        <li class="s-item">2014</li>
+        <li class="s-item">2012</li>
+        <li class="s-item">2011</li>
+        <li class="s-item">2010</li>
+        <li class="s-item">2009</li>
+        <li class="s-item">2008</li>
+        <li class="s-item">2007</li>
+        <li class="s-item">2006</li>
+      </ul>
+      <ul class="s-move">
+        <li class="s-item">2017</li>
+        <li class="s-item">2016</li>
+        <li class="s-item">2015</li>
+        <li class="s-item">2014</li>
+        <li class="s-item">2012</li>
+        <li class="s-item">2011</li>
+        <li class="s-item">2010</li>
+        <li class="s-item">2009</li>
+        <li class="s-item">2008</li>
+        <li class="s-item">2007</li>
+        <li class="s-item">2006</li>
+      </ul>
+    </div>
+  </div>
+
+</div>
+
+
+
+<script>
+  var ul = document.querySelector('ul')
+  var html=''
+  var year = 2010
+  for(var i=50;i--;){
+    html+='<li class="s-item">'+(year+i)+'</li>'
+  }
+  document.querySelector('.s-move').innerHTML = html
+</script>
+</body>
+</html>
