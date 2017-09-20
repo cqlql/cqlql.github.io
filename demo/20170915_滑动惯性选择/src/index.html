@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no"/>
+  <title>Title</title>
+  <style>
+
+  </style>
+
+</head>
+<body>
+
+<!--
+<div class="full-mask">
+
+</div>
+-->
+
+<div class="slide-select">
+  <div class="s-bar">
+    <a class="cl-btn">取消</a>
+    <a class="cfm-btn">确认</a>
+  </div>
+  <div class="s-tit">
+    <div class="s-t">开始时间</div>
+    <div class="s-t">结束时间</div>
+  </div>
+  <div class="s-main">
+    <div class="s-list">
+      <div class="s-sel">
+        <div class="s-mask s-t-mask"></div>
+        <div class="s-mask s-b-mask"></div>
+        <ul class="s-move">
+          <li class="s-item"></li>
+        </ul>
+      </div>
+    </div>
+    <div class="s-list">
+      <div class="s-sel">
+        <div class="s-mask s-t-mask"></div>
+        <div class="s-mask s-b-mask"></div>
+        <ul class="s-move">
+          <li class="s-item"></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+
+<script>
+
+  var html=''
+  var year = 2010
+  for(var i=50;i--;){
+    html+='<li class="s-item">'+(year+i)+'</li>'
+  }
+  var elms = [].slice.call(document.querySelectorAll('ul'), 0);
+
+  elms.forEach(function (elm) {
+    elm.innerHTML = html
+  })
+
+</script>
+</body>
+</html>

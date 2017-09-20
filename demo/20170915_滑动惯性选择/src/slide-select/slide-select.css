@@ -1,15 +1,15 @@
 
 .slide-select{
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height:312px;
+  //position: fixed;
+  //bottom: 0;
+  //left: 0;
+  //right: 0;
   background-color: #eee;
 
   .s-bar{
     height: 30px;
     padding: 6px;
+    border-bottom: 1px solid #ccc;
 
     a{
       font-weight: 400;
@@ -41,42 +41,66 @@
       background-color: #007aff;
     }
   }
-  .s-cont{
-    overflow: hidden;
-    height:270px;
-    position: relative;
-  }
-  .s-sel-list{
+
+  .s-tit{
     display: flex;
+    text-align: center;
+    .s-t{
+      flex: 1;
+    }
+  }
+
+  .s-main{
+    display: flex;
+    height:200px;
+  }
+  .s-list{
+    flex:1;
+    margin: 0 10px;
+    position: relative;
+    overflow: hidden;
+  }
+
+
+  .s-sel{
+    height: 30px;
+    border-bottom: 1px solid #407bff;
+    border-top: 1px solid #407bff;
+    position: absolute;
+    top: 50%;
+    width: 100%;
+    transform: translateY(-50%);
   }
   .s-move{
-    flex: 1;
     list-style: none;
     padding: 0;
     margin: 0;
+    text-align: center;
+    font-size: 16px;
+    line-height: 1.8;
   }
   .s-item{
-    height:30px;
-    line-height: 1.7;
+    height: 30px;
+
   }
+
   .s-mask{
     position: absolute;
-    height: 120px;
+    height: 88px;
     left: 0;
     right: 0;
-    background-color: rgba(255, 255, 255, 0.7);
+    background-color: rgba(238, 238, 238, 0.75);
     z-index: 1;
     pointer-events:none;
   }
   .s-t-mask{
-
-    border-bottom: 1px solid #008add;
+    top: 0;
+    transform: translateY(-100%);
+    box-shadow: inset 0px 20px 20px 0px #eee;
   }
   .s-b-mask{
     bottom: 0;
-    border-top: 1px solid #008add;
+    transform: translateY(100%);
+    box-shadow: inset 0px -20px 20px 0px #eee;
   }
-
-
 }
-

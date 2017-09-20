@@ -21,6 +21,7 @@ module.exports = function (env, options) {
       path: outputPath,
       filename: "js/[name].js"
     },
+    devtool: 'eval',
     plugins: [
       new HtmlWebpackPlugin({
         filename: './index.html',
@@ -72,7 +73,9 @@ module.exports = function (env, options) {
 
       // 寻找模块的目录
       modules: [
-        path.resolve(__dirname, "../../node_modules")
+        path.resolve(__dirname, "../../node_modules"),
+        path.resolve(__dirname, "../20170915_滑动惯性选择/src"),
+        path.resolve(__dirname, "../20170920_底部弹窗/src")
         // "node_modules"
       ],
 
