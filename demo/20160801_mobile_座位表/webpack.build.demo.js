@@ -3,8 +3,9 @@ const path = require('path');
 let webpack = require('webpack');
 let conf = require('./webpack.config')('p')
 
-conf.entry.index.pop()
+let outputPath = conf.output.path = path.resolve('demo')
 delete conf.devtool
+
 webpack(conf,function (err, stats) {
 
   const info = stats.toString({
@@ -13,6 +14,6 @@ webpack(conf,function (err, stats) {
 
   console.log(info)
 
-  fs.removeSync(path.resolve(conf.output.path,'./css'))
-  fs.removeSync(path.resolve(conf.output.path,'./js'))
+  fs.removeSync(path.resolve(outputPath,'./css'))
+  fs.removeSync(path.resolve(outputPath.path,'./js'))
 })

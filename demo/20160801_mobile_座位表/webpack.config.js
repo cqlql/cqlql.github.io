@@ -14,7 +14,7 @@ module.exports = function (env, options) {
 
   return {
     entry:{
-      index: ["./src/index.js"]
+      index: ["./src/js/index.js", "./src/js/data.js"]
     },
 
     output: {
@@ -40,7 +40,14 @@ module.exports = function (env, options) {
       new ExtractTextPlugin('css/[name].css'),
       new HtmlWebpackInlineSourcePlugin()
     ].concat(dev?[]:[
-      new webpack.optimize.UglifyJsPlugin(),
+      new webpack.optimize.UglifyJsPlugin({
+        uglifyOptions:{
+          mangle: {
+            eval:true
+          }
+
+        }
+      }),
       new webpack.DefinePlugin({
         'process.env': {
           NODE_ENV: JSON.stringify('production')
@@ -59,8 +66,6 @@ module.exports = function (env, options) {
           // exclude: /node_modules/,
           include: [
             path.resolve(__dirname, "src"),
-            path.resolve(__dirname, "../20170915_滑动惯性选择/src"),
-            path.resolve(__dirname, "../20170920_底部弹窗/src")
           ],
           loader: 'babel-loader',
           options: {
@@ -70,7 +75,16 @@ module.exports = function (env, options) {
         }, {
           test: /\.css$/,
           use:['style-loader', 'css-loader', 'postcss-loader']
-        }
+        }, {
+          test: /\.(png|jpe?g|gif|svg)(\?.*)?$/,
+          loader: 'url-loader',
+          query: {
+            limit: 10000,//单位 字节，1千字节(kb)=1024字节(b)
+            // path: '/',
+            // publicPath: '../',
+            name: "[name].[ext]"
+          }
+        },
       ]
     },
     resolve: {
@@ -78,8 +92,6 @@ module.exports = function (env, options) {
       // 寻找模块的目录
       modules: [
         path.resolve(__dirname, "../../node_modules"),
-        path.resolve(__dirname, "../20170915_滑动惯性选择/src"),
-        path.resolve(__dirname, "../20170920_底部弹窗/src")
         // "node_modules"
       ],
 
