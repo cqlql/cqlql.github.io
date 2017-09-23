@@ -1,0 +1,18 @@
+
+/*底部加载中*/
+.preloader-bottom {
+  height: 20px;
+  padding: 8px 0;
+  text-align: center;
+
+  .preloader{
+    vertical-align: middle;
+  }
+
+  .txt{
+    vertical-align: middle;
+  }
+  &.finish{
+    display: none;
+  }
+}
