@@ -1,1 +1,1 @@
-require('webpack-dev-server/bin/webpack-dev-server');
+require('webpack-dev-server/bin/webpack-dev-server')

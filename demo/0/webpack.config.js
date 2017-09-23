@@ -1,8 +1,8 @@
-let path = require('path');
-let webpack = require('webpack');
-let HtmlWebpackPlugin = require('html-webpack-plugin');
-let ExtractTextPlugin = require("extract-text-webpack-plugin");
-let HtmlWebpackInlineSourcePlugin = require('html-webpack-inline-source-plugin');
+let path = require('path')
+let webpack = require('webpack')
+let HtmlWebpackPlugin = require('html-webpack-plugin')
+let ExtractTextPlugin = require('extract-text-webpack-plugin')
+let HtmlWebpackInlineSourcePlugin = require('html-webpack-inline-source-plugin')
 // let CleanWebpackPlugin = require('clean-webpack-plugin');
 
 module.exports = function (env, options) {
@@ -10,16 +10,16 @@ module.exports = function (env, options) {
   let params = env ? env.split(',') : []
   let dev = params[0] !== 'p'
 
-  let outputPath = path.resolve(__dirname, "dist")
+  let outputPath = path.resolve(__dirname, 'dist')
 
   return {
-    entry:{
-      main: ["./src/main.js"]
+    entry: {
+      main: ['./src/main.js']
     },
 
     output: {
       path: outputPath,
-      filename: "js/[name].js"
+      filename: 'js/[name].js'
     },
     devtool: 'eval',
     plugins: [
@@ -28,7 +28,7 @@ module.exports = function (env, options) {
         template: './src/index.html',
         chunks: ['main'],
         inlineSource: '.(js|css)$',
-        minify:{
+        minify: {
           removeComments: true,
           collapseWhitespace: true,
           removeAttributeQuotes: true,
@@ -39,7 +39,7 @@ module.exports = function (env, options) {
       }),
       new ExtractTextPlugin('css/[name].css'),
       new HtmlWebpackInlineSourcePlugin()
-    ].concat(dev?[]:[
+    ].concat(dev ? [] : [
       new webpack.optimize.UglifyJsPlugin(),
       new webpack.DefinePlugin({
         'process.env': {
@@ -55,19 +55,28 @@ module.exports = function (env, options) {
       //加载器配置
       rules: [
         {
+          test: /\.(js|vue)$/,
+          loader: 'eslint-loader',
+          enforce: 'pre',
+          include: [resolve('../src'), resolve('../test')],
+          options: {
+            formatter: require('eslint-friendly-formatter')
+          }
+        },
+        {
           test: /\.js$/,
           // exclude: /node_modules/,
           include: [
-            path.resolve(__dirname, "src"),
+            path.resolve(__dirname, 'src'),
           ],
           loader: 'babel-loader',
           options: {
-            "presets": ["env"],
-            "plugins": ["transform-runtime", "syntax-dynamic-import"],
+            'presets': ['env'],
+            'plugins': ['transform-runtime', 'syntax-dynamic-import'],
           }
         }, {
           test: /\.css$/,
-          use:['style-loader', 'css-loader', 'postcss-loader']
+          use: ['style-loader', 'css-loader', 'postcss-loader']
         }
       ]
     },
@@ -75,11 +84,11 @@ module.exports = function (env, options) {
 
       // 寻找模块的目录
       modules: [
-        path.resolve(__dirname, "../../node_modules"),
+        path.resolve(__dirname, '../../node_modules'),
         // "node_modules"
       ],
 
-      extensions: [".js"],
+      extensions: ['.js'],
 
       // 别名
       alias: {}
