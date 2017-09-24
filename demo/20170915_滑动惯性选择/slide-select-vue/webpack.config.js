@@ -14,7 +14,7 @@ module.exports = function (env, options) {
 
   return {
     entry: {
-      main: ['./src/main.js']
+      main: ['./src/example/main.js']
     },
 
     output: {
@@ -25,7 +25,7 @@ module.exports = function (env, options) {
     plugins: [
       new HtmlWebpackPlugin({
         filename: './index.html',
-        template: './src/index.html',
+        template: './src/example/index.html',
         chunks: ['main'],
         inlineSource: '.(js|css)$',
         minify: {
@@ -99,13 +99,15 @@ module.exports = function (env, options) {
 
       // 寻找模块的目录
       modules: [
-        path.resolve(__dirname, '../../node_modules'),
+        path.resolve(__dirname, '../../../node_modules'),
       ],
 
       extensions: ['.js'],
 
       // 别名
-      alias: {}
+      alias: {
+        'vue$': 'vue/dist/vue.esm.js',
+      }
     },
 
     devServer: {

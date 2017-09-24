@@ -1,59 +1,33 @@
+import './popup-bottom.css'
+import PopupBottom from './popup-bottom'
+
 export default class {
-  constructor() {
-
-  }
-
-  init(cb){
+  init (cb = () => {}) {
     this.init = function (cb) { cb() }
 
-    let html = `
-<div class="popup-buttom">
-  <div class="fgp-bg"></div>
-  <div class="fgp-bd">
-    <div class="fgp-cont"><!--内容--></div>
-  </div>
-</div>`
-    let elm = document.createElement('div')
-    elm.innerHTML = html
+    let popupBottom = this.popupBottom = new PopupBottom()
 
-    let elRoot = this.elRoot = elm.children[0]
-    let elChild = elRoot.children
-
-    let elBg = this.elBg = elChild[0]
-    let elCont = this.elCont = elChild[1]
-
-    elBg.addEventListener('click', () => {
-      this.close()
-    })
-
-    document.body.appendChild(elRoot)
+    popupBottom.init()
 
     // 解决初始动画问题
-    setTimeout(cb,1)
+    setTimeout(cb, 1)
   }
 
-  show({
-         body,
-    before=()=>{}
-       }) {
+  show ({body, before = () => {}} = {}) {
     this.init(() => {
-      let {elCont}=this
+      let {elCont, popupBottom} = this
 
-      // if (typeof body === 'string'){
-        elCont.innerHTML = body
-      // } else{
-      //   elCont.innerHTML = ''
-      //   elCont.appendChild(body)
-      // }
+      if (body) {
+        popupBottom.setCont(body)
+      }
 
       before(elCont)
 
-
-      this.elRoot.classList.add('show')
+      popupBottom.show()
     })
   }
 
-  close(){
-    this.elRoot.classList.remove('show')
+  close () {
+    this.popupBottom.close()
   }
 }

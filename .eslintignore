@@ -3,5 +3,6 @@ config/*.js
 src/lib/*.js
 *.config.js
 dist/*
-karma.conf.js
+*.conf.js
 webpack.*
+*.test.js

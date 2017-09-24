@@ -1,9 +1,5 @@
 
 .slide-select{
-  //position: fixed;
-  //bottom: 0;
-  //left: 0;
-  //right: 0;
   background-color: #eee;
 
   .s-bar{
@@ -31,7 +27,7 @@
     }
 
     .cl-btn{
-
+      float: left;
     }
     .cfm-btn{
       float: right;
@@ -39,6 +35,13 @@
       color: #fff;
       border: 1px solid #007aff;
       background-color: #007aff;
+    }
+    .s-info{
+      overflow: hidden;
+      text-overflow:ellipsis;
+      white-space: nowrap;
+      text-align: center;
+      line-height: 2;
     }
   }
 
@@ -56,7 +59,7 @@
   }
   .s-list{
     flex:1;
-    margin: 0 10px;
+    margin: 0 5px;
     position: relative;
     overflow: hidden;
   }

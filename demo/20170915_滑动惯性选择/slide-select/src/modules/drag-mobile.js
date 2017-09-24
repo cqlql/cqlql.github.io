@@ -16,6 +16,7 @@
  *  在onDown 中可以阻止，勿在onStart中阻止
  *
  */
+/* eslint-disable */
 export default function dragMobile({eDrag, onMove, onStart=()=>{}, onDown=()=>{}, onEnd=()=>{}}) {
 
     let isStart = false;

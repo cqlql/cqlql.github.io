@@ -2,6 +2,7 @@
  * 计算坐标
  * 点与点相加
  * */
+/* eslint-disable */
 export default function Figure() {
   this.start = function (x, y) {
     this.prevX = x;

@@ -8,7 +8,7 @@
  *
  */
 
-
+/* eslint-disable */
 export default function Swipe() {
 
     let prevX, toX;

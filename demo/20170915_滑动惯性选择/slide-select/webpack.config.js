@@ -14,7 +14,7 @@ module.exports = function (env, options) {
 
   return {
     entry: {
-      main: ['./src/main.js']
+      main: ['./src/example/main.js']
     },
 
     output: {
@@ -25,7 +25,7 @@ module.exports = function (env, options) {
     plugins: [
       new HtmlWebpackPlugin({
         filename: './index.html',
-        template: './src/index.html',
+        template: './src/example/index.html',
         chunks: ['main'],
         inlineSource: '.(js|css)$',
         minify: {
@@ -58,7 +58,7 @@ module.exports = function (env, options) {
           test: /\.(js|vue)$/,
           loader: 'eslint-loader',
           enforce: 'pre',
-          include: [path.resolve('src'), path.resolve('test')],
+          include: [path.resolve('src')],
           options: {
             formatter: require('eslint-friendly-formatter')
           }
@@ -68,6 +68,7 @@ module.exports = function (env, options) {
           // exclude: /node_modules/,
           include: [
             path.resolve(__dirname, 'src'),
+            path.resolve(__dirname, "../../20170920_底部弹窗/src")
           ],
           loader: 'babel-loader',
           options: {
@@ -99,13 +100,16 @@ module.exports = function (env, options) {
 
       // 寻找模块的目录
       modules: [
-        path.resolve(__dirname, '../../node_modules'),
+        path.resolve(__dirname, '../../../node_modules'),
+        path.resolve(__dirname, "../../20170920_底部弹窗/src")
       ],
 
       extensions: ['.js'],
 
       // 别名
-      alias: {}
+      alias: {
+        'vue$': 'vue/dist/vue.esm.js',
+      }
     },
 
     devServer: {

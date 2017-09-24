@@ -3,7 +3,7 @@
 最终目标
 
 */
-
+/* eslint-disable */
 let itemH = 38
 
 /*easeOutQuad*/

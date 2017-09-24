@@ -4,8 +4,8 @@ let webpack = require('webpack')
 let conf = require('./webpack.config')('p')
 
 delete conf.devtool
-webpack(conf, function (err, stats) {
 
+webpack(conf, (err, stats) => {
   const info = stats.toString({
     colors: true
   })

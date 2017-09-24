@@ -5,6 +5,37 @@
     <title>Title</title>
 </head>
 <body>
+<script>
+new Promise(function (resolve, reject) {
+  setTimeout(function () {
+    reject('错了')
+  },1000)
+}).then(function () {
+  console.log(1)
+}).then(function () {
+  console.log(2)
+}).catch(function (err) {
+  console.log(err)
+  return new Promise(function (resolve, reject) {
+    setTimeout(function () {
+      reject('继续错了')
+    },1000)
 
+  })
+}).then(function () {
+  console.log(3)
+}).then(function () {
+  console.log(4)
+}).catch(function (err) {
+  console.log(err)
+}).then(function () {
+  console.log(5)
+  setTimeout(function () {
+    console.log(7)
+  },1)
+}).then(function () {
+  console.log(6)
+});
+</script>
 </body>
 </html>

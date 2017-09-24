@@ -1,27 +1,19 @@
-import '../modules/comm'
-import autoprefix from '../modules/autoprefix'
-import drag from '../modules/drag-mobile'
-import InertiaAnime from '../modules/inertia-anime'
-import Animation from '../modules/animation'
+import './modules/comm'
+import autoprefix from './modules/autoprefix'
+import drag from './modules/drag-mobile'
+import InertiaAnime from './modules/inertia-anime'
+import Animation from './modules/animation'
 
-import Swipe from '../modules/swipe'
+import Swipe from './modules/swipe'
 
 let transform = autoprefix('transform')[1]
 
 export default class {
-  constructor({
-                eDrag, eMove,
-                onChange=()=>{}
-              } = {}) {
-
-
-    // let eDrag = this.eDrag = document.querySelector('.slide-select')
-    // let eMove = this.eMove = eDrag.querySelector('.s-move')
-    this.eDrag=eDrag
-    this.eMove=eMove
+  constructor ({ eDrag, eMove, onChange = () => {} } = {}) {
+    this.eDrag = eDrag
+    this.eMove = eMove
 
     let itemH = this.itemH = 30// 项高
-    // let eItems = eMove.children
     let contH = itemH * eMove.children.length
     this.minH = itemH - contH
 
@@ -34,11 +26,11 @@ export default class {
     this.init()
   }
 
-  init() {
-    let {eDrag, eMove} = this
+  init () {
+    let {eDrag} = this
 
-    let swipeBase = new Swipe();
-    let animation = this.animation = new Animation
+    let swipeBase = new Swipe()
+    let animation = this.animation = new Animation()
 
     let inertiaAnime = new InertiaAnime({
       move: (v) => {
@@ -55,7 +47,7 @@ export default class {
     drag({
       eDrag,
       onStart: (e) => {
-        e.stopPropagation();
+        e.stopPropagation()
 
         inertiaAnime.stop()
         animation.stop()
@@ -65,10 +57,9 @@ export default class {
         tempX = this.currX
 
         swipeBase.start(startX)
-
       },
       onMove: (e) => {
-        e.preventDefault();
+        e.preventDefault()
 
         let moveX = e.touches[0].pageY
 
@@ -94,28 +85,28 @@ export default class {
           this.recover(this.currX)
         })
       }
-    });
+    })
   }
 
-  elmMove(y) {
+  elmMove (y) {
     this.eMove.style[transform] = 'translate3d(0,' + y + 'px,0)'
   }
 
   // 选择结果
-  result(y) {
-    let {itemH, mkH, eItems, currIndex} = this
-    let index = (-y+'') / itemH
+  result (y) {
+    let {itemH, currIndex} = this
+    let index = (-y + '') / itemH
     if (index !== currIndex) {
       this.onChange(this.currIndex = index)
     }
   }
 
-  select(index) {
+  select (index) {
     this.currIndex = index
     this.elmMove(this.currX = -index * this.itemH)
   }
 
-  recover(y) {
+  recover (y) {
     let {minH, itemH: h} = this
     let t
     if (y > 0) {
@@ -138,6 +129,13 @@ export default class {
       let currX = this.currX = y + (t - y) * p
       this.elmMove(currX)
     }, 100)
+  }
 
+  update () {
+    let {itemH, eMove, currIndex} = this
+    let contH = itemH * eMove.children.length
+    this.minH = itemH - contH
+
+    this.recover(-itemH * currIndex)
   }
 }
