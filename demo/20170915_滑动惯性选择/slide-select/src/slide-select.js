@@ -6,10 +6,12 @@ export default class {
     this.elTit = null
     this.sels = [] // 缓存列功能对象
     this.onChange = (i) => {
-      console.log('当前滑动项', i)
       this.sels.forEach(function (sel) {
         console.log(sel.currIndex)
       })
+    }
+    this.dataHandle = {
+      onChange () {}
     }
   }
 
@@ -28,7 +30,6 @@ export default class {
       data.forEach(function (v) {
         html += '<li class="s-item">' + v + '</li>'
       })
-      console.log(this.elMain.children[index].querySelector('.s-move'))
       this.elMain.children[index].querySelector('.s-move').innerHTML = html
       let sel = this.sels[index]
       sel.update()
@@ -95,6 +96,7 @@ export default class {
         eDrag,
         eMove,
         onChange: () => {
+          this.dataHandle.onChange(i)
           this.onChange(i)
         }
       }))
