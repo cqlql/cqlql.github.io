@@ -9,7 +9,7 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
 (function () {
 
     var c = {};
-    
+
     /// 基础
 
     //#region 浏览器判断
@@ -89,13 +89,13 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
         };
     }();
 
-    //#endregion 
+    //#endregion
 
     //#region css 加前缀
     /*
 
-    type: 
-        0 或不给, 减号连接,真正的 css属性名 
+    type:
+        0 或不给, 减号连接,真正的 css属性名
         1, 驼峰, 适用直接给style赋值
     例子
     cssTransform = c.addPrefix('transform')
@@ -163,11 +163,11 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
     //#region css 值获取
 
     /*
-    
+
     参数:
         name
          推荐使用原 css 属性名称
-    
+
     */
 
     c.getCss = function () {
@@ -256,7 +256,18 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
     };
     //#endregion
 
-    //#region [坐标] 元素 相对 于内容窗口 
+  //#region 取字符串 [字节大小]
+  /*
+  中文字符两个字节，英文字符一个
+  */
+
+  c.stringSize = function (s) {
+
+    return s.length + (s.match(/[^\x00-\xff]/g) || '').length;
+  }
+//#endregion
+
+    //#region [坐标] 元素 相对 于内容窗口
     c.offsetXY = function (elem) {
         var x = 0,
             y = 0;
@@ -314,7 +325,7 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
         var length = number.length;
 
         if (length < targetLen) number = (new Array(targetLen - length + 1)).join('0') + number;
-        
+
         return number;
     };
     //#endregion
@@ -400,7 +411,7 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
     /*
     **动态动画效果
     目标位置 随便都可以改变的动画效果
-    
+
 
     /*
     *** 版本2
@@ -408,14 +419,14 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
     var anime = new c.ChangeAnime(function (v) {
         side_follow.css('top', v);
     });
-    
+
     //停止动画
     anime.stop();
-    
+
     //开始动画
     anime.start(100);//方式1 。只有目标位置
     anime.start(100,0);//方式2。目标位置，初始位置
-    
+
     //取状态
     anime.getState();
     */
@@ -684,7 +695,7 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
             }, time === undefined ? 600 : time);
         }
     };
-    //#endregion   
+    //#endregion
 
     // 尝试执行，不断尝试，直到fn返回 true(可以是任何可转为true的类型)
     c.tryExcu = function (fn) {
@@ -723,9 +734,9 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
     /*
 
         切记，传入参数必须是number类型
-        
+
        var a = new common.EasingBuild();
-    
+
         a.setCurParams({
             w: 100
         });
@@ -735,7 +746,7 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
             w: 600
         }, {
             go: function (to) {
-    
+
                 //div1.style.left = to.x + 'px';
                 //div1.style.top = to.y + 'px';
                 div1.style.width = to.w + 'px';
@@ -743,7 +754,7 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
             easing:'easeOutQuad',
             speed: 600
         });
-    
+
     */
     c.EasingBuild = function (params) {
         var
@@ -1051,7 +1062,7 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
         return array;
     };
 
-    // 紧邻同辈元素 获取 
+    // 紧邻同辈元素 获取
     /**
     获取某节点 紧邻的 上或下 单个 同辈元素节点
 
@@ -1146,7 +1157,7 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
     /*
       @param (element) item 位置元素。将紧邻此元素之后追加
       @param (HTMLCollection,array,html) newItems 追加的元素，可以是多个。html可以标签文本随意组合
-     
+
       @return (array) 新加的节点集合
      */
     c.insertAfter = function (item, newItems) {
@@ -1231,7 +1242,7 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
       @这些类型也能获取[ie678不支持这些]：
         HTMLCollection、HTMLDocument、HTMLTitleElement、HTMLHtmlElement
         这些类型使用typeof 将返回 object
-     
+
      */
     c.getType = function (v) {
 
@@ -1288,7 +1299,7 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
         }
     };
 
-    // 图片唯一加载 
+    // 图片唯一加载
     /*
      再次调用，将清理上一次用此方法加载的图片调用
      对于一些超时加载，依然会触发完成事件，而且可能后于当前有用加载触发，所以需清理
@@ -1296,7 +1307,7 @@ window.cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAni
     c.ImgUniqueLoad = function () {
         /*
         属性事件，未发生前可更改设置清除。
-        兼容性：包括ie6的所有    
+        兼容性：包括ie6的所有
         */
 
         var lastImg;
