@@ -49,4 +49,9 @@ export default class extends SlideSelect {
 `
     return html
   }
+
+  use (dataHandle) {
+    dataHandle.init(this)
+    this.dataHandle = dataHandle
+  }
 }

@@ -9,17 +9,25 @@
 
 ## 目前前端主要技术栈：
 
-基础：html css js es6/7
+熟练掌握 html css js es6/7 。熟练使用 div + css 布局，ps切图。能定制复杂交互/效果/模块
 
-框架：vuejs、reactjs
+熟练使用 ajax 跟后端数据交互。比如使用 fetch
 
-css 预处理：sass postcss
+熟练使用 jQuery，不过现在很少用了。1, 原生已有不少支持，2, 改用数据驱动框架，解放手动dom操作，优化性能
 
-工程工具：webpack gulp rollup
+熟练使用 vuejs 框架，能开发独立组件
 
-后端/工具：nodejs express
+熟练使用 less sass 预处理编写 css。熟练使用 postcss 优化处理 css
 
-自动化测试：karma + mocha + chai
+熟练使用 nodejs。比如编写工程代码
+
+熟练使用 webpack 工具，异步加载模块，模块合并，实现最大化优化请求
+
+熟悉主流思想编写代码：模块化，工程化，自动化，SPA单页应用，commonjs规范，css in js
+
+熟练编写单元测试，实现测试自动化，利于后期维护重构扩展，常用测试框架组合：karma + mocha + chai 。其中dom测试使用chai-dom插件
+
+编写规范代码，使用 standard 规范，并使用 eslint 进行规范检查
 
 ## 工作经验：6年
 

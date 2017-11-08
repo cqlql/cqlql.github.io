@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no"/>
+  <title>用户登录</title>
+  <script>
+    var isOther = location.search.replace(/^\?/, '')
+  </script>
+</head>
+<body>
+<div class="report">
+  <h1><script>isOther?document.write('口算提卡 二年级上册') : document.write('unit 2 good morning')</script></h1>
+  <div class="accuracy">
+    <div class="circle">
+      <canvas id="canvas" width="106" height="106"></canvas>
+    </div>
+
+  </div>
+  <div class="award">
+    <div class="ct">
+      <div class="c">学分 <span>+6</span></div>
+      <div class="g">金币 <span>+15</span></div>
+    </div>
+  </div>
+  <div class="result-txt">
+    <div class="r">完成时间:<b>31</b>分钟，击败了全国<b>90%</b>的小伙伴</div>
+    <div class="r">做对<b>31</b>道题，打败了<b>90%</b>的小伙伴</div>
+    <div class="r">做错<b class="w">3</b>题：1, 2, 3</div>
+  </div>
+  <div class="det">
+    <div class="tit">
+      <span>查看单词详情</span>
+    </div>
+    <ul>
+      <li>apple</li>
+      <li class="w">bad</li>
+      <li>pig</li>
+      <li class="w">dog</li>
+      <li>layout</li>
+      <li>mode</li>
+      <li>we</li>
+      <li>you</li>
+      <li>must</li>
+    </ul>
+  </div>
+</div>
+</body>
+</html>

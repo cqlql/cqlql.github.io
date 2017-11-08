@@ -1,0 +1,133 @@
+
+/*# 重置 */
+body, select {
+  margin: 0;
+}
+
+p, input, td, textarea, ul,ol, dl, dt, dd, menu {
+  padding: 0;
+  margin: 0;
+}
+
+/*h1,h2,h3,h4,h5,h6{margin:0;font-size:inherit;font-weight:normal;}*/
+ol,ul {
+  list-style-type: none;
+}
+
+table {
+  border-collapse: collapse;
+}
+
+/*input,textarea,select{outline:none;}*/
+
+body {
+  color: #333;
+  font: 15px/1.2 Consolas, Microsoft Yahei, arial, SimSun, tahoma, Srial, helvetica;
+  /*background-color: #f6f6f6;*/
+  /*background-color: #ebebeb;*/
+}
+
+a {
+  color: #333;
+  text-decoration: none;
+}
+
+/*# 公共 */
+
+.cf:after {
+  content: '';
+  display: block;
+  height: 0;
+  overflow: hidden;
+  clear: both;
+}
+
+/*ff_st,.ff_st a{font-family:SimSun,\5B8B\4F53;}*/
+/*.ff_wryh,.ff_wryh a{font-family:Microsoft Yahei,\5FAE\8F6F\96C5\9ED1;}*/
+
+select{
+  appearance: none;
+  padding-left: 6px;
+  background: url(../imgs/aw-down.png) no-repeat;
+  background-position: right 4px center;
+  background-size: 16px;
+  padding-right: 24px;
+
+  height: 32px;
+  border: 1px solid #e5e5e5;
+  border-radius: 3px;
+  font-size: 14px;
+  -webkit-box-sizing: border-box;
+  box-sizing: border-box;
+}
+
+html{
+  font-size: 12px;
+}
+
+input,select{
+  outline-color: #16B3ED;
+}
+
+@font-face {
+  font-family: 'iconfont';
+  src: url('../fonts/iconfont.ttf') format('truetype');
+}
+
+.iconfont{
+  font-family: 'iconfont';
+  font-style: normal;
+}
+
+.button {
+  border: 0;
+  color: #fff;
+  font-size: 16px;
+  background-color: #12b7f5;
+  padding: 2px 12px;
+  display: inline-block;
+  text-align: center;
+  border-radius:3px;
+
+  &:active {
+    background-color: #16B3ED;
+    color: #0880D7;
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.3);
+    text-decoration: none;
+    -webkit-box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
+  }
+
+  &.green{
+    background-color: #5cd9b8;
+    &:active{
+      color: #007b5b;
+    }
+  }
+  &.red{
+    background-color: #FF4351;
+    &:active{
+      background-color: #f64c59;
+      color: #ff1022;
+    }
+  }
+
+  &.b-big{
+    line-height: 1;
+    width: 100%;
+    border-radius: 4px;
+    text-align: center;
+
+    font-size: 18px;
+    padding: 12px 0;
+  }
+  &.gray{
+    background-color: #eee;
+    color: #666;
+
+    &:active{
+      background-color: #eee;
+      color: #d4d4d4;
+    }
+  }
+}
