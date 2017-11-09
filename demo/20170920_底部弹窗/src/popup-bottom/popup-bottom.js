@@ -1,6 +1,5 @@
-
 export default class {
-  init (cb) {
+  init () {
     let html = `
 <div class="popup-buttom">
   <div class="fgp-bg"></div>
@@ -32,10 +31,8 @@ export default class {
     this.elRoot.classList.remove('show')
   }
   setCont (body) {
-    let {elCont} = this
-
     // if (typeof body === 'string'){
-    elCont.innerHTML = body
+    this.elCont.innerHTML = body
     // } else{
     //   elCont.innerHTML = ''
     //   elCont.appendChild(body)
