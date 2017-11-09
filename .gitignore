@@ -5,6 +5,6 @@ node_modules
 #*/*/
 npm-debug.log
 web.config
-*--gnore
+gnore.*
 yarn.lock
 yarn-error.log

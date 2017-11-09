@@ -36,7 +36,7 @@ function chartPie({data,eachData,labels,tscore}) {
 fill="${bgcs[i % 5]}"
 ></path>`
 
-    let r2 = (r-3) * (eachData[i])+1.5
+    let r2 = (r-1.5) * (eachData[i])+1.5
     paths += `<path d="${pie({
       ox, oy, r: r2, sRad, rad
     })}"
@@ -83,7 +83,7 @@ texts+=`<text x="${ox}" y="${oy+3}" font-size="6.5" text-anchor="middle" fill="#
 
 document.querySelector('.chart-pie').innerHTML=`<svg viewbox="0,0,200,120">
 ${paths}
-<circle cx="${ox}" cy="${oy}" r="${r}" stroke="#e5e5e5" fill="transparent" stroke-width="1.5"/>
+<circle cx="${ox}" cy="${oy}" r="${r}" stroke="#e5e5e5" fill="transparent" stroke-width="0"/>
 ${lines}
 ${texts}</svg>`
   // document.querySelector('.chart-pie').innerHTML = `<!--<svg viewbox="0,0,200,200">${paths}</svg>-->${texts}`
