@@ -9,7 +9,7 @@
 
 ## 目前前端主要技术栈：
 
-熟练掌握 html css js es6/7。熟练使用 div + css 布局，ps切图。能定制复杂交互效果/功能模块
+熟练掌握 html css js es6。熟练使用 div + css 布局，ps切图。能定制复杂交互效果/功能模块
 
 熟练使用 ajax 跟后端数据交互。常用的库 axios，还有新的fetch api
 
