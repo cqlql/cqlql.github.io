@@ -1,0 +1,1 @@
+window['cb_数学']({"outline":{"children":[{"index":0,"level":1,"name":"三角形","children":[{"index":1,"level":2,"name":"角度？通过比较 x y 比例即可","children":[]}]}],"name":"数学"},"content":"<section><h1 id=三角形 data-index=0>三角形</h1><section><h2 id=\"角度？通过比较 x y 比例即可\" data-index=1>角度？通过比较 x y 比例即可</h2></section></section>"})
