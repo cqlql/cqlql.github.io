@@ -1,1 +1,1 @@
-window['cb_数学']({"outline":[{"id":"55398643","level":1,"name":"三角形","children":[{"id":"4109086054","level":2,"name":"角度？通过比较 x y 比例即可","children":[]}]}],"content":"<section><h1 id=\"55398643\">三角形</h1><section><h2 id=\"4109086054\">角度？通过比较 x y 比例即可</h2>"})
+window['cb_数学']({"outline":[{"id":"2163000547","level":1,"name":"三角形","children":[{"id":"3212487187","level":2,"name":"角度？通过比较 x y 比例即可","children":[]}]}],"content":"<section><h1 id=\"2163000547\">三角形</h1><section><h2 id=\"3212487187\">角度？通过比较 x y 比例即可</h2>"})
