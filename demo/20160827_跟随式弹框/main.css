@@ -49,7 +49,7 @@ p{
 .example-btns{
     width: 250px;
 
-    margin-left: 360px;
+    /* margin-left: 360px; */
 }
 .example-btns a{
     display: inline-block;

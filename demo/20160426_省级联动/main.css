@@ -7,7 +7,7 @@
 
 
 
-/*#region .area-select - 省级联动下拉 */
+/*#region .area-select - 鐪佺骇鑱斿姩涓嬫媺 */
 
 .area-select {
 
@@ -44,6 +44,7 @@
     border-bottom: 1px solid rgba(0, 0, 0, 0);
         
     color:#333;
+    text-decoration: none;
 
 }
 .area-select .a-tab a.active {
@@ -66,7 +67,7 @@
     padding: 0 10px;
     /*white-space: nowrap;*/
     margin-right: 2px;
-
+    text-decoration: none;
 }
 .area-select .a-content a:hover {
     background-color: #F5FFE2;
