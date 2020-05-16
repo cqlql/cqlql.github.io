@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title></title>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+    <link rel="stylesheet" type="text/css" href="../../css_/base.css" />
+    <style type="text/css">
+        body { margin: 100px; background-color:#fff; font-size:14px; }
+        /*193 220*/
+
+        .DTPicker { 
+            width:194px;
+            /*height:220px;*/
+            border:1px solid #ddd;
+            font-size:12px;
+        }
+        .DTPicker .dt_top { 
+            height:21px;
+            padding:5px 5px 0 30px;
+        }
+        .DTPicker .dt_con { 
+            /*height:146px;*/padding:9px;
+            border-bottom:1px solid #ddd;
+            border-top:1px solid #ddd;
+        }
+        .DTPicker .dt_info { 
+            height:25px;padding-top:3px;
+            background-color:#f5f5f5;
+            color:#6377a0;text-align:center;
+        }
+        .DTPicker .dt_con .dt_week { 
+            
+        }
+        .DTPicker .dt_con .dt_week li { 
+            float:left;
+            width:25px;height:20px;
+            color:#333;text-align:center;
+        }
+        .DTPicker .dt_con .dt_day {
+            border:1px solid #e6e6e6;
+            border-right-width:0;
+            border-bottom-width:0;
+            clear:both;
+            /*height:124px;*/
+        }
+        .DTPicker .dt_con .dt_day .item { 
+            float:left;
+            width:25px;height:22px;padding-top:3px;
+            color:#333;text-align:center;
+            background-image:url(DTPicker.png);
+            cursor:pointer;
+        }
+        .DTPicker .dt_con .dt_day .other { 
+            float:left;
+            width:25px;height:22px;padding-top:3px;
+            color:#333;text-align:center;
+            background-image:url(DTPicker.png);
+        }
+        .DTPicker .dt_con .dt_day .issel { 
+            width:21px;height:18px;
+            border:2px solid #38496d;
+            background-color:#6377a0;
+            background-image:none;
+            color:#fff;
+        }
+        .DTPicker .dt_con .dt_day .on { 
+            background-color:#6377a0;
+            background-image:none;
+            color:#fff;
+        }
+        .DTPicker .dt_top a { 
+            float:left;
+            width:13px;height:13px;
+            background:url(DTPicker.png) no-repeat;
+            margin-right:5px;
+        }
+        .DTPicker .dt_top a:hover { 
+            background-color:#c7cfe0;
+        }
+        .DTPicker .dt_top .dt_left_year { 
+            background-position:2px -28px;
+        }
+        .DTPicker .dt_top .dt_left_month { 
+            background-position:-18px -28px;
+        }
+        .DTPicker .dt_top .dt_right_year { 
+            background-position:2px -42px;
+        }
+        .DTPicker .dt_top .dt_right_month { 
+            background-position:-18px -42px;
+        }
+        .DTPicker .dt_top span { 
+            margin-right:5px;
+        }
+        .DTPicker .dt_top .close { 
+            float:right;
+            /*width:11px;height:11px;*/
+            background-position:2px -58px;
+        }
+        .DTPicker .dt_top .dt_month_show { 
+            width:14px;
+        }
+    </style>
+    <script type="text/javascript" src="../../js/jquery-1.10.2.min.js"></script>
+    <script type="text/javascript">
+        $(function () {
+            
+
+                //日历
+                setTimeout(function () {
+
+                    //增加html
+                    (function () {
+                        var DTPickerHtmlTxt = '<div class="DTPicker">'
+                            + '<div class="dt_top">'
+                                + '<a href="javascript:;" class="dt_left_year"></a>'
+                                + '<a href="javascript:;" class="dt_left_month"></a>'
+                                + '<span class="dt_month_show fl">9</span>'
+                                + '<span class="dt_year_show fl">2012</span>'
+                                + '<a href="javascript:;" class="dt_right_month"></a>'
+                                + '<a href="javascript:;" class="dt_right_year"></a>'
+                                + '<a href="javascript:;" class="close"></a>'
+                            + '</div>'
+                            + '<div class="dt_con">'
+                                + '<ul class="dt_week">'
+                                    + '<li>一</li><li>二</li><li>三</li><li>四</li><li>五</li><li>六</li><li>日</li>'
+                                + '</ul>'
+                                + '<ul class="dt_day">'
+                                + '</ul>'
+                            + '</div>'
+                            + '<div class="dt_info"></div>'
+                        + '</div>';
+                        $(document.body).append(DTPickerHtmlTxt);
+                    })();
+                    
+
+                    //**获取 指定月的 总天数
+                    //参数：2012/2/1。参数的天数 是不考虑的。固定为1吧
+                    function getMaxDay(dateStr) {
+                        var arr = dateStr.split('/');
+                        var dt = new Date(arr[0], arr[1], 0);
+
+
+                        //var dt = new Date(dateStr);
+
+                        //dt.setMonth(dt.getMonth() + 1);
+                        //dt.setDate(0);
+
+                        return dt.getDate();
+                    }
+
+                    //**根据日期初始 内容天
+                    var dtDayUpdate;
+                    (function () {
+                        //
+                        var dt_day_ul = $('.DTPicker .dt_con .dt_day');
+
+                        //参数：2012/2/1。参数的天数 固定为1
+                        dtDayUpdate = function (dateStr) {
+                            dt_day_ul.html('');//清空
+
+                            var dt = new Date(dateStr);
+
+                            //取1号星期
+                            var firstWeek = dt.getDay() ? dt.getDay() : 7;
+
+                            //当前月最后一天
+                            var maxDay = getMaxDay(dateStr);
+
+                            //取最后一天星期
+                            dt.setDate(maxDay);
+                            var lastWeek = dt.getDay() ? dt.getDay() : 7;
+
+                            //前半部分初始
+                            for (var i = firstWeek - 1; i--;) {
+                                dt_day_ul.append('<li class="other"></li>');
+                            }
+
+                            //中间有内容初始
+                            for (var i = 1, len = maxDay + 1; i < len; i++) {
+                                var htmlTxt = '<li class="item">' + i + '</li>';
+                                dt_day_ul.append(htmlTxt);
+                            }
+
+                            //后半部初始
+                            for (var i = 7 - lastWeek; i--;) {
+                                dt_day_ul.append('<li class="other"></li>');
+                            }
+
+                            //最后
+                            if (dt_day_ul.children().length > 35) {
+                                dt_day_ul.height(151);
+                            } else {
+                                dt_day_ul.height(126);
+                            }
+                            //dt_day_ul.append('<li style="clear: both;_font-size:0;_height:0;"></li>');
+
+                            //天 事件更新
+                            dtDayEUpdate();
+                        };
+                    })();
+
+
+                    //**头部 设置(天内容 将更新) 和 获取
+                    var setTopDT, getTopDT;
+                    (function () {
+                        var dt_top = $('.DTPicker .dt_top');
+                        var month_span = dt_top.children('.dt_month_show');
+                        var year_span = dt_top.children('.dt_year_show');
+
+                        setTopDT = function (year, month) {
+                            month_span.html(month);
+                            year_span.html(year);
+
+                            dtDayUpdate(year + '/' + month + '/1');//天 更新
+                        };
+
+                        getTopDT = function () {
+                            return year_span.html() + '/' + month_span.html() + '/1';
+                        };
+                    })();
+
+                    //箭头按钮
+                    (function () {
+                        var dt_top = $('.DTPicker .dt_top');
+                        var dt_year_btns = dt_top.find('.dt_left_year,.dt_right_year');
+                        var dt_month_btns = dt_top.find('.dt_left_month,.dt_right_month');
+
+                        function yearChangeClick() {
+                            var dateArr = getTopDT().split('/');
+                            if (dt_year_btns.index(this)) {
+                                setTopDT(++dateArr[0], dateArr[1]);
+                            }
+                            else {
+                                setTopDT(--dateArr[0], dateArr[1]);
+                            }
+                        }
+                        dt_year_btns.click(yearChangeClick);
+
+
+                        function monthChangeClick() {
+                            var dateArr = getTopDT().split('/');
+                            if (dt_month_btns.index(this)) {
+                                dateArr[1]++;
+
+                                if (dateArr[1] > 12) {
+                                    dateArr[1] = 1;
+                                    dateArr[0]++;
+                                }
+                            }
+                            else {
+                                dateArr[1]--;
+
+                                if (dateArr[1] < 1) {
+                                    dateArr[1] = 12;
+                                    dateArr[0]--;
+                                }
+                            }
+                            setTopDT(dateArr[0], dateArr[1]);
+                        }
+                        dt_month_btns.click(monthChangeClick);
+                    })();
+
+                    //天 li处理
+                    var dtDayEUpdate;
+                    (function () {
+                        var dt_day = $('.DTPicker .dt_con .dt_day');
+                        var dt_info = $('.DTPicker .dt_info');
+
+                        dtDayEUpdate = function () {
+                            var lis = dt_day.children('.item');
+
+                            lis.hover(function () {
+                                $(this).addClass('on');
+                                dt_info.html(getFullDate2('.on'));
+                            }, function () {
+                                $(this).removeClass('on');
+
+                            });
+
+                            lis.click(function () {
+                                dt_day.find('.issel').removeClass('issel');
+
+                                $(this).addClass('issel');
+
+                                console.log(getFullDate2('.issel'));
+                            });
+
+                            //**完整时间获取1:'2012-9-1'
+                            //参数为：要获取 哪种 日期，是已选中的，还是移上去的
+                            function getFullDate(className) {
+                                var fullDate;
+                                var arr = getTopDT().split('/');
+
+                                fullDate = arr[0];
+                                fullDate += '-' + arr[1];
+                                fullDate += '-' + dt_day.find(className).html();
+
+                                return fullDate;
+                            }
+
+                            //**完整时间获取2:星期四2012-6-21
+                            //参数为：要获取 哪种 日期，是已选中的，还是移上去的
+                            function getFullDate2(className) {
+                                var fullDate;
+                                var arr = getTopDT().split('/');
+
+                                //此种格式兼容性好：为了获取星期
+                                fullDate = arr[0];
+                                fullDate += '/' + arr[1];
+                                fullDate += '/' + dt_day.find(className).html();
+                                var week = (new Date(fullDate)).getDay();//获取星期
+
+                                //换成需要的格式
+                                fullDate = arr[0];
+                                fullDate += '-' + arr[1];
+                                fullDate += '-' + dt_day.find(className).html();
+
+                                var _str = '星期';
+                                switch (week) {
+                                    case 1:
+                                        fullDate = _str + '一 ' + fullDate;
+                                        break;
+                                    case 2:
+                                        fullDate = _str + '二 ' + fullDate;
+                                        break;
+                                    case 3:
+                                        fullDate = _str + '三 ' + fullDate;
+                                        break;
+                                    case 4:
+                                        fullDate = _str + '四 ' + fullDate;
+                                        break;
+                                    case 5:
+                                        fullDate = _str + '五 ' + fullDate;
+                                        break;
+                                    case 6:
+                                        fullDate = _str + '六 ' + fullDate;
+                                        break;
+                                    case 0:
+                                        fullDate = _str + '日 ' + fullDate;
+                                        break;
+                                }
+
+                                return fullDate;
+                            }
+                        };
+                    })();
+
+                    //天内容 初始
+                    dtDayUpdate('2012/9/1');
+                }, 1);
+                
+            
+        });
+        
+        
+
+    </script>
+</head>
+<body>
+    <!--<div class="DTPicker">
+        <div class="dt_top">
+            <a href="javascript:;" class="dt_left_year"></a>
+            <a href="javascript:;" class="dt_left_month"></a>
+            <span class="dt_month_show fl">9</span>
+            <span class="dt_year_show fl">2012</span>
+            <a href="javascript:;" class="dt_right_month"></a>
+            <a href="javascript:;" class="dt_right_year"></a>
+            <a href="javascript:;" class="close"></a>
+        </div>
+        <div class="dt_con">
+            <ul class="dt_week">
+                <li>一</li><li>二</li><li>三</li><li>四</li><li>五</li><li>六</li><li>日</li>
+            </ul>
+            <ul class="dt_day">
+            </ul>
+        </div>
+        <div class="dt_info"></div>
+    </div>-->
+</body>
+</html>

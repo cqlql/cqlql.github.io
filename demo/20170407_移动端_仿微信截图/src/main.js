@@ -151,6 +151,6 @@ function rotateTest() {
 
 pictureZoomDemo();
 pictureClipDemo();
-rotateTest();
+// rotateTest();
 
 

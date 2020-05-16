@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title></title>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+        
+    <style type="text/css">
+        body { margin: 100px; height:1000px; background-color:#DCDBDF; font-size:14px; }
+
+        .show-img { border: 2px solid #930202; _font-size:0px; }
+        .show-img,.show-img .nav-small-img { 
+            width:340px;
+            /*****
+                ** 决定性参数：navSmallImgW=340
+                btnW = 20
+                btnH = 45
+                
+                navSmallImgW = 360;
+                navSmallImgW = 56
+                
+                smallImgNum=5;
+                
+                showW = navSmallImgW - 40;  //300
+                
+                showUlH = navSmallImgW;//56
+                
+                imgLiW = showW/smallImgNum;  //60
+                imgLiH = showUlH - 10;  //46
+                
+                */
+        }
+        /* 小图导航*/
+        .show-img .nav-small-img { height: 60px; }
+
+        /* 按钮 + 显示 */
+        .show-img .nav-small-img .right,
+        .show-img .nav-small-img .left,
+        .show-img .nav-small-img .show { 
+            float:left;
+            height:100%;
+        }
+
+        /* start 按钮 */
+        /* navSmallImgH=60*/
+        .show-img .nav-small-img .left,.show-img .nav-small-img .right { width:20px; }
+        .show-img .nav-small-img .right div,
+        .show-img .nav-small-img .left div { 
+            background-image:url(images/btns.png);
+            margin-top:8px;
+            margin-left:5px;
+            height:45px;
+            width:10px;
+            cursor:pointer;
+        }
+        .show-img .nav-small-img .left div { background-position: -18px top; }
+        .show-img .nav-small-img .right div { background-position: right top; }
+        /* end 按钮 */
+        
+        /* start 小图显示区 */
+        .show-img .nav-small-img .show { width: 300px; overflow: hidden; }
+        .show-img .nav-small-img .show ul { 
+            list-style-type: none; padding: 0px; margin: 0px;
+            height:100%;
+            width:1000px;
+        }
+        .show-img .nav-small-img .show li { 
+            float:left;
+            border:1px solid #acacac;
+            margin:4px;            
+            _display:inline;
+        }
+        .show-img .nav-small-img .show li,
+        .show-img .nav-small-img .show img { 
+            width:50px;
+            height:50px;
+        }
+        /* end 小图显示区 */
+
+        /* start 中图 */
+        .show-img .show-min-img { 
+            border:1px solid #808080;
+            position:relative;
+        }
+        .show-img .show-min-img, 
+        .show-img .show-min-img .sub { 
+            /*navSmallImgW -2边框*/
+            width:338px;
+            height:338px;
+        }
+        /*选择div*/
+        .show-img .show-min-img .sel { 
+            position:absolute;
+            background-color:#808080;
+            border:1px solid #000;
+            filter: alpha(opacity=30); opacity:0.3;
+            display:none;
+        }
+        
+        /*放大div*/
+        .show-img .show-min-img .zoom { 
+            position:absolute;left:360px;top:0px;
+            width:400px;height:400px;
+            overflow:hidden;display:none;
+        }
+        
+        /* end 中图 */
+    </style>
+    <script type="text/javascript" src="../../js/jquery-1.10.2.min.js"></script>
+    <script type="text/javascript">
+        $(function () {
+            
+
+            (function () {
+                var showImg = $('.show-img').first();
+
+                var moveNum = 2;//一次移动小图数
+                var proportion = 2;//放大倍数
+
+                //小图导航区
+                (function () {
+                    var navSmallImg = showImg.children('.nav-small-img');
+                    var moveUl = navSmallImg.find('ul');
+                    var moveLis = moveUl.children();
+                    var smallImgNum = moveLis.length;
+                    var minImg = showImg.children('.show-min-img').children('img');
+
+                    var btns = navSmallImg.children('.left,.right').children();
+
+                    (function () {
+                        if (smallImgNum <= 5) return;
+
+                        var moveLen = (moveLis.first().width()+10) * moveNum; //每次移动距离
+                        btns.click(function () {
+                            var clickFun = arguments.callee;
+                            btns.unbind('click');
+                            if (btns.index(this)) {
+                                moveUl.animate({ 'margin-left': -moveLen }, 200, function () {
+                                    for (var i = 0; i < moveNum; i++) moveUl.append(moveUl.children().eq(0));
+                                    moveUl.css('margin-left', 0);
+                                    //重新注册
+                                    btns.click(clickFun);
+                                });
+                            }
+                            else {
+                                for (var i = 0; i < moveNum; i++) moveUl.prepend(moveUl.children().last()).css('margin-left', -moveLen);
+                                moveUl.animate({ 'margin-left': 0 }, 200, function () {
+                                    //重新注册
+                                    btns.click(clickFun);
+                                });
+                            }
+                        });
+                    })();
+                    
+                    (function () {
+                        var nowShowLi;//记录当前显示的li
+                        moveLis.mouseenter(function () {
+                            if (nowShowLi) nowShowLi.css({ borderColor: '#acacac', borderWidth: 1, margin: 4 });
+                            $(this).css({ borderColor: '#11587c', borderWidth: 2, margin: 3 });
+                            nowShowLi = $(this);
+                            minImg.attr('src', $(this).attr('data-scr1')).attr('data-scr2', $(this).attr('data-scr2'));
+                        }).first().mouseenter();  //初始为第一个
+                    })();
+                })();
+
+                //放大
+                (function () {
+                    var showMinImg = showImg.children('.show-min-img');
+                    var zoom = showMinImg.children('.zoom');
+                    var zoomImg = zoom.children();
+                    
+                    var sel = showMinImg.children('.sel');
+
+                    //部分初始\坐标更新
+                    var overLeft, overTop;
+                    var maxX, maxY;
+                    (function () {
+                        var selW, selH;
+                        (function () {
+                            //中图 div
+                            showMinImgW = showMinImg.width();
+                            showMinImgH = showMinImg.height();
+
+                            //放大div                        
+                            var zoomW = zoom.width();
+                            var zoomH = zoom.height();
+
+                            //放大图 img
+                            zoomImg.width(showMinImgW * proportion);
+                            zoomImg.height(showMinImgH * proportion);
+
+                            //选择 div 初始
+                            selW = zoomW / proportion - 2; selH = zoomH / proportion - 2;
+                            sel.css({ width: selW, height: selH });
+
+                            //最大坐标
+                            maxX = showMinImgW - selW - 2;
+                            maxY = showMinImgH - selH - 2;
+                        })();
+                        
+                        //多余坐标 更新 && 初始
+                        $(window).resize(function () {
+                            //坐标初始
+                            var offset = showMinImg.offset();
+                            var showMinImgX = offset.left, showMinImgY = offset.top;
+
+                            //多余坐标
+                            overLeft = showMinImgX + selW / 2;
+                            overTop = showMinImgY + selH / 2;
+                        }).resize();
+                    })();
+
+                    showMinImg.mousemove(function (e) {
+                        var x = e.pageX - overLeft, y = e.pageY - overTop;
+
+                        //坐标限制
+                        if (x < 0) x = 0;
+                        if (x > maxX) x = maxX;
+                        if (y < 0) y = 0;
+                        if (y > maxY) y = maxY;
+
+                        //放大镜div 移动
+                        sel.css({ left: x, top: y });
+
+                        //放大执行
+                        zoomImg.css({ 'margin-left': -x * proportion, 'margin-top': -y * proportion });
+                    }).hover(function () {
+                        zoomImg.attr('src', $(this).children('img').attr('data-scr2'));
+                        zoom.add(sel).show();
+                    }, function () {
+                        zoom.add(sel).hide();
+                    });
+                })();
+
+            })();
+        });
+
+
+    </script>
+</head>
+<body>
+    <div class="show-img">
+
+        <div class="show-min-img">
+            <img class="sub" />
+            <div class="sel"></div>
+            <div class="zoom">
+                <img />
+            </div>
+        </div>
+
+        <div class="nav-small-img">
+            <div class="left">
+                <div></div>
+            </div>
+            <div class="show">
+                <ul>
+                    <li data-scr1="images/jdGoods/2.jpg" data-scr2="images/jdGoods/3.jpg">
+                        <img src="images/jdGoods/1.jpg" />
+                    </li>
+                    <li data-scr1="images/jdGoods/22.jpg" data-scr2="images/jdGoods/33.jpg">
+                        <img src="images/jdGoods/11.jpg" />
+                    </li>
+                    <li data-scr1="images/jdGoods/222.jpg" data-scr2="images/jdGoods/333.jpg">
+                        <img src="images/jdGoods/111.jpg" />
+                    </li>
+                    <li data-scr1="images/jdGoods/2222.jpg" data-scr2="images/jdGoods/3333.jpg">
+                        <img src="images/jdGoods/1111.jpg" />
+                    </li>
+                    <li data-scr1="images/jdGoods/22222.jpg" data-scr2="images/jdGoods/33333.jpg">
+                        <img src="images/jdGoods/11111.jpg" />
+                    </li>
+                    <li data-scr1="images/jdGoods/222222.jpg" data-scr2="images/jdGoods/333333.jpg">
+                        <img src="images/jdGoods/111111.jpg" />
+                    </li>
+                    <li data-scr1="images/jdGoods/2222222.jpg" data-scr2="images/jdGoods/3333333.jpg">
+                        <img src="images/jdGoods/1111111.jpg" />
+                    </li>
+                </ul>
+            </div>
+            <div class="right">
+                <div></div>
+            </div>
+        </div>
+
+    </div>
+    
+</body>
+</html>

@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title></title>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+
+    <link href="../../css_/base.css" rel="stylesheet" />
+    <style type="text/css">
+
+        body {
+            margin:100px;
+        }
+
+
+        .d1 {
+            background: #ddd;
+            height: 100px;
+            width: 100px;
+            overflow: hidden;
+            position: relative;
+            float: left;
+            margin: 10px 10px 0 0;
+        }
+
+        .d2{
+            background: #ddd;
+            height: 100px;
+            width: 100px;
+            overflow: hidden;
+            position: relative;
+            float: left;
+            margin: 10px 10px 0 0;
+        }
+
+        .tit {
+            width: 100%;
+            height: 30px;
+            background: #008dbb;
+            position: absolute;
+            bottom:0;
+            color: #fff;
+            text-align: center;
+            line-height: 2;
+            left: -100%;
+            /*-webkit-transition: 0.6s ease;
+            -moz-transition: 0.6s ease;
+            transition: 0.6s ease;*/
+        }
+
+    </style>
+
+    <script src="../../js/jquery-1.10.2.min.js"></script>
+    <script type="text/javascript">
+        "use strict";
+        var ie678log = (function () {
+
+            function css(param, elem) {
+                for (var name in param) elem.style[name] = param[name];
+            }
+
+            function prepend(elem, targetElem) {
+                targetElem.insertBefore(elem, targetElem.childNodes[0]);
+            }
+
+            var elem = null;
+            return function (htmlTxt) {
+
+                if (elem === null) {
+                    elem = document.createElement('div');
+                    css({
+                        background: '#FFC3C3',
+                        color: '#000',
+                        padding: '5px',
+                        position: 'fixed',
+                        right: '0',
+                        bottom: '0',
+                        zIndex: 999
+                    }, elem);
+
+
+                }
+
+                elem.innerHTML += '<p>' + htmlTxt + '</p>';
+
+                document.body.insertBefore(elem, document.body.childNodes[0]);
+            };
+        })();
+
+        var core = {};
+
+        //#region 延迟执行
+        /*
+        指定时间后执行。
+        可终止计时。
+        实现在指定时间内另外情况不需要执行，手动终止计时
+        
+        默认200毫秒内
+        
+        @使用举例
+        var delayExcu = new delayExcu();
+        
+        delayExcu.excu(function () {alert('');});
+        delayExcu.clear();
+        */
+        core.delayExcu = function () {
+            var stopId = null;
+
+            this.excu = function (fn, time) {
+                time = time === undefined ? 200 : time;
+
+                stopId = setTimeout(function () {
+                    fn();
+                    stopId = null;
+                }, time);
+            };
+
+            this.clear = function () {
+
+                if (stopId !== null) {
+
+                    clearTimeout(stopId);
+
+                    stopId = null;
+                }
+            };
+        };
+        //#endregion
+
+
+        /*
+        @一些约定
+        可移动的标题容器。className 须为t_m
+
+        */
+        jQuery.fn.extend({
+            boxTitleAnime: function (moveCssName) {
+                return this.titleAnime(moveCssName, 1);
+            },
+
+            titleAnime: function (moveCssName, is) {
+                var outFn,
+                    delayExcu = new core.delayExcu(),
+                    curBox,
+                    un;
+
+                function getDir(a, b) {
+                    var c = a.width(),
+                        d = a.height(),
+                        e = (b.x - a.offset().left - c / 2) * (c > d ? d / c : 1),
+                        f = (b.y - a.offset().top - d / 2) * (d > c ? c / d : 1),
+                        g = Math.round((Math.atan2(f, e) * (180 / Math.PI) + 180) / 90 + 3) % 4;
+                    return g;
+                };
+
+                function titleAnimeCore() {
+                    var
+                        jBox = $(this),
+                        jMove = jBox.find(moveCssName),
+
+                        moveW = jMove.width(),
+                        moveH = jMove.height();
+
+                    function anime(a, b) {
+
+                        var over,
+                            out;
+
+                        switch (a) {
+                            case 0:
+                                over = { top: 0 };
+                                out = { left: 0, top: -moveH };
+                                break;
+                            case 1:
+                                over = { left: 0 };
+                                out = { left: moveW, top: 0 };
+                                break;
+                            case 2:
+                                over = { top: 0 };
+                                out = { left: 0, top: moveH };
+                                break;
+                            default:
+                                over = { left: 0 };
+                                out = { top: 0, left: -moveW };
+                        }
+
+                        if (b) {
+                            jMove.stop().animate(out, 200);
+                        }
+                        else {
+                            jMove.stop().css(out).animate(over, 200);
+                        }
+                    }
+
+                    //jMove.css('position') === 'static' ? 'relative' :
+                    $('<div></div>').insertAfter(jMove).append(jMove).css({
+                        width: moveW,
+                        height: moveH,
+                        position: jMove.css('position'),
+                        left: jMove.css('bottom'),
+                        top: jMove.css('top'),
+                        right: jMove.css('right'),
+                        bottom: jMove.css('bottom'),
+                        overflow: 'hidden',
+                    });
+
+
+                    jBox.hover(function (e) {
+
+                        if (is) {
+                            anime(getDir(jBox, {
+                                x: e.pageX,
+                                y: e.pageY
+                            }), 0);
+                        }
+                        else {
+                            delayExcu.clear();
+
+                            if (outFn && curBox !== this) {
+                                outFn();
+                                anime(getDir(jBox, {
+                                    x: e.pageX,
+                                    y: e.pageY
+                                }), 0);
+                            }
+                            else {
+                                jMove.stop().animate({ left: 0, top: 0 }, 200);
+                            }
+                        }
+
+                    }, function (e) {
+                        if (is) {
+                            anime(getDir(jBox, {
+                                x: e.pageX,
+                                y: e.pageY
+                            }), 1);
+                        }
+                        else {
+                            curBox = this;
+
+                            outFn = function () {
+                                anime(getDir($(curBox), {
+                                    x: e.pageX,
+                                    y: e.pageY
+                                }), 1);
+                            };
+
+                            delayExcu.excu(function () {
+                                jMove.stop().animate({ left: 0, top: moveH }, 200);
+                                outFn = un;
+                            });
+                        }
+                    });
+                }
+
+                return this.each(titleAnimeCore);
+            }
+        });
+
+        $(function () {
+
+            $('.d1').boxTitleAnime('.tit');
+            $('.d2').titleAnime('.tit');
+
+        });
+    </script>
+</head>
+<body>
+    <div class="d1"><div class="tit">标签</div></div>
+    <div class="d1"><div class="tit">标签</div></div>
+    <div class="d1"><div class="tit">标签</div></div>
+    <div class="d1"><div class="tit">标签</div></div>
+    <div class="d1"><div class="tit">标签</div></div>
+    <div class="d1"><div class="tit">标签</div></div>
+    <div class="d1"><div class="tit">标签</div></div>
+    <div class="d1"><div class="tit">标签</div></div>
+    <div class="d1"><div class="tit">标签</div></div>
+    <div class="d2"><div class="tit">标签</div></div>
+    <div class="d2"><div class="tit">标签</div></div>
+    <div class="d2"><div class="tit">标签</div></div>
+    <div class="d2"><div class="tit">标签</div></div>
+    <div class="d2"><div class="tit">标签</div></div>
+    <div class="d2"><div class="tit">标签</div></div>
+    <div class="d2"><div class="tit">标签</div></div>
+    <div class="d2"><div class="tit">标签</div></div>
+    <div class="d2"><div class="tit">标签</div></div>
+</body>
+</html>
