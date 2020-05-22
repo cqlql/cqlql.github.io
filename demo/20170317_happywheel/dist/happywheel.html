@@ -45,6 +45,22 @@
 
 </div>
 
-<script type="text/javascript" src="js/common.js"></script><script type="text/javascript" src="js/main.js"></script></body>
+<script type="text/javascript" src="js/common.js"></script><script type="text/javascript" src="js/main.js"></script>
+<script>
+window.Lottery={
+    getLottery:function(){
+        console.log('开始抽奖');
+        // 模拟服务器返回奖品编号。减速停止转盘
+        setTimeout(function(){
+            priceResult(1)
+        },1000);
+    },
+    showResult(){
+        console.log('一轮结束');
+    }
+
+}
+</script>
+</body>
 
 </html>
