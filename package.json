@@ -12,14 +12,13 @@
     "docker": "docker-compose up -d"
   },
   "devDependencies": {
-    "@vitejs/plugin-vue-jsx": "^3.1.0",
-    "@vuepress/bundler-vite": "2.0.0-rc.18",
+    "@vuepress/bundler-vite": "2.0.0-rc.26",
+    "@vuepress/plugin-slimsearch": "2.0.0-rc.121",
     "front-matter": "^4.0.2",
     "log4js": "^6.9.1",
-    "sass-embedded": "^1.79.5",
-    "vue": "^3.5.12",
-    "vuepress": "2.0.0-rc.18",
-    "vuepress-plugin-search-pro": "2.0.0-rc.59",
-    "vuepress-theme-hope": "2.0.0-rc.59"
+    "sass-embedded": "^1.97.1",
+    "vue": "^3.5.26",
+    "vuepress": "2.0.0-rc.26",
+    "vuepress-theme-hope": "2.0.0-rc.101"
   }
 }

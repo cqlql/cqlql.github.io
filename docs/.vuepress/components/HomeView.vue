@@ -1,57 +1,32 @@
-<script lang="tsx">
+<template>
+  <div class="HomeView">
+    <MenuList :items="sidebar" />
+  </div>
+</template>
+
+<script setup>
 import sidebar from './data.json'
-export default {
-  setup() {
-    function handle(children) {
-      let vLis: any[] = []
-      children.forEach((item) => {
-        let vUl
-        if (item.children) {
-          vUl = handle(item.children)
-        }
-
-        vLis.push(
-          <li>
-            <div class="name">
-              {item.icon && <i class={'icon iconfont icon-' + item.icon}></i>}
-              {item.fullLink ? (
-                <router-link to={item.fullLink.replace(/\.md$/, '.html')}>{item.text}</router-link>
-              ) : (
-                <span class="t">{item.text}</span>
-              )}
-            </div>
-            {vUl}
-          </li>,
-        )
-      })
-
-      return <ul>{vLis}</ul>
-    }
-    let vUl = handle(sidebar)
-
-    return () => {
-      return <div class="HomeView">{vUl}</div>
-    }
-  },
-}
+import MenuList from './MenuList.vue'
 </script>
 
 <style lang="scss">
 .HomeView {
   padding: 10px 0;
   font-size: 15px;
+
   & > ul {
     list-style-type: none;
     padding: 0;
   }
+
   & > ul > li {
     break-inside: avoid;
     background-color: #242424;
     margin-bottom: 20px;
     border-radius: 8px;
     padding: 28px 32px;
+
     & > .name {
-      // padding: 10px 0;
       padding-bottom: 10px;
 
       .t {
@@ -63,6 +38,7 @@ export default {
       }
     }
   }
+
   ul {
     margin: 0;
   }

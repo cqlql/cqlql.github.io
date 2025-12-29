@@ -4,7 +4,7 @@ on:
   push:
     branches:
       # 确保这是你正在使用的分支名称
-      - main
+      - note
 
 permissions:
   contents: write
@@ -28,7 +28,7 @@ jobs:
       - name: 设置 Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: pnpm
 
       - name: 安装依赖

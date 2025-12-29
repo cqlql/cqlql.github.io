@@ -1,10 +1,10 @@
 import { defineUserConfig } from "vuepress";
 import { viteBundler } from '@vuepress/bundler-vite'
-import vueJsx from '@vitejs/plugin-vue-jsx';
 import theme from "./theme.js";
 import path from "path";
 import log4js from "log4js";
 import { removeBasenameFirstNo } from "./utils/nav-generate.js";
+import { slimsearchPlugin } from '@vuepress/plugin-slimsearch'
 
 // 日志记录调试用
 // log4js.configure({
@@ -60,12 +60,14 @@ export default defineUserConfig({
       extendsPage: (page) => {
         page.routeMeta.t=page.data.title||removeBasenameFirstNo(page.slug)
       },
-    }
+    },
+    slimsearchPlugin({
+      indexContent: true
+    }),
   ],
   bundler: viteBundler({
     viteOptions: {
       plugins: [
-        vueJsx(),
       ],
     },
   }),

@@ -1,6 +1,7 @@
 import { hopeTheme } from 'vuepress-theme-hope'
 import navbar from './navbar'
 import sidebarData from './sidebar'
+import { slimsearchPlugin } from '@vuepress/plugin-slimsearch'
 
 export default hopeTheme({
   hostname: 'http://docs.cqlql.top',
@@ -9,8 +10,6 @@ export default hopeTheme({
     name: '桥黎',
     url: '',
   },
-
-  iconPrefix: 'iconfont icon-',
 
   // logo: '/logo.svg',
 
@@ -29,8 +28,8 @@ export default hopeTheme({
   pageInfo: ['Author', 'Original', 'Date', 'Category', 'Tag'],
 
   plugins: {
-    searchPro: {
-      autoSuggestions:false
+    icon: {
+      prefix: "iconfont icon-",
     },
   },
 })
