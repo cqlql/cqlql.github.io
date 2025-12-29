@@ -1,4 +1,5 @@
 ```ts
+import Sortable from 'sortablejs';
 Sortable.create(el, {
   group: {
     name: 'FieldChoiceItem',
@@ -26,7 +27,13 @@ Sortable.create(el, {
    * 松开拖动元素触发
    */
   onUnchoose(e) {},
-
+    /**
+   * 拖动结束
+   * 并且已经更新数据后触发
+   */
+  onUpdate: function (/**Event*/ evt) {
+    // same properties as onEnd
+  },
   /**
    * 拖动结束触发
    * 可进行数据交换
@@ -36,6 +43,7 @@ Sortable.create(el, {
     // const targetRow = that.list.splice(evt.oldIndex, 1)[0]
     // that.list.splice(evt.newIndex, 0, targetRow)
   },
+
   /**
    * 拖动时改变前触发
    */
@@ -48,13 +56,7 @@ Sortable.create(el, {
    * 此时数据是否以及改变？
    */
   onAdd() {},
-  /**
-   * 拖动结束
-   * 并且已经更新数据后触发
-   */
-  onUpdate: function (/**Event*/ evt) {
-    // same properties as onEnd
-  },
+
   /**
    * 列表元素发生改变后触发
    * 比如新增删除交换
