@@ -1,10 +1,10 @@
+
 name: 部署文档
 
 on:
   push:
     branches:
-      # 确保这是你正在使用的分支名称
-      - note
+      - docs
 
 permissions:
   contents: write
@@ -22,8 +22,7 @@ jobs:
 
       - name: 设置 pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: 8
+
 
       - name: 设置 Node.js
         uses: actions/setup-node@v4
@@ -39,7 +38,9 @@ jobs:
       - name: 构建文档
         env:
           NODE_OPTIONS: --max_old_space_size=8192
-        run: pnpm run docs:build
+        run: |-
+          pnpm run docs:build
+          > src\.vuepress\dist\.nojekyll
 
       - name: 部署文档
         uses: JamesIves/github-pages-deploy-action@v4
