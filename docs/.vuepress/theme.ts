@@ -15,7 +15,7 @@ export default hopeTheme({
 
   repo: 'cqlql/node-md',
 
-  docsDir: 'docs',
+  docsDir: 'docs-other',
 
   // navbar
   navbar: navbar,

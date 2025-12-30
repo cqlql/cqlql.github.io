@@ -1,14 +1,3 @@
-- [站点](#站点)
-- [安装](#安装)
-- [静态资源](#静态资源)
-- [get](#get)
-- [post](#post)
-- [文件上传](#文件上传)
-- [路由参数](#路由参数)
-- [get 参数获取](#get-参数获取)
-- [post 参数获取](#post-参数获取)
-- [运行](#运行)
-
 ## 站点
 
 [github 仓库](https://github.com/expressjs/expressjs.com)
