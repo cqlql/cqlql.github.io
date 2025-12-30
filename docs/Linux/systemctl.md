@@ -1,5 +1,3 @@
-# systemctl
-
 ## 新建服务
 
 ```
@@ -10,12 +8,13 @@ sudo nano /etc/systemd/system/myservice.service
 
 myservice.service 内容
 
-```
+```bash
 [Unit]
 Description=我的自定义服务
 
 [Service]
-ExecStart=bash /home/user/my_script.sh  # 服务启动命令
+WorkingDirectory=/home/cql/movie-platform # 先进入此目录，再执行 server
+ExecStart=/home/cql/movie-platform/server # 服务启动命令
 Restart=always
 User=myuser          # 以哪个用户运行，可选
 
