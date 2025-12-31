@@ -30,3 +30,24 @@ if _, err := os.Stat("example.txt"); err != nil {
 }
 ```
 
+## 获取程序自身所在目录
+
+获取当前正在运行的可执行文件的路径
+
+```go
+exePath, err := os.Executable()
+if err != nil {
+    panic(err)
+}
+
+exeDir := filepath.Dir(exePath)
+fmt.Println(exeDir)
+```
+
+## 当前工作目录
+
+启动时的 shell 目录，可能被 chdir 改变
+
+```go
+os.Getwd()
+```
