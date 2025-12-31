@@ -130,11 +130,9 @@ journalctl -u filebeat -p err
 
 ## 可视化与监控工具
 
-| 工具                                       | 特点                                  |
-
-| ------------------------------------------ | ------------------------------------ |
-
-| [**cockpit**](https://cockpit-project.org) | 官方的 Web 界面，支持 systemd 服务管理、日志查看、资源监控 |
-| **glances**                                | 命令行系统监控，显示服务进程资源情况                   |
-| **prometheus + node_exporter + grafana**   | 专业级监控方案，适合服务器集群监控                    |
-| **systemd-analyze**                        | 分析启动性能、依赖关系等                         |
+| 工具                                       | 特点                                                     |
+| ------------------------------------------ | ------------------------------------------------------  |
+| [**cockpit**](https://cockpit-project.org) | 官方的 Web 界面，支持 systemd 服务管理、日志查看、资源监控  |
+| **glances**                                | 命令行系统监控，显示服务进程资源情况                       |
+| **prometheus + node_exporter + grafana**   | 专业级监控方案，适合服务器集群监控                         |
+| **systemd-analyze**                        | 分析启动性能、依赖关系等                                  |
