@@ -1,11 +1,11 @@
 {
-    "emeraldwalk.runonsave": {
-        "commands": [
-            {
-                "match": ".*",
-                "isAsync": true,
-                "cmd": "start /b \"\" .\\auto_git_commit.bat"
-            }
-        ]
-    }
+    // "emeraldwalk.runonsave": {
+    //     "commands": [
+    //         {
+    //             "match": ".*",
+    //             "isAsync": true,
+    //             "cmd": "start /b \"\" .\\auto_git_commit.bat"
+    //         }
+    //     ]
+    // }
 }
