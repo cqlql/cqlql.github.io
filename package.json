@@ -10,7 +10,7 @@
     "docs:dev": "vuepress-vite dev docs",
     "docs:update-package": "pnpm dlx vp-update",
     "docker": "docker-compose up -d",
-    "push": "start /b \"\" .\\auto_git_commit.bat"
+    "git:auto": "start /b \"\" .\\git-auto-push.bat"
   },
   "devDependencies": {
     "@vuepress/bundler-vite": "2.0.0-rc.26",
