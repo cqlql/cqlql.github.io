@@ -1,8 +1,8 @@
-::: info
 
-以下是对 **MySQL Community** 版本进行的安装
 
-:::
+
+> [!tip]  
+> 以下是对 **MySQL Community** 版本进行的安装
 
 ## ubuntu 下安装
 
