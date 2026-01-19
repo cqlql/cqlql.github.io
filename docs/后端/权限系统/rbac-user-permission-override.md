@@ -95,7 +95,7 @@ effect 只有两种：GRANT / DENY
     },
     "article:edit": {
       "allowed": false,
-      "source": "USER_DENY"
+      "source": "USER"
     }
   }
 }
