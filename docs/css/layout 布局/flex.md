@@ -1,6 +1,8 @@
 ## 容器属性
 
+
 ### gap 项间距
+
 
 ```css
 .TableBtns {
@@ -9,58 +11,164 @@
 }
 ```
 
+
+
 ## 项目属性
+
 
 ### 关于 flex-grow flex-shrink 的总结
 
+
 下面的细节太复杂，所以这里总结一下
+
+
 
 当有多的可分配空间时，按 flex-grow 比例分配总的可分配空间，到可放大项。
 
+
+
 如果没有可放大项，则看当前项是否可减少，如果有，则按当前项设置的 flex-grow 比例减少，直到等于内容大小。其他项也按此规则，直到都等于内容大小。
+
+
 
 可放大项的解释：内容大于 flex-basis 的项拥有最小可分配空间（内容 - flex-basis）。即可分配空间小于最小可分配值时，将不再分配。内容小于 flex-basis 的项，最小可分配值为 0。当等于 0 时，就将进行 flex-shrink 缩小。
 
+
+
 ### flex-grow 增长
+
 
 按设置的比例填充剩余空间，默认为 0，即如果存在剩余空间，也不放大
 
+
+
 **可放大总空间** = 容器尺寸 - 所有项的 flex-basis 或者内容大小（什么时候以内容大小为准：当内容尺寸大于 flex-basis 时）
+
+
 
 **每项被放大的距离值** = 可放大空间之和 / 可放大项数量（内容尺寸小于 flex-basis 的项）。 所以，即使 flex-basis 不一样， **所有可放大项的放大距离值是一样的**
 
+
+
 **什么时候可被放大**：容器尺寸 - 所有项的 flex-basis 或者内容大小 > 0
+
+
 
 ### flex-shrink 缩小
 
+
 设置缩小比例，默认 1，即空间不够，该元素将按 1 的占比缩小可缩放空间。
+
+
 
 **设置成不缩放**：设置成 0 即可。此时当容器空间不够时，将按 flex-basis 设置的大小显示。
 
+
+
 **（某具体项）可缩放的空间 = flex-basis 设置的值 - 内容大小**。所以当内容大于 flex-basis 值时，是不能被缩放的，而且此时固定放大到内容大小。其他内容小于 flex-basis 也将缩放到内容大小后就不再缩放了。也就是**项的最小尺寸就是内容尺寸**
 
-**每项缩放距离值（缩小后的尺寸依然大于内容的项）** = flex-basis \* 当前项占比（flex-shrink 值决定）。由此可看出，每项的缩放距离值可能不一样
+
+
+**每项缩放距离值（缩小后的尺寸依然大于内容的项）** = flex-basis * 当前项占比（flex-shrink 值决定）。由此可看出，每项的缩放距离值可能不一样
+
+
 
 **什么时候可被缩小**：（具体项的）flex-basis - （具体项的）内容大小 > 0
 
+
+
 ### flex-basis 基础大小
+
 
 设置在分配多余空间前的基础大小
 
+
+
 假如 flex-basis 为 auto，那么将以内容大小作为 flex-basis 的值
+
+
 
 ### flex 简写
 
+
 flex-grow flex-shrink flex-basis 的简写
+
+
 
 有两个快捷值：auto (1 1 auto) 和 none (0 0 auto)。
 
+
+
 ### order 项排序
+
 
 数值越小，排列越靠前，默认为 0
 
+
+
 ### align-self
+
 
 设置不一样的对其方式。可覆盖 align-items 属性。
 
+
+
 默认值 auto，表示继承父容器的 align-items。
+
+
+
+## 问题
+### 宽度增长后不缩小
+需设置一个width，比如 width 设置为100px，那么缩小到100px后将不再缩小。
+
+注意，是 width，不是 <font style="color:rgb(27, 27, 27);">flex-basis。</font>
+
+
+
+## 应用
+### 实现撑满并带滚动条
+下例中 main 标签实现了撑满并带滚动条。在flex 之前，这种实现需要绝对定位，而且还需要计算
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <style>
+      html,body{
+        height: 100%;
+        margin: 0;
+      }
+      article{
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+      }
+      header{
+        border-bottom: 1px solid #000;
+        line-height: 40px;
+      }
+      main{
+        border-bottom: 1px solid #000;        
+        flex: 1;
+        overflow:auto;
+      }
+      footer{
+        line-height: 40px;
+      }
+    </style>
+  </head>
+
+  <body>
+    <article>
+      <header>header</header>
+      <main></main>
+      <footer>footer</footer>
+    </article>
+  </body>
+
+</html>
+```
+

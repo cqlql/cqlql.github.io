@@ -1,9 +1,13 @@
 ## 容器属性
 
+
 ### 行列数、行列大小控制
+
 
 1. grid-template-columns 列
 2. grid-template-rows 行
+
+
 
 ```css
 /* 
@@ -79,9 +83,14 @@ auto 适应剩下的宽度
 }
 ```
 
+
+
 ### 控制间距
 
+
 grid-row-gap 、 grid-column-gap 、 grid-gap
+
+
 
 ```css
 .container {
@@ -98,15 +107,26 @@ grid-row-gap 、 grid-column-gap 、 grid-gap
 }
 ```
 
+
+
 ### 区域 - 可合并、可指定项位置
+
 
 grid-template-areas 属性
 
+
+
 如果某些区域不需要利用，则使用"点"（.）表示。
+
+
 
 下例值 `a a` 表示合并这两个单元格
 
+
+
 结合项目属性 grid-area 指定项目放置位置
+
+
 
 ```css
 .container {
@@ -125,9 +145,14 @@ grid-template-areas 属性
 }
 ```
 
+
+
 ### 布局方向 - 从上往下还是从左往右
 
+
 `grid-auto-flow` 属性，可设值 `column` 或 `row`
+
+
 
 ```css
 /* 
@@ -152,11 +177,16 @@ grid-template-areas 属性
 }
 ```
 
+
+
 ### 单元格内容水平垂直位置控制
 
-- justify-items 属性
-- align-items 属性
-- place-items 属性
+
++ justify-items 属性
++ align-items 属性
++ place-items 属性
+
+
 
 ```css
 .container {
@@ -165,11 +195,16 @@ grid-template-areas 属性
 }
 ```
 
+
+
 ### 整个 grid 水平垂直位置控制
 
-- justify-content 属性
-- align-content 属性
-- place-content 属性
+
++ justify-content 属性
++ align-content 属性
++ place-content 属性
+
+
 
 ```css
 .container {
@@ -178,9 +213,14 @@ grid-template-areas 属性
 }
 ```
 
+
+
 ### 控制剩下的行或列
 
+
 grid-auto-rows 属性
+
+
 
 ```css
 .container {
@@ -194,38 +234,63 @@ grid-auto-rows 属性
 }
 ```
 
+
+
 ### 简写
 
-- grid-template 属性
-- grid 属性
+
++ grid-template 属性
++ grid 属性
+
+
 
 grid-template 属性是 grid-template-columns、grid-template-rows 和 grid-template-areas 这三个属性的合并简写形式。
 
+
+
 grid 属性是 grid-template-rows、grid-template-columns、grid-template-areas、 grid-auto-rows、grid-auto-columns、grid-auto-flow 这六个属性的合并简写形式。
+
+
 
 从易读易写的角度考虑，建议不要合并属性
 
+
+
 ## 项目属性
+
 
 ### 区域位置
 
+
 grid-area 属性。结合 grid-template-areas 使用
+
+
 
 ### 项位置
 
-- grid-column-start 属性
-- grid-column-end 属性
-- grid-row-start 属性
-- grid-row-end 属性
+
++ grid-column-start 属性
++ grid-column-end 属性
++ grid-row-start 属性
++ grid-row-end 属性
+
+
 
 可使用 grid-column 、grid-row 属性简写
 
+
+
 ### 项内容水平垂直位置
 
-- justify-self 属性
-- align-self 属性
-- place-self 属性
+
++ justify-self 属性
++ align-self 属性
++ place-self 属性
+
+
 
 ## 参考
 
+
 [CSS Grid 网格布局教程 - 阮一峰的网络日志](https://www.ruanyifeng.com/blog/2019/03/grid-layout-tutorial.html)
+

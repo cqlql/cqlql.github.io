@@ -1,7 +1,7 @@
 
 
 
-# flyway-jpa-实体映射
+# jpa-实体映射
 
 ```java
 package com.example.javademo.modules.user.entity;
