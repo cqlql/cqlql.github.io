@@ -65,7 +65,7 @@ spring:
 
 ## 四、Token 工具类
 
-```
+```java
 import org.apache.commons.lang3.RandomStringUtils;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
@@ -127,7 +127,7 @@ public class RedisTokenManager {
 
 创建一个 **JWT / Redis Token 过滤器**，每次请求拦截：
 
-```
+```java
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;

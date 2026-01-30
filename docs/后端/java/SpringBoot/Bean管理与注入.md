@@ -1,6 +1,6 @@
 # 🌱 Spring 注入注解速查表（Dependency Injection）
 
-------
+---
 
 ## 一、Bean 注册相关（“谁能被注入”）
 
@@ -24,7 +24,7 @@ public class TokenAuthenticationFilter {}
 
 📌 **本质完全一样，只是语义不同**
 
-------
+---
 
 ### @Bean（方法级）
 
@@ -40,18 +40,18 @@ public class RedisConfig {
 ```
 
 **作用**：把方法返回值注册为 Bean
- **Bean 名称**：默认是 **方法名**
+**Bean 名称**：默认是 **方法名**
 
 📌 常用于：
 
 - 第三方类
 - 框架组件（Redis / MQ / SDK）
 
-------
+---
 
 ## 二、依赖注入相关（“怎么注入”）
 
-------
+---
 
 ### @Autowired ⭐（Spring 推荐）
 
@@ -77,7 +77,7 @@ private XxxService service;
 
 📌 **最常用**
 
-------
+---
 
 ### @Resource ⭐（Java 标准）
 
@@ -87,8 +87,8 @@ private RedisTemplate<String, Object> redisTemplate;
 ```
 
 **规则（重点记这个）**：
- 1️⃣ **先按 name（字段名）**
- 2️⃣ 再按 type
+1️⃣ **先按 name（字段名）**
+2️⃣ 再按 type
 
 等价于：
 
@@ -103,7 +103,7 @@ private RedisTemplate<String, Object> redisTemplate;
 
 ⚠️ 不支持 `required=false`
 
-------
+---
 
 ### @Qualifier（指定 Bean）
 
@@ -114,35 +114,59 @@ private RedisTemplate<String, Object> redisTemplate;
 ```
 
 **作用**：
- 👉 当 **同类型 Bean 多个** 时，指定注入哪一个
+👉 当 **同类型 Bean 多个** 时，指定注入哪一个
 
 📌 常和 `@Autowired` 搭配使用
 
-------
+---
 
 ## 三、构造器注入（⭐ 强烈推荐）
 
-### @RequiredArgsConstructor（Lombok）
+### 普通方式
 
-```
-@RequiredArgsConstructor
+```java
 @Component
-public class TokenAuthenticationFilter extends OncePerRequestFilter {
+public class SomeConfig {
+    private final RedisTokenFilter redisTokenFilter;
 
-    private final RedisTemplate<String, Object> redisTemplate;
+    public SomeConfig(RedisTokenFilter redisTokenFilter) {
+        this.redisTokenFilter = redisTokenFilter;
+    }
 }
 ```
 
-**优点（面试加分）**：
+### @RequiredArgsConstructor（Lombok）
+
+只会处理 final 字段，如果有多个，按声明循序
+
+```java
+@RequiredArgsConstructor
+@Component
+public class SomeConfig {
+    private final RedisTokenFilter redisTokenFilter;
+}
+```
+
+### 优点（面试加分）
 
 - 强制依赖（不会注入 null）
 - 线程安全
+
+  > - 请求 A 进来 → 设置 `currentUser = A`
+  > - 请求 B 同时进来 → 设置 `currentUser = B`
+  > - 请求 A 后续代码 → 用的是 B ❌
+
 - 更好测试
 - 避免字段注入的隐藏问题
+  > 依赖数量无法被 IDE / 编译器强制检查
+  >
+  > 纵容依赖膨胀：无法看出是不是管太多依赖了
+  >
+  > 框架绑死：必须依赖 Spring 才能工作
 
 📌 **Spring 官方推荐方式**
 
-------
+---
 
 ## 四、常见组合对照表（速记）
 
@@ -154,7 +178,7 @@ public class TokenAuthenticationFilter extends OncePerRequestFilter {
 | 可选依赖     | `@Autowired(required=false)` |
 | 第三方组件   | `@Configuration + @Bean`     |
 
-------
+---
 
 ## 五、常见坑 ⚠️
 
@@ -173,7 +197,7 @@ private RedisTemplate redisTemplate;
 @Qualifier("redisTemplate")
 ```
 
-------
+---
 
 ### ❌ @Resource 字段名和 Bean 名不一致
 
@@ -183,13 +207,13 @@ private RedisTemplate myRedisTemplate;
 ```
 
 ❌ 找不到 Bean
- ✅ 改成：
+✅ 改成：
 
 ```
 @Resource(name = "redisTemplate")
 ```
 
-------
+---
 
 ## 六、一句话记忆版（背这个就够）
 
