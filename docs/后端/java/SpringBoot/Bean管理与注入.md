@@ -122,7 +122,12 @@ private RedisTemplate<String, Object> redisTemplate;
 
 ## 三、构造器注入（⭐ 强烈推荐）
 
+📌 **Spring 官方推荐方式**
+
 ### 普通方式
+
+> **单构造器 = 默认 @Autowired**
+>  **多构造器 = 必须显式 @Autowired**
 
 ```java
 @Component
@@ -163,8 +168,6 @@ public class SomeConfig {
   > 纵容依赖膨胀：无法看出是不是管太多依赖了
   >
   > 框架绑死：必须依赖 Spring 才能工作
-
-📌 **Spring 官方推荐方式**
 
 ---
 
@@ -222,3 +225,17 @@ private RedisTemplate myRedisTemplate;
 > - **@Resource**：Java 注入，先名字
 > - **@Qualifier**：多 Bean 选一个
 > - **构造器注入**：最优解 ⭐
+
+## Spring 三种注入方式对比
+
+| 维度               | 构造器注入      | 字段注入（反射）          | Setter 注入            |
+| ------------------ | --------------- | ------------------------- | ---------------------- |
+| 示例               | `public A(B b)` | `@Autowired private B b;` | `@Autowired setB(B b)` |
+| 是否用反射         | ❌（正常 new）   | ✅ **必须用反射**          | ❌                      |
+| 是否支持 `private` | 构造器是 public | ✅ **完全支持**            | setter 必须 public     |
+| 是否需要 setter    | ❌               | ❌                         | ✅                      |
+| 是否支持 `final`   | ✅ **支持**      | ❌                         | ❌                      |
+| 依赖是否集中       | ✅ **一眼看全**  | ❌ 分散在字段              | ❌ 分散                 |
+| 单元测试友好度     | ⭐⭐⭐⭐⭐           | ⭐                         | ⭐⭐                     |
+| IDE 可分析性       | ⭐⭐⭐⭐⭐           | ⭐                         | ⭐⭐                     |
+| 推荐程度           | ✅ **强烈推荐**  | ⚠️ 不推荐                  | ⚠️ 较少用               |
