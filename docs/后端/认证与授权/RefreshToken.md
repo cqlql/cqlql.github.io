@@ -67,3 +67,234 @@ Refresh Token 的安全性提升关键在于 **存储安全 + 生命周期管理
 | Refresh Token（Cookie / App 安全存储） | 状态化   | ✅天然可撤销 | 删除服务器存储 token    |
 
 > 核心区别：**撤销依赖服务器是否能查 token 状态**
+
+## 刷新时让旧 access token 失效（高安全）
+
+### ❌ 错误思路
+
+```
+refresh token → 找 access token → delete
+```
+
+### 两种方案
+
+两种模型本质区别一句话版：
+
+> **jti：管“这一张 token”**
+>  **sessionId / sid：管“这一整个登录会话”**
+
+### 方案一：用 **jti**（最小成本、最常见）
+
+- ### ✔ jti 模型优点
+
+  - 实现简单
+  - 不侵入现有结构
+  - 想管的时候才用 Redis
+
+  ### ❌ 局限
+
+  - 一个用户可能同时存在多个 access token
+  - 不天然支持“单会话”
+
+### 方案二：用 sessionId / sid
+
+👉 适合：
+
+- 单点登录
+- 刷新即失效旧 token
+- 多端 / 多设备控制
+
+
+
+#### 1️⃣ token 结构（核心）
+
+Access Token
+
+```
+{
+  "sub": "10001",
+  "sid": "SESSION_abc123",
+  "exp": 1700001800
+}
+```
+
+Refresh Token
+
+```
+{
+  "sub": "10001",
+  "sid": "SESSION_abc123",
+  "exp": 1700600000
+}
+```
+
+👉 **access + refresh 共用同一个 sid**
+
+------
+
+#### 2️⃣ Redis 只存“当前 sessionId”
+
+```
+user_session:{userId} -> SESSION_abc123
+```
+
+#### 3️⃣ 登录时
+
+```
+String sessionId = UUID.randomUUID().toString();
+
+redisTemplate.opsForValue().set(
+    "user_session:" + userId,
+    sessionId,
+    7,
+    TimeUnit.DAYS
+);
+
+String accessToken  = jwtUtil.generateAccessToken(userId, sessionId);
+String refreshToken = jwtUtil.generateRefreshToken(userId, sessionId);
+```
+
+####  4️⃣ 请求时校验（非常关键）
+
+```
+String jwtSid = claims.get("sid", String.class);
+String redisSid = redisTemplate.opsForValue()
+    .get("user_session:" + userId);
+
+if (!jwtSid.equals(redisSid)) {
+    throw new UnauthorizedException("Session expired");
+}
+```
+
+#### 5️⃣ 刷新 token（重点）
+
+```
+public TokenResponse refresh(String refreshToken) {
+
+    Claims claims = jwtUtil.parse(refreshToken);
+    String userId = claims.getSubject();
+
+    // 1️⃣ 生成新的 sessionId
+    String newSessionId = UUID.randomUUID().toString();
+
+    // 2️⃣ 覆盖 Redis（旧 session 自动失效）
+    redisTemplate.opsForValue().set(
+        "user_session:" + userId,
+        newSessionId,
+        7,
+        TimeUnit.DAYS
+    );
+
+    // 3️⃣ 生成新 token
+    String newAccess  = jwtUtil.generateAccessToken(userId, newSessionId);
+    String newRefresh = jwtUtil.generateRefreshToken(userId, newSessionId);
+
+    return new TokenResponse(newAccess, newRefresh);
+}
+```
+
+🎯 **旧 access token 不用删、不用找、不用黑名单**
+ 🎯 下次请求时 sid 对不上 → 自动 401
+
+### jti vs sessionId：你该怎么选？
+> **jti 是“补丁”，sessionId 是“体系”**
+>  如果你已经在设计 refresh token，那直接上 sessionId，后面会省很多事。
+
+| 你的需求                | 推荐              |
+| ----------------------- | ----------------- |
+| 只想能踢人              | jti               |
+| 刷新即失效旧 token      | sessionId         |
+| 单点登录                | sessionId         |
+| 不想 Redis 每次请求都查 | jti               |
+| 后台管理系统            | sessionId（更爽） |
+
+### jwtUtil.generateAccessToken 与 jwtUtil.generateRefreshToken 实现
+
+> 下面示例基于 **jjwt（io.jsonwebtoken）**
+
+```
+@Component
+public class JwtUtil {
+
+    // 建议放配置文件
+    private final String secret = "your-very-secret-key-which-is-long-enough";
+    private final long accessTokenExpireMs  = 15 * 60 * 1000;   // 15 分钟
+    private final long refreshTokenExpireMs = 7 * 24 * 60 * 60 * 1000; // 7 天
+    
+    private final Key key;
+    
+    public JwtUtil() {
+        this.key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
+    }
+    
+    /* =======================
+       Access Token
+       ======================= */
+    
+    public String generateAccessToken(String userId, String sessionId) {
+        Date now = new Date();
+        Date expireAt = new Date(now.getTime() + accessTokenExpireMs);
+    
+        return Jwts.builder()
+                .setSubject(userId)                 // sub
+                .setIssuedAt(now)                   // iat
+                .setExpiration(expireAt)            // exp
+                .setId(UUID.randomUUID().toString())// jti（可选，但强烈建议）
+                .claim("sid", sessionId)             // 👈 sessionId
+                .claim("type", "access")             // 可选：标识类型
+                .signWith(key, SignatureAlgorithm.HS256)
+                .compact();
+    }
+    
+    /* =======================
+       Refresh Token
+       ======================= */
+    
+    public String generateRefreshToken(String userId, String sessionId) {
+        Date now = new Date();
+        Date expireAt = new Date(now.getTime() + refreshTokenExpireMs);
+    
+        return Jwts.builder()
+                .setSubject(userId)
+                .setIssuedAt(now)
+                .setExpiration(expireAt)
+                .setId(UUID.randomUUID().toString()) // refresh 自己的 jti
+                .claim("sid", sessionId)
+                .claim("type", "refresh")
+                .signWith(key, SignatureAlgorithm.HS256)
+                .compact();
+    }
+    
+    /* =======================
+       解析 & 校验
+       ======================= */
+    
+    public Claims parse(String token) {
+        return Jwts.parserBuilder()
+                .setSigningKey(key)
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
+    }
+}
+```
+
+Filter 里
+```
+Claims claims = jwtUtil.parse(token);
+
+String userId = claims.getSubject();
+String sid = claims.get("sid", String.class);
+String type = claims.get("type", String.class);
+
+if (!"access".equals(type)) {
+    throw new UnauthorizedException("Invalid token type");
+}
+
+String redisSid = redisTemplate.opsForValue()
+        .get("user_session:" + userId);
+
+if (!sid.equals(redisSid)) {
+    throw new UnauthorizedException("Session expired");
+}
+```
