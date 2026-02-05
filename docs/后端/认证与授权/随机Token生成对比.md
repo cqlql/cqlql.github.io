@@ -155,6 +155,15 @@ String token = Base64.getUrlEncoder()
 >  **UUID 保证不重复**
 >  **SecureRandom 才是真的安全**
 
+
+## 重复可能性对比
+
+| 方法                             | 随机位数 | Base64/UUID | 理论碰撞概率   | 适用场景                        |
+| -------------------------------- | -------- | ----------- | -------------- | ------------------------------- |
+| `SecureRandom 32 bytes + Base64` | 256      | Base64 URL  | 极低（接近零） | 高安全 token，比如 access token |
+| `UUID.randomUUID()`              | 128      | UUID        | 很低           | 一般标识符、会话 ID             |
+
+
 ## TokenGenerator 工具类
 
 ```java
@@ -237,4 +246,3 @@ public class TokenGenerator {
 }
 
 ```
-
