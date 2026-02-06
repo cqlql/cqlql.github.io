@@ -1,4 +1,4 @@
-# JWT + sid + jti + Redis Key 学习笔记
+# JWT + sid + jti + Redis Key
 
 ------
 
