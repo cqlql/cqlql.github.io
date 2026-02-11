@@ -298,3 +298,89 @@ if (!sid.equals(redisSid)) {
     throw new UnauthorizedException("Session expired");
 }
 ```
+
+## Web 端如何解决 CSRF？
+
+### 一、方案一：全局开启 CSRF（推荐度 ⭐⭐⭐⭐）
+
+```
+http.csrf(csrf -> csrf
+    .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+    .ignoringRequestMatchers(
+        "/api/auth/login",
+        "/api/auth/register"
+    )
+);
+```
+
+#### ✅ 特点
+
+- 所有非忽略接口都需要 CSRF Token
+- 自动生成 XSRF-TOKEN Cookie
+- 前端必须带 `X-XSRF-TOKEN` header
+
+#### 优点
+
+- 安全边界清晰
+- 不容易漏接口
+- 符合 Spring Security 默认设计
+- 团队成员不容易误操作
+
+#### 缺点
+
+- 所有 POST/PUT/DELETE 都要带 CSRF
+- 对纯 REST API 有点“多余”
+- 前端改动多
+
+### 二、方案二：只对 refresh 开启（推荐度 ⭐⭐⭐⭐⭐）
+
+```
+http.csrf(csrf -> csrf
+    // 1. 只有 refresh 接口需要检查
+    .requireCsrfProtectionMatcher(request ->
+        request.getRequestURI().equals("/api/auth/refresh")
+    )
+    // 2. 将 Token 写入 Cookie，以便前端 JS 可以读取 (withHttpOnlyFalse 是关键)
+    .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+    // 3. 处理 CSRF Token 的加载逻辑 (Spring Security 6+ 的优化项)
+    .csrfTokenRequestHandler(new SpaCsrfTokenRequestHandler()) 
+);
+```
+
+#### ✅ 特点
+
+- 只有 refresh 需要 CSRF
+- 其他接口完全不校验
+- 非常轻量
+- 前端必须带 `X-XSRF-TOKEN` header
+
+#### 优点
+
+- 更符合 JWT 架构
+- 只保护真正需要 Cookie 的接口
+- API 设计更干净
+- 前端改动最小
+
+#### 缺点
+
+- 需要你自己确保以后没有新增 Cookie 场景
+- 团队新人可能误加 Cookie 接口却忘记加 CSRF
+
+### app不需要CSRF，如何区分？
+
+如果你想架构更干净，可以直接分接口：
+
+```
+/api/auth/web/refresh
+/api/auth/app/refresh
+```
+
+然后：
+
+```
+.requireCsrfProtectionMatcher(request ->
+    request.getRequestURI().equals("/api/auth/web/refresh")
+)
+```
+
+这是企业里更清晰的做法。
