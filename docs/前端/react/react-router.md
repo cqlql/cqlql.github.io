@@ -19,3 +19,27 @@ function PermissionRoute({ allow }: { allow: string[] }) {
 </Route>
 ```
 
+## 懒加载
+
+```jsx
+import React, { Suspense, lazy } from "react"
+
+const VoiceRouter = lazy(() => import("../features/realtime-voice/router"))
+
+export const AppRouter = () => {
+  return (
+    <Routes>
+      <Route
+        path="/voice/*"
+        element={
+          <Suspense fallback={<div>Loading...</div>}>
+            <VoiceRouter />
+          </Suspense>
+        }
+      />
+    </Routes>
+  )
+}
+
+```
+
