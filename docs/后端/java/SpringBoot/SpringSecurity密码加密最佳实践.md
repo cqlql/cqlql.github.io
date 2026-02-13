@@ -1,4 +1,4 @@
-# [笔记] Spring Security 密码编码器最佳实践
+# Spring Security 密码编码器最佳实践
 
 **分类：** `#SpringSecurity` `#Cryptography` `#Java` `#Backend`
 
@@ -22,8 +22,9 @@ PasswordEncoder encoder = new BCryptPasswordEncoder(12);
 ```java
 // 推荐：支持多算法共存，具有前瞻性
 PasswordEncoder encoder = PasswordEncoderFactories.createDelegatingPasswordEncoder();
-// 这样当你存储密码时，它会自动带上 {bcrypt} 前缀。即便以后 BCrypt 过时了，你的系统也能在不宕机、不重置用户密码的前提下平滑过渡。
 ```
+
+>这样当你存储密码时，它会自动带上 {bcrypt} 前缀。即便以后 BCrypt 过时了，你的系统也能在不宕机、不重置用户密码的前提下平滑过渡。
 
 ------
 
