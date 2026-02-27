@@ -1,4 +1,4 @@
-# java内部类
+# java类
 
 ## static 只能是内部类
 
@@ -159,7 +159,11 @@ i2.print();  // 张三
 - 但它们都持有 **同一个 outer 引用**
 - 所以访问的是同一个 `Outer` 实例的数据
 
-## final 实现真正静态类
+## final class
+
+`final` 修饰类的核心作用只有一个：**禁止继承**，除此之外，这个类依然是普通类，依然可以被new
+
+### 实现真正静态类
 
 ```
 public final class MathUtils {
@@ -177,12 +181,45 @@ public final class MathUtils {
 }
 ```
 
-## 对比速览表
+## enum 
 
-| 类型          | 是否依赖外部实例 | 能否访问外部实例成员 | 能否独立 new | 常见用途      |
-| ------------- | ---------------- | -------------------- | ------------ | ------------- |
-| 普通类        | ❌                | ❌                    | ✅            | 业务主类      |
-| 普通内部类    | ✅                | ✅                    | ❌            | 强耦合辅助    |
-| static 内部类 | ❌                | ❌                    | ✅            | DTO / Builder |
-| final 工具类  | ❌                | ❌                    | ❌            | 常量 / 工具   |
+### enum 内部类
+
+内部 enum 默认就是 `static`
+
+```java
+public final class AudioPacket {
+    public enum Type {
+        AUDIO,
+        POISON
+    }
+}
+```
+
+等价于（概念上）：
+
+```java
+public final class AudioPacket {
+    public static enum Type {
+        AUDIO,
+        POISON
+    }
+}
+```
+
+### enum 为什么可以用 == 比较？
+
+因为 Java 的 enum 常量在 JVM 中是单例对象，类加载时初始化，整个进程只有一份实例，因此可以用 `==` 进行引用比较，既安全又高效。
+
+用 `==` 可以避免 NPE
+
+```java
+AudioPacket.Type type = null;
+
+// 安全写法
+if (type == AudioPacket.Type.POISON) { ... } // ✅ 不会报错
+
+// 不安全写法
+if (type.equals(AudioPacket.Type.POISON)) { ... } // ⚠ 会报 NullPointerException
+```
 
