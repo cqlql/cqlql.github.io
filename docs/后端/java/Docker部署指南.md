@@ -16,11 +16,11 @@ FROM maven:3.9-eclipse-temurin-17 AS builder
 # 设置工作目录（创建并 cd 到 /app）
 WORKDIR /app
 # 复制 settings.xml 和 pom.xml
-# 分两次copy为了缓存maven依赖，避免每次重新下载
+# 分两次copy为了缓存maven依赖，避免每次重新下载，settings.xml 中配置了maven源
 COPY settings.xml pom.xml ./
 # 预下载所有依赖（利用 go-offline 目标）
 # 这一层会被 Docker 缓存，直到 pom.xml 发生变化
-RUN mvn dependency:go-offline
+RUN mvn dependency:go-offline -s settings.xml
 # 复制源代码
 COPY src ./src
 # 打包并跳过测试
