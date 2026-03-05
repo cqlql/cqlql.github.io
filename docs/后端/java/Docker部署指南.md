@@ -39,6 +39,18 @@ COPY --from=builder /app/target/app.jar app.jar
 EXPOSE 8080
 # 设置默认环境变量，有环境变量就必须使用 Shell 模式：告诉 JVM：只许用容器限制内存的 70% 作为堆内存
 ENV JAVA_OPTS="-XX:+UseContainerSupport -XX:MaxRAMPercentage=70.0"
+
+ARG VERSION
+ARG GIT_COMMIT
+ARG BUILD_TIME
+
+LABEL org.opencontainers.image.title="pass-up-web-api"
+LABEL org.opencontainers.image.description="Pass Up Web API Service"
+LABEL org.opencontainers.image.version=$VERSION
+LABEL org.opencontainers.image.revision=$GIT_COMMIT
+LABEL org.opencontainers.image.authors="cql"
+LABEL org.opencontainers.image.created=$BUILD_TIME
+
 # 启动命令。二选一，Shell 可以解析环境变量，而 Exec 可以优雅停机
 # Exec 模式
 ENTRYPOINT ["java","-jar","app.jar"] 
@@ -55,7 +67,13 @@ ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS $SPRING_OPTS -jar app.jar"]
 ## 构建镜像
 
 ```
-docker build -t my-java-app:0.0.1 .
+[xml]$pom = Get-Content .\pom.xml
+$version = $pom.project.version
+docker build `
+  --build-arg VERSION=$version `
+  --build-arg GIT_COMMIT=$(git rev-parse HEAD) `
+  --build-arg BUILD_TIME=$(Get-Date -uformat "%Y-%m-%dT%H:%M:%SZ") `
+  -t pass-up-web-api:$version .
 ```
 
 构建成功后查看：
