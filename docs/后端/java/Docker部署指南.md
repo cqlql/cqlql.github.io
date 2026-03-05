@@ -8,15 +8,21 @@ Java 项目用 Docker 部署，其实就是三件事：
 
 ## 写 Dockerfile
 
-```
+```dockerfile
 ### 第一阶段：构建 ###
 
 # 使用包含 Maven 和 JDK 17 的官方镜像作为基础，AS builder 给这个阶段起个名字，方便后面引用
 FROM maven:3.9-eclipse-temurin-17 AS builder
 # 设置工作目录（创建并 cd 到 /app）
 WORKDIR /app
-# 复制当前目录到/app 目录
-COPY . .
+# 复制 settings.xml 和 pom.xml
+# 分两次copy为了缓存maven依赖，避免每次重新下载
+COPY settings.xml pom.xml ./
+# 预下载所有依赖（利用 go-offline 目标）
+# 这一层会被 Docker 缓存，直到 pom.xml 发生变化
+RUN mvn dependency:go-offline
+# 复制源代码
+COPY src ./src
 # 打包并跳过测试
 RUN mvn clean package -DskipTests
 
@@ -31,11 +37,13 @@ WORKDIR /app
 COPY --from=builder /app/target/app.jar app.jar
 # 暴露端口（没有实质作用，只是给人看的，可通过 docker inspect查看，相当于说明书，告诉他人建议用这个端口）
 EXPOSE 8080
-# 设置默认环境变量
-ENV JAVA_OPTS="-Xms256m -Xmx256m"
+# 设置默认环境变量，有环境变量就必须使用 Shell 模式：告诉 JVM：只许用容器限制内存的 70% 作为堆内存
+ENV JAVA_OPTS="-XX:+UseContainerSupport -XX:MaxRAMPercentage=70.0"
 # 启动命令。二选一，Shell 可以解析环境变量，而 Exec 可以优雅停机
-ENTRYPOINT ["java","-jar","app.jar"] # Exec 模式
-ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar app.jar"] # Exec +  Shell 模式
+# Exec 模式
+ENTRYPOINT ["java","-jar","app.jar"] 
+# Exec +  Shell 模式，$SPRING_OPTS 这是示意多个时的写法
+ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS $SPRING_OPTS -jar app.jar"]
 ```
 
 ### ⚠️ 一个容易忽视的小细节（优雅停机）
@@ -47,7 +55,7 @@ ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar app.jar"] # Exec +  Shell 模
 ## 构建镜像
 
 ```
-docker build -t my-java-app .
+docker build -t my-java-app:0.0.1 .
 ```
 
 构建成功后查看：
@@ -85,7 +93,8 @@ services:
     ports:
       - "8080:8080"
     environment:
-      - JAVA_OPTS=-Denv=prod
+      - JAVA_OPTS=-Dspring.profiles.active=prod -Dspring.redis.host=redis_local
+	  - SPRING_PROFILES_ACTIVE=prod # 推荐方式，等同上一行的 JAVA_OPTS=-Dspring.profiles.active=prod
     depends_on:
       - redis
     networks:
@@ -100,6 +109,8 @@ services:
 networks:
   backend:
 ```
+
+> **注意：** Spring 会自动把 `SPRING_REDIS_HOST` 映射为 `spring.redis.host`。 所以Dockerfile 启动命令可以简化为： `ENTRYPOINT ["java", "-jar", "app.jar"]`
 
 这样：
 
@@ -165,3 +176,70 @@ jar 只是构建中间产物。
 </project>
 ```
 
+## 导出镜像
+
+这样就可以直接在本地构建，服务器运行。但更推荐内网部署 **Harbor** 
+
+```
+docker save -o my_image.tar my_image_name:0.0.1
+```
+**服务器加载：** 在服务器上还原镜像。
+
+```
+docker load -i /path/to/destination/my_image.tar
+```
+
+## Dockerfile构建时缓存maven依赖
+
+由于 Maven 默认将依赖下载在容器内的 `~/.m2` 目录中，而容器构建过程是“无状态”的，每次重新运行 `RUN` 指令时，之前的依赖并不会自动留存。
+
+要解决这个问题，有两种主流的高效方案：
+
+------
+
+### 方案一：利用 Docker 层缓存机制（最推荐）
+
+利用 Docker **按行缓存**的特性，我们可以先只拷贝 `pom.xml`，下载完依赖后再拷贝源代码。这样只要 `pom.xml` 没改，依赖层就不会重新下载。
+
+```dockerfile
+FROM maven:3.9-eclipse-temurin-21 AS builder
+WORKDIR /app
+
+# 1. 仅复制项目描述文件
+COPY pom.xml .
+
+# 2. 预下载所有依赖（利用 go-offline 目标）
+# 这一层会被 Docker 缓存，直到 pom.xml 发生变化
+RUN mvn dependency:go-offline
+
+# 3. 复制源代码并打包
+COPY src ./src
+RUN mvn clean package -DskipTests
+```
+
+------
+
+### 方案二：利用 BuildKit 的挂载缓存（更现代）
+
+如果你使用的是较新版本的 Docker（BuildKit），可以使用 `--mount=type=cache`。这种方式会将 Maven 的本地仓库挂载到一个持久化的缓存位置，即使 `pom.xml` 变了，也只会下载新增的依赖。
+
+```dockerfile
+FROM maven:3.9-eclipse-temurin-21 AS builder
+WORKDIR /app
+
+COPY . .
+
+# 使用 BuildKit 挂载缓存目录
+RUN --mount=type=cache,target=/root/.m2 \
+    mvn clean package -DskipTests
+```
+
+------
+
+### 两种方案对比
+
+| **特性** | **方案一：分层缓存**             | **方案二：Mount 缓存**              |
+| -------- | -------------------------------- | ----------------------------------- |
+| **原理** | 利用 Docker 镜像分层机制         | 利用宿主机的持久化缓存目录          |
+| **优点** | 无需特殊配置，CI/CD 环境通用性强 | 即使修改了 `pom.xml` 也不用全量重下 |
+| **缺点** | `pom.xml` 变动时仍需重下所有依赖 | 需要开启 BuildKit 且配置略微复杂    |
