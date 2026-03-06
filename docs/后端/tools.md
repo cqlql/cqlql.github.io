@@ -35,3 +35,11 @@
 - 与 Grafana 配合使用效果最佳
 - 优点：强大的查询语言（PromQL）、生态丰富
 - 使用场景：监控 Docker / K8s / 系统性能
+
+## 分布式应用的开发编排
+
+### Aspire
+
+开发阶段的服务编排 + 云原生开发体验
+
+相当于java世界的 Docker Compose + OpenTelemetry + Service Discovery
