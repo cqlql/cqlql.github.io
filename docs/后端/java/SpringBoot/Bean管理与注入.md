@@ -1,4 +1,52 @@
-# 🌱 Spring 注入注解速查表（Dependency Injection）
+# Bean管理与注入（Dependency Injection）
+
+## @Component（及其派生）
+
+### 作用域（默认单例）
+
+- **单例（默认）：** `@Scope("singleton")`
+- **多例（原型）：** `@Scope("prototype")` —— 每次请求都会创建一个新的实例。
+
+```java
+@Component
+@Scope("prototype")
+public class MyService {
+    // 每次被注入时都是新对象
+}
+```
+
+#### 常见的五种作用域
+
+虽然单例是核心，但在 Web 环境中，Spring 还提供了其他几种作用域：
+
+| **作用域**      | **说明**                                      |
+| --------------- | --------------------------------------------- |
+| **Singleton**   | (默认) 每个容器只有一个实例。                 |
+| **Prototype**   | 每次获取都会创建一个新实例。                  |
+| **Request**     | 每个 HTTP 请求创建一个实例（仅限 Web 环境）。 |
+| **Session**     | 每个 HTTP 会话创建一个实例（仅限 Web 环境）。 |
+| **Application** | 每个 ServletContext 创建一个实例。            |
+
+### 其他派生
+
+**派生注解**（本质就是 **语义化的 `@Component`**）
+
+| 注解              | 典型用途                                 |
+| ----------------- | ---------------------------------------- |
+| `@Service`        | 业务逻辑层                               |
+| `@Repository`     | DAO / 持久层（含异常转换）               |
+| `@Controller`     | MVC Controller                           |
+| `@RestController` | REST 接口（= Controller + ResponseBody） |
+
+📌 **本质完全一样，只是语义不同**
+
+
+
+
+
+
+
+## ==旧，待整理===================
 
 ---
 

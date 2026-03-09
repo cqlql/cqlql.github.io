@@ -1,7 +1,6 @@
 
 
-
-# Spring 注入方式对比
+# Spring 注入
 
 ## 字段注入 (@Value / @Autowired)
 - 简单，但不可变字段不支持 final
@@ -77,8 +76,18 @@ public class JwtUtil {
 - 对于单元测试不太友好，需要额外注入或调用 `init()`。
 - 字段注入被认为是 **不太推荐的做法**（Spring 官方文档推荐构造器注入）。
 
-## 总结
+## 注入静态变量
 
-- 现代 Spring 推荐构造器注入
-- 字段可用 final，保证不可变
-- @PostConstruct 仅在复杂初始化时使用
+```java
+@Component
+public class Config {
+
+    public static String API_APP_ID;
+
+    @Value("${doubao.realtime.api-app-id}")
+    public void setApiAppId(String value) {
+        API_APP_ID = value;
+    }
+}
+```
+
