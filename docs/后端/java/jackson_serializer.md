@@ -14,14 +14,11 @@ Jackson2JsonRedisSerializer<UserBO> serializer = new Jackson2JsonRedisSerializer
 
 | 属性          | 描述                                                         |
 | ------------- | ------------------------------------------------------------ |
-| 类型固定      | 你必须在构造器里指定一个具体的类，比如 `UserBO.class`。序列化时，它假设你存的都是这个类型。 |
 | JSON 内容干净 | 默认不会加 `@class`，除非你启用了 `DefaultTyping`。          |
-| 反序列化简单  | Jackson 知道类型，所以直接 `readValue(json, UserBO.class)` 就行。 |
 | 灵活性低      | 如果你存入不同类型的对象（Object 类型），序列化或反序列化就需要额外处理。 |
 
 **适用场景：**
 
-- Redis 存储的对象类型固定，例如专门存 `UserBO`。
 - 你希望 JSON 干净，不想看到 `@class`。
 
 ------
