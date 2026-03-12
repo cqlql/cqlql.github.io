@@ -3,7 +3,6 @@
 ```
 javademo
 ├─ DemoApplication.java
-
 ├─ common              # 真·基础设施层
 │  ├─ api              # Result / ResultCode
 │  ├─ exception
@@ -11,16 +10,19 @@ javademo
 │  ├─ util
 │  └─ base
 │      └─ BaseEntity.java
-
 ├─ infrastructure      # 系统能力（推荐新增）
 │  ├─ bootstrap
 │  │  └─ AdminAccountInitializer.java #与user相关也可放 modules/user/bootstrap/AdminAccountInitializer.java
 │  ├─ security
-│  │  ├─ SecurityConfig.java
-│  │  ├─ JwtAuthenticationFilter.java
-│  │  ├─ TokenAuthenticationFilter.java
-│  │  ├─ JsonAccessDeniedHandler.java
-│  │  └─ JsonAuthenticationEntryPoint.java
+│  │  ├─ config
+│  │  │  └─ SecurityConfig.java
+│  │  ├─ token
+│  │  │  ├─ AuthRedisKey.java
+│  │  │  ├─ JwtUtils.java
+│  │  │  └─ RedisTokenManager.java
+│  │  ├─ filter
+│  │     ├─ JwtAuthenticationFilter.java
+│  │     └─ TokenAuthenticationFilter.java
 │  │
 │  ├─ redis
 │  │  ├─ RedisConfig.java
@@ -37,25 +39,31 @@ javademo
 
 ```
 modules
+├─ auth
+│  ├─ controller              # Result / ResultCode
+│  │  ├─ admin
+│  │  ├─ app
+│  │  │  └─ AuthController.java
+│  │  ├─ web
+│  │  │  └─ TokenAuthenticationFilter.java
+│  ├─ dto
+│  │  ├─ request
+│  │  │  ├─ LoginRequest.java
+│  │  │  └─ RefreshTokenRequest.java
+│  │  ├─ request
+│  │  │  ├─ LoginResponse.java
+│  │  │  └─ ProfileResponse.java
+│  └─ service
+│      └─ WebSocketTicketService.java
 └─ user
    ├─ bootstrap
    │  └─ AdminAccountInitializer.java #在系统启动时，如果没有 admin 账户，就创建一个默认 admin
    ├─ controller
-   │  ├─ admin
-   │  │  └─ AdminUserController.java
-   │  │
-   │  └─ app
-   │     ├─ AuthController.java
-   │     └─ ProfileController.java
+   │  └─ admin
+   │     └─ AdminUserController.java
    │
    ├─ dto
-   │  ├─ request
-   │  │  ├─ LoginRequest.java
-   │  │  └─ RefreshTokenRequest.java
-   │  │
-   │  └─ response
-   │     ├─ LoginResponse.java
-   │     └─ ProfileResponse.java
+   │  └─ ProfileResponseDTO.java
    │
    ├─ bo
    │  └─ UserSessionBO.java
@@ -66,11 +74,8 @@ modules
    ├─ repository
    │  └─ UserRepository.java
    │
-   ├─ service
-   │  └─ UserService.java
-   │
-   └─ constants
-      └─ AuthRedisKey.java
+   └─ service
+      └─ UserService.java
 
 ```
 
