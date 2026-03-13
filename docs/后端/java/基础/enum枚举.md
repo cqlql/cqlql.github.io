@@ -158,3 +158,120 @@ public class Demo {
 
 ```
 
+## map 性能优化版（Java 8）
+
+```java
+package com.xiaodingtie.passup.modules.auth.enums;
+
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonValue;
+import java.util.HashMap;
+import java.util.Map;
+
+public enum PlatformType {
+    IOS("ios"), ANDROID("android"), WINDOWS("windows"), MACOS("macos"), UNKNOWN("unknown");
+
+    private final String value;
+
+    // 使用 Map 缓存所有可能的输入
+    private static final Map<String, PlatformType> LOOKUP = new HashMap<>();
+
+    static {
+        for (PlatformType type : PlatformType.values()) {
+            LOOKUP.put(type.value, type);
+            LOOKUP.put(type.name().toLowerCase(), type);
+        }
+
+        // 额外的兼容性映射（别名）
+        LOOKUP.put("iphone", IOS);
+        LOOKUP.put("ipad", IOS);
+        LOOKUP.put("win", WINDOWS);
+        LOOKUP.put("mac", MACOS);
+        LOOKUP.put("osx", MACOS);
+    }
+
+    PlatformType(String value) {
+        this.value = value;
+    }
+
+    @JsonValue
+    public String getValue() {
+        return value;
+    }
+
+    @JsonCreator
+    public static PlatformType from(String value) {
+        if (value == null || value.isBlank()) {
+            // 注意：这里建议返回 UNKNOWN 而不是 null，避免调用方出现 NPE
+            return UNKNOWN;
+        }
+
+        // O(1) 查询，且支持别名
+        return LOOKUP.getOrDefault(value.trim().toLowerCase(), UNKNOWN);
+    }
+}
+
+```
+
+##  switch 终极版（Java 17+ ）
+
+```java
+public enum PlatformType {
+    IOS("ios"), 
+    ANDROID("android"), 
+    WINDOWS("windows"), 
+    MACOS("macos"), 
+    UNKNOWN("unknown");
+
+    private final String value;
+
+    PlatformType(String value) {
+        this.value = value;
+    }
+
+    @JsonValue
+    public String getValue() {
+        return value;
+    }
+
+    @JsonCreator
+    public static PlatformType from(String input) {
+        if (input == null || input.isBlank()) {
+            return UNKNOWN;
+        }
+
+        // 这种写法被称为 "Switch Expression"
+        // 它会直接返回匹配到的枚举分支
+        return switch (input.trim().toLowerCase()) {
+            case "ios", "iphone", "ipad"      -> IOS;
+            case "android"                    -> ANDROID;
+            case "windows", "win", "win10"    -> WINDOWS;
+            case "macos", "mac", "osx"        -> MACOS;
+            case "unknown"                    -> UNKNOWN;
+            default                           -> UNKNOWN;
+        };
+    }
+}
+```
+
+### 为什么 Java 17 的 `switch` 比 `for` 循环和 `Map` 更好？
+
+#### 1. 性能接近极致
+
+在处理字符串时，Java 编译器会对 `switch` 进行特殊优化。它通常会先计算字符串的 `hashCode`，然后生成一个跳转表（Jump Table）。相比于 `Map` 方案，它省去了：
+
+- `HashMap` 对象的创建和维护成本。
+- `Node` 节点的内存开销。
+- 查找时的引用间接寻址（Indirect addressing）。
+
+#### 2. 语法极简（多值匹配）
+
+注意代码中的 `case "ios", "iphone", "ipad"`。在 Java 17 之前，你需要写一串冗长的 `case` 穿透逻辑，而现在一行就解决了。这种写法非常直观地表达了**别名（Aliases）**的关系。
+
+#### 3. 编译时完备性检查
+
+如果你将 `switch` 作为表达式使用（比如直接 `return switch...`），Java 编译器会强制要求你覆盖所有可能的情况（必须有 `default` 分支或者覆盖所有枚举值）。这大大降低了漏掉某种情况导致的逻辑漏洞。
+
+#### 4. 内存零开销
+
+这个方法不需要任何静态缓存。除了代码本身占用的字节码空间外，它在运行时不占任何额外的堆内存，非常适合对内存敏感的微服务环境。
