@@ -133,3 +133,10 @@ session 是否存在
 
 - ✅ 对。Redis 统一管控 session，删除 session 等于撤销所有 token。
 
+### 4. 前端存哪里？
+
+✅ `access_token` → **放内存 / 前端变量（或少数情况下 localStorage）**
+
+✅ `refresh_token` → **放 HttpOnly + Secure Cookie（强烈推荐）**
+
+- 只在刷新接口带上

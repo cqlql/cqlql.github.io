@@ -223,3 +223,25 @@ if (type == AudioPacket.Type.POISON) { ... } // ✅ 不会报错
 if (type.equals(AudioPacket.Type.POISON)) { ... } // ⚠ 会报 NullPointerException
 ```
 
+## 类型判断
+
+**传统写法（Java 14 之前）：**
+
+```java
+if (ex instanceof MethodArgumentNotValidException) {
+    // 1. 既然判断过了，还得手动强转一次
+    MethodArgumentNotValidException manve = (MethodArgumentNotValidException) ex;
+    // 2. 然后才能使用 manve
+    bindingResult = manve.getBindingResult();
+}
+```
+
+**现代写法（Java 16+）：**
+
+```java
+// 如果 ex 是这个类型，直接把它赋值给变量 manve
+if (ex instanceof MethodArgumentNotValidException manve) {
+    // 这里直接用 manve，不需要强转
+    bindingResult = manve.getBindingResult();
+}
+```
