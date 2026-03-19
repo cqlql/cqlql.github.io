@@ -52,3 +52,17 @@ String s = String.format("%2$s 喜欢 %1$s", "苹果", "小明");
 ```java
 String info = "Name: %s, Age: %d".formatted(name, age);
 ```
+
+## 空判断
+
+### 使用 Apache Commons Lang (最常用)
+
+如果你在项目中集成了 `commons-lang3`，这是最推荐的做法。
+
+```java
+// 判断是否为 null 或 ""
+if (StringUtils.isEmpty(defaultPassword)) { ... }
+
+// 更强力的判断：不仅判断 null 和 ""，还判断是否全是空格（如 "  "）
+if (StringUtils.isBlank(defaultPassword)) { ... }
+```

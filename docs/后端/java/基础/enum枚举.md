@@ -10,6 +10,8 @@ public class Demo {
     }
 
     public static void main(String[] args) {
+        Day[] days = Day.values();
+        System.out.println(days[0].equals(Day.MONDAY)); // true
         System.out.println(Day.MONDAY.name()); // "MONDAY"
         System.out.println(Day.MONDAY.ordinal()); // 0 (跟声明位置有关系)
     }
@@ -171,14 +173,14 @@ import java.util.Map;
 public enum PlatformType {
     IOS("ios"), ANDROID("android"), WINDOWS("windows"), MACOS("macos"), UNKNOWN("unknown");
 
-    private final String value;
+    private final String code;
 
     // 使用 Map 缓存所有可能的输入
     private static final Map<String, PlatformType> LOOKUP = new HashMap<>();
 
     static {
         for (PlatformType type : PlatformType.values()) {
-            LOOKUP.put(type.value, type);
+            LOOKUP.put(type.code, type);
             LOOKUP.put(type.name().toLowerCase(), type);
         }
 
@@ -190,30 +192,30 @@ public enum PlatformType {
         LOOKUP.put("osx", MACOS);
     }
 
-    PlatformType(String value) {
-        this.value = value;
+    PlatformType(String code) {
+        this.code = code;
     }
 
     @JsonValue
-    public String getValue() {
-        return value;
+    public String getCode() {
+        return code;
     }
 
     @JsonCreator
-    public static PlatformType from(String value) {
-        if (value == null || value.isBlank()) {
+    public static PlatformType from(String input) {
+        if (input == null || input.isBlank()) {
             // 注意：这里建议返回 UNKNOWN 而不是 null，避免调用方出现 NPE
             return UNKNOWN;
         }
 
         // O(1) 查询，且支持别名
-        return LOOKUP.getOrDefault(value.trim().toLowerCase(), UNKNOWN);
+        return LOOKUP.getOrDefault(input.trim().toLowerCase(), UNKNOWN);
     }
 }
 
 ```
 
-##  switch 终极版（Java 17+ ）
+## switch 终极版（Java 17+ ）
 
 ```java
 public enum PlatformType {
@@ -223,15 +225,15 @@ public enum PlatformType {
     MACOS("macos"), 
     UNKNOWN("unknown");
 
-    private final String value;
+    private final String code;
 
-    PlatformType(String value) {
-        this.value = value;
+    PlatformType(String code) {
+        this.code = code;
     }
 
     @JsonValue
-    public String getValue() {
-        return value;
+    public String getCode() {
+        return code;
     }
 
     @JsonCreator
@@ -275,3 +277,54 @@ public enum PlatformType {
 #### 4. 内存零开销
 
 这个方法不需要任何静态缓存。除了代码本身占用的字节码空间外，它在运行时不占任何额外的堆内存，非常适合对内存敏感的微服务环境。
+
+#### 5. 所以`switch` 肯对最好？
+实际还得视情况而定，下例用 map就更好：
+
+1. **易于维护**：新增枚举项时，你只需要添加一行定义（如 `FACE_ID("face_id"),`），`from` 方法**完全不需要修改**，它会自动将其加入缓存。
+2. **性能更强**：`switch` 在底层虽然很快，但对于字符串匹配，`HashMap` 的 $O(1)$ 查找在逻辑清晰度和速度上取得了很好的平衡。
+3. **错误信息更精准**：区分了“输入为空”和“输入非法”两种报错语义。
+
+```java
+public enum UserAuthType {
+    PASSWORD("password"), 
+    WECHAT_MINIAPP("wechat_miniapp"), 
+    SMS("sms");
+
+    private final String value;
+
+    // 1. 使用 Map 进行静态缓存，只需在类加载时计算一次
+    private static final java.util.Map<String, UserAuthType> LOOKUP = new java.util.HashMap<>();
+
+    static {
+        for (UserAuthType type : values()) {
+            LOOKUP.put(type.value.toLowerCase(), type);
+        }
+    }
+
+    UserAuthType(String value) {
+        this.value = value;
+    }
+
+    @JsonValue
+    public String getValue() {
+        return value;
+    }
+
+    @JsonCreator
+    public static UserAuthType from(String input) {
+        // 2. 简洁的判空逻辑
+        if (input == null || input.isBlank()) {
+            throw new IllegalArgumentException("AuthType cannot be null or empty");
+        }
+
+        // 3. 直接从 Map 中获取，复杂度为 O(1)
+        UserAuthType result = LOOKUP.get(input.trim().toLowerCase());
+        
+        if (result == null) {
+            throw new IllegalArgumentException("Unknown authType: " + input);
+        }
+        return result;
+    }
+}
+```

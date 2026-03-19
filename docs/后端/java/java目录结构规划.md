@@ -13,6 +13,19 @@ javademo
 ├─ infrastructure      # 系统能力（推荐新增）
 │  ├─ bootstrap
 │  │  └─ AdminAccountInitializer.java #与user相关也可放 modules/user/bootstrap/AdminAccountInitializer.java
+│  ├─ integration
+│  │  └─ wechat
+│  │     ├─ client
+│  │     │  └─ WechatClient.java      ← 对外HTTP调用封装
+│  │     │
+│  │     ├─ service
+│  │     │  └─ WechatAuthService.java ← 可选（薄封装）
+│  │     │
+│  │     ├─ dto
+│  │     │  └─ WechatSessionDTO.java
+│  │     │
+│  │     └─ config
+│  │        └─ WechatMiniAppProperties.java
 │  ├─ security
 │  │  ├─ config
 │  │  │  └─ SecurityConfig.java
@@ -44,7 +57,10 @@ modules
 │  │  ├─ admin
 │  │  ├─ app
 │  │  │  └─ AuthController.java
+│  │  ├─ miniapp
+│  │  │  └─ MiniAppAuthController.java
 │  │  ├─ web
+│  │  │  ├─ WebAuthController.java
 │  │  │  └─ TokenAuthenticationFilter.java
 │  ├─ dto
 │  │  ├─ request
@@ -54,6 +70,7 @@ modules
 │  │  │  ├─ LoginResponse.java
 │  │  │  └─ ProfileResponse.java
 │  └─ service
+│      ├─ AuthService.java
 │      └─ WebSocketTicketService.java
 └─ user
    ├─ bootstrap
