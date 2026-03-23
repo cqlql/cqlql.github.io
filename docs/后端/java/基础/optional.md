@@ -73,7 +73,7 @@ Optional<String> opt = Optional.empty();
 
 ## 常用 API
 
-### 1 判断是否存在
+### 判断是否存在
 
 ```
 optional.isPresent()
@@ -83,7 +83,7 @@ optional.isPresent()
 
 ------
 
-### 2 ifPresent
+### ifPresent
 
 存在才执行
 
@@ -95,7 +95,7 @@ optional.ifPresent(v -> {
 
 ------
 
-### 3 orElse
+### orElse
 
 为空则返回默认值
 
@@ -107,7 +107,7 @@ String name = optional.orElse("default");
 
 ------
 
-### 4 orElseGet（推荐）
+### orElseGet（推荐）
 
 ```
 String name = optional.orElseGet(() -> getDefaultName());
@@ -117,7 +117,7 @@ String name = optional.orElseGet(() -> getDefaultName());
 
 ------
 
-### 5 orElseThrow
+### orElseThrow
 
 为空则抛异常
 
@@ -129,7 +129,7 @@ User user = optional.orElseThrow(() -> new RuntimeException("用户不存在"));
 
 ------
 
-### 6 map（最核心）
+### map（最核心）
 
 对值进行转换
 
@@ -147,7 +147,29 @@ Optional<String> name =
 
 ------
 
-### 7 filter
+### flatMap 避免无限套娃
+
+核心逻辑：Map vs. FlatMap
+
+- **`map`**：对集合中的每个元素进行转换，返回的是**转换后的值**。
+- **`flatMap`**：对每个元素进行转换，要求转换后的结果**本身就是一个容器**（比如另一个 Stream、Optional 或 Mono），然后它会把这些内部容器“拆开”，将里面的元素取出来合并成一个新的流。
+
+```java
+var Optional<User> = userAuthRepository
+  .findByAuthTypeAndIdentifier(UserAuthType.WECHAT_MINIAPP, openId)
+  .map(UserAuth::getUserId).flatMap(userRepository::findById);
+```
+
+为什么这里必须用 flatMap？
+
+因为 `userRepository.findById` 的返回值类型通常是 `Optional<User>` 或 `Mono<User>`。
+
+- 如果用 `map`：结果是 `Optional<Optional<User>>`
+- 如果用 `flatMap`：结果是 `Optional<User>`
+
+------
+
+### filter
 
 条件过滤
 
