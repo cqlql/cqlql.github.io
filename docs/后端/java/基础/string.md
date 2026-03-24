@@ -55,6 +55,12 @@ String info = "Name: %s, Age: %d".formatted(name, age);
 
 ## 空判断
 
+### Java 原生
+
+```java
+if (defaultPassword == null || sessionId.isBlank()) return null
+```
+
 ### 使用 Apache Commons Lang (最常用)
 
 如果你在项目中集成了 `commons-lang3`，这是最推荐的做法。
