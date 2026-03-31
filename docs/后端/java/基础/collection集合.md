@@ -204,3 +204,21 @@ Map<KeyType, ValueType> map = items.stream()
     ));
 ```
 
+## 判空
+
+list
+
+```
+if (list != null && !list.isEmpty()) {
+    Object last = list.get(list.size() - 1);
+}
+```
+
+array
+
+```
+if (arr != null && arr.length > 0) {
+    Object last = arr[arr.length - 1];
+}
+```
+
