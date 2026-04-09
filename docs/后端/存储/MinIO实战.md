@@ -74,7 +74,7 @@ String url = minioClient.getPresignedObjectUrl(
 
 
 
-### 定时清理
+### 清理方案
 
 ```
 @Scheduled(cron = "0 0 3 * * ?")
@@ -94,11 +94,34 @@ public void cleanFiles() {
 }
 ```
 
-👉 解决：
 
-- 临时文件
-- 用户删除文件
-- 上传失败残留
+
+### ✔ 清理“临时文件”
+
+```
+条件：
+- status = UPLOADING
+- 无 attachment
+- 超过24小时
+```
+
+------
+
+### ✔ 清理“已删除文件”
+
+```
+条件：
+- status = DELETED
+- 超过7天
+```
+
+------
+
+### ✔ 执行方式
+
+```
+定时任务 + 分批 + 二次校验
+```
 
 ###  文件类型校验
 
@@ -147,6 +170,257 @@ passup/resume/10001/2026/04/01HZY3K8GZP.pdf
 passup/avatar/10001/01HZY3K8GZP.jpg
 ```
 
+
+
+# ####待整理#################
+
+# 清理策略实现
+
+# ✅ 一、你当前模型下的清理对象
+
+基于你现在的表设计：
+
+## 🟡 1. 临时文件（核心）
+
+```
+file.status = 'UPLOADING'
+AND 不存在 attachment
+AND created_at < NOW() - 24h
+```
+
+------
+
+## 🔴 2. 逻辑删除文件
+
+```
+file.status = 'DELETED'
+AND updated_at < NOW() - 7天
+```
+
+------
+
+# 🚀 二、推荐清理方案（生产可用）
+
+------
+
+# 🟢 方案：定时任务 + 批处理（推荐 👍）
+
+------
+
+## ✏️ 1. 定时任务（Spring）
+
+```
+@Scheduled(cron = "0 0 * * * ?") // 每小时执行
+public void cleanUnusedFiles() {
+    fileCleanupService.cleanUploadingFiles();
+    fileCleanupService.cleanDeletedFiles();
+}
+```
+
+------
+
+## ✏️ 2. 查询待删除文件（分页很重要）
+
+```
+SELECT id, storage_key
+FROM file
+WHERE status = 'UPLOADING'
+  AND created_at < NOW() - INTERVAL 1 DAY
+  AND NOT EXISTS (
+    SELECT 1 FROM attachment WHERE file_id = file.id
+  )
+LIMIT 100
+```
+
+👉 ❗一定要 LIMIT（防止一次删爆）
+
+------
+
+## ✏️ 3. 删除流程（关键）
+
+```
+for (File file : files) {
+    try {
+        // ① 再次校验（防止并发误删）
+        if (attachmentRepository.existsByFileId(file.getId())) {
+            continue;
+        }
+
+        // ② 删除 MinIO 文件
+        minioStorageService.deleteQuietly(file.getStorageKey());
+
+        // ③ 删除数据库（或标记 DELETED）
+        fileRepository.deleteById(file.getId());
+
+    } catch (Exception e) {
+        log.error("清理文件失败 fileId={}", file.getId(), e);
+    }
+}
+```
+
+------
+
+# ⚠️ 三、必须加的“安全机制”（很重要）
+
+------
+
+## ❗1. 二次校验（防并发）
+
+```
+if (attachmentRepository.existsByFileId(fileId))
+```
+
+👉 防止：
+
+```
+刚查出来没人用 → 刚好被绑定 → 被你删了 ❌
+```
+
+------
+
+## ❗2. 分批删除（防雪崩）
+
+```
+一次最多 100 条
+循环执行
+```
+
+------
+
+## ❗3. 异常隔离
+
+```
+一个删失败 → 不影响其他
+```
+
+------
+
+## ❗4. 不要直接物理删除（推荐）
+
+可以先：
+
+```
+status = DELETED
+```
+
+再延迟物理删除
+
+------
+
+# 🧠 四、进阶优化（你可以后面加）
+
+------
+
+## 🟢 1. MinIO 生命周期（强烈推荐）
+
+如果你用了 `/temp`：
+
+👉 可以直接：
+
+```
+temp/ 目录 → 1天自动删除
+```
+
+👉 不用你写代码
+
+------
+
+## 🟢 2. 软删除 + 延迟删除
+
+```
+ACTIVE → DELETED → 7天后物理删除
+```
+
+👉 防误删恢复
+
+------
+
+## 🟢 3. 清理任务拆分
+
+```
+cleanUploadingFiles()
+cleanDeletedFiles()
+```
+
+👉 可控性更强
+
+------
+
+## 🟢 4. 日志 + 监控（很加分）
+
+```
+本次清理：
+- 扫描 100 条
+- 删除 87 条
+- 失败 2 条
+```
+
+------
+
+# 🚨 五、常见错误（你一定要避免）
+
+------
+
+## ❌ 1. 只看 status 删除
+
+```
+status = UPLOADING 就删 ❌
+```
+
+👉 必须加：
+
+```
+NOT EXISTS attachment
+```
+
+------
+
+## ❌ 2. 一次删全部
+
+```
+DELETE FROM file WHERE ...
+```
+
+👉 ❌ 极其危险（锁表 + IO爆炸）
+
+------
+
+## ❌ 3. 不校验 MinIO
+
+👉 DB删了，但文件还在 → 存储泄漏
+
+------
+
+# ✨ 六、推荐你最终方案（总结）
+
+------
+
+## ✔ 清理“临时文件”
+
+```
+条件：
+- status = UPLOADING
+- 无 attachment
+- 超过24小时
+```
+
+------
+
+## ✔ 清理“已删除文件”
+
+```
+条件：
+- status = DELETED
+- 超过7天
+```
+
+------
+
+## ✔ 执行方式
+
+```
+定时任务 + 分批 + 二次校验
+```
 
 # ####待整理#################
 
