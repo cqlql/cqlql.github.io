@@ -1,3 +1,54 @@
+## 实现方式
+
+### 组件式（最传统）
+
+👉 基于 `<BrowserRouter> + <Routes> + <Route>`
+
+适合小项目
+
+```
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+
+function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/about" element={<About />} />
+      </Routes>
+    </BrowserRouter>
+  );
+}
+```
+
+### 配置式（对象路由）（现在主流）
+
+👉 用 JS 对象定义路由，然后交给 Router
+
+👉 这是 React Router v6.4+ 的核心推荐方式
+
+适合中大型项目
+
+```
+import { createBrowserRouter, RouterProvider } from "react-router-dom";
+
+const router = createBrowserRouter([
+  {
+    path: "/",
+    element: <Layout />,
+    children: [
+      { path: "", element: <Home /> },
+      { path: "about", element: <About /> }
+    ]
+  }
+]);
+
+function App() {
+  return <RouterProvider router={router} />;
+}
+```
+
+
 
 ## 权限级守卫（角色 / 权限）
 
