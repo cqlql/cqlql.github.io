@@ -1,4 +1,4 @@
-## 实现方式
+## 路由方式
 
 ### 组件式（最传统）
 
@@ -6,7 +6,7 @@
 
 适合小项目
 
-```
+```react
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 
 function App() {
@@ -29,7 +29,7 @@ function App() {
 
 适合中大型项目
 
-```
+```react
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 
 const router = createBrowserRouter([
@@ -52,23 +52,108 @@ function App() {
 
 ## 权限级守卫（角色 / 权限）
 
-```jsx
-function PermissionRoute({ allow }: { allow: string[] }) {
-  const permissions = useAuthStore(s => s.permissions);
+src\layouts\AuthLayout.tsx
 
-  if (!allow.some(p => permissions.includes(p))) {
+```react
+import { Navigate, Outlet, useMatches } from 'react-router-dom';
+
+export default function AuthLayout() {
+  const token = localStorage.getItem('token');
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
+
+  const matches = useMatches();
+  const currentMatch = matches[matches.length - 1];
+
+  const requiredRole = (currentMatch.handle as RouteHandle)?.role;
+
+  if (!token) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (requiredRole && user.role !== requiredRole) {
     return <Navigate to="/403" replace />;
   }
 
   return <Outlet />;
 }
+
+type RouteHandle = {
+  role?: string;
+};
 ```
 
-```jsx
-<Route element={<PermissionRoute allow={['ADMIN']} />}>
-  <Route path="/admin" element={<Admin />} />
-</Route>
+src\layouts\GuestLayout.tsx
+
+```react
+import { Navigate, Outlet } from 'react-router-dom';
+
+export default function GuestLayout() {
+  const token = localStorage.getItem('token');
+
+  if (token) {
+    return <Navigate to="/" replace />;
+  }
+
+  return <Outlet />;
+}
+
 ```
+
+src\router\routes.tsx
+
+```react
+import Layout from '@/layouts/MainLayout';
+import Login from '@/pages/Login/Login';
+import Home from '@/pages/Home';
+import type { RouteObject } from 'react-router-dom';
+import { type ReactNode } from 'react';
+import { RobotOutlined, UserOutlined, HomeOutlined } from '@ant-design/icons';
+import AuthLayout from '@/layouts/AuthLayout';
+import GuestLayout from '@/layouts/GuestLayout';
+import { User } from './lazy';
+
+export type AppRouteObject = RouteObject & {
+  meta?: {
+    title: string;
+    icon?: ReactNode;
+    hidden?: boolean;
+  };
+  children?: AppRouteObject[];
+};
+
+export const routes: AppRouteObject[] = [
+  {
+    element: <GuestLayout />,
+    children: [
+      { path: '/login', element: <Login /> },
+      // { path: "/register", element: <Register /> },
+    ],
+  },
+  {
+    element: <AuthLayout />,
+    children: [
+      {
+        element: <Layout />,
+        children: [
+          {
+            path: '/',
+            index: true,
+            element: <Home />,
+            meta: { title: '首页', icon: <HomeOutlined /> },
+          },
+          {
+            path: '/user',
+            element: <User />,
+            meta: { title: '用户管理', icon: <UserOutlined /> },
+          }
+        ],
+      },
+    ],
+  },
+];
+
+```
+
 
 ## 懒加载
 
