@@ -102,7 +102,7 @@ docker run -d \
 docker build -t my-java-app:1.0 .
 ```
 
-建议用 `docker-compose.yml`
+启动建议用 `docker-compose.yml`
 
 ```yml
 services:
@@ -226,7 +226,7 @@ WORKDIR /app
 # 1. 仅复制项目描述文件
 COPY pom.xml .
 
-# 2. 预下载所有依赖（利用 go-offline 目标）
+# 2. 预下载所有依赖（利用 go-offline 目标，go-offline 属于 maven 功能）
 # 这一层会被 Docker 缓存，直到 pom.xml 发生变化
 RUN mvn dependency:go-offline
 
