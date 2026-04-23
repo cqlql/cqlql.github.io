@@ -78,7 +78,7 @@ docker compose \
 
 ### 使用 Makefile（最主流，强烈推荐）
 
-需要按照 make，通过命名 `make -v` 查看是否以及安装
+需要安装make，通过命名 `make -v` 查看是否以及安装
 
 ```
 # Makefile
@@ -262,4 +262,48 @@ docker-compose.yml
   ],
   "service": "backend"
 }
+```
+
+### 结合 Dockerfile (Monorepo 方案)
+
+```
+pass-up/
+├── docker/
+│   ├── backend/
+│   │   ├── Dockerfile
+│   │   └── Dockerfile.dev
+│   ├── frontend/
+│   │   ├── Dockerfile
+│   │   └── Dockerfile.dev
+│   ├── ai/
+│   │   ├── Dockerfile
+│   │   └── Dockerfile.dev
+│   └── compose/
+│       ├── docker-compose.yml
+│       ├── docker-compose.dev.yml
+│       └── docker-compose.prod.yml
+│
+├── backend/                 # Java
+├── frontend/                # Vue
+├── backend-ai/              # Python
+│   └── .devcontainer/
+│       ├── devcontainer.json
+│       └── Dockerfile.dev   # ⭐（仅 devcontainer 用）
+```
+
+# 进阶结构（更专业一点）
+
+```
+pass-up/
+├── apps/
+│   ├── backend/
+│   ├── frontend/
+│   └── ai/
+│
+├── infra/
+│   ├── docker/
+│   └── compose/
+│
+├── packages/   # （未来可扩展）
+│   └── shared-schema/
 ```
