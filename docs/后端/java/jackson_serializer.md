@@ -1,94 +1,258 @@
-# Jackson2JsonRedisSerializer 对比 GenericJackson2JsonRedisSerializer
 
-## 1️⃣ Jackson2JsonRedisSerializer
 
-> [!WARNING]
->
-> Jackson2JsonRedisSerializer 已经不建议使用，推荐 [JacksonJsonRedisSerializer（Spring Data Redis 4.0.2 API） --- JacksonJsonRedisSerializer (Spring Data Redis 4.0.2 API)](https://docs.spring.io/spring-data/redis/docs/current/api/org/springframework/data/redis/serializer/JacksonJsonRedisSerializer.html)
+## spring boot 4 中变化
+
+在 spring boot 4 中，`Jackson2JsonRedisSerializer` `GenericJackson2JsonRedisSerializer` 都已经废弃，改用
 
 ```
-Jackson2JsonRedisSerializer<UserBO> serializer = new Jackson2JsonRedisSerializer<>(UserBO.class);
+import org.springframework.data.redis.serializer.RedisSerializer;
+import org.springframework.data.redis.serializer.JacksonJsonRedisSerializer;
 ```
 
-**特点：**
-
-| 属性          | 描述                                                         |
-| ------------- | ------------------------------------------------------------ |
-| JSON 内容干净 | 默认不会加 `@class`，除非你启用了 `DefaultTyping`。          |
-| 灵活性低      | 如果你存入不同类型的对象（Object 类型），序列化或反序列化就需要额外处理。 |
-
-**适用场景：**
-
-- 你希望 JSON 干净，不想看到 `@class`。
-
-------
-
-## 2️⃣ GenericJackson2JsonRedisSerializer
+ObjectMapper 也改了
 
 ```
-GenericJackson2JsonRedisSerializer serializer = new GenericJackson2JsonRedisSerializer();
+// 旧
+import com.fasterxml.jackson.databind.ObjectMapper;
+// 新
+import tools.jackson.databind.ObjectMapper;
 ```
 
-**特点：**
+## webconfig 配置
 
-| 属性            | 描述                                                         |
-| --------------- | ------------------------------------------------------------ |
-| 类型通用        | 可以序列化任意对象类型，value 可以是 Object。                |
-| 自动加 `@class` | 序列化时会在 JSON 里加 `@class`，记录全限定类名，用于反序列化。 |
-| 反序列化自动    | 读取 JSON 时会根据 `@class` 自动还原原始对象类型，无需手动指定。 |
-| 灵活性高        | 适合存储多种类型的对象。                                     |
-| JSON 较冗长     | 因为每个对象都带 `@class` 元信息。                           |
+控制器参数解析，json、url 参数都支持，比如将字符串值转换成枚举类型：
 
-**适用场景：**
+```java
+package com.xiaodingtie.passup.common.enums;
 
-- Redis 存储对象类型不固定，比如一个缓存既可能存 `UserBO`，又可能存 `OrderBO`。
-- 希望 **反序列化时自动回到原类型**，不用手动转换。
+import java.util.stream.Collectors;
 
-------
+import com.xiaodingtie.passup.common.api.ResultCode;
+import com.xiaodingtie.passup.common.exception.BusinessException;
 
-## 3️⃣ 总结对比
+public interface BaseEnum<T> {
 
-| 特性        | Jackson2JsonRedisSerializer | GenericJackson2JsonRedisSerializer      |
-| ----------- | --------------------------- | --------------------------------------- |
-| 支持类型    | 固定类型                    | 任意类型                                |
-| `@class`    | 默认不生成                  | 默认生成                                |
-| 反序列化    | 需要指定类型                | 自动根据 `@class`                       |
-| 灵活性      | 低                          | 高                                      |
-| JSON 可读性 | 高                          | 较低（多了 `@class`）                   |
-| 使用场景    | 类型固定的对象              | 多类型对象，Object 类型的 RedisTemplate |
+    T getValue();
 
-## 哪种更主流
+    static <E extends Enum<E> & BaseEnum<?>> E from(Class<E> enumClass, Object value) {
 
-### 1️⃣ 单一类型对象缓存（Jackson2JsonRedisSerializer）
+        if (value == null) {
+            throw new BusinessException(ResultCode.PARAM_INVALID, "枚举值不能为空");
+        }
 
-- **大部分成熟 Spring Boot 项目** 在 **业务对象固定、缓存明确类型** 时都会用 `Jackson2JsonRedisSerializer<T>`。
-- 原因：
-  1. JSON 干净，没有 `@class`，可读性好。
-  2. 反序列化简单，类型明确，无需手动转换。
-  3. 对运维和日志友好，JSON 直观。
+        E[] constants = enumClass.getEnumConstants();
 
-✅ 典型场景：用户信息缓存、商品信息缓存、配置对象缓存。
+        String input = String.valueOf(value);
 
-------
+        for (E e : constants) {
+            @SuppressWarnings("null")
+            var enumValue = e.getValue();
+            if (String.valueOf(enumValue).equalsIgnoreCase(input)) {
+                return e;
+            }
+        }
 
-### 2️⃣ 多类型 / 通用缓存（GenericJackson2JsonRedisSerializer）
+        @SuppressWarnings("null")
+        String allowedValues = java.util.Arrays.stream(constants)
+                .map(e -> String.valueOf(e.getValue()))
+                .collect(Collectors.joining(", "));
 
-- **少数项目** 在 **通用缓存**、Object 类型 RedisTemplate 场景才用它。
-- 原因：
-  1. 自动记录 `@class`，反序列化回原类型非常方便。
-  2. 适合工具库或通用缓存框架（比如缓存系统、分布式 session、通用对象存储）。
-- 缺点：JSON 会带 `@class`，不够干净，可读性差。
+        throw new BusinessException(
+                ResultCode.PARAM_INVALID,
+                String.format(
+                        "非法枚举值 '%s'，枚举类型: %s，允许值: [%s]",
+                        input,
+                        enumClass.getSimpleName(),
+                        allowedValues));
+    }
+}
+```
 
-✅ 典型场景：通用缓存框架、存任意对象、分布式 session 缓存。
 
-### 🔹 总结主流趋势
 
-| 场景               | 序列化器                           | 主流程度          |
-| ------------------ | ---------------------------------- | ----------------- |
-| 类型固定、业务缓存 | Jackson2JsonRedisSerializer        | 🌟🌟🌟🌟🌟（非常主流） |
-| 通用 Object 缓存   | GenericJackson2JsonRedisSerializer | 🌟🌟（偶尔使用）    |
+```java
+package com.xiaodingtie.passup.common.convert;
 
-**结论**：
+import org.springframework.core.convert.converter.Converter;
+import org.springframework.core.convert.converter.ConverterFactory;
 
-> **大多数成熟 Spring Boot 项目默认使用 Jackson2JsonRedisSerializer 来缓存业务对象**，尤其是 RedisTemplate 绑定具体类型时，这是最主流做法。
->  GenericJackson2JsonRedisSerializer 更多用于工具库或者多类型通用缓存场景。
+import com.xiaodingtie.passup.common.enums.BaseEnum;
+
+public class BaseEnumConverterFactory implements ConverterFactory<String, BaseEnum<?>> {
+
+    @SuppressWarnings({ "unchecked", "rawtypes" })
+    @Override
+    public <T extends BaseEnum<?>> Converter<String, T> getConverter(Class<T> targetType) {
+        return source -> (T) BaseEnum.from((Class) targetType, source);
+    }
+}
+```
+
+
+
+```java
+package com.xiaodingtie.passup.infrastructure.web;
+
+import org.springframework.context.annotation.Configuration;
+import org.springframework.format.FormatterRegistry;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.config.annotation.PathMatchConfigurer;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+
+import com.xiaodingtie.passup.common.convert.BaseEnumConverterFactory;
+
+@Configuration // 标记为配置类，会被 Spring 扫描加载
+public class WebConfig implements WebMvcConfigurer {
+    /**
+     * 配置格式化器，将 String 转换为 枚举类型
+     * 解决：在控制器中 @RequestHeader 可直接使用 枚举类型
+     */
+    @Override
+    public void addFormatters(FormatterRegistry registry) {
+        // 让 Spring 知道如何把 String 转成 枚举类型
+        registry.addConverterFactory(new BaseEnumConverterFactory());
+    }
+}
+```
+
+
+
+## redisConfig
+
+```java
+package com.xiaodingtie.passup.infrastructure.redis;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.data.redis.connection.RedisConnectionFactory;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.serializer.JacksonJsonRedisSerializer;
+import org.springframework.data.redis.serializer.RedisSerializer;
+
+import com.xiaodingtie.passup.modules.auth.model.UserSession;
+
+@Configuration
+public class RedisConfig {
+
+    @Bean
+    public RedisTemplate<String, Object> redisTemplate(
+            RedisConnectionFactory factory) {
+
+        return buildTemplate(factory, Object.class);
+    }
+
+    @Bean
+    public RedisTemplate<String, UserSession> userSessionRedisTemplate(
+            RedisConnectionFactory factory) {
+        return buildTemplate(factory, UserSession.class);
+    }
+
+    private <T> RedisTemplate<String, T> buildTemplate(RedisConnectionFactory factory, Class<T> clazz) {
+        RedisTemplate<String, T> template = new RedisTemplate<>();
+        template.setConnectionFactory(factory);
+
+        // key 用 String
+        template.setKeySerializer(RedisSerializer.string());
+        template.setHashKeySerializer(RedisSerializer.string());
+
+        JacksonJsonRedisSerializer<T> valueSerializer = new JacksonJsonRedisSerializer<>(clazz);
+        template.setValueSerializer(valueSerializer);
+        template.setHashValueSerializer(valueSerializer);
+
+        template.afterPropertiesSet();
+        return template;
+    }
+
+}
+```
+
+
+
+## JacksonConfig
+
+目前不知道什么情况下生效，先记着
+
+```java
+package com.xiaodingtie.passup.common.jackson;
+
+import java.util.stream.Collectors;
+
+import com.xiaodingtie.passup.common.api.ResultCode;
+import com.xiaodingtie.passup.common.enums.BaseEnum;
+import com.xiaodingtie.passup.common.exception.BusinessException;
+
+import tools.jackson.core.JacksonException;
+import tools.jackson.core.JsonParser;
+import tools.jackson.databind.DeserializationContext;
+import tools.jackson.databind.JavaType;
+import tools.jackson.databind.ValueDeserializer;
+
+public class BaseEnumDeserializer extends ValueDeserializer<BaseEnum<?>> {
+
+    @Override
+    public BaseEnum<?> deserialize(JsonParser p, DeserializationContext ctxt)
+            throws JacksonException {
+
+        String value = p.getValueAsString();
+        JavaType type = ctxt.getContextualType();
+
+        Class<?> rawClass = type.getRawClass();
+
+        Object[] constants = rawClass.getEnumConstants();
+
+        for (Object constant : constants) {
+            BaseEnum<?> e = (BaseEnum<?>) constant;
+
+            @SuppressWarnings("null")
+            var enumValue = e.getValue().toString();
+            if (enumValue.equalsIgnoreCase(value)) {
+                return e;
+            }
+        }
+
+        @SuppressWarnings("null")
+        String validValues = java.util.Arrays.stream(constants)
+                .map(c -> ((BaseEnum<?>) c).getValue().toString())
+                .collect(Collectors.joining(", "));
+
+        throw new BusinessException(ResultCode.PARAM_INVALID,
+                String.format("字段值 '%s' 不合法，枚举 %s 可选值: [%s]",
+                        value,
+                        rawClass.getSimpleName(),
+                        validValues));
+    }
+}
+```
+
+
+
+```java
+// 目前只是实现 BaseEnum 的反序列化
+// 弃用：Spring Boot 4 / Java 21+ 中 Jackson 对 Record 的原生支持已经非常成熟 。由于 Record 具有标准的规范构造函数（Canonical Constructor），Jackson 可以自动识别并绑定 JSON 字段，无需添加 @JsonCreator
+
+package com.xiaodingtie.passup.common.jackson;
+
+import com.xiaodingtie.passup.common.enums.BaseEnum;
+
+import tools.jackson.databind.module.SimpleModule;
+
+import org.springframework.boot.jackson.autoconfigure.JsonMapperBuilderCustomizer;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+@Configuration
+public class JacksonConfig {
+
+    @Bean
+    public JsonMapperBuilderCustomizer jsonCustomizer() {
+        return builder -> {
+            SimpleModule module = new SimpleModule();
+            module.addDeserializer(BaseEnum.class, new BaseEnumDeserializer());
+            builder.addModule(module);
+        };
+    }
+
+}
+
+```
+
