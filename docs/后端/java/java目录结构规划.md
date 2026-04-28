@@ -3,16 +3,16 @@
 ```
 javademo
 ├─ DemoApplication.java
-├─ common              # 真·基础设施层
-│  ├─ api              # Result / ResultCode
+├─ common          # 通用层（与业务无关的工具性代码，复用性极高，通常可直接拷贝到不同项目中使用）
+│  ├─ api            # Result / ResultCode
 │  ├─ exception
 │  ├─ logging
 │  ├─ util
 │  └─ base
 │      └─ BaseEntity.java
-├─ infrastructure      # 系统能力（推荐新增）
+├─ infrastructure  # 基础设施层（支撑业务运行的外部适配器代码）
 │  ├─ bootstrap
-│  │  └─ AdminAccountInitializer.java #与user相关也可放 modules/user/bootstrap/AdminAccountInitializer.java
+│  │  └─ AdminAccountInitializer.java #与user相关也可放 
 │  ├─ integration
 │  │  └─ wechat
 │  │     ├─ client
