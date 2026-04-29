@@ -36,6 +36,67 @@
 - 优点：强大的查询语言（PromQL）、生态丰富
 - 使用场景：监控 Docker / K8s / 系统性能
 
+### Node Exporter
+
+服务器运行状况监控，比如cpu、内存、硬盘、网络、进程数等，主要用在宿主机监控。
+
+如果要监控每个容器。使用**cAdvisor**
+
+### cAdvisor
+
+每个容器容器状况
+
+### Grafana Tempo
+
+分布式追踪（Tracing）后端系统，核心定位是：**用极低成本存储海量 Trace 数据，并与日志、指标打通**。
+
+什么时候**必须上 Tempo**？
+
+- 微服务越来越多
+- 接口偶尔慢但日志看不出来
+- 链路复杂（RPC / MQ / DB）
+- 想定位“哪一步慢”
+
+整体架构：
+
+```
+应用（OpenTelemetry SDK）
+        ↓
+   Tempo Distributor
+        ↓
+     Ingester
+        ↓
+ Object Storage（S3 / MinIO）
+        ↓
+     Querier
+        ↓
+     Grafana UI
+```
+
+### 标准云原生方案
+
+三件套：
+
+    Metrics → Prometheus
+    
+    Logs → Loki
+    
+    Tracing → Tempo
+
+场景
+
+1️⃣ 在 Grafana 看慢请求（Prometheus）
+ 2️⃣ 点击 → 跳到 trace（Tempo）
+ 3️⃣ 再点击 → 查看日志（Loki）
+
+👉 完整链路：
+
+```
+Metrics → Trace → Logs
+```
+
+这就是所谓： **Correlation（关联分析）**
+
 ## 分布式应用的开发编排
 
 ### Aspire
@@ -43,3 +104,61 @@
 开发阶段的服务编排 + 云原生开发体验
 
 相当于java世界的 Docker Compose + OpenTelemetry + Service Discovery
+
+## 日志系统
+
+### 方案一（推荐）
+
+**中小团队 / 成本敏感**
+
+```
+Prometheus  +  Loki  +  Grafana
+```
+
+特点：
+
+- 简单
+- 成本低
+- 一体化体验
+
+------
+
+### 方案二（进阶）
+
+**需要日志分析能力**
+
+```
+Loki（运行日志）
++
+Elasticsearch（审计 / 分析）
+```
+
+| 场景       | 最优          |
+| ---------- | ------------- |
+| 查错误日志 | Loki          |
+| 查用户行为 | Elasticsearch |
+| 两个都用   | 👍 混合        |
+
+------
+
+### 方案三（传统）
+
+```
+ELK（Elasticsearch + Logstash + Kibana）
+```
+
+问题：
+
+- 重
+- 运维复杂
+- 成本高
+
+结论：
+ 👉 如果你日志量大（>100GB/day），ELK 会很痛苦
+
+### 架构选择判断口诀
+
+🔹 “要查日志内容 → ES”
+ 🔹 “要看运行情况 → Loki”
+ 🔹 “要省钱 → Loki”
+ 🔹 “要分析数据 → ES”
