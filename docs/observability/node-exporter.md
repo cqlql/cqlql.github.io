@@ -1,4 +1,4 @@
-# 硬件监控
+# 宿主机监控
 
 需要配合使用： node-exporter + Prometheus + grafana
 
@@ -46,7 +46,9 @@ services:
     container_name: prometheus
     volumes:
       - prometheus_data:/prometheus
-      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml      
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml   
+    command:
+      - '--storage.tsdb.retention.time=30d'
     ports:
       - "9003:9090"
     networks:
@@ -72,12 +74,14 @@ services:
     container_name: node-exporter
     restart: unless-stopped
     network_mode: host
+    pid: host
     volumes:
       - /:/host:ro,rslave
     command:
       - '--path.rootfs=/host'
       - '--web.listen-address=:9002'
-      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($|/)'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc|var/lib/docker/.+)($|/)'
+      - '--collector.filesystem.fs-types-exclude=^(autofs|binfmt_misc|bpf|cgroup2?|configfs|debugfs|devpts|devtmpfs|fusectl|hugetlbfs|mqueue|nsfs|overlay|proc|procfs|pstore|rpc_pipefs|securityfs|selinuxfs|squashfs|sysfs|tracefs|tmpfs)$'
 
 volumes:
   prometheus_data:
