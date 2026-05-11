@@ -2,7 +2,7 @@
 
 推荐方案：
 
-Prometheus + Grafana + Loki + (可选 Elasticsearch)
+Grafana + Loki + Promtail (可选 Elasticsearch)
 
 主流、云原生场景
 
