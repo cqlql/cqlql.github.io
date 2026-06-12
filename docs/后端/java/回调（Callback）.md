@@ -33,26 +33,70 @@ public class AudioStreamSession {
 
 ### 内置函数
 
-```
-public class AudioStreamSession {
+1. 会话类（持有两个函数回调）
+```java
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 
+public class AudioStreamSession {
     private final Consumer<String> onClose;
     private final BiConsumer<String, Throwable> onError;
 
-    public AudioStreamSession(Consumer<String> onClose,
-                              BiConsumer<String, Throwable> onError) {
+    // 构造注入回调
+    public AudioStreamSession(Consumer<String> onClose, BiConsumer<String, Throwable> onError) {
         this.onClose = onClose;
         this.onError = onError;
+    }
+
+    // 模拟出错，触发异常回调
+    public void testError(String sessionId) {
+        onError.accept(sessionId, new Exception("流异常"));
+    }
+
+    // 模拟关闭，触发关闭回调
+    public void testClose(String sessionId) {
+        onClose.accept(sessionId);
     }
 }
 ```
 
-调用：
+2. 调用方（写回调处理方法，方法引用传入）
+```java
+public class Caller {
+    // 关闭回调方法
+    public void handleSessionClosed(String id) {
+        System.out.println("会话关闭：" + id);
+    }
 
+    // 异常回调方法
+    public void handleSessionError(String id, Throwable e) {
+        System.out.println("会话异常：" + id + "，原因：" + e.getMessage());
+    }
+
+    public static void main(String[] args) {
+        Caller caller = new Caller();
+
+        // 传入两个回调方法引用
+        AudioStreamSession session = new AudioStreamSession(
+                caller::handleSessionClosed,
+                caller::handleSessionError
+        );
+
+        // 内部主动执行回调
+        session.testError("sid_001");
+        session.testClose("sid_001");
+    }
+}
 ```
-new AudioStreamSession(
-    this::handleSessionClosed,
-    this::handleSessionError
+
+3. Java Lambda 匿名函数（和JS箭头函数最像）
+不用提前写 `handleXXX` 方法，当场写逻辑
+```java
+AudioStreamSession session = new AudioStreamSession(
+    // 对应 onClose Consumer<String>
+    id -> System.out.println("关闭：" + id),
+    // 对应 onError BiConsumer<String, Throwable>
+    (id, err) -> System.out.println("异常：" + id + " " + err.getMessage())
 );
 ```
 
