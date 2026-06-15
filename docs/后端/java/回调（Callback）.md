@@ -4,32 +4,75 @@
 
 业务语义更清晰
 
+ 1. 触发者：`AudioStreamSession`
+
+```java
+public class AudioStreamSession {
+    private final String sessionId;
+    private final CloseListener closeListener;
+
+    /**
+     * 在内部声明函数式接口，属于 Session 组件的一部分
+     */
+    @FunctionalInterface
+    public interface CloseListener {
+        void onClosed(String sessionId);
+    }
+
+    // 构造函数只负责初始化，不应该在构造时就触发“关闭”回调
+    public AudioStreamSession(String sessionId, CloseListener closeListener) {
+        this.sessionId = sessionId;
+        this.closeListener = closeListener;
+    }
+
+    public String getSessionId() {
+        return sessionId;
+    }
+
+    /**
+     * 模拟通道关闭、或者客户端断开连接的实际触发点
+     */
+    public void destroy() {
+        // 1. 执行 Session 自身的资源释放（如关闭底层套接字、清理流媒体缓冲区等）
+        System.out.println("Session " + sessionId + " 正在释放自身资源...");
+
+        // 2. 触发回调，通知外部（Service）
+        if (closeListener != null) {
+            closeListener.onClosed(sessionId);
+        }
+    }
+}
+
+```
+
+2. 监听者：`AudioStreamingService`
+
 ```java
 public class AudioStreamingService {
     private final Map<String, AudioStreamSession> streamSessions = new ConcurrentHashMap<>();
 
     public void open(WebSocketSession session) {
-        streamSessions.put(session.getId(), new AudioStreamSession(this::handleSessionClosed));
+        String sessionId = session.getId();
+        
+        // 使用方法引用 this::handleSessionClosed，自动匹配 AudioStreamSession.CloseListener
+        AudioStreamSession audioSession = new AudioStreamSession(sessionId, this::handleSessionClosed);
+        
+        streamSessions.put(sessionId, audioSession);
+        System.out.println("成功开启并缓存 Session: " + sessionId);
     }
 
-    @FunctionalInterface
-    public interface SessionCloseListener {
-        void onSessionClosed(String sessionId);
-    }
-}
-```
-
-```java
-public class AudioStreamSession {
-    private final SessionCloseListener closeListener;
-
-    public AudioStreamSession(SessionCloseListener closeListener) {
-        this.closeListener = closeListener;
-        closeListener.onSessionClosed(sessionId);
+    /**
+     * 核心业务清理逻辑
+     */
+    private void handleSessionClosed(String sessionId) {
+        streamSessions.remove(sessionId);
+        System.out.println("【回调触发】Service 已清理缓存中的 Session: " + sessionId);
     }
 }
 
 ```
+
+
 
 ### 内置函数
 
