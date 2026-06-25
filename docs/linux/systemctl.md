@@ -107,7 +107,7 @@ systemctl daemon-reload
 比如，查看 Filebeat 服务的最新50条日志，`--no-pager`表示不分页
 
 ```bash
-journalctl -u filebeat --no-pager -n 50
+journalctl --no-pager -n 50 -u filebeat
 ```
 
 实时更新最新日志
