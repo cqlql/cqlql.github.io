@@ -765,3 +765,24 @@ MinIO（存文件） + MySQL（存元数据） + 预签名URL（直传）
  ✅ file 表 + repository + 事务设计
 
 甚至可以帮你把它 **接进你现在的 Conversation / Resume 系统里**。
+
+
+
+## 关于 public-endpoint
+
+```
+minio:
+  endpoint: http://minio:8007
+  access-key:
+  secret-key:
+  bucket: passup
+  public-endpoint:
+  auto-create-bucket: true
+  presigned-url-expiry-seconds: 900
+```
+
+不需要单独配置 public-endpoint ，配置了也没用，依然403。没搞明白官方提供这个参数的意义。
+
+所以直接公开 endpoint 即可，不需要 public-endpoint
+
+ 
