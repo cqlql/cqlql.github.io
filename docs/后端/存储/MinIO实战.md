@@ -766,9 +766,10 @@ MinIO（存文件） + MySQL（存元数据） + 预签名URL（直传）
 
 甚至可以帮你把它 **接进你现在的 Conversation / Resume 系统里**。
 
+## 推荐分内外网
 
-
-## 关于 public-endpoint
+- **后端主动操作**（查询元数据、删除）→ 走内网 `endpoint`，性能好、延迟低、不经过代理。
+- **生成预签名 URL 给前端**（上传/下载）→ 走外网 `publicEndpoint`，确保前端拿到的 URL 是公网可访问的。
 
 ```
 minio:
@@ -776,13 +777,46 @@ minio:
   access-key:
   secret-key:
   bucket: passup
-  public-endpoint:
+  public-endpoint: https://oss.xiaodingtie.com
   auto-create-bucket: true
   presigned-url-expiry-seconds: 900
 ```
 
-不需要单独配置 public-endpoint ，配置了也没用，依然403。没搞明白官方提供这个参数的意义。
 
-所以直接公开 endpoint 即可，不需要 public-endpoint
 
- 
+## 两层代理转发实践
+
+nginx第一层，关键配置
+
+```
+server {
+    listen 80;
+    server_name example.com;
+
+    location / {
+        proxy_pass http://127.0.0.1:8080; # 假设 Caddy 监听在 8080 端口
+        
+        # 核心：将客户端原本访问的域名传给 Caddy
+        proxy_set_header Host $host;
+        
+        # 可选：透传客户端真实 IP 
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+caddy 第二层，关键配置
+
+```
+:8080 {
+    reverse_proxy http://127.0.0.1:9000 { # 假设后端服务在 9000 端口
+	    # 把从 Nginx 传过来的 Host 继续传给后端，直接使用内置变量：
+        header_up Host {http.request.host}        
+        # 注意！有些地方说这样配置，这是无效的：
+        # header_up Host {header.Host}
+    }
+}
+```
+
