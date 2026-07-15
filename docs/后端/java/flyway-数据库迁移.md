@@ -36,7 +36,7 @@
 
 ------
 
-## 三、常用命令（主要针对 DBA / 运维）
+## 三、常用命令
 
 > 在某些环境中（不启动 Spring Boot 或自动迁移被禁用）才需要手动执行。
 
@@ -74,6 +74,15 @@
 - 用于检查迁移是否被修改过
 
 ------
+
+### 4.修复校验错误
+
+```
+.\mvnw flyway:repair "-Dflyway.url=jdbc:postgresql://localhost:5432/pass_up_dev" "-Dflyway.user=postgres" "-Dflyway.password=123456"
+```
+
+> ⚠️ 注意：仅在本地 `dev` 环境执行，避免生产环境出现意料之外的元数据篡改。
+
 
 ## 四、补充说明
 
