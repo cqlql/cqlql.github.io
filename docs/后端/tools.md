@@ -162,3 +162,44 @@ ELK（Elasticsearch + Logstash + Kibana）
  🔹 “要看运行情况 → Loki”
  🔹 “要省钱 → Loki”
  🔹 “要分析数据 → ES”
+
+## 构建 / 任务工具
+
+> 本质都是「任务运行器」：把一堆常用命令收敛成简短的入口（`make build`、`just deploy`），避免记忆和重复敲长命令。常用于本地开发和 CI。
+
+### Make
+- 最经典的构建 / 任务工具，几乎所有 Linux 环境自带
+- 通过 `Makefile` 定义 target（目标）和依赖关系
+- 优点：无处不在、生态成熟、适合 C/C++ 等编译型项目的依赖构建
+- 缺点：语法古怪（Tab 缩进敏感、变量与转义规则复杂），当纯任务运行器用时体验一般
+
+```makefile
+build:
+	go build -o app .
+
+run: build
+	./app
+```
+
+### Just
+- 现代的命令运行器（command runner），定位就是「更好用的 Make」
+- 通过 `justfile` 定义 recipe（配方），语法简洁、无 Tab 陷阱
+- 优点：语法直观、支持参数 / 默认值 / 跨平台、报错友好
+- 缺点：需要额外安装，不像 make 那样默认存在
+- 安装：`cargo install just` / `brew install just` / `scoop install just`
+
+```just
+build:
+    go build -o app .
+
+run: build
+    ./app
+
+# 带参数的 recipe
+deploy env="dev":
+    echo "deploy to {{env}}"
+```
+
+### 如何选择
+- 只是想「收敛命令、别记那么多长指令」→ 用 **just**，更省心
+- 项目有真正的编译依赖构建（如 C/C++），或要求零依赖、开箱即用 → 用 **make**
