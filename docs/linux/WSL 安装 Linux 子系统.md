@@ -1,10 +1,10 @@
 
 
-::: warning
+> [!WARNING]
+>
+> 以下两种方式都需要 [安装 Hyper-V](https://zhuanlan.zhihu.com/p/74906615)
+>
 
-以下两种方式都需要 [安装 Hyper-V](https://zhuanlan.zhihu.com/p/74906615)
-
-:::
 
 ## 方式1：通过 VM 虚拟机软件安装
 
