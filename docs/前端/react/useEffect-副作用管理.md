@@ -1,3 +1,9 @@
+---
+title: useEffect 副作用与清理
+icon: sync
+sort: 6
+---
+
 ## 清理函数 (Cleanup Function)
 
 `useEffect` 的 `return` 回调是 React 故意设计的“资源回收”机制。
@@ -43,4 +49,9 @@ useEffect(() => {
   };
 }, []); // 关键：空数组确保 return 只在卸载时触发
 ```
+
+## 相关阅读
+
+- [useEffect 基础](./useEffect基础.md)
+- [Effect 中禁止同步 setState](./useEffect-同步setState警告.md)
 
