@@ -183,6 +183,7 @@ run: build
 
 ### Just
 - 现代的命令运行器（command runner），定位就是「更好用的 Make」
+- 项目地址：<https://github.com/casey/just>
 - 通过 `justfile` 定义 recipe（配方），语法简洁、无 Tab 陷阱
 - 优点：语法直观、支持参数 / 默认值 / 跨平台、报错友好
 - 缺点：需要额外安装，不像 make 那样默认存在
