@@ -107,6 +107,20 @@ ufw disable
 
 ## 三、第一台安装 K3s Server（k3s-01）
 
+### 使用国内源（推荐）
+
+大陆环境直接拉取 `get.k3s.io` 和官方二进制包通常很慢，且容易因代理导致本地 IP 被劫持、TLS 证书报错。可改用 Rancher 国内镜像源，通过 `INSTALL_K3S_MIRROR=cn` 环境变量让安装脚本从 `rancher-mirror.rancher.cn` 拉取安装脚本与 K3s 二进制包：
+
+```bash
+curl -sfL https://rancher-mirror.rancher.cn/k3s/k3s-install.sh | INSTALL_K3S_MIRROR=cn sh -s - server \
+  --cluster-init \
+  --write-kubeconfig-mode=644
+```
+
+> **优点：** `rancher-mirror.rancher.cn` 会直接从国内节点拉取安装脚本和 K3s 二进制包，速度极快（通常几秒钟下载完），且完全避开了代理引发的本地 IP 劫持和 TLS 证书报错问题。下文加入节点（五）的安装命令同样可加上 `INSTALL_K3S_MIRROR=cn` 并改用该镜像脚本。
+
+### 官方默认安装方式
+
 ```bash
 curl -sfL https://get.k3s.io | sh -s - server \
   --cluster-init \
@@ -152,6 +166,14 @@ curl -sfL https://get.k3s.io | sh -s - server \
   --server https://10.0.1.101:6443 \
   --token K10xxxxx::serverxxxxx
 ```
+
+> **国内源：** 与三、第一台安装相同，此处也可改用 Rancher 国内镜像源以加速安装：
+>
+> ```bash
+> curl -sfL https://rancher-mirror.rancher.cn/k3s/k3s-install.sh | INSTALL_K3S_MIRROR=cn sh -s - server \
+>   --server https://172.16.0.211:6443 \
+>   --token <YOUR_SECRET_TOKEN>
+> ```
 
 回到 k3s-01 验证：
 
