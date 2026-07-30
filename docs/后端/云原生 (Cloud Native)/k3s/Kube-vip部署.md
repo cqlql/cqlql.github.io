@@ -40,15 +40,65 @@ export VIP=192.168.1.200
 export INTERFACE=eth0
 
 # 自动生成 YAML 并保存至 K3s 静态 Pod 目录
-docker run --network host --rm ghcr.io/kube-vip/kube-vip:v0.8.0 manifest pod \
+docker run --network host --rm ghcr.io/kube-vip/kube-vip:v1.2.2 manifest pod \
     --interface $INTERFACE \
     --address $VIP \
-    --active \
+    --controlplane \
     --arp \
     --leaderElection | sudo tee /var/lib/rancher/k3s/agent/podmanifests/kube-vip.yaml
 ```
 
-> **提示**：如果机器上没有安装 Docker，也可以直接用 `nerdctl` 或 `crictl`，或者手动创建这个 YAML 文件（详见下方 YAML 结构）。
+> **参数语义变化（v1.x 重要）**：旧版本中的 `--active` 是 v0.8 之前旧架构遗留的 Flag，在 **v1.x** 中已被彻底重构，拆分为两个职责明确的开关：
+>
+> - **`--controlplane`**：让 Kube-vip 接管 **Kubernetes 控制面（Control Plane）** 的 VIP。它会监听 API Server 的 **6443 端口**，在你多个 Master 节点间做 ARP 广播与选主（Leader Election），对外提供一个统一、可漂移的 `https://VIP:6443` 访问入口。这也是**本文档多 Master 高可用（HA）场景所必须的参数**。
+> - **`--services`**：让 Kube-vip 同时充当 **Service LoadBalancer（负载均衡器）**，给 `type: LoadBalancer` 的 Service 自动分配并绑定一个外部 VIP。开启后，访问这些 Service 不再需要云厂商的 LB，也能在局域网内被直接路由。
+>
+> 两者互不依赖：只传 `--controlplane` 就只做 Control Plane 高可用（如本例）；只传 `--services` 就只做 Service LB；两个都传则两者兼顾。
+>
+> 💡 **官方建议**：对于 Service LB，官方更推荐**后续单独以 DaemonSet / Helm** 方式部署 kube-vip（而非与控制面混在同一个 Static Pod 里），职责更清晰、升级也更方便。因此本文档的 HA 示例仅使用 `--controlplane`，不传 `--services`（生成的 YAML 中 `svc_enable` 即为 `"false"`）。
+
+#### 机器上没有 Docker 怎么办？
+
+由于 K3s 默认使用的是容器运行时 **containerd**，生产环境的 K3s 节点上通常**没有安装原生的 `docker` 命令**，这完全正常。下面提供几种简单的解决办法，任选其一即可。
+
+##### 方法一：直接用 `k3s ctr` 代替 `docker`
+
+K3s 内置了 `ctr`（containerd 的命令行工具），可以直接拉取并运行临时镜像，效果和 `docker run` 完全一样：
+
+```bash
+export VIP=172.16.0.210
+export INTERFACE=enp0s3
+
+# 用 k3s 内置的 ctr 拉取并运行镜像生成配置文件
+sudo k3s ctr run --rm --net-host ghcr.io/kube-vip/kube-vip:v1.2.2 kube-vip-gen \
+    manifest pod \
+    --interface $INTERFACE \
+    --address $VIP \
+    --controlplane \
+    --arp \
+    --leaderElection | sudo tee /var/lib/rancher/k3s/agent/podmanifests/kube-vip.yaml
+```
+
+> 注：`ctr run` 的语法要求给容器指定一个临时名称（例如上面的 `kube-vip-gen`）。
+
+##### 方法二：在其他有 Docker 的电脑上生成
+
+如果你本地电脑（比如 Mac/Windows 安装了 Docker）或者另一台测试机上有 `docker`，可以在那台机器上运行原始 `docker run ... manifest pod` 命令，把控制台输出的 YAML 内容**复制粘贴**到 K3s 服务器的 `/var/lib/rancher/k3s/agent/podmanifests/kube-vip.yaml` 文件中即可（注意记得把里面的 `vip_address`、`vip_interface` 改成服务器实际的值）。
+
+##### 方法三：手动编写 YAML
+
+直接根据上文「第二步」展示的 YAML 结构，手动创建 `/var/lib/rancher/k3s/agent/podmanifests/kube-vip.yaml` 文件，把环境变量改成你的实际网络参数即可。
+
+##### 验证部署
+
+文件保存完成后，K3s 的 static pod 机制会自动读取该文件并拉取镜像运行：
+
+```bash
+# 查看 pod 状态（可能需要等待几十秒拉取镜像）
+sudo k3s kubectl get pods -n kube-system -l app.kubernetes.io/name=kube-vip-ds
+# 或者直接看静态 pod 状态
+sudo k3s kubectl get pods -n kube-system | grep kube-vip
+```
 
 ```yaml
 apiVersion: v1
@@ -61,7 +111,7 @@ spec:
   - args:
     - manager
     name: kube-vip
-    image: ghcr.io/kube-vip/kube-vip:v0.8.0
+    image: ghcr.io/kube-vip/kube-vip:v1.2.2
     imagePullPolicy: Always
     securityContext:
       capabilities:
@@ -78,7 +128,9 @@ spec:
     - name: vip_cidr
       value: "32"
     - name: cp_enable
-      value: "true"
+      value: "true"           # 代表开启了 Control Plane 高可用
+    - name: svc_enable
+      value: "false"          # 未传 --services，默认不开启 Service 代理
     - name: cp_namespace
       value: kube-system
     - name: vip_leaderelection
@@ -98,9 +150,9 @@ spec:
 export VIP=192.168.1.200
 
 # 直接去掉 --interface 参数
-docker run --network host --rm ghcr.io/kube-vip/kube-vip:v0.8.0 manifest pod \
+docker run --network host --rm ghcr.io/kube-vip/kube-vip:v1.2.2 manifest pod \
     --address $VIP \
-    --active \
+    --controlplane \
     --arp \
     --leaderElection | sudo tee /var/lib/rancher/k3s/agent/podmanifests/kube-vip.yaml
 ```
