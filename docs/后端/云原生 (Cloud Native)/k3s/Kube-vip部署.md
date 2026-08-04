@@ -32,7 +32,9 @@ sudo mkdir -p /var/lib/rancher/k3s/agent/podmanifests/
 
 ### 第二步：生成 Kube-vip 配置文件
 
-我们可以直接使用 Kube-vip 官方的 Docker 镜像来自动生成 Static Pod 的 YAML 文件。请将命令中的 `192.168.1.200` 替换为你实际的 **VIP**，`eth0` 替换为你的**网卡名**：
+我们可以直接使用 Kube-vip 官方的 Docker 镜像来自动生成 Static Pod 的 YAML 文件。请将命令中的 `192.168.1.200` 替换为你实际的 **VIP**，`eth0` 替换为你的**网卡名**。
+
+> 💡 **关于版本号**：建议先到 [kube-vip Releases](https://github.com/kube-vip/kube-vip/releases) 页面查看最新版本号（最新的 Release 标签即为版本号），然后将下方命令中的 `v1.2.2` 替换为最新版本。
 
 ```bash
 # 设置环境变量（按需修改）
