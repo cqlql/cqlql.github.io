@@ -35,17 +35,3 @@ sysctl --system
 ```
 
 让pod网络可以正常通讯
-
-## 3. 查看 Pod 事件（定位确切原因）
-
-不要先看日志，先用 `describe` 命令查看 Pod 的 **Events（事件列表）**，这是最直接的诊断方式：
-
-```bash
-sudo kubectl describe pod kube-vip -n kube-system
-```
-
-在输出的最底部，重点看 **`Events:`** 部分：
-
-- 如果看到 `Pulling image "ghcr.io/..."` 且长时间卡住，说明是**镜像下载不下来**。
-- 如果看到 `Failed to pull image... i/o timeout`，说明**网络连接超时**。
-- 如果是 CNI 或挂载问题，也会在这里抛出明确报错。

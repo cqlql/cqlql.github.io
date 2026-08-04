@@ -1,12 +1,14 @@
 ---
-title: Kube-vip 部署 (Static Pod + ARP 模式)
+title: Kube-vip 部署 (ARP 模式)
 icon: network-wired
 sort: 4
 ---
 
-在 K3s 中部署 Kube-vip 非常简单，官方推荐的方式是将它作为 **Static Pod（静态 Pod）** 部署在 Control Plane（Master）节点上。
+在 K3s 中部署 Kube-vip，推荐利用 K3s 的 **Manifest AddOn 自动部署机制**，将 Pod 清单放入 Server 节点的 Manifests 目录，K3s 启动时会自动加载并部署。
 
-这样即使 Kubernetes 集群的 API Server 暂时不可用，Kube-vip 也能由 Kubelet 自动拉起并维持 VIP。
+这样即使 Kubernetes 集群的 API Server 暂时不可用，Kube-vip 也能由 K3s 自动拉起并维持 VIP。
+
+> **为什么不用 Kubelet 的 Static Pod？** K3s 的 kubelet 默认**没有**配置 `--pod-manifest-path` 参数，直接往 `/var/lib/rancher/k3s/agent/podmanifests/` 放文件不会被加载。K3s 推荐使用 `/var/lib/rancher/k3s/server/manifests/`（注意是 `server` 不是 `agent`），这是 K3s 内置的 AddOn 自动部署路径，效果类似于 `kubectl apply`，目录中的 YAML 文件在启动时和文件变更时都会被自动应用。
 
 以下是针对 **ARP 模式（最常用、最简单的局域网 VIP 漂移模式）** 的完整部署流程。
 
@@ -18,21 +20,21 @@ sort: 4
 
 - **VIP（虚拟 IP）**：准备一个未被分配的局域网 IP（例如 `192.168.1.200`）。
 - **网卡名称**：主节点的网卡名（例如 `eth0` 或 `ens33`），可通过 `ip a` 查看。
-- **K3s 镜像目录**：K3s 的 Static Pod 存放路径默认是 `/var/lib/rancher/k3s/agent/podmanifests/`。
+- **K3s Manifests 目录**：K3s 的自动部署清单存放路径是 `/var/lib/rancher/k3s/server/manifests/`。
 
 ---
 
 ## 2. 部署步骤（在第一个 Master 节点上）
 
-### 第一步：创建 Static Pod 清单目录
+### 第一步：创建 Manifests 目录
 
 ```bash
-sudo mkdir -p /var/lib/rancher/k3s/agent/podmanifests/
+sudo mkdir -p /var/lib/rancher/k3s/server/manifests/
 ```
 
 ### 第二步：生成 Kube-vip 配置文件
 
-我们可以直接使用 Kube-vip 官方的 Docker 镜像来自动生成 Static Pod 的 YAML 文件。请将命令中的 `192.168.1.200` 替换为你实际的 **VIP**，`eth0` 替换为你的**网卡名**。
+我们可以直接使用 Kube-vip 官方的 Docker 镜像来自动生成 Pod 的 YAML 文件。请将命令中的 `192.168.1.200` 替换为你实际的 **VIP**，`eth0` 替换为你的**网卡名**。
 
 > 💡 **关于版本号**：建议先到 [kube-vip Releases](https://github.com/kube-vip/kube-vip/releases) 页面查看最新版本号（最新的 Release 标签即为版本号），然后将下方命令中的 `v1.2.2` 替换为最新版本。
 
@@ -41,13 +43,13 @@ sudo mkdir -p /var/lib/rancher/k3s/agent/podmanifests/
 export VIP=192.168.1.200
 export INTERFACE=eth0
 
-# 自动生成 YAML 并保存至 K3s 静态 Pod 目录
+# 自动生成 YAML 并保存至 K3s Manifests 目录
 docker run --network host --rm ghcr.io/kube-vip/kube-vip:v1.2.2 manifest pod \
     --interface $INTERFACE \
     --address $VIP \
     --controlplane \
     --arp \
-    --leaderElection | sudo tee /var/lib/rancher/k3s/agent/podmanifests/kube-vip.yaml
+    --leaderElection | sudo tee /var/lib/rancher/k3s/server/manifests/kube-vip.yaml
 ```
 
 > ⚠️ **K3s 专属坑：kubeconfig 路径不同！** 原生 K8s 的 kubeconfig 路径是 `/etc/kubernetes/admin.conf`，但 **K3s 的配置文件路径是 `/etc/rancher/k3s/k3s.yaml`**。如果生成后的 YAML 中硬编码了原生 K8s 的路径，Pause 容器启动后 `kube-vip` 会因找不到文件而报错 `CrashLoopBackOff`。用 `k3s kubectl describe pod -n kube-system kube-vip-<node-name>` 可查看具体日志。
@@ -57,7 +59,7 @@ docker run --network host --rm ghcr.io/kube-vip/kube-vip:v1.2.2 manifest pod \
 > - **`--controlplane`**：让 Kube-vip 接管 **Kubernetes 控制面（Control Plane）** 的 VIP。它会监听 API Server 的 **6443 端口**，在你多个 Master 节点间做 ARP 广播与选主（Leader Election），对外提供一个统一、可漂移的 `https://VIP:6443` 访问入口。这也是**本文档多 Master 高可用（HA）场景所必须的参数**。
 > - **`--services`**：让 Kube-vip 同时充当 **Service LoadBalancer（负载均衡器）**，给 `type: LoadBalancer` 的 Service 自动分配并绑定一个外部 VIP。开启后，访问这些 Service 不再需要云厂商的 LB，也能在局域网内被直接路由。
 >
->   ⚠️ **不建议在这里开启 `--services`！** 官方推荐 Control Plane HA 与 Service LB 分开部署：Service LB 功能应**单独通过 DaemonSet 或 Helm Chart** 部署一套独立的 kube-vip（仅传 `--services`，不加 `--controlplane`），不要和 Static Pod 里的 Control Plane HA 混在一起，职责更清晰、升级也更方便。
+>   ⚠️ **不建议在这里开启 `--services`！** 官方推荐 Control Plane HA 与 Service LB 分开部署：Service LB 功能应**单独通过 DaemonSet 或 Helm Chart** 部署一套独立的 kube-vip（仅传 `--services`，不加 `--controlplane`），不要和 Manifests 里部署的 Control Plane HA 混在一起，职责更清晰、升级也更方便。
 >
 > 两者互不依赖：只传 `--controlplane` 就只做 Control Plane 高可用（如本例）；只传 `--services` 就只做 Service LB；两个都传则两者兼顾。本文档的 HA 示例仅使用 `--controlplane`，不传 `--services`（生成的 YAML 中 `svc_enable` 即为 `"false"`）。
 
@@ -80,18 +82,18 @@ sudo k3s ctr run --rm --net-host ghcr.io/kube-vip/kube-vip:v1.2.2 kube-vip-gen \
     --address $VIP \
     --controlplane \
     --arp \
-    --leaderElection | sudo tee /var/lib/rancher/k3s/agent/podmanifests/kube-vip.yaml
+    --leaderElection | sudo tee /var/lib/rancher/k3s/server/manifests/kube-vip.yaml
 ```
 
 > 注：`ctr run` 的语法要求给容器指定一个临时名称（例如上面的 `kube-vip-gen`）。
 
 ##### 方法二：在其他有 Docker 的电脑上生成
 
-如果你本地电脑（比如 Mac/Windows 安装了 Docker）或者另一台测试机上有 `docker`，可以在那台机器上运行原始 `docker run ... manifest pod` 命令，把控制台输出的 YAML 内容**复制粘贴**到 K3s 服务器的 `/var/lib/rancher/k3s/agent/podmanifests/kube-vip.yaml` 文件中即可（注意记得把里面的 `vip_address`、`vip_interface` 改成服务器实际的值）。
+如果你本地电脑（比如 Mac/Windows 安装了 Docker）或者另一台测试机上有 `docker`，可以在那台机器上运行原始 `docker run ... manifest pod` 命令，把控制台输出的 YAML 内容**复制粘贴**到 K3s 服务器的 `/var/lib/rancher/k3s/server/manifests/kube-vip.yaml` 文件中即可（注意记得把里面的 `vip_address`、`vip_interface` 改成服务器实际的值）。
 
 ##### 方法三：手动编写 YAML
 
-直接参考下方生成的 YAML 结构，手动创建 `/var/lib/rancher/k3s/agent/podmanifests/kube-vip.yaml` 文件，把 `vip_interface` 和 `vip_address` 改成你的实际网络参数即可：
+直接参考下方生成的 YAML 结构，手动创建 `/var/lib/rancher/k3s/server/manifests/kube-vip.yaml` 文件，把 `vip_interface` 和 `vip_address` 改成你的实际网络参数即可：
 
 ```yaml
 apiVersion: v1
@@ -137,12 +139,12 @@ spec:
 
 ##### 验证部署
 
-文件保存完成后，K3s 的 static pod 机制会自动读取该文件并拉取镜像运行：
+文件保存完成后，K3s 的 Manifests 自动部署机制会检测到该文件并拉取镜像运行：
 
 ```bash
 # 查看 pod 状态（可能需要等待几十秒拉取镜像）
 sudo k3s kubectl get pods -n kube-system -l app.kubernetes.io/name=kube-vip-ds
-# 或者直接看静态 pod 状态
+# 或者直接看 pod 状态
 sudo k3s kubectl get pods -n kube-system | grep kube-vip
 ```
 
@@ -158,7 +160,7 @@ docker run --network host --rm ghcr.io/kube-vip/kube-vip:v1.2.2 manifest pod \
     --address $VIP \
     --controlplane \
     --arp \
-    --leaderElection | sudo tee /var/lib/rancher/k3s/agent/podmanifests/kube-vip.yaml
+    --leaderElection | sudo tee /var/lib/rancher/k3s/server/manifests/kube-vip.yaml
 ```
 
 > ⚠️ **风险提示**：自动探测依赖“默认网关所在网卡”这一假设。**多网卡环境**（如业务网卡与管理网卡分离）、网络拓扑复杂或重启后默认路由变化的生产环境，探测结果可能与预期不符，导致 VIP 绑定到错误网卡甚至绑定失败。这类场景请务必显式指定 `vip_interface`。
@@ -171,15 +173,15 @@ docker run --network host --rm ghcr.io/kube-vip/kube-vip:v1.2.2 manifest pod \
 
 如果你有多个 Master 节点（如 3 节点 HA 架构）：
 
-只需要将第一步生成的 `/var/lib/rancher/k3s/agent/podmanifests/kube-vip.yaml` 配置文件，**原封不动地复制到其他每一个 Master 节点的对应目录下**即可：
+只需要将第一步生成的 `/var/lib/rancher/k3s/server/manifests/kube-vip.yaml` 配置文件，**原封不动地复制到其他每一个 Master 节点的对应目录下**即可：
 
 ```bash
 # 示例：复制到 master2 和 master3
-scp /var/lib/rancher/k3s/agent/podmanifests/kube-vip.yaml root@master2:/var/lib/rancher/k3s/agent/podmanifests/
-scp /var/lib/rancher/k3s/agent/podmanifests/kube-vip.yaml root@master3:/var/lib/rancher/k3s/agent/podmanifests/
+scp /var/lib/rancher/k3s/server/manifests/kube-vip.yaml root@master2:/var/lib/rancher/k3s/server/manifests/
+scp /var/lib/rancher/k3s/server/manifests/kube-vip.yaml root@master3:/var/lib/rancher/k3s/server/manifests/
 ```
 
-K3s 的 Kubelet 会自动检测到该文件并启动 Kube-vip Pod。
+K3s 的 Manifests 自动部署机制会检测到该文件并启动 Kube-vip Pod。
 
 > ⚠️ **关于「原封不动复制」的关键前提**：之所以前面说“原封不动复制”，前提是**所有 Master 节点的网卡名称一致**。Kube-vip 绑定 VIP 时需要知道宿主机的网卡名称（ARP 广播要指定从哪张网卡发出去），因此 `vip_interface` 的值必须与实际节点的网卡名匹配。下面分两种情况说明。
 
@@ -196,7 +198,7 @@ K3s 的 Kubelet 会自动检测到该文件并启动 Kube-vip Pod。
 - **必须修改**：复制 `kube-vip.yaml` 到 Master 2、Master 3 后，**必须打开该文件，把 `vip_interface` 改为对应节点自己的实际网卡名**。否则 Kube-vip 漂移到该节点时会因找不到网卡而无法绑定 VIP。
 
 ```yaml
-# 在 Master 2 上修改 /var/lib/rancher/k3s/agent/podmanifests/kube-vip.yaml
+# 在 Master 2 上修改 /var/lib/rancher/k3s/server/manifests/kube-vip.yaml
 - name: vip_interface
   value: ens33              # <-- 改成 Master 2 自己的网卡名
 ```
@@ -217,9 +219,49 @@ K3s 的 Kubelet 会自动检测到该文件并启动 Kube-vip Pod。
 
 ```bash
 sudo k3s kubectl get pods -n kube-system -l app.kubernetes.io/name=kube-vip-ds
-# 或者查看 static pod：
-sudo k3s kubectl get pods -n kube-system | grep kube-vip
+# 或者直接按名称查看：
+sudo k3s kubectl get pods -n kube-system kube-vip
 ```
+
+### 1.1) 诊断技巧：定位 Pod 异常原因
+
+如果 Pod 状态不是 `Running`，不要先看日志，按以下顺序排查：
+
+#### 查看 Pod 事件（定位确切原因）
+
+`describe` 命令是诊断 Pod 问题的第一入口，重点关注输出的 **`Events:`** 部分：
+
+```bash
+sudo k3s kubectl describe pod kube-vip -n kube-system
+```
+
+在输出最底部，Events 会直接告诉你问题所在：
+
+- 如果看到 `Pulling image "ghcr.io/..."` 且长时间卡住 → **镜像下载不下来**
+- 如果看到 `Failed to pull image... i/o timeout` → **网络连接超时**
+- 如果是 CNI 或挂载问题，也会在这里抛出明确报错
+
+#### 实时观察 Pod 状态变化
+
+`-w`（`--watch`）会持续监听 Pod 状态变化并实时输出，适合观察 Pod 从 `Pending` → `Running` 的整个过程：
+
+```bash
+sudo k3s kubectl get pod kube-vip -n kube-system -w
+```
+
+配合使用技巧：先 `-w` 看状态变化节奏，再 `describe` 查 Events 定位原因。
+
+#### 查看 Pod 日志
+
+当 Events 不够详细或需要进一步排查运行时错误时，查看容器日志：
+
+```bash
+sudo k3s kubectl logs -n kube-system kube-vip --tail=100
+```
+
+`--tail=100` 只拉取最近 100 行日志，避免输出过多。如果 Pod 中有多个容器，还需要用 `-c <容器名>` 指定容器。
+
+> 完整排查顺序：`get pods` 确认状态 → `describe` 看 Events → `logs` 查运行时日志。
 
 ### 2) 检查 VIP 绑定
 
