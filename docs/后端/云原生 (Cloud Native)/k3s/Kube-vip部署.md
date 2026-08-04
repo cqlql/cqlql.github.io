@@ -55,9 +55,9 @@ docker run --network host --rm ghcr.io/kube-vip/kube-vip:v1.2.2 manifest pod \
 > - **`--controlplane`**：让 Kube-vip 接管 **Kubernetes 控制面（Control Plane）** 的 VIP。它会监听 API Server 的 **6443 端口**，在你多个 Master 节点间做 ARP 广播与选主（Leader Election），对外提供一个统一、可漂移的 `https://VIP:6443` 访问入口。这也是**本文档多 Master 高可用（HA）场景所必须的参数**。
 > - **`--services`**：让 Kube-vip 同时充当 **Service LoadBalancer（负载均衡器）**，给 `type: LoadBalancer` 的 Service 自动分配并绑定一个外部 VIP。开启后，访问这些 Service 不再需要云厂商的 LB，也能在局域网内被直接路由。
 >
-> 两者互不依赖：只传 `--controlplane` 就只做 Control Plane 高可用（如本例）；只传 `--services` 就只做 Service LB；两个都传则两者兼顾。
+>   ⚠️ **不建议在这里开启 `--services`！** 官方推荐 Control Plane HA 与 Service LB 分开部署：Service LB 功能应**单独通过 DaemonSet 或 Helm Chart** 部署一套独立的 kube-vip（仅传 `--services`，不加 `--controlplane`），不要和 Static Pod 里的 Control Plane HA 混在一起，职责更清晰、升级也更方便。
 >
-> 💡 **官方建议**：对于 Service LB，官方更推荐**后续单独以 DaemonSet / Helm** 方式部署 kube-vip（而非与控制面混在同一个 Static Pod 里），职责更清晰、升级也更方便。因此本文档的 HA 示例仅使用 `--controlplane`，不传 `--services`（生成的 YAML 中 `svc_enable` 即为 `"false"`）。
+> 两者互不依赖：只传 `--controlplane` 就只做 Control Plane 高可用（如本例）；只传 `--services` 就只做 Service LB；两个都传则两者兼顾。本文档的 HA 示例仅使用 `--controlplane`，不传 `--services`（生成的 YAML 中 `svc_enable` 即为 `"false"`）。
 
 #### 机器上没有 Docker 怎么办？
 
