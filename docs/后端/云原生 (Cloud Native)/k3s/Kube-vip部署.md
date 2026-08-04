@@ -89,18 +89,7 @@ sudo k3s ctr run --rm --net-host ghcr.io/kube-vip/kube-vip:v1.2.2 kube-vip-gen \
 
 ##### 方法三：手动编写 YAML
 
-直接根据上文「第二步」展示的 YAML 结构，手动创建 `/var/lib/rancher/k3s/agent/podmanifests/kube-vip.yaml` 文件，把环境变量改成你的实际网络参数即可。
-
-##### 验证部署
-
-文件保存完成后，K3s 的 static pod 机制会自动读取该文件并拉取镜像运行：
-
-```bash
-# 查看 pod 状态（可能需要等待几十秒拉取镜像）
-sudo k3s kubectl get pods -n kube-system -l app.kubernetes.io/name=kube-vip-ds
-# 或者直接看静态 pod 状态
-sudo k3s kubectl get pods -n kube-system | grep kube-vip
-```
+直接参考下方生成的 YAML 结构，手动创建 `/var/lib/rancher/k3s/agent/podmanifests/kube-vip.yaml` 文件，把 `vip_interface` 和 `vip_address` 改成你的实际网络参数即可：
 
 ```yaml
 apiVersion: v1
@@ -143,6 +132,17 @@ spec:
 ```
 
 > 💡 **推荐做法**：生产环境、多网卡或对稳定性要求高的场景，**强烈建议显式指定 `--interface`**（如上方示例），明确写死 `vip_interface`，避免因自动探测出错导致 VIP 漂移失败。下面的「自动探测」仅作为多节点便捷方案，需自行评估风险。
+
+##### 验证部署
+
+文件保存完成后，K3s 的 static pod 机制会自动读取该文件并拉取镜像运行：
+
+```bash
+# 查看 pod 状态（可能需要等待几十秒拉取镜像）
+sudo k3s kubectl get pods -n kube-system -l app.kubernetes.io/name=kube-vip-ds
+# 或者直接看静态 pod 状态
+sudo k3s kubectl get pods -n kube-system | grep kube-vip
+```
 
 ### 进阶：生成时自动探测网卡（便捷方案，有风险）
 
@@ -199,18 +199,11 @@ K3s 的 Kubelet 会自动检测到该文件并启动 Kube-vip Pod。
   value: ens33              # <-- 改成 Master 2 自己的网卡名
 ```
 
-### 极简避坑技巧（便捷方案，有风险）：让 Kube-vip 自动探测网卡
+### 极简避坑技巧：让 Kube-vip 自动探测网卡
 
-如果不想为每个节点单独改网卡名（尤其节点很多、且确认单网卡环境时），Kube-vip 支持**自动检测网卡（Auto-detect）**：只需要在配置中把 `vip_interface` 设为 `""`（留空）或删除该环境变量，Kube-vip 会自动寻找当前节点上带有**默认网关（Default Gateway）**的那张主网卡。
+如果不想为每个节点单独改网卡名（尤其节点很多、且确认单网卡环境时），可以参考上方「进阶」中的做法：去掉 `--interface` 参数生成 YAML，或者手动把 `vip_interface` 设为 `""`（留空），Kube-vip 会自动寻找当前节点上带有**默认网关（Default Gateway）**的那张主网卡。
 
-```yaml
-- name: vip_interface
-  value: ""              # 留空即可让 Kube-vip 自动寻找有默认网关的网卡
-```
-
-这样生成的 YAML 就可以直接复制到所有 Master 节点上，省去逐节点改网卡名的麻烦。
-
-> ⚠️ **风险提示**：自动探测依赖“默认网关所在网卡”这一假设。**多网卡环境**（如业务网卡与管理网卡分离）、生产环境、或对稳定性要求高的场景，探测结果可能出错，导致 VIP 绑定到错误网卡甚至绑定失败。**这类场景仍推荐显式指定 `vip_interface`**（见上方「情况二」），把风险降到最低。
+这样生成的 YAML 就可以直接复制到所有 Master 节点上，省去逐节点改网卡名的麻烦。但注意上文中提到的**自动探测风险**同样适用。
 
 ---
 
@@ -221,9 +214,9 @@ K3s 的 Kubelet 会自动检测到该文件并启动 Kube-vip Pod。
 在集群中运行命令检查 Pod：
 
 ```bash
-kubectl get pods -n kube-system -l app.kubernetes.io/name=kube-vip-ds
+sudo k3s kubectl get pods -n kube-system -l app.kubernetes.io/name=kube-vip-ds
 # 或者查看 static pod：
-kubectl get pods -n kube-system | grep kube-vip
+sudo k3s kubectl get pods -n kube-system | grep kube-vip
 ```
 
 ### 2) 检查 VIP 绑定
@@ -255,10 +248,14 @@ ping 192.168.1.200
 
 它在架构中扮演的角色是 **VIP（Virtual IP，虚拟 IP）**：
 
-- **Master 1 真实 IP**：例如 `192.168.1.10`
-- **Master 2 真实 IP**：例如 `192.168.1.11`
-- **Master 3 真实 IP**：例如 `192.168.1.12`
-- **VIP（虚拟 IP）**：`192.168.1.200`（独立出来的虚拟地址）
+| 角色 | IP 示例 |
+|------|---------|
+| Master 1 真实 IP | `192.168.1.10` |
+| Master 2 真实 IP | `192.168.1.11` |
+| Master 3 真实 IP | `192.168.1.12` |
+| **VIP（虚拟 IP）** | **`192.168.1.200`** |
+
+> 在选定 VIP 前，请在局域网内 `ping 192.168.1.200` 确认**无法 ping 通**（确保当前没有被路由器或其他设备占用）。
 
 ### 它的工作原理是怎样的？
 
@@ -271,5 +268,3 @@ ping 192.168.1.200
 
 - **初始化 Master 1**：指定 `--tls-san=192.168.1.200`（告诉 K3s 生成证书时允许用这个 VIP 访问）。
 - **加入 Master 2 / Master 3 / Worker 节点**：连接地址直接填 `https://192.168.1.200:6443`。
-
-> ⚠️ **注意**：在选定 VIP 前，请在局域网内 `ping 192.168.1.200` 确认**无法 ping 通**（确保当前没有被路由器或其他设备占用）。
