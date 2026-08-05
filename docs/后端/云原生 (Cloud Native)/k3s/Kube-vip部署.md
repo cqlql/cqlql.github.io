@@ -4,13 +4,45 @@ icon: network-wired
 sort: 4
 ---
 
-在 K3s 中部署 Kube-vip，推荐利用 K3s 的 **Manifest AddOn 自动部署机制**，将 Pod 清单放入 Server 节点的 Manifests 目录，K3s 启动时会自动加载并部署。
-
-这样即使 Kubernetes 集群的 API Server 暂时不可用，Kube-vip 也能由 K3s 自动拉起并维持 VIP。
-
-> **为什么不用 Kubelet 的 Static Pod？** K3s 的 kubelet 默认**没有**配置 `--pod-manifest-path` 参数，直接往 `/var/lib/rancher/k3s/agent/podmanifests/` 放文件不会被加载。K3s 推荐使用 `/var/lib/rancher/k3s/server/manifests/`（注意是 `server` 不是 `agent`），这是 K3s 内置的 AddOn 自动部署路径，效果类似于 `kubectl apply`，目录中的 YAML 文件在启动时和文件变更时都会被自动应用。
+在 K3s 中部署 Kube-vip，有两种主流方式：**K3s Auto-Manifests**（简单快速，适合初始化）和 **DaemonSet**（有控制器管理，适合生产环境长期运行）。
 
 以下是针对 **ARP 模式（最常用、最简单的局域网 VIP 漂移模式）** 的完整部署流程。
+
+## 部署方式选型
+
+### 三种方式对比：谁在管理这个 Pod？
+
+| 方式 | 管理主体 | 典型路径 / 方式 |
+|------|---------|----------------|
+| **K3s Auto-Manifests** | K3s Server 进程（内置 apply 逻辑） | `/var/lib/rancher/k3s/server/manifests/` |
+| **DaemonSet** | Kubernetes DaemonSet Controller | `kubectl apply -f` |
+| **Static Pod** | 节点上的 kubelet | `/etc/kubernetes/manifests/`（需 kubelet 开启） |
+
+### 为什么不用 Static Pod？
+
+K3s 为了轻量化，其 kubelet 默认**没有**配置 `--pod-manifest-path` 参数。直接往 `/var/lib/rancher/k3s/agent/podmanifests/` 放文件，kubelet 根本不会理睬。K3s 推荐使用 `/var/lib/rancher/k3s/server/manifests/`（注意是 `server` 不是 `agent`），这是 K3s 内置的 AddOn 自动部署路径。
+
+### 核心对比一览
+
+| 特性 | Static Pod | K3s Auto-Manifests | DaemonSet |
+|:------|:-----------|:-------------------|:----------|
+| **管理主体** | kubelet（节点级守护进程） | K3s Server（文件同步器） | DaemonSet Controller（集群级控制器） |
+| **Pod 挂了会怎样？** | **立即重启**（kubelet 强制拉起） | **不会重启**（除非你改文件） | **立即重建**（控制器检测到副本数不足） |
+| **节点重启后** | **自动重建**（kubelet 启动后读取目录） | **不会重建**（文件没变，不会触发 apply） | **自动重建**（调度到重启后的节点） |
+| **依赖 API Server 吗？** | **不依赖**（即使集群挂了，kubelet 依然守护它） | **依赖**（必须通过 API Server 创建） | **依赖**（需要 API Server 协调） |
+| **升级方式** | 登录服务器改文件 | 登录服务器改文件 | `kubectl edit` / `kubectl set image` 滚动升级 |
+| **多节点部署** | 手动复制文件到每个节点 | 手动复制文件到每个节点 | `kubectl apply` 一次，自动调度 |
+| **典型用途** | 集群引导（启动 etcd、apiserver） | 集群初始化时一次性安装插件 | 生产环境长驻服务（如网络插件、kube-vip） |
+
+> **一句话总结**：Static Pod 有自愈（靠 kubelet），K3s Auto-Manifests 无自愈（靠文件触发），DaemonSet 有自愈且更强大（靠控制器）。
+
+### 对部署 kube-vip 的建议
+
+1. **测试环境 / K3s 快速初始化**：用 Auto-Manifests 丢文件即可，够简单。但注意节点重启后 Pod 不会自动恢复，需要手动 `touch` 一下文件触发重新 apply。
+2. **生产环境（推荐）**：**强烈建议用 DaemonSet**。由集群控制器管理，具备完整的自愈和滚动更新能力，节点重启后自动恢复，无需人工干预。
+3. **标准 K8s（如 kubeadm）**：Static Pod 是控制面引导的标配，但部署 kube-vip 这类附加组件，仍然推荐 **DaemonSet**，因为 Static Pod 无法通过 `kubectl rollout` 平滑升级。
+
+> 💡 两种方式的生成命令几乎一样，只需把 `manifest pod` 改成 `manifest daemonset` 即可。
 
 ---
 
@@ -20,19 +52,21 @@ sort: 4
 
 - **VIP（虚拟 IP）**：准备一个未被分配的局域网 IP（例如 `192.168.1.200`）。
 - **网卡名称**：主节点的网卡名（例如 `eth0` 或 `ens33`），可通过 `ip a` 查看。
-- **K3s Manifests 目录**：K3s 的自动部署清单存放路径是 `/var/lib/rancher/k3s/server/manifests/`。
+- **K3s Manifests 目录**（仅 Auto-Manifests 方式需要）：K3s 的自动部署清单存放路径是 `/var/lib/rancher/k3s/server/manifests/`。
 
 ---
 
-## 2. 部署步骤（在第一个 Master 节点上）
+## 方式 A：K3s Auto-Manifests（快速部署）
 
-### 第一步：创建 Manifests 目录
+### A-1. 部署步骤（在第一个 Master 节点上）
+
+#### A-1-1. 创建 Manifests 目录
 
 ```bash
 sudo mkdir -p /var/lib/rancher/k3s/server/manifests/
 ```
 
-### 第二步：生成 Kube-vip 配置文件
+#### A-1-2. 生成 Kube-vip 配置文件
 
 我们可以直接使用 Kube-vip 官方的 Docker 镜像来自动生成 Pod 的 YAML 文件。请将命令中的 `192.168.1.200` 替换为你实际的 **VIP**，`eth0` 替换为你的**网卡名**。
 
@@ -148,7 +182,7 @@ sudo k3s kubectl get pods -n kube-system -l app.kubernetes.io/name=kube-vip-ds
 sudo k3s kubectl get pods -n kube-system | grep kube-vip
 ```
 
-### 进阶：生成时自动探测网卡（便捷方案，有风险）
+#### A-1-3. 进阶：生成时自动探测网卡（便捷方案，有风险）
 
 如果你希望生成的 YAML 一份通吃所有 Master 节点，可以在**生成命令里直接去掉 `--interface` 参数**。Kube-vip 的命令行生成器（`manifest pod`）支持不传 `--interface`，这样生成的 YAML 中**完全不会包含 `vip_interface` 这个环境变量**，Kube-vip 启动时会自动触发网卡检测，找到有默认路由（Default Gateway）的主网卡：
 
@@ -163,13 +197,13 @@ docker run --network host --rm ghcr.io/kube-vip/kube-vip:v1.2.2 manifest pod \
     --leaderElection | sudo tee /var/lib/rancher/k3s/server/manifests/kube-vip.yaml
 ```
 
-> ⚠️ **风险提示**：自动探测依赖“默认网关所在网卡”这一假设。**多网卡环境**（如业务网卡与管理网卡分离）、网络拓扑复杂或重启后默认路由变化的生产环境，探测结果可能与预期不符，导致 VIP 绑定到错误网卡甚至绑定失败。这类场景请务必显式指定 `vip_interface`。
+> ⚠️ **风险提示**：自动探测依赖"默认网关所在网卡"这一假设。**多网卡环境**（如业务网卡与管理网卡分离）、网络拓扑复杂或重启后默认路由变化的生产环境，探测结果可能与预期不符，导致 VIP 绑定到错误网卡甚至绑定失败。这类场景请务必显式指定 `vip_interface`。
 >
 > 这个不带 `vip_interface` 的 YAML 可以直接复制给所有 Master 节点，效果与在 YAML 里把 `vip_interface` 显式设为 `""` 完全一致（详见下一节）。
 
 ---
 
-## 3. 部署到其他 Control Plane 节点
+## A-2. 部署到其他 Control Plane 节点
 
 如果你有多个 Master 节点（如 3 节点 HA 架构）：
 
@@ -183,7 +217,7 @@ scp /var/lib/rancher/k3s/server/manifests/kube-vip.yaml root@master3:/var/lib/ra
 
 K3s 的 Manifests 自动部署机制会检测到该文件并启动 Kube-vip Pod。
 
-> ⚠️ **关于「原封不动复制」的关键前提**：之所以前面说“原封不动复制”，前提是**所有 Master 节点的网卡名称一致**。Kube-vip 绑定 VIP 时需要知道宿主机的网卡名称（ARP 广播要指定从哪张网卡发出去），因此 `vip_interface` 的值必须与实际节点的网卡名匹配。下面分两种情况说明。
+> ⚠️ **关于「原封不动复制」的关键前提**：之所以前面说"原封不动复制"，前提是**所有 Master 节点的网卡名称一致**。Kube-vip 绑定 VIP 时需要知道宿主机的网卡名称（ARP 广播要指定从哪张网卡发出去），因此 `vip_interface` 的值必须与实际节点的网卡名匹配。下面分两种情况说明。
 
 ### 情况一：所有节点网卡名【一致】（最常见）
 
@@ -211,19 +245,162 @@ K3s 的 Manifests 自动部署机制会检测到该文件并启动 Kube-vip Pod�
 
 ---
 
-## 4. 验证与测试
+## 方式 B：DaemonSet（推荐生产环境）
+
+DaemonSet 是 Kubernetes 原生的控制器资源，会确保**每个匹配节点上恰好运行一个 Pod**。与 Auto-Manifests 方式相比，DaemonSet 部署一次即可自动覆盖所有节点，升级和回滚也更方便。
+
+### B-1. DaemonSet 的关键参数：`--inCluster` 与 `--taint`
+
+与 Auto-Manifests 的 `manifest pod` 不同，DaemonSet 方式有两个必须关注的额外参数：
+
+| 参数 | 必要性 | 作用 |
+|:-----|:------|:-----|
+| **`--inCluster`** | ✅ **必须添加** | 让 kube-vip 使用 Pod 内置的 ServiceAccount Token 与 API Server 通信（`InClusterConfig`）。不加会导致容器因找不到外部 kubeconfig 文件而 **CrashLoopBackOff**。 |
+| **`--taint`** | ⚠️ 视环境而定 | 让生成器自动添加针对 Control Plane 污点的 `tolerations`，确保 kube-vip 能调度到 Master 节点上。 |
+
+> **为什么 DaemonSet 必须加 `--inCluster`？** Auto-Manifests 生成的 `kind: Pod` 默认挂载宿主机路径读取 kubeconfig，但 DaemonSet 是运行在集群**内部**的，依赖 InCluster 认证来执行 Leader Election 和监听节点变化。不加 `--inCluster`，容器启动后会因找不到 kubeconfig 文件直接报错退出。
+>
+> **关于 `--taint`**：K3s 默认 Master 节点**不带污点**，此时不加也没事。但如果你初始化时传了 `--node-taint`，或者希望确保 kube-vip 只在 Control Plane 节点上运行，就必须加 `--taint` 让生成的 YAML 包含对应的 `tolerations`。**建议一律加上，生成的 YAML 更健壮。**
+
+### B-2. 生成 DaemonSet YAML
+
+完整的推荐命令如下（比 Auto-Manifests 多了 `--inCluster` 和 `--taint`）：
+
+```bash
+export VIP=192.168.1.200
+export INTERFACE=eth0
+
+docker run --network host --rm ghcr.io/kube-vip/kube-vip:v1.2.2 manifest daemonset \
+    --interface $INTERFACE \
+    --address $VIP \
+    --controlplane \
+    --inCluster \
+    --taint \
+    --arp \
+    --leaderElection | sudo tee /tmp/kube-vip-daemonset.yaml
+```
+
+> 如果机器上没有 Docker，同样可以用 `k3s ctr` 替代（参考上文 A-1-2 中的方法）。
+
+### B-3. 应用 DaemonSet
+
+生成完成后，用 `kubectl` 提交到集群：
+
+```bash
+sudo k3s kubectl apply -f /tmp/kube-vip-daemonset.yaml
+```
+
+DaemonSet Controller 会自动在所有 Control Plane 节点上创建 Kube-vip Pod。
+
+> ⚠️ **RBAC 权限前置条件**：通过 `--inCluster` + `--leaderElection` 运行时，kube-vip 需要读写 Lease 资源来做选主。如果应用 YAML 后 Pod 报 `403 Forbidden` 错误，说明缺少 RBAC 权限。`manifest daemonset` 命令默认**会**在生成的 YAML 中附带 `ServiceAccount`、`ClusterRole` 和 `ClusterRoleBinding`，无需手动创建。如果使用手动编写的 YAML（下方 B-4），请确保包含了这些 RBAC 资源。
+
+### B-4. 手动编写 DaemonSet YAML（参考）
+
+如果不方便使用命令行生成，可以直接编写如下 DaemonSet 清单：
+
+```yaml
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: kube-vip
+  namespace: kube-system
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: kube-vip-ds
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: kube-vip-ds
+    spec:
+      hostNetwork: true
+      containers:
+      - args:
+        - manager
+        name: kube-vip
+        image: ghcr.io/kube-vip/kube-vip:v1.2.2
+        imagePullPolicy: Always
+        securityContext:
+          capabilities:
+            add:
+            - NET_ADMIN
+            - NET_RAW
+        env:
+        - name: vip_arp
+          value: "true"
+        - name: port
+          value: "6443"
+        - name: vip_interface
+          value: eth0              # 修改为你的网卡名
+        - name: vip_cidr
+          value: "32"
+        - name: cp_enable
+          value: "true"
+        - name: svc_enable
+          value: "false"
+        - name: cp_namespace
+          value: kube-system
+        - name: vip_leaderelection
+          value: "true"
+        - name: vip_address
+          value: 192.168.1.200     # 修改为你的 VIP
+      tolerations:
+      - key: node-role.kubernetes.io/control-plane
+        operator: Exists
+        effect: NoSchedule
+      - key: node-role.kubernetes.io/master
+        operator: Exists
+        effect: NoSchedule
+      nodeSelector:
+        node-role.kubernetes.io/control-plane: "true"
+```
+
+> **关于 `nodeSelector` 与 `tolerations`**：DaemonSet 默认会在所有节点上运行，这里通过 `nodeSelector` 限制仅运行在 Control Plane 节点上，并通过 `tolerations` 允许调度到有污点的 Master 节点。如果你使用的是旧版 K3s（使用 `node-role.kubernetes.io/master` 标签），请相应调整 `nodeSelector`。
+>
+> ⚠️ **手动编写时注意**：上方 YAML 只展示了 DaemonSet 资源本身。实际运行时还需要配套的 RBAC 资源（`ServiceAccount`、`ClusterRole`、`ClusterRoleBinding`），否则 `--leaderElection` 会因权限不足而失败。**建议直接用 `manifest daemonset` 命令生成**，它会自动附带完整的 RBAC 配置，省去手动编写的麻烦。
+
+### B-5. 验证 DaemonSet 状态
+
+```bash
+# 查看 DaemonSet 整体状态（DESIRED / CURRENT / READY 应该一致）
+sudo k3s kubectl get daemonset -n kube-system kube-vip
+
+# 查看各节点上的 Pod
+sudo k3s kubectl get pods -n kube-system -l app.kubernetes.io/name=kube-vip-ds -o wide
+```
+
+### B-6. DaemonSet 方式的多节点优势
+
+DaemonSet 方式不需要手动 `scp` 文件到每个节点：
+
+- **新节点加入**：新的 Master 节点加入集群后，DaemonSet Controller 会自动在该节点上创建 Kube-vip Pod，无需人工干预。
+- **节点下线**：Master 节点被移除后，对应的 Pod 自动清理。
+- **升级**：修改 DaemonSet 的镜像版本即可触发滚动更新：
+
+```bash
+sudo k3s kubectl set image daemonset/kube-vip -n kube-system \
+    kube-vip=ghcr.io/kube-vip/kube-vip:v1.2.2
+```
+
+> ⚠️ **注意**：DaemonSet 方式**同样需要关注网卡名一致性问题**。如果各节点网卡名不同，需要在 `env` 中将 `vip_interface` 设为 `""`（留空），让 Kube-vip 自动探测网卡，否则生成的 YAML 对所有节点使用同一个 `vip_interface` 值。
+
+---
+
+## 4. 验证与测试（两种方式通用）
 
 ### 1) 查看 Pod 运行状态
 
 在集群中运行命令检查 Pod：
 
 ```bash
-sudo k3s kubectl get pods -n kube-system -l app.kubernetes.io/name=kube-vip-ds
-# 或者直接按名称查看：
+# DaemonSet 方式：按标签查看
+sudo k3s kubectl get pods -n kube-system -l app.kubernetes.io/name=kube-vip-ds -o wide
+
+# Auto-Manifests 方式：直接按名称查看
 sudo k3s kubectl get pods -n kube-system kube-vip
 ```
 
-### 1.1) 诊断技巧：定位 Pod 异常原因
+#### 1.1) 诊断技巧：定位 Pod 异常原因
 
 如果 Pod 状态不是 `Running`，不要先看日志，按以下顺序排查：
 
@@ -303,7 +480,7 @@ ping 192.168.1.200
 
 ### 它的工作原理是怎样的？
 
-1. **自动漂移**：Kube-vip 会在三个 Master 节点之间进行“选主（Leader Election）”。假设选中了 Master 1，Kube-vip 就会动态地把 `192.168.1.200` 这个 IP **挂载**到 Master 1 的网卡上。
+1. **自动漂移**：Kube-vip 会在三个 Master 节点之间进行"选主（Leader Election）"。假设选中了 Master 1，Kube-vip 就会动态地把 `192.168.1.200` 这个 IP **挂载**到 Master 1 的网卡上。
 2. **故障转移**：如果 Master 1 突然宕机，另外两个节点上的 Kube-vip 会立刻感知到，并在几秒钟内自动把 `192.168.1.200` **抢过来**挂载到 Master 2 的网卡上。
 
 ### 在安装 K3s 时该怎么用这个 VIP？
