@@ -384,6 +384,59 @@ sudo k3s kubectl set image daemonset/kube-vip -n kube-system \
 
 > ⚠️ **注意**：DaemonSet 方式**同样需要关注网卡名一致性问题**。如果各节点网卡名不同，需要在 `env` 中将 `vip_interface` 设为 `""`（留空），让 Kube-vip 自动探测网卡，否则生成的 YAML 对所有节点使用同一个 `vip_interface` 值。
 
+### B-7. 故障排查：DaemonSet 报 `FailedCreate`（缺少 RBAC）
+
+如果在应用 DaemonSet 后，Pod 一直无法创建，可用 `describe` 查看 DaemonSet 事件：
+
+```bash
+sudo k3s kubectl describe daemonset kube-vip-ds -n kube-system
+```
+
+如果事件中出现如下报错，说明问题出在 **RBAC 权限缺失**：
+
+```text
+Events:
+  Type     Reason        Age                  From                 Message
+  ----     ------        ----                 ----                 -------
+  Warning  FailedCreate  12m (x22 over 117m)  daemonset-controller  Error creating: pods "kube-vip-ds-" is forbidden: error looking up service account kube-system/kube-vip: serviceaccount "kube-vip" not found
+```
+
+#### 根本原因
+
+报错核心原因是 `kube-system` 命名空间中缺少名为 **`kube-vip`** 的**服务账号（ServiceAccount）**及其对应的 RBAC 权限配置，导致 DaemonSet 无法创建 Pod。
+
+> 💡 这通常发生在：使用了**手动编写的 DaemonSet YAML（B-4）但漏掉了 RBAC 资源**，或者生成的 YAML 中 `serviceAccountName` 引用了不存在的 ServiceAccount。正常通过 `manifest daemonset` 命令生成的 YAML 会自带 RBAC，不会出现此问题。
+
+#### 修复步骤
+
+**1）应用 kube-vip RBAC 配置文件**
+
+确保清单中包含 `ServiceAccount`、`ClusterRole` 及 `ClusterRoleBinding`。可以直接应用官方 RBAC 资源：
+
+```bash
+sudo k3s kubectl apply -f https://kube-vip.io/manifests/rbac.yaml
+```
+
+（也可以将官方清单保存到本地后 `kubectl apply -f` 离线应用）
+
+**2）验证 ServiceAccount 是否建立**
+
+确认 `kube-vip` ServiceAccount 已成功生成：
+
+```bash
+sudo k3s kubectl get serviceaccount kube-vip -n kube-system
+```
+
+**3）检查 DaemonSet Pod 创建状态**
+
+查看 `kube-vip-ds` 的 Pod 是否已成功调度并运行：
+
+```bash
+sudo k3s kubectl get pods -n kube-system -l name=kube-vip-ds
+```
+
+> ⚠️ 注意：官方 RBAC 清单中 DaemonSet 的标签可能是 `name=kube-vip-ds`，而本文档 B-2/B-5 通过 `manifest daemonset` 生成的标签为 `app.kubernetes.io/name=kube-vip-ds`。查询时请以你实际 YAML 中的 `matchLabels` 为准（二选一即可，或两者都试）。
+
 ---
 
 ## 4. 验证与测试（两种方式通用）
