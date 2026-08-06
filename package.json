@@ -23,5 +23,5 @@
     "vuepress": "2.0.0-rc.30",
     "vuepress-theme-hope": "2.0.0-rc.107"
   },
-  "packageManager": "pnpm@11.20.0"
+  "packageManager": "pnpm@10.30.3"
 }

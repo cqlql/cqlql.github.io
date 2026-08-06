@@ -33,6 +33,7 @@ jobs:
         run: |
           corepack enable
           pnpm install --frozen-lockfile
+          pnpm approve-builds vue-demi
 
       - name: 构建文档
         env:
