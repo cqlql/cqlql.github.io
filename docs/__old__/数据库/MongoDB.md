@@ -30,7 +30,7 @@ https://www.cnblogs.com/caicaizi/p/6160884.html
 
 修改mongod.conf文件
 
-```conf
+```ini
 security:
   authorization: enabled // 启用授权
 ```

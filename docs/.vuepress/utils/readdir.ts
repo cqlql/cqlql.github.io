@@ -11,7 +11,7 @@ interface CallbackParams {
 }
 
 interface CallbackResult {
-  children?: []
+  children?: CallbackResult[]
   [key: string]: any
 }
 
@@ -28,7 +28,7 @@ export default function readdir(options: readdirOptions) {
   let { rootPath, ignore, callback, initValue, sort = (arr: any[]) => {} } = options
   const dirList = fs.readdirSync(rootPath)
 
-  function handle(parentPath: string, parentDir: string, dir: string, children) {
+  function handle(parentPath: string, parentDir: string, dir: string, children: CallbackResult[]) {
     if (ignore.includes(dir)) return
     let currentPath = path.join(parentPath, dir)
     const isDirectory = fs.statSync(currentPath).isDirectory()

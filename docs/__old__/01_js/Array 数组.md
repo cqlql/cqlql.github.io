@@ -511,7 +511,7 @@ console.log(pets.includes('cat'))
 
 ## 数组类型判断
 
-详见 [./类型判断.md](./类型判断.md)
+`Array.isArray()` 和 `instanceof` 均可用于判断，详见下方 [类型](#类型) 小节。
 
 ## 遍历迭代
 

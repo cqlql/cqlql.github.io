@@ -121,7 +121,7 @@ sudo nginx -s reload
 
 参考文档：[Nginx 中一个 server 配置多个 location | 茶瓯葱丝](http://daimin.github.io/posts/Nginx-zhong-yi-ge-server-pei-zhi-duo-ge.html)
 
-```nginxconf
+```nginx
 location / {
     root   E:/github/my-note-build/dist;
     index  index.html index.htm;
@@ -135,7 +135,7 @@ location /docs {
 
 ## 将所有请求指向同一个页面
 
-```nginxconf
+```nginx
 # 方式 1，通过 try_files
 location / {
     root   E:/github/my-note-build/dist;
@@ -163,7 +163,7 @@ location /a4 {
 - ~\* 为不区分大小写匹配
 - !~和!~\*分别为区分大小写不匹配及不区分大小写不匹配
 
-```nginxconf
+```nginx
 
 user  www www;
 worker_processes  1;

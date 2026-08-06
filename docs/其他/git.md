@@ -9,7 +9,7 @@ ssh-keygen -t rsa
 ```
 
 修改 `~/.ssh/config` 进行配置：
-```conf
+```ini
 Host github_x
     Hostname github.com
     IdentityFile ~/.ssh/id_rsa

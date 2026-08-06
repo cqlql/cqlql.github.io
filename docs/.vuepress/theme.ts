@@ -1,10 +1,9 @@
 import { hopeTheme } from 'vuepress-theme-hope'
 import navbar from './navbar'
 import sidebarData from './sidebar'
-import { slimsearchPlugin } from '@vuepress/plugin-slimsearch'
 
 export default hopeTheme({
-  hostname: 'http://docs.cqlql.top',
+  hostname: 'https://docs.cqlql.top',
 
   author: {
     name: '桥黎',
@@ -15,7 +14,7 @@ export default hopeTheme({
 
   repo: 'cqlql/node-md',
 
-  docsDir: 'docs-other',
+  docsDir: 'docs',
 
   // navbar
   navbar: navbar,
@@ -30,6 +29,16 @@ export default hopeTheme({
   plugins: {
     icon: {
       prefix: "iconfont icon-",
+    },
+    slimsearch: {
+      indexContent: true,
+    },
+  },
+
+  markdown: {
+    highlighter: {
+      type: 'shiki',
+      langs: ['bash', 'nginx', 'ini', 'jsx', 'tsx'],
     },
   },
 })

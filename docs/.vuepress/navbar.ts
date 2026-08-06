@@ -1,7 +1,14 @@
 import { navbar } from 'vuepress-theme-hope'
-import navData from './utils/nav-generate.js'
+import navData, { NavDataItem } from './utils/nav-generate'
 
-const navbarConfig = [
+interface NavbarGroup {
+  text: string
+  children: string[]
+}
+
+type NavbarConfigItem = string | NavbarGroup
+
+const navbarConfig: NavbarConfigItem[] = [
   '/',
   'JS',
   'Vue',
@@ -23,37 +30,37 @@ const navbarConfig = [
   },
 ]
 
-function getLink(children, parentItem) {
-  let firstItem = children[0]
+function getLink(children: NavDataItem[]): string | undefined {
+  const firstItem = children[0]
+  if (!firstItem) return undefined
   if (firstItem.link) {
     return firstItem.fullLink
-  } else {
-    return getLink(firstItem.children, firstItem)
   }
+  return getLink(firstItem.children ?? [])
 }
 
 function parseNavbarConfig() {
-  let map = {}
-  navData.forEach((firstItem: any) => {
-    let newItem = {
+  const map: Record<string, NavDataItem> = {}
+  navData.forEach((firstItem: NavDataItem) => {
+    const newItem: NavDataItem = {
       ...firstItem,
       children: undefined,
     }
-    if (firstItem.children.length) {
-      newItem.link = getLink(firstItem.children, firstItem)
+    if (firstItem.children?.length) {
+      newItem.link = getLink(firstItem.children) ?? ''
     }
     map[firstItem.text.toLowerCase()] = newItem
   })
 
-  function handle(list) {
+  function handle(list: NavbarConfigItem[]) {
     list.forEach((conf, index) => {
       if (typeof conf !== 'string') {
-        handle(conf.children)
+        handle(conf.children as unknown as NavbarConfigItem[])
       } else {
-        let item = map[conf.toLowerCase()]
+        const item = map[conf.toLowerCase()]
 
         if (item) {
-          list[index] = item
+          list[index] = item as unknown as NavbarConfigItem
         } else if (conf !== '/') {
           console.warn(`"${conf}"没有对应的菜单`)
         }
@@ -62,27 +69,6 @@ function parseNavbarConfig() {
   }
 
   handle(navbarConfig)
-  // navbarConfig.forEach((conf, index) => {
-  //   if (typeof conf !== 'string') {
-  //     let newChildren: any[] = []
-  //     conf.children.forEach((key) => {
-  //       let item = map[key.toLowerCase()]
-  //       if (item) {
-  //         newChildren.push(item)
-  //       } else {
-  //         console.warn(`"${key}"没有对应的菜单`)
-  //       }
-  //     })
-
-  //     conf.children = newChildren
-  //   } else {
-  //     let item = map[conf.toLowerCase()]
-
-  //     if (item) {
-  //       navbarConfig[index] = item
-  //     }
-  //   }
-  // })
 }
 
 parseNavbarConfig()

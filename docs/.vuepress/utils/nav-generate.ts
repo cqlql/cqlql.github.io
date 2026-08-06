@@ -43,7 +43,7 @@ function navDataGenerate () {
     },
     sort(arr) {
       arr.sort((a, b) => {
-        return b.sort - a.sort
+        return a.sort - b.sort
       })
     },
   })
@@ -130,6 +130,8 @@ export interface NavDataItem {
   text: string;
   link: string;
   icon: string;
+  prefix?: string;
   fullLink: string;
   sort: number;
+  children?: NavDataItem[];
 }

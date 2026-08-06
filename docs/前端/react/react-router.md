@@ -6,7 +6,7 @@
 
 适合小项目
 
-```react
+```jsx
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 
 function App() {
@@ -29,7 +29,7 @@ function App() {
 
 适合中大型项目
 
-```react
+```jsx
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 
 const router = createBrowserRouter([
@@ -54,7 +54,7 @@ function App() {
 
 src\layouts\AuthLayout.tsx
 
-```react
+```jsx
 import { Navigate, Outlet, useMatches } from 'react-router-dom';
 
 export default function AuthLayout() {
@@ -84,7 +84,7 @@ type RouteHandle = {
 
 src\layouts\GuestLayout.tsx
 
-```react
+```jsx
 import { Navigate, Outlet } from 'react-router-dom';
 
 export default function GuestLayout() {
@@ -101,7 +101,7 @@ export default function GuestLayout() {
 
 src\router\routes.tsx
 
-```react
+```jsx
 import Layout from '@/layouts/MainLayout';
 import Login from '@/pages/Login/Login';
 import Home from '@/pages/Home';
