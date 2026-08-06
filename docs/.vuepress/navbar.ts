@@ -10,24 +10,12 @@ type NavbarConfigItem = string | NavbarGroup
 
 const navbarConfig: NavbarConfigItem[] = [
   '/',
-  'JS',
-  'Vue',
-  'TypeScript',
-  '.NET',
-  'MySql',
-  'docker',
-  {
-    text: '前端',
-    children: ['CSS', 'JS', 'TypeScript', 'Vue'],
-  },
-  {
-    text: '后端',
-    children: ['docker', '.NET'],
-  },
-  {
-    text: '数据库',
-    children: ['MySql', 'Redis'],
-  },
+  '前端',
+  '后端',
+  'linux',
+  'ai',
+  '其他',
+  '项目',
 ]
 
 function getLink(children: NavDataItem[]): string | undefined {
