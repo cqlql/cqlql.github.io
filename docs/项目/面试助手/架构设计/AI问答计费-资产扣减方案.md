@@ -1,6 +1,6 @@
 ---
 title: AI问答计费-资产扣减方案
-icon: interact
+icon: mdi:handshake-outline
 sort: 99
 ---
 

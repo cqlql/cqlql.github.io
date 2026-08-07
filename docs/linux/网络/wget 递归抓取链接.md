@@ -1,6 +1,6 @@
 ---
 title: wget 递归抓取链接
-icon: network
+icon: mdi:network-outline
 sort: 99
 ---
 

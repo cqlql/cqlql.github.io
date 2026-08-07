@@ -1,6 +1,6 @@
 ---
 title: k3s 环境下的 PostgreSQL 备份与恢复
-icon: kubernetes
+icon: devicon:kubernetes
 sort: 3
 ---
 

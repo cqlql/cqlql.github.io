@@ -1,6 +1,6 @@
 ---
 title: useEffect 基础
-icon: refresh
+icon: mdi:refresh
 sort: 5
 ---
 

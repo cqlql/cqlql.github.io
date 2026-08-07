@@ -1,6 +1,6 @@
 ---
 title: useEffect 副作用与清理
-icon: sync
+icon: mdi:sync
 sort: 6
 ---
 

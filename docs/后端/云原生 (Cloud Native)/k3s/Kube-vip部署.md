@@ -1,6 +1,6 @@
 ---
 title: Kube-vip 部署 (ARP 模式)
-icon: network-wired
+icon: mdi:lan
 sort: 4
 ---
 

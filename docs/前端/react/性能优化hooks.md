@@ -1,6 +1,6 @@
 ---
 title: 性能优化 Hook
-icon: bolt
+icon: mdi:lightning-bolt
 sort: 4
 ---
 

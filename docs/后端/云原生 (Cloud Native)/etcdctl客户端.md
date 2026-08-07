@@ -1,6 +1,6 @@
 ---
 title: etcdctl 客户端
-icon: database
+icon: mdi:database-outline
 sort: 5
 ---
 

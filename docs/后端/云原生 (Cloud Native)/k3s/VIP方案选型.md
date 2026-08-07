@@ -1,6 +1,6 @@
 ---
 title: VIP 方案选型 (Kube-vip vs Keepalived+HAProxy)
-icon: network-wired
+icon: mdi:lan
 sort: 3
 ---
 

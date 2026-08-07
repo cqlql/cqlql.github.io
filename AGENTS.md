@@ -111,6 +111,67 @@ git-auto-push.bat          # 检测变更后自动 git add/commit/push
 - **导航自动生成**：`navbar.ts` 调用 `utils/nav-generate.js` 读取目录结构，将 `navbarConfig` 中的字符串 key 解析为真实链接；若 key 无对应菜单会 `console.warn`。
 - **主题**：`theme.ts` 配置了 `repo: cqlql/node-md`、`hostname`、`pageInfo`（Author/Original/Date/Category/Tag）等。
 
+## 图标使用规范
+
+项目使用 [Iconify](https://icon-sets.iconify.design/) 图标系统（`theme.ts` 中 `plugins.icon.assets: "iconify"`），主题的导航栏、侧边栏图标均通过 iconify 渲染。
+
+**格式**：必须使用 `前缀:图标名` 格式，不可使用无前缀的短名称。
+
+**常用前缀**：
+| 前缀 | 图标集 | 适用场景 | 搜索入口 |
+|------|--------|----------|----------|
+| `mdi:` | Material Design Icons | 通用 UI 图标（最广泛） | https://icon-sets.iconify.design/mdi/ |
+| `devicon:` | Devicon | 编程语言/技术栈 | https://icon-sets.iconify.design/devicon/ |
+| `bi:` | Bootstrap Icons | 通用 UI 图标 | https://icon-sets.iconify.design/bi/ |
+| `logos:` | SVG Logos | 品牌/技术 Logo | https://icon-sets.iconify.design/logos/ |
+| `carbon:` | Carbon Icons | IBM 设计系统图标 | https://icon-sets.iconify.design/carbon/ |
+
+**已使用的图标记录**：
+
+```yaml
+# 目录级图标（.config 文件）
+docs/前端/css/.config:             material-icon-theme:css
+docs/前端/js/.config:              material-icon-theme:javascript
+docs/前端/nodejs/.config:          devicon:nodejs
+docs/前端/ts/.config:              devicon:typescript
+docs/前端/vue/.config:             logos:vue
+docs/后端/数据库/mysql/.config:     devicon:mysql
+docs/后端/数据库/postgresql/.config: devicon:postgresql
+
+# 文件级图标（markdown frontmatter）
+linux/网络/wget 递归抓取链接.md:                     mdi:network-outline
+其他/终端/curl.md:                                   mdi:console
+前端/react/性能优化hooks.md:                          mdi:lightning-bolt
+前端/react/useEffect基础.md:                          mdi:refresh
+前端/react/useEffect-副作用管理.md:                    mdi:sync
+前端/react/useState-useRef.md:                        mdi:code-tags
+前端/react/useEffect-同步setState警告.md:              mdi:alert-outline
+前端/react/核心概念.md:                                devicon:react
+后端/云原生/k3s/介绍与安装.md:                          mdi:server
+后端/云原生/k3s/Ubuntu高可用部署.md:                    mdi:server
+后端/云原生/k3s/VIP方案选型.md:                        mdi:lan
+后端/云原生/k3s/Kube-vip部署.md:                       mdi:lan
+后端/云原生/k3s/常用命令速查.md:                        mdi:console
+后端/云原生/etcdctl客户端.md:                          mdi:database-outline
+后端/云原生/镜像下载加速实践.md:                         mdi:rocket-launch-outline
+后端/存储/MinIO-Bucket划分最佳实践.md:                  mdi:group
+后端/数据库/postgresql/增量备份机制与避坑.md:             mdi:plus-circle-outline
+后端/数据库/postgresql/单机Docker备份与恢复.md:          mdi:database-outline
+后端/数据库/postgresql/工具选型对比.md:                  mdi:compare
+后端/数据库/postgresql/k3s环境下的备份与恢复.md:          devicon:kubernetes
+后端/数据库/postgresql/pg_dump实操指南.md:              mdi:console
+后端/数据库/postgresql/pgBackRest备份策略.md:            mdi:layers-outline
+后端/数据库/postgresql/大库全量备份性能优化.md:            mdi:speedometer
+后端/架构设计/项目目录结构规范.md:                        mdi:file-tree-outline
+项目/面试助手/架构设计/AI问答计费-资产扣减方案.md:          mdi:handshake-outline
+```
+
+**添加新图标时**：
+1. 到 https://icon-sets.iconify.design/ 搜索合适的图标。
+2. 使用 `前缀:图标名` 格式（如 `mdi:home`、`devicon:docker`）。
+3. 禁止使用无前缀的短名称（如 `home`、`code`），它们在 iconify 中无法解析。
+4. 新增后更新本文档的图标记录。
+
 ## 注意事项
 
 - 仅编辑 Markdown 与 `.vuepress` 配置即可扩展站点；勿改动 `node_modules`、`.vuepress/dist`（构建产物）。

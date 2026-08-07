@@ -1,6 +1,6 @@
 ---
 title: 单机 Docker PostgreSQL 备份与恢复
-icon: database
+icon: mdi:database-outline
 sort: 2
 ---
 

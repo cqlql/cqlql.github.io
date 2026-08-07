@@ -1,6 +1,6 @@
 ---
 title: pg_dump 实操指南：脚本、定时与工程化
-icon: shell
+icon: mdi:console
 sort: 3
 ---
 

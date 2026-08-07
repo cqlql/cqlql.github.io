@@ -1,6 +1,6 @@
 ---
 title: Ubuntu 高可用部署 (HA)
-icon: server
+icon: mdi:server
 sort: 2
 ---
 

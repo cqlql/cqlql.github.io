@@ -24,7 +24,7 @@ export default hopeTheme({
 
   plugins: {
     icon: {
-      prefix: 'iconfont icon-',
+      assets: "iconify"
     },
     slimsearch: {
       indexContent: true,

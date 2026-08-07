@@ -1,6 +1,6 @@
 ---
 title: MinIO Bucket 划分最佳实践
-icon: object-group
+icon: mdi:group
 sort: 2
 ---
 

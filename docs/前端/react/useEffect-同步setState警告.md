@@ -1,6 +1,6 @@
 ---
 title: Effect 中禁止同步 setState
-icon: alert
+icon: mdi:alert-outline
 sort: 7
 ---
 

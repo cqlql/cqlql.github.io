@@ -1,6 +1,6 @@
 ---
 title: curl 速查
-icon: shell
+icon: mdi:console
 sort: 10
 ---
 
