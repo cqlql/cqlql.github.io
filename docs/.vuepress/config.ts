@@ -12,6 +12,9 @@ export default defineUserConfig({
 
   theme,
 
+  // 排除 __old__ 目录，不参与构建
+  pagePatterns: ['**/*.md', '!__old__', '!.vuepress', '!node_modules'],
+
   head: [
     [
       'link',

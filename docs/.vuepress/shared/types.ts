@@ -4,14 +4,14 @@
 export interface NavNode {
   /** 展示文本（来自 frontmatter title / .config title / 文件名去序号） */
   text: string
-  /** 相对于当前节点的链接（文件：xxx.md；目录有 README.md 时：前缀路径） */
-  link: string
+  /** 相对于当前节点的链接（文件：xxx.md；目录节点不存在此字段） */
+  link?: string
   /** 图标名（对应 iconfont） */
   icon: string
   /** 侧边栏路径前缀（仅目录节点有值，如 "/前端/"、"vue/"） */
   prefix?: string
-  /** 相对于 docs/ 的完整路径（目录节点有 README.md 时有值，文件节点始终有值） */
-  fullLink: string
+  /** 相对于 docs/ 的完整路径（文件节点有值，目录节点不存在此字段） */
+  fullLink?: string
   /** 排序权重（越小越靠前） */
   sort: number
   /** 子节点 */

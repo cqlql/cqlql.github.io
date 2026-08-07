@@ -16,15 +16,6 @@ function readTextSafe(filePath: string): string {
   }
 }
 
-function pathExists(filePath: string): boolean {
-  try {
-    fs.accessSync(filePath)
-    return true
-  } catch {
-    return false
-  }
-}
-
 /**
  * 从 .config 文件读取目录元数据
  */
@@ -53,11 +44,13 @@ function parseFrontmatter(filePath: string): Record<string, unknown> {
 
 /**
  * 递归遍历 docs/ 目录，构建导航树
+ * @param depth 当前递归深度（1 = 顶级分类目录，2 = 二级，3 = 三级...）
  */
 function scanDir(
   dirAbsPath: string,
   parentDirname: string,
   relativePath: string,
+  depth: number = 1,
 ): NavNode[] {
   const entries = fs.readdirSync(dirAbsPath)
   const nodes: NavNode[] = []
@@ -65,13 +58,15 @@ function scanDir(
   for (const name of entries) {
     if (['.vuepress', '.config', 'image'].includes(name)) continue
     if (name === 'README.md') continue
+    // 排除 __old__ 目录
+    if (name === '__old__') continue
 
     const entryPath = path.join(dirAbsPath, name)
     const fullLink = relativePath ? `${relativePath}/${name}` : name
     const isDir = fs.statSync(entryPath).isDirectory()
 
     if (isDir) {
-      nodes.push(buildDirNode(entryPath, name, parentDirname, fullLink))
+      nodes.push(buildDirNode(entryPath, name, parentDirname, fullLink, depth + 1))
     } else if (name.endsWith('.md')) {
       nodes.push(buildFileNode(entryPath, name, fullLink))
     }
@@ -85,15 +80,16 @@ function scanDir(
 
 /**
  * 构建目录节点
+ * @param depth 当前节点的深度（1 = 顶级分类，2 = 二级，3 = 三级...）
  */
 function buildDirNode(
   dirPath: string,
   dirname: string,
   parentDirname: string,
   fullLink: string,
+  depth: number,
 ): NavNode {
   const config = readDirConfig(dirPath)
-  const hasReadme = pathExists(path.join(dirPath, 'README.md'))
   const prefix = parentDirname ? `${dirname}/` : `/${dirname}/`
 
   return {
@@ -101,9 +97,10 @@ function buildDirNode(
     icon: config.icon ?? '',
     prefix,
     sort: config.sort ?? 0,
-    fullLink: hasReadme ? fullLink : '',
-    link: hasReadme ? prefix : '',
-    children: scanDir(dirPath, dirname, fullLink),
+    // 目录节点不允许点击跳转，仅作为分组容器
+    // 第2级和第3级菜单开启折叠
+    collapsible: depth === 2 || depth === 3,
+    children: scanDir(dirPath, dirname, fullLink, depth),
   }
 }
 
