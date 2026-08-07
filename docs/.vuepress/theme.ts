@@ -1,6 +1,6 @@
 import { hopeTheme } from 'vuepress-theme-hope'
 import navbar from './navbar'
-import sidebarData from './sidebar'
+import sidebar from './sidebar'
 
 export default hopeTheme({
   hostname: 'https://docs.cqlql.top',
@@ -10,17 +10,13 @@ export default hopeTheme({
     url: '',
   },
 
-  // logo: '/logo.svg',
-
   repo: 'cqlql/node-md',
 
   docsDir: 'docs',
 
-  // navbar
-  navbar: navbar,
+  navbar,
 
-  // sidebar
-  sidebar: sidebarData,
+  sidebar,
 
   displayFooter: true,
 
@@ -28,7 +24,7 @@ export default hopeTheme({
 
   plugins: {
     icon: {
-      prefix: "iconfont icon-",
+      prefix: 'iconfont icon-',
     },
     slimsearch: {
       indexContent: true,

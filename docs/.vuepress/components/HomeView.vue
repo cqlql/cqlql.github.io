@@ -1,32 +1,35 @@
 <template>
-  <div class="HomeView">
+  <div class="home-view">
     <MenuList :items="sidebar" />
   </div>
 </template>
 
-<script setup>
-import sidebar from './data.json'
+<script setup lang="ts">
+import type { NavNode } from '../shared/types.js'
+import sidebarData from './data.json'
 import MenuList from './MenuList.vue'
+
+const sidebar = sidebarData as NavNode[]
 </script>
 
 <style lang="scss">
-.HomeView {
+.home-view {
   padding: 10px 0;
   font-size: 15px;
 
-  & > ul {
+  > ul {
     list-style-type: none;
     padding: 0;
   }
 
-  & > ul > li {
+  > ul > li {
     break-inside: avoid;
     background-color: #242424;
     margin-bottom: 20px;
     border-radius: 8px;
     padding: 28px 32px;
 
-    & > .name {
+    > .name {
       padding-bottom: 10px;
 
       .t {
@@ -48,21 +51,20 @@ import MenuList from './MenuList.vue'
   }
 }
 
-html[data-theme='light'] {
-  .HomeView {
-    & > ul > li {
-      background-color: #f9f9f9;
-    }
+html[data-theme='light'] .home-view {
+  > ul > li {
+    background-color: #f9f9f9;
   }
 }
 
 @media (min-width: 768px) {
-  .HomeView {
+  .home-view {
     columns: 2;
   }
 }
+
 @media (min-width: 1024px) {
-  .HomeView {
+  .home-view {
     columns: 3;
   }
 }

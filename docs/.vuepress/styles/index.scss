@@ -1,27 +1,30 @@
+// 侧边栏链接样式
 .sidebar-link {
   font-size: 13px;
 }
+
 .sidebar-heading .title {
-  color: #213547;
+  color: var(--vp-c-text-1, #213547);
   font-size: 13px;
   font-weight: 600;
 }
+
 .sidebar a {
-  color: rgba(60, 60, 60, 0.7);
+  color: var(--vp-c-text-2, rgba(60, 60, 60, 0.7));
 }
+
 html[data-theme='dark'] {
   .sidebar-heading .title {
-    color: rgba(255, 255, 255, 0.87);
+    color: var(--vp-c-text-1, rgba(255, 255, 255, 0.87));
   }
 
   .sidebar a {
-    color: rgba(235, 235, 235, 0.6);
+    color: var(--vp-c-text-2, rgba(235, 235, 235, 0.6));
   }
 }
 
-// vuepress-plugin-search-pro 搜索插件
-// 固定高度，否则搜索结果高度改变会跳动
-.search-pro-modal-wrapper{
+// 搜索弹窗：固定顶部位置，避免结果高度变化时跳动
+.search-pro-modal-wrapper {
   top: 5vh;
   align-items: normal;
 }

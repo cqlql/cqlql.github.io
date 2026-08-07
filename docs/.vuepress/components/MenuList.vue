@@ -4,8 +4,8 @@
       <div class="name">
         <i
           v-if="item.icon"
-          :class="['icon', 'iconfont', 'icon-' + item.icon]"
-        ></i>
+          :class="['icon', 'iconfont', `icon-${item.icon}`]"
+        />
 
         <router-link
           v-if="item.fullLink"
@@ -14,25 +14,21 @@
           {{ item.text }}
         </router-link>
 
-        <span v-else class="t">
-          {{ item.text }}
-        </span>
+        <span v-else class="t">{{ item.text }}</span>
       </div>
 
-      <!-- 递归 -->
       <MenuList
-        v-if="item.children && item.children.length"
+        v-if="item.children?.length"
         :items="item.children"
       />
     </li>
   </ul>
 </template>
 
-<script setup>
-defineProps({
-  items: {
-    type: Array,
-    required: true,
-  },
-})
+<script setup lang="ts">
+import type { NavNode } from '../shared/types.js'
+
+defineProps<{
+  items: NavNode[]
+}>()
 </script>

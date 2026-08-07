@@ -1,14 +1,12 @@
 import { navbar } from 'vuepress-theme-hope'
-import navData, { NavDataItem } from './utils/nav-generate'
+import navTree from './scripts/build-nav-tree.js'
+import type { NavNode, NavbarItem } from './shared/types.js'
 
-interface NavbarGroup {
-  text: string
-  children: string[]
-}
-
-type NavbarConfigItem = string | NavbarGroup
-
-const navbarConfig: NavbarConfigItem[] = [
+/**
+ * 导航栏显示配置
+ * 字符串为 docs/ 下的目录名（大小写不敏感），"/" 为首页
+ */
+const NAVBAR_CONFIG = [
   '/',
   '前端',
   '后端',
@@ -16,49 +14,59 @@ const navbarConfig: NavbarConfigItem[] = [
   'ai',
   '其他',
   '项目',
-]
+] as const
 
-function getLink(children: NavDataItem[]): string | undefined {
-  const firstItem = children[0]
-  if (!firstItem) return undefined
-  if (firstItem.link) {
-    return firstItem.fullLink
+/**
+ * 递归获取子树中第一个有效链接
+ */
+function findFirstLink(children: NavNode[]): string {
+  for (const child of children) {
+    if (child.link) return child.fullLink
+    if (child.children?.length) {
+      const link = findFirstLink(child.children)
+      if (link) return link
+    }
   }
-  return getLink(firstItem.children ?? [])
+  return ''
 }
 
-function parseNavbarConfig() {
-  const map: Record<string, NavDataItem> = {}
-  navData.forEach((firstItem: NavDataItem) => {
-    const newItem: NavDataItem = {
-      ...firstItem,
-      children: undefined,
-    }
-    if (firstItem.children?.length) {
-      newItem.link = getLink(firstItem.children) ?? ''
-    }
-    map[firstItem.text.toLowerCase()] = newItem
-  })
-
-  function handle(list: NavbarConfigItem[]) {
-    list.forEach((conf, index) => {
-      if (typeof conf !== 'string') {
-        handle(conf.children as unknown as NavbarConfigItem[])
-      } else {
-        const item = map[conf.toLowerCase()]
-
-        if (item) {
-          list[index] = item as unknown as NavbarConfigItem
-        } else if (conf !== '/') {
-          console.warn(`"${conf}"没有对应的菜单`)
-        }
-      }
-    })
+/**
+ * 构建 { 目录名小写 → NavNode } 索引
+ */
+function buildIndex(tree: NavNode[]): Map<string, NavNode> {
+  const index = new Map<string, NavNode>()
+  for (const node of tree) {
+    index.set(node.text.toLowerCase(), node)
   }
-
-  handle(navbarConfig)
+  return index
 }
 
-parseNavbarConfig()
+/**
+ * 将 NAVBAR_CONFIG 解析为 vuepress-theme-hope 所需的 NavbarItem 数组
+ */
+function resolveNavbar(config: readonly string[], tree: NavNode[]): NavbarItem[] {
+  const index = buildIndex(tree)
+  const items: NavbarItem[] = []
 
-export default navbar(navbarConfig)
+  for (const key of config) {
+    if (key === '/') {
+      items.push({ text: '首页', link: '/' })
+      continue
+    }
+
+    const node = index.get(key.toLowerCase())
+    if (node) {
+      items.push({
+        text: node.text,
+        link: node.link || findFirstLink(node.children ?? []),
+        icon: node.icon,
+      })
+    } else {
+      console.warn(`导航栏配置中的 "${key}" 没有匹配的目录`)
+    }
+  }
+
+  return items
+}
+
+export default navbar(resolveNavbar(NAVBAR_CONFIG, navTree))
