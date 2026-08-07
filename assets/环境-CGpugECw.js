@@ -1,0 +1,77 @@
+import{I as e,O as t,k as n}from"./app-B_8kamum.js";import{t as r}from"./plugin-vue_export-helper-BDNMzG2s.js";var i=JSON.parse(`{"path":"/%E5%90%8E%E7%AB%AF/python/%E7%8E%AF%E5%A2%83.html","title":"","lang":"zh-CN","frontmatter":{"description":"使用 python 虚拟环境 vscode 开发工具也可以创建。ctrl+p，输入python，便可见到创建虚拟环境选项 配置镜像加速 临时使用镜像源 添加 -i 选项，指定镜像源地址 永久配置镜像源（推荐） 验证是否生效 国内常用的镜像源地址 阿里云：https://mirrors.aliyun.com/pypi/simple/ 清华大学：https...","head":[["script",{"type":"application/ld+json"},"{\\"@context\\":\\"https://schema.org\\",\\"@type\\":\\"Article\\",\\"headline\\":\\"\\",\\"image\\":[\\"\\"],\\"dateModified\\":\\"2026-04-22T09:30:01.000Z\\",\\"author\\":[{\\"@type\\":\\"Person\\",\\"name\\":\\"桥黎\\",\\"url\\":\\"\\"}]}"],["meta",{"property":"og:url","content":"https://docs.cqlql.top/%E5%90%8E%E7%AB%AF/python/%E7%8E%AF%E5%A2%83.html"}],["meta",{"property":"og:site_name","content":"开发笔记"}],["meta",{"property":"og:description","content":"使用 python 虚拟环境 vscode 开发工具也可以创建。ctrl+p，输入python，便可见到创建虚拟环境选项 配置镜像加速 临时使用镜像源 添加 -i 选项，指定镜像源地址 永久配置镜像源（推荐） 验证是否生效 国内常用的镜像源地址 阿里云：https://mirrors.aliyun.com/pypi/simple/ 清华大学：https..."}],["meta",{"property":"og:type","content":"article"}],["meta",{"property":"og:locale","content":"zh-CN"}],["meta",{"property":"og:updated_time","content":"2026-04-22T09:30:01.000Z"}],["meta",{"property":"article:modified_time","content":"2026-04-22T09:30:01.000Z"}]]},"git":{"createdTime":1776850201000,"updatedTime":1776850201000,"contributors":[{"name":"cql","username":"cql","email":"cql.ql@qq.com","commits":1,"url":"https://github.com/cql"}]},"readingTime":{"minutes":1.81,"words":544},"filePathRelative":"后端/python/环境.md","autoDesc":true}`),a={name:`环境.md`};function o(r,i,a,o,s,c){return e(),t(`div`,null,[...i[0]||=[n(`<h2 id="使用-python-虚拟环境" tabindex="-1"><a class="header-anchor" href="#使用-python-虚拟环境"><span>使用 python 虚拟环境</span></a></h2><blockquote><p>vscode 开发工具也可以创建。ctrl+p，输入python，便可见到创建虚拟环境选项</p></blockquote><div class="language-bash line-numbers-mode" data-highlighter="shiki" data-ext="bash" style="--shiki-light:#383A42;--shiki-dark:#abb2bf;--shiki-light-bg:#FAFAFA;--shiki-dark-bg:#282c34;"><pre class="shiki shiki-themes one-light one-dark-pro vp-code"><code class="language-bash"><span class="line"><span style="--shiki-light:#A0A1A7;--shiki-light-font-style:italic;--shiki-dark:#7F848E;--shiki-dark-font-style:italic;"># 创建虚拟目录</span></span>
+<span class="line"><span style="--shiki-light:#4078F2;--shiki-dark:#61AFEF;">python</span><span style="--shiki-light:#986801;--shiki-dark:#D19A66;"> -m</span><span style="--shiki-light:#50A14F;--shiki-dark:#98C379;"> venv</span><span style="--shiki-light:#50A14F;--shiki-dark:#98C379;"> .venv</span></span>
+<span class="line"></span>
+<span class="line"><span style="--shiki-light:#A0A1A7;--shiki-light-font-style:italic;--shiki-dark:#7F848E;--shiki-dark-font-style:italic;"># windows 激活虚拟环境</span></span>
+<span class="line"><span style="--shiki-light:#4078F2;--shiki-dark:#61AFEF;">.venv\\Scripts\\activate</span></span>
+<span class="line"></span>
+<span class="line"><span style="--shiki-light:#A0A1A7;--shiki-light-font-style:italic;--shiki-dark:#7F848E;--shiki-dark-font-style:italic;"># ubuntu 激活虚拟环境</span></span>
+<span class="line"><span style="--shiki-light:#0184BC;--shiki-dark:#56B6C2;">source</span><span style="--shiki-light:#50A14F;--shiki-dark:#98C379;"> .venv/bin/activate</span></span></code></pre><div class="line-numbers" aria-hidden="true" style="counter-reset:line-number 0;"><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div></div></div><h2 id="配置镜像加速" tabindex="-1"><a class="header-anchor" href="#配置镜像加速"><span>配置镜像加速</span></a></h2><h3 id="临时使用镜像源" tabindex="-1"><a class="header-anchor" href="#临时使用镜像源"><span>临时使用镜像源</span></a></h3><p>添加 -i 选项，指定镜像源地址</p><div class="language-bash line-numbers-mode" data-highlighter="shiki" data-ext="bash" style="--shiki-light:#383A42;--shiki-dark:#abb2bf;--shiki-light-bg:#FAFAFA;--shiki-dark-bg:#282c34;"><pre class="shiki shiki-themes one-light one-dark-pro vp-code"><code class="language-bash"><span class="line"><span style="--shiki-light:#4078F2;--shiki-dark:#61AFEF;">pip</span><span style="--shiki-light:#50A14F;--shiki-dark:#98C379;"> install</span><span style="--shiki-light:#50A14F;--shiki-dark:#98C379;"> 包名</span><span style="--shiki-light:#986801;--shiki-dark:#D19A66;"> -i</span><span style="--shiki-light:#50A14F;--shiki-dark:#98C379;"> https://mirrors.aliyun.com/pypi/simple/</span></span></code></pre><div class="line-numbers" aria-hidden="true" style="counter-reset:line-number 0;"><div class="line-number"></div></div></div><h3 id="永久配置镜像源-推荐" tabindex="-1"><a class="header-anchor" href="#永久配置镜像源-推荐"><span>永久配置镜像源（推荐）</span></a></h3><div class="language-bash line-numbers-mode" data-highlighter="shiki" data-ext="bash" style="--shiki-light:#383A42;--shiki-dark:#abb2bf;--shiki-light-bg:#FAFAFA;--shiki-dark-bg:#282c34;"><pre class="shiki shiki-themes one-light one-dark-pro vp-code"><code class="language-bash"><span class="line"><span style="--shiki-light:#4078F2;--shiki-dark:#61AFEF;">pip</span><span style="--shiki-light:#50A14F;--shiki-dark:#98C379;"> config</span><span style="--shiki-light:#50A14F;--shiki-dark:#98C379;"> set</span><span style="--shiki-light:#50A14F;--shiki-dark:#98C379;"> global.index-url</span><span style="--shiki-light:#50A14F;--shiki-dark:#98C379;"> https://mirrors.aliyun.com/pypi/simple/</span></span></code></pre><div class="line-numbers" aria-hidden="true" style="counter-reset:line-number 0;"><div class="line-number"></div></div></div><h3 id="验证是否生效" tabindex="-1"><a class="header-anchor" href="#验证是否生效"><span>验证是否生效</span></a></h3><div class="language-bash line-numbers-mode" data-highlighter="shiki" data-ext="bash" style="--shiki-light:#383A42;--shiki-dark:#abb2bf;--shiki-light-bg:#FAFAFA;--shiki-dark-bg:#282c34;"><pre class="shiki shiki-themes one-light one-dark-pro vp-code"><code class="language-bash"><span class="line"><span style="--shiki-light:#4078F2;--shiki-dark:#61AFEF;">pip</span><span style="--shiki-light:#50A14F;--shiki-dark:#98C379;"> config</span><span style="--shiki-light:#50A14F;--shiki-dark:#98C379;"> list</span></span></code></pre><div class="line-numbers" aria-hidden="true" style="counter-reset:line-number 0;"><div class="line-number"></div></div></div><h3 id="国内常用的镜像源地址" tabindex="-1"><a class="header-anchor" href="#国内常用的镜像源地址"><span>国内常用的镜像源地址</span></a></h3><ul><li>阿里云：<code>https://mirrors.aliyun.com/pypi/simple/</code></li><li>清华大学：<code>https://pypi.tuna.tsinghua.edu.cn/simple</code></li><li>中国科学技术大学：<code>https://pypi.mirrors.ustc.edu.cn/simple/</code></li><li>豆瓣：<code>https://pypi.doubanio.com/simple/</code></li></ul><h2 id="搭建容器开发环境" tabindex="-1"><a class="header-anchor" href="#搭建容器开发环境"><span>搭建容器开发环境</span></a></h2><p>如果是容器部署，推荐使用容器环境开发，这样开发环境与正式环境能做到最小差异。</p><p>开发容器设置所在目录结构</p><div class="language- line-numbers-mode" data-highlighter="shiki" data-ext="" style="--shiki-light:#383A42;--shiki-dark:#abb2bf;--shiki-light-bg:#FAFAFA;--shiki-dark-bg:#282c34;"><pre class="shiki shiki-themes one-light one-dark-pro vp-code"><code class="language-"><span class="line"><span>project/</span></span>
+<span class="line"><span> │</span></span>
+<span class="line"><span> ├── .devcontainer/      </span></span>
+<span class="line"><span> │     ├── devcontainer.json</span></span>
+<span class="line"><span> │     └── Dockerfile.dev</span></span>
+<span class="line"><span> │</span></span>
+<span class="line"><span> └── src</span></span></code></pre><div class="line-numbers" aria-hidden="true" style="counter-reset:line-number 0;"><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div></div></div><p>devcontainer.json</p><div class="language- line-numbers-mode" data-highlighter="shiki" data-ext="" style="--shiki-light:#383A42;--shiki-dark:#abb2bf;--shiki-light-bg:#FAFAFA;--shiki-dark-bg:#282c34;"><pre class="shiki shiki-themes one-light one-dark-pro vp-code"><code class="language-"><span class="line"><span>{</span></span>
+<span class="line"><span>    &quot;name&quot;: &quot;pass-up.dev&quot;,</span></span>
+<span class="line"><span>    &quot;build&quot;: {</span></span>
+<span class="line"><span>        &quot;dockerfile&quot;: &quot;./Dockerfile.dev&quot;,</span></span>
+<span class="line"><span>        &quot;context&quot;: &quot;..&quot;</span></span>
+<span class="line"><span>    },</span></span>
+<span class="line"><span>    &quot;workspaceFolder&quot;: &quot;/pass-up.backend-pydantic_ai&quot;,</span></span>
+<span class="line"><span>    &quot;customizations&quot;: {</span></span>
+<span class="line"><span>        &quot;vscode&quot;: {</span></span>
+<span class="line"><span>            &quot;settings&quot;: {</span></span>
+<span class="line"><span>                // 自动关联 uv 的虚拟环境（已交给Dockerfile.dev设置，所以注释）</span></span>
+<span class="line"><span>                // &quot;python.defaultInterpreterPath&quot;: &quot;/app/.venv/bin/python&quot;,</span></span>
+<span class="line"><span>            },</span></span>
+<span class="line"><span>            &quot;extensions&quot;: [</span></span>
+<span class="line"><span>                &quot;ms-python.debugpy&quot;,</span></span>
+<span class="line"><span>                &quot;MarsCode.marscode-extension&quot;,</span></span>
+<span class="line"><span>                &quot;eamodio.gitlens&quot;</span></span>
+<span class="line"><span>            ]</span></span>
+<span class="line"><span>        }</span></span>
+<span class="line"><span>    },</span></span>
+<span class="line"><span>    &quot;features&quot;: {</span></span>
+<span class="line"><span>        // 自动安装常用的 Git 辅助工具</span></span>
+<span class="line"><span>        &quot;ghcr.io/devcontainers/features/git:1&quot;: {}</span></span>
+<span class="line"><span>    },</span></span>
+<span class="line"><span>    </span></span>
+<span class="line"><span>    &quot;mounts&quot;: [</span></span>
+<span class="line"><span>        // 挂载整个 root，解决部分配置重建后丢失问题</span></span>
+<span class="line"><span>        &quot;source=pass-up.backend-pydantic_ai.root,target=/root,type=volume&quot;,</span></span>
+<span class="line"><span>		// uc 缓存，避免每次重新拉取</span></span>
+<span class="line"><span>        &quot;source=uv-cache,target=/root/.cache/uv,type=volume&quot;,</span></span>
+<span class="line"><span>        // 代码</span></span>
+<span class="line"><span>        &quot;source=pass-up.backend-pydantic_ai,target=\${containerWorkspaceFolder},type=volume&quot;,</span></span>
+<span class="line"><span>        // git 免密</span></span>
+<span class="line"><span>        &quot;source=ssh-keys,target=/root/.ssh,type=volume&quot;</span></span>
+<span class="line"><span>    ],</span></span>
+<span class="line"><span>    // 容器创建后自动同步</span></span>
+<span class="line"><span>    &quot;postCreateCommand&quot;: &quot;uv sync&quot;</span></span>
+<span class="line"><span>}</span></span></code></pre><div class="line-numbers" aria-hidden="true" style="counter-reset:line-number 0;"><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div></div></div><p>Dockerfile.dev</p><div class="language- line-numbers-mode" data-highlighter="shiki" data-ext="" style="--shiki-light:#383A42;--shiki-dark:#abb2bf;--shiki-light-bg:#FAFAFA;--shiki-dark-bg:#282c34;"><pre class="shiki shiki-themes one-light one-dark-pro vp-code"><code class="language-"><span class="line"><span>FROM python:3.12-slim</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span># 从官方镜像中直接把 uv 拷贝进来</span></span>
+<span class="line"><span>COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span># 安装 ssh</span></span>
+<span class="line"><span>RUN apt-get update &amp;&amp; \\</span></span>
+<span class="line"><span>    apt-get install -y openssh-client &amp;&amp; \\</span></span>
+<span class="line"><span>    rm -rf /var/lib/apt/lists/*</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span># 设置工作目录</span></span>
+<span class="line"><span>WORKDIR /pass-up.backend-pydantic_ai</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span># 环境变量配置</span></span>
+<span class="line"><span># 避免 python 产生 pyc 文件；强制输出日志，不缓存</span></span>
+<span class="line"><span>ENV PYTHONDONTWRITEBYTECODE=1</span></span>
+<span class="line"><span>ENV PYTHONUNBUFFERED=1</span></span>
+<span class="line"><span># 告诉 uv 虚拟环境就在项目目录下</span></span>
+<span class="line"><span>ENV UV_PROJECT_ENVIRONMENT=/pass-up.backend-pydantic_ai/.venv</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span># (可选) 预复制依赖文件，利用 Docker 缓存层</span></span>
+<span class="line"><span># 这样即便你还没打开 VS Code，镜像构建时也会先装好基础包</span></span>
+<span class="line"><span># COPY pyproject.toml uv.lock ./</span></span>
+<span class="line"><span># RUN uv sync --frozen --no-install-project</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span># 剩下的代码不需要在 Dockerfile 里 COPY，</span></span>
+<span class="line"><span># 因为 .devcontainer 会通过 Bind Mount 实时挂载你的本地代码</span></span></code></pre><div class="line-numbers" aria-hidden="true" style="counter-reset:line-number 0;"><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div></div></div>`,21)]])}var s=r(a,[[`render`,o]]);export{i as _pageData,s as default};
