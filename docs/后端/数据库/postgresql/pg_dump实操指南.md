@@ -77,7 +77,11 @@ docker exec -i <your_postgres_container_name> \
 
 ## 2. 自动定时备份脚本
 
-生产环境中需要无人值守的每日自动备份，编写 Shell 脚本配合宿主机 `crontab` 运行：
+生产环境中需要无人值守的每日自动备份，编写 Shell 脚本配合宿主机 `crontab` 运行。
+
+### 2.1 本地单机备份脚本（入门版）
+
+最简版本，备份直接写在宿主机本地磁盘：
 
 ```bash
 #!/bin/bash
@@ -110,6 +114,107 @@ else
     exit 1
 fi
 ```
+
+### 2.2 备份保留策略：本地短期 + 远端长期
+
+> 备份只存在本地一台机器上是不够的——宿主机硬件故障、勒索病毒、误删都可能导致备份全丢。
+
+**生产最佳实践**：两边都保留，但设置不同的保留周期（"本地短期 + 远端长期"）。
+
+| 存储位置 | 保留周期 | 用途 |
+| --- | --- | --- |
+| 本地宿主机 | 1~3 天 | 快速恢复日常误操作（几秒~几分钟），降低 RTO |
+| 远端备份机器/对象存储 | 30 天或更久 | 防灾难性故障（宿主机损坏、勒索病毒等） |
+
+> 这符合 **3-2-1 备份原则**：3 份数据副本，2 种不同介质，1 份异地/异机存储。
+
+### 2.3 异机备份方案（本地 + 远端双写）
+
+在单机 Docker + Linux 环境下，将备份文件同步到另一台机器的三种常用方案：
+
+---
+
+#### 方案 A：SCP 推送（最常用、最简单）
+
+在本地宿主机生成备份后，使用 `scp` 自动传输到远程备份机器。
+
+**前提条件**：宿主机配置 SSH 免密登录到备份机器（`ssh-keygen` + `ssh-copy-id`）。
+
+```bash
+#!/bin/bash
+
+# --- 配置区 ---
+CONTAINER_NAME="postgres-prod"
+DB_USER="postgres"
+DB_NAME="mydb"
+LOCAL_BACKUP_DIR="/data/pg_backups"     # 本地短期存储目录
+LOCAL_RETENTION_DAYS=2                  # 本地仅保留 2 天
+
+# 远程备份机器配置
+REMOTE_USER="backupuser"
+REMOTE_IP="192.168.1.200"               # 备份机器 IP
+REMOTE_BACKUP_DIR="/nas/pg_backups"     # 远程机器存储目录
+REMOTE_RETENTION_DAYS=30                # 远程保留 30 天
+
+# --- 执行本地备份 ---
+DATE=$(date +%Y%m%d_%H%M%S)
+FILE_NAME="${DB_NAME}_${DATE}.dump"
+LOCAL_FILE_PATH="${LOCAL_BACKUP_DIR}/${FILE_NAME}"
+
+mkdir -p ${LOCAL_BACKUP_DIR}
+
+docker exec -t ${CONTAINER_NAME} pg_dump -U ${DB_USER} -d ${DB_NAME} -F c -b > ${LOCAL_FILE_PATH}
+
+# --- 校验并传输到远程机器 ---
+if [ -s "${LOCAL_FILE_PATH}" ]; then
+    echo "[$(date)] 本地备份成功: ${LOCAL_FILE_PATH}"
+
+    # 1. 推送文件到远程机器
+    scp ${LOCAL_FILE_PATH} ${REMOTE_USER}@${REMOTE_IP}:${REMOTE_BACKUP_DIR}/
+
+    if [ $? -eq 0 ]; then
+        echo "[$(date)] 远程传输成功！"
+    else
+        echo "[$(date)] ⚠️ 远程传输失败！"
+    fi
+
+    # 2. 清理本地过期备份
+    find ${LOCAL_BACKUP_DIR} -type f -name "*.dump" -mtime +${LOCAL_RETENTION_DAYS} -exec rm -f {} \;
+
+    # 3. 远程清理过期备份 (通过 SSH 在远程机器执行删除)
+    ssh ${REMOTE_USER}@${REMOTE_IP} "find ${REMOTE_BACKUP_DIR} -type f -name '*.dump' -mtime +${REMOTE_RETENTION_DAYS} -exec rm -f {} \;"
+
+else
+    echo "[$(date)] ❌ 备份失败，文件为空！"
+    exit 1
+fi
+```
+
+---
+
+#### 方案 B：NFS 共享挂载（本地直写远程）
+
+如果备份机器支持 NFS，直接将远程目录挂载到宿主机，脚本中无需任何传输命令：
+
+```bash
+# 在宿主机上把远程机器的 /nas/pg_backups 挂载到本地 /mnt/remote_backups
+mount -t nfs 192.168.1.200:/nas/pg_backups /mnt/remote_backups
+```
+
+之后 `pg_backup.sh` 直接将备份写入 `/mnt/remote_backups`，数据就落到了远程机器上。
+
+---
+
+#### 方案 C：对象存储 MinIO / S3（现代化推荐）
+
+如果备份机器上部署了 MinIO 或使用云对象存储（阿里云 OSS / 腾讯云 COS），可使用 `mc` (MinIO Client) 或 `rclone` 上传：
+
+```bash
+# 备份生成后直接同步到 MinIO Bucket
+mc cp ${LOCAL_FILE_PATH} myminio/pg-backups-bucket/
+```
+
+**优点**：对象存储自带版本控制、生命周期管理（可配置自动删除 30 天前的数据），无需自己写 `find ... -exec rm` 的删除逻辑，安全性极高。
 
 ---
 
