@@ -98,7 +98,7 @@ $$
 - **全量基础备份**：使用 PG 自带的 `pg_basebackup` 命令。
 - **WAL 归档**：在 `postgresql.conf` 中配置 `archive_command`（例如用简单的 `cp` 命令把 WAL 复制到备份目录）。
 
-```conf
+```
 # postgresql.conf
 archive_mode = on
 archive_command = 'cp %p /path/to/wal_archive/%f'

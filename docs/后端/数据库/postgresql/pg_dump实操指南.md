@@ -124,7 +124,7 @@ crontab -e
 
 在打开的编辑器中添加：
 
-```cron
+```
 0 2 * * * /bin/bash /path/to/pg_backup.sh >> /var/log/pg_backup.log 2>&1
 ```
 
