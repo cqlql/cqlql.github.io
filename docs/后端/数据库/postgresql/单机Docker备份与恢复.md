@@ -51,6 +51,129 @@ pg_dump -U username -d dbname > backup.sql
 
 > 适用场景：**小库 / 测试环境 / 数据量小、无需精准恢复**。
 
+### Docker 环境实操：三种标准用法
+
+在单机 Docker 环境下使用 `pg_dump` 进行逻辑全量备份非常简单。由于无需在宿主机安装任何工具，直接利用现有的 PostgreSQL 容器即可完成操作。
+
+以下是三种最常用的标准方案，推荐使用**方案 1-1（导出自定义二进制格式）**。
+
+#### 方案 1-1：直接导出为自定义二进制格式（生产首选，带压缩）
+
+使用 `-F c` 参数导出为 Custom 二进制格式，不仅自带压缩、体积小，而且后续可以使用 `pg_restore` 开启**多线程并发恢复**。
+
+```bash
+docker exec -t <your_postgres_container_name> \
+  pg_dump -U <username> -d <dbname> -F c -b -v > /path/to/backup/db_$(date +%Y%m%d_%H%M%S).dump
+```
+
+参数说明：
+
+| 参数 | 含义 |
+| --- | --- |
+| `-t` | 分配伪终端（确保能正常输出数据流，注意**不要**带 `-i`，否则在 Cron 自动化脚本中会报错） |
+| `-F c` | Format Custom（自定义二进制格式） |
+| `-b` | 导出大对象数据（Blobs） |
+| `-v` | 显示备份详细日志 |
+| `> /path/...` | 通过重定向直接将数据保存到**宿主机**的物理磁盘上，不占用容器内部空间 |
+
+#### 方案 1-2：导出为标准纯文本 SQL 文件（适合小库、易查看）
+
+如果数据量很小，或者希望用文本编辑器直接查看 SQL 脚本，可以导出为 `.sql` 文件：
+
+```bash
+docker exec -t <your_postgres_container_name> \
+  pg_dump -U <username> -d <dbname> -F p > /path/to/backup/db_$(date +%Y%m%d_%H%M%S).sql
+```
+
+> **注意**：这种方式生成的文件体积较大，恢复时无法进行多线程并行加速。
+
+#### 方案 1-3：自动定时备份脚本（Linux Crontab 落地）
+
+如果在生产环境中需要实现无人值守的每日自动备份，可以编写一个 Shell 脚本配合宿主机的 `crontab` 运行：
+
+##### 1. 编写备份脚本 `pg_backup.sh`
+
+```bash
+#!/bin/bash
+
+# --- 配置区 ---
+CONTAINER_NAME="postgres-prod"   # PG 容器名称
+DB_USER="postgres"               # 数据库用户名
+DB_NAME="mydb"                   # 数据库名称
+BACKUP_DIR="/data/pg_backups"    # 宿主机备份存储路径
+RETENTION_DAYS=7                 # 备份保留天数
+
+# --- 执行备份 ---
+DATE=$(date +%Y%m%d_%H%M%S)
+FILE_NAME="${DB_NAME}_${DATE}.dump"
+FILE_PATH="${BACKUP_DIR}/${FILE_NAME}"
+
+# 创建备份目录
+mkdir -p ${BACKUP_DIR}
+
+# 执行导出
+docker exec -t ${CONTAINER_NAME} pg_dump -U ${DB_USER} -d ${DB_NAME} -F c -b > ${FILE_PATH}
+
+# 校验备份文件是否生成且非空
+if [ -s "${FILE_PATH}" ]; then
+    echo "[$(date)] Backup succeeded: ${FILE_PATH}"
+    # 清理指定天数之前的旧备份
+    find ${BACKUP_DIR} -type f -name "*.dump" -mtime +${RETENTION_DAYS} -exec rm -f {} \;
+else
+    echo "[$(date)] Backup failed!"
+    exit 1
+fi
+```
+
+##### 2. 配置 Crontab 定时任务
+
+赋予脚本执行权限并加入定时任务（例如每天凌晨 2:00 执行）：
+
+```bash
+chmod +x pg_backup.sh
+crontab -e
+```
+
+在打开的编辑器中添加以下内容：
+
+```cron
+0 2 * * * /bin/bash /path/to/pg_backup.sh >> /var/log/pg_backup.log 2>&1
+```
+
+> 更多关于 Makefile 封装 Crontab 的自动化方案，见：[备份脚本与 Crontab 自动化](./备份脚本与Crontab自动化.md)。
+
+### 数据恢复（pg_dump）
+
+当发生故障需要还原数据库时，恢复命令取决于你备份时的文件格式：
+
+**如果备份的是 `.dump` 自定义格式（方案 1-1）**：
+
+```bash
+# 使用 pg_restore 恢复，-j 4 表示开启 4 线程并行加速，-c 表示恢复前先清理/删表
+docker exec -i <your_postgres_container_name> \
+  pg_restore -U <username> -d <dbname> -c -j 4 < /path/to/backup/db_20260807.dump
+```
+
+**如果备份的是 `.sql` 文本格式（方案 1-2）**：
+
+```bash
+# 使用 psql 直接导入
+docker exec -i <your_postgres_container_name> \
+  psql -U <username> -d <dbname> < /path/to/backup/db_20260807.sql
+```
+
+### 常见避坑指南
+
+1. **全局对象丢失**：`pg_dump` 仅备份单个数据库的表结构和数据，**不会**备份数据库用户/角色、密码及表空间。如需备份全实例的全局角色，建议额外运行一次：
+   ```bash
+   docker exec -t <container> pg_dumpall -U postgres --globals-only > globals.sql
+   ```
+
+2. **免密处理**：直接在 `docker exec` 中运行 `pg_dump` 时，如果容器设置了 `POSTGRES_HOST_AUTH_METHOD=trust` 或使用的是默认 `postgres` 用户本地套接字连接，通常不会提示输入密码。如果提示密码，可在命令前指定环境变量：
+   ```bash
+   docker exec -e PGPASSWORD='your_password' -t ...
+   ```
+
 ## 方案 2：WAL 增量备份 / PITR（生产常用）
 
 ### 原理与结构
