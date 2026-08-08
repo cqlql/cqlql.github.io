@@ -1,3 +1,8 @@
+---
+title: SSH 文件传输 scp sftp
+sort: 3
+---
+
 # SSH 传输文件两种常用方式：scp、sftp
 
 ## 一、scp 命令（简单单文件/文件夹拷贝）

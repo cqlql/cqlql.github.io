@@ -1,3 +1,8 @@
+---
+title: systemctl
+sort: 9
+---
+
 # systemctl
 
 ## 新建服务

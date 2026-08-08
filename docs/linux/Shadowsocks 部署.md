@@ -1,5 +1,6 @@
 ---
 title: Shadowsocks 部署
+sort: 18
 ---
 
 - [ubuntu 安装](#ubuntu-%e5%ae%89%e8%a3%85)

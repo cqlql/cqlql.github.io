@@ -1,6 +1,7 @@
 ---
 title: clash 订阅与负载均衡
 icon: mdi:shield-lock-outline
+sort: 6
 ---
 
 ## subconverter 介绍

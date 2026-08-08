@@ -1,4 +1,9 @@
 
+---
+title: apt 包管理
+sort: 11
+---
+
 ```sh
 # 更新软件源头
 apt update

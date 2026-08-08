@@ -1,5 +1,6 @@
 ---
 title: vim
+sort: 6
 ---
 
 [vim 常用命令总结](https://www.cnblogs.com/yangjig/p/6014198.html)

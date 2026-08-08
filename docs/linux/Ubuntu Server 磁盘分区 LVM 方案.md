@@ -1,3 +1,8 @@
+---
+title: Ubuntu Server 磁盘分区 LVM 方案
+sort: 14
+---
+
 # Ubuntu Server 磁盘分区配置（EFI + LVM）
 
 基于单块 40G 虚拟磁盘、UEFI 启动模式的文本安装器存储配置，采用 **ESP + 独立 /boot + LVM** 方案。

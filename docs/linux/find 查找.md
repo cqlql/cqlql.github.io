@@ -1,5 +1,6 @@
 ---
 title: find 查找
+sort: 5
 ---
 
 查找 ssserver 文件(包括文件夹)

@@ -1,5 +1,6 @@
 ---
 title: linux 概览
+sort: 1
 ---
 
 <!-- @import "[TOC]" {cmd="toc" depthFrom=1 depthTo=6 orderedList=false} -->

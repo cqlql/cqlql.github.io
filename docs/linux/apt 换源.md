@@ -1,3 +1,8 @@
+---
+title: apt 换源
+sort: 12
+---
+
 # Ubuntu 24.04 修改阿里云镜像源完整教程
 你当前系统是 Ubuntu 24.04，**源文件格式为 DEB822，路径 `/etc/apt/sources.list.d/ubuntu.sources`**，旧的 `/etc/apt/sources.list` 仅注释提示，修改无效。
 

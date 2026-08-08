@@ -1,3 +1,8 @@
+---
+title: journalctl
+sort: 10
+---
+
 # journalctl
 
 systemd 的日志查看命令。不指定 `-u` 时查看全部日志，加 `-u <服务名>` 只看某服务。

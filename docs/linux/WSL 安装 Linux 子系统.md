@@ -1,5 +1,10 @@
 
 
+---
+title: WSL 安装 Linux 子系统
+sort: 15
+---
+
 > [!WARNING]
 >
 > 以下两种方式都需要 [安装 Hyper-V](https://zhuanlan.zhihu.com/p/74906615)

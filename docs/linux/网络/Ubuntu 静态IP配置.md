@@ -1,3 +1,8 @@
+---
+title: Ubuntu 静态IP配置
+sort: 1
+---
+
 # Ubuntu 24.04 固定静态 IP
 
 Ubuntu 24.04 统一使用 **Netplan** 管理网络（底层 renderer 为 `networkd`），推荐先看网卡信息再配置。
