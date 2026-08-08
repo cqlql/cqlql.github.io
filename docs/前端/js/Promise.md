@@ -1,3 +1,9 @@
+---
+title: Promise
+icon: mdi:autorenew
+sort: 18
+---
+
 ## 多个 `await` 同一个 Promise
 
 本质就是“多个等待者共享同一个结果”，Promise 一完成，**所有等待者一起被唤醒**。

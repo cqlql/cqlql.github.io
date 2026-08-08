@@ -1,3 +1,9 @@
+---
+title: Math 数学
+icon: mdi:math-compass
+sort: 11
+---
+
 
 
 ## 角度获取

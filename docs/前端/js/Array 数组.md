@@ -1,3 +1,9 @@
+---
+title: Array 数组
+icon: mdi:array
+sort: 13
+---
+
 ## 创建
 
 **字面量方式**

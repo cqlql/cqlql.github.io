@@ -1,3 +1,9 @@
+---
+title: H5 拖放
+icon: mdi:gesture
+sort: 31
+---
+
 ## 元素可拖放设置
 
 ```html

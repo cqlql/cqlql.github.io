@@ -1,3 +1,9 @@
+---
+title: 光标操作
+icon: mdi:cursor-text
+sort: 32
+---
+
 ## 记录光标位置应使用 [Range](https://developer.mozilla.org/zh-CN/docs/Web/API/range)
 
 注意，不是用 [Selection](https://developer.mozilla.org/zh-CN/docs/Web/API/Selection)

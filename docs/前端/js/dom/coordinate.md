@@ -1,3 +1,9 @@
+---
+title: 坐标
+icon: mdi:crosshairs
+sort: 9
+---
+
 
 
 ## 光标、触摸点坐标
