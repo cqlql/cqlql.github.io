@@ -1,7 +1,8 @@
 ---
-title: transition 过渡动画
+title: transition 过渡
+icon: mdi:transition
+sort: 2
 ---
-
 
 ## transition 支持情况：ie10+
 

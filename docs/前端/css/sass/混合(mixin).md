@@ -1,8 +1,8 @@
 ---
-title: 混合(mixin)
+title: 混合 (mixin)
+icon: mdi:merge
+sort: 2
 ---
-
-
 
 > 声明 简单声明 css块 css块声明 功能块声明
 
@@ -17,9 +17,7 @@ title: 混合(mixin)
 }
 ```
 
-
 ## 带参声明
-
 
 ```
 @mixin opacity($opacity:50) {
@@ -35,4 +33,3 @@ title: 混合(mixin)
     @include center-block;
 }
 ```
-

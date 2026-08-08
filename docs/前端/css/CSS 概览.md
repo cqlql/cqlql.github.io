@@ -1,5 +1,7 @@
 ---
 title: CSS 概览
+icon: mdi:language-css3
+sort: 1
 ---
 
 ## 使用 css 的 3 种方式：外部样式表，内部样式表，内联样式

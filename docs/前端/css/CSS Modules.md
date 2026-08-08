@@ -1,5 +1,7 @@
 ---
 title: CSS Modules
+icon: mdi:modules
+sort: 12
 ---
 
 **由文件划分模块**

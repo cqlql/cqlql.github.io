@@ -1,3 +1,9 @@
+---
+title: Tailwind
+icon: devicon:tailwindcss
+sort: 17
+---
+
 # tailwind
 
 ## @theme inline

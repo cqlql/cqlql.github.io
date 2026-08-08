@@ -1,5 +1,7 @@
 ---
 title: sass 概览
+icon: devicon:sass
+sort: 1
 ---
 
 ## math.div 使用
@@ -12,13 +14,22 @@ title: sass 概览
 }
 ```
 
-## 问题
+## 颜色函数
 
-### 变量覆盖 default 不生效
+### 颜色变暗
 
-在 js 中 import 不生效，必须在 scss 文件中进行 import
+`darken` 已废弃，改用 `color.scale`：
 
-## 颜色透明函数
+```scss
+.font{
+  // 旧
+  color: darken($color: $uni-primary, $amount: 40%);
+  // 改用
+  color: color.scale($color: $uni-primary, $lightness: -40%);
+}
+```
+
+### 颜色透明
 
 ```scss
 $color-primary: #409eff;
@@ -26,3 +37,9 @@ $color-primary: #409eff;
   color: rgba($color-primary, 0.1);
 }
 ```
+
+## 问题
+
+### 变量覆盖 default 不生效
+
+在 js 中 import 不生效，必须在 scss 文件中进行 import
