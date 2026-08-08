@@ -83,7 +83,7 @@ git-auto-push.bat          # 检测变更后自动 git add/commit/push
 
 站点采用**目录即结构**的约定，自动生成导航与侧边栏，新增内容时请遵循：
 
-1. **目录元数据**：在任意目录下放置 `.config` 文件（JSON），控制该目录在导航中的展示：
+1. **目录元数据**：在任意**目录**下放置 `.config` 文件（JSON），控制该目录在导航中的展示：
    ```json
    {
      "title": ".NET",
@@ -91,6 +91,7 @@ git-auto-push.bat          # 检测变更后自动 git add/commit/push
      "sort": 99
    }
    ```
+   > 注意：`.config` 仅作用于**目录**，由 `docs/.vuepress/scripts/build-nav-tree.ts` 的 `readDirConfig()` 读取目录内的 `.config` 文件。
 2. **Markdown 文件 front matter**：每篇文档建议带：
    ```yaml
    ---
@@ -99,6 +100,9 @@ git-auto-push.bat          # 检测变更后自动 git add/commit/push
    sort: 99
    ---
    ```
+   > 注意：单篇 `.md` 文件的排序 / 标题 / 图标**只能通过自身 front matter 控制**，由 `buildFileNode()` 读取。
+   > **不要**为单个 `.md` 文件创建同名 `.config`（如 `foo.md` 配 `foo.config`）——当前脚本不会读取它，对排序无效。
+   > 若某 `.md` 原本没有 front matter，需要排序时请直接在其顶部补 `--- ... ---` 块，而非新增 `.config`。
 3. **排序**：
    - 可用 `sort` 字段，或
    - 通过文件名前缀排序，如 `01_开始`，构建时 `01_` 前缀会被自动去掉（见 `utils/nav-generate.ts` 中 `removeBasenameFirstNo`）。

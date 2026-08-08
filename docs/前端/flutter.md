@@ -1,6 +1,7 @@
 ---
 title: flutter
 icon: devicon:flutter
+sort: 86
 ---
 
 ## 安装（Windows）
