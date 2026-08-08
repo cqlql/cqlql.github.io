@@ -1,19 +1,27 @@
-Kubernetes 被称为“云操作系统”
+---
+title: Kubernetes 介绍
+icon: mdi:kubernetes
+sort: 1
+---
 
+Kubernetes 被称为"云操作系统"。
 
+## 核心概念
 
-pop 推荐只放一个主进程+多个辅助进程。也就是一个微服务。
+### 集群与节点
 
+- **集群**：是由**多台机器**组成的整体。它可以包含 2 台、10 台甚至上千台机器。
+- **节点**：是集群里的**单台机器**。
 
+工作节点（Worker Node）：物理机器或者虚拟机，一个工作节点对应一台机器。
 
-工作节点(Worker Node)：物理机器或者虚拟机，一个工作节点对应一台机器：
+### Pod
 
-- **集群：** 是由**多台机器**组成的整体。它可以包含 2 台、10 台甚至上千台机器。
-- **节点：** 是集群里的**单台机器**。
+Pod 推荐只放一个主进程 + 多个辅助进程，也就是一个微服务。
 
+### Labels 与 Selectors
 
-
-如何区分pop，通过Labels+Selectors
+通过 Labels + Selectors 来区分和管理 Pod：
 
 | **维度**            | **例子**                       | **作用**                                   |
 | ------------------- | ------------------------------ | ------------------------------------------ |
@@ -22,42 +30,31 @@ pop 推荐只放一个主进程+多个辅助进程。也就是一个微服务。
 | **Component Label** | `tier: frontend` 或 `role: db` | **区分应用内的组件**（前端、后端、数据库） |
 | **Version Label**   | `version: v1.2`                | 区分同一个微服务的不同版本                 |
 
+## API 服务器（API Server）
 
+API 服务器特指 `kube-apiserver` 组件，它是 Kubernetes 控制平面的核心组件，是集群的"大脑"，负责管理所有 API 请求和集群状态。
 
-分布式事务/锁（数据库）：解决多副本同时修改同一行数据
+- **集群的通信枢纽**：所有 Kubernetes 组件和外部客户端的**唯一入口**。
+- **资源操作的权威来源**：直接与 `etcd` 通信，负责校验、持久化和管理集群状态。
+- **版本兼容性控制中心**：决定了集群支持哪些 Kubernetes API 版本。
 
+## 容器网络插件
 
+常见的 CNI 网络插件：
 
-## 数据库的高可用、可移植、易管理
+- Flannel
+- Calico
+- Cilium
+- Canal
+- Multus（多网络）
 
-现阶段推荐 **Operator + Longhorn**，应为够简单，等到一定规模，也许需要 **Operator + Ceph**。
+## K8s 管理面板
 
-**Operator + 云硬盘**最省心，但是要钱。
+- **Kubernetes Dashboard**：简单、轻量、上手快，适合个人项目 / 小团队 / 学习 / 开发环境。
+- **Rancher**：适合企业 / 多集群 / 多团队 / 有权限要求的场景，能大幅提升可管理性与扩展性。
 
-为什么大家都不选 **Operator + 本地存储**，因为在生产环境中，**“数据重平衡（Rebalance）”**是一个巨大的风险点。
+> 实际部署时也不必完全抛弃 Dashboard：即使用了 Rancher，原生 Dashboard 通常还是可以作为快速查看 / 调试工具保留。
 
-想象一下：如果你有 2TB 数据。
+## 相关工具
 
-- **用本地存储**：坏一台机器，新 Pod 要同步 2TB 数据，可能需要几个小时甚至一天，期间网络带宽会被占满，影响业务。
-- **用 Longhorn**：坏一台机器，新 Pod 挂载旧硬盘，几秒钟就恢复了。
-
-### Operator 选择
-
-以下是目前社区公认、经过大规模生产验证的优秀选择：
-
-#### **PostgreSQL**
-
-- **CloudNativePG (CNPG):** 目前最推荐。它不依赖外部工具（如 Patroni），而是利用 K8s 原生功能实现高可用，极其轻量且现代化。
-- **Zalando Postgres Operator:** 历史悠久，功能极其丰富，经受过 Zalando 公司数千个数据库实例的考验。
-
-#### **MySQL**
-
-- **MySQL Operator for InnoDB Cluster:** Oracle 官方出品，如果你追求“原厂血统”，这是首选。
-- **TiDB Operator:** 虽然是分布式数据库，但其 Operator 的设计非常精妙，是处理有状态应用的教科书。
-- **Presslabs MySQL Operator:** 比较成熟的社区方案。
-
-#### **Redis**
-
-- **Redis Operator (by OT-CONTAINER):** 支持 Sentinel、Cluster 等各种模式，社区活跃度较高。
-- **Spotahome Redis Operator:** 另一个流行的轻量级选择。
-
+- [Kubernetes IDE - Lens](https://k8slens.dev/)：图形化 K8s 管理工具。
