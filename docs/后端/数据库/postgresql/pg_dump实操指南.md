@@ -317,5 +317,5 @@ my-springboot-project/               # 项目根目录
 - **安全隔离**：`.gitignore` 中忽略 `.dump`、`.log`、`.env` 等敏感/临时文件，只提交模板（`.example`）。
 - **Makefile 作为统一入口**：`make backup-cron-install` 一行命令完成 Crontab 安装，新人无需了解底层细节。
 
-> 更多关于项目目录结构的设计原则，见：[项目目录结构规范](../架构设计/项目目录结构规范.md)。
+> 更多关于项目目录结构的设计原则，见：[项目目录结构规范](../../架构设计/项目目录结构规范.md)。
 > 关于 `pg_dump` 在整个备份体系中的定位（vs `pg_basebackup` / `pgBackRest`），见：[单机 Docker PostgreSQL 备份与恢复](./单机Docker备份与恢复.md)。

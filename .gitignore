@@ -7,3 +7,4 @@ docs/.vuepress/logs/
 docs/.vuepress/components/data.json
 docs/.vuepress/server/out.log
 docs/.vuepress/server/process.log
+.workbuddy/

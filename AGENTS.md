@@ -28,15 +28,13 @@ pnpm run docs:update-package  # 升级 vuepress 相关依赖（vp-update）
 docs/                      # 主内容目录（被 config.ts 加载）
   README.md                # 首页（使用 <HomeView> 组件）
   .vuepress/               # 站点配置与自定义逻辑
-  __old__/                 # 归档历史内容（不参与主目录）
-  # ===== 笔记分类目录 =====
-  后端/                     # 后端技术栈笔记
-  前端/                     # 前端技术栈笔记
+  # ===== 笔记分类目录（共 580 篇） =====
+  前端/                     # 前端技术栈笔记（约 290 篇）
+  后端/                     # 后端技术栈笔记（约 225 篇）
   linux/                    # Linux 运维笔记
   ai/                       # AI 相关笔记
   项目/                     # 具体项目沉淀
-  其他/                     # 杂项（终端、git、树莓派等）
-  临时/                     # 临时草稿（未被自动推送或长期保留）
+  其他/                     # 杂项（终端、vscode、数学、调试、git 等）
 docs-other/                # 另一内容源（theme.ts 中 docsDir 指向此处）
 docker-compose.yml
 git-auto-push.bat          # 检测变更后自动 git add/commit/push
@@ -57,13 +55,15 @@ git-auto-push.bat          # 检测变更后自动 git add/commit/push
 - 其它：`存储/`、`架构设计/`、`权限系统/`、`认证与授权/`、`tools.md`。
 
 ### `前端/`
-- 语言与框架：`js/`、`ts/`、`vue/`（20 篇）、`react/`、`nodejs/`、`css/`、`web-api/`。
-- 工程化与跨端：`构建工具/`、`monorepo.md`、`astro.md`、`electron/`、`taro小程序/`、`wechat微信小程序/`、`第三方js库/`。
+- 语言与基础：`js/`（65 篇，含 `dom/` 子目录）、`ts/`（20 篇）、`css/`（30 篇，含 `sass/`、`postcss/`、`布局/`）、`html/`（18 篇）、`svg/`、`web-api/`。
+- 框架：`vue/`（46 篇，含 `01_Vue3/`、`02_Vue2/`、`vue-router/`、`Vuex/`、`vuepress2/`）、`react/`（18 篇，含 `old/` 旧版归档）、`nodejs/`。
+- 工程化与跨端：`构建工具/`（33 篇：`webpack/`（含 `old/`）、`vite/`、`rollup/`、`gulp/`、`babel/`、`eslint-webpack/`、`prettier/`、`vue-cli5/`）、`electron/`、`taro/`、`wechat/`、`第三方js库/`、`monorepo.md`、`astro.md`。
+- 测试：`测试/`（jest 等）。
 - 设计：`架构设计/`、`前端目录结构规划.md`（含 Vue/React 的 `features` 分层规范）。
 - `踩坑记录.md` 汇总常见坑点。
 
 ### `linux/`
-网络、磁盘测速、解压缩、进程管理、`apt` 包管理与换源、`find` 查找、shell 快捷键、`systemctl`、LVM 磁盘分区、WSL 安装等。
+`网络/`（SSH/scp、静态 IP、代理、诊断）、磁盘测速、解压缩、进程管理、`apt` 包管理与换源、`find` 查找、shell 快捷键、`systemctl`、`journalctl`、LVM 磁盘分区、WSL 安装等。
 
 ### `ai/`
 `框架与协议.md`、`AI方案与平台.md`、`AI工具.md`、`AI实时语音.md`。
@@ -72,12 +72,12 @@ git-auto-push.bat          # 检测变更后自动 git add/commit/push
 `面试助手/` 等具体项目沉淀。
 
 ### `其他/`
-`终端/`、`git.md`、`树莓派.md`、`algolia 搜索部署.md`。
+`终端/`（cmd、powershell、ps7、curl）、`vscode/`、`数学/`、`调试/`、`git.md`、`树莓派.md`、`algolia 搜索部署.md`、`浏览器 url 打开桌面应用 win系统.md` 等。
 
 ### `docs-other/`
 独立内容源（theme `docsDir` 指向此处），含 `翻墙/`、`工作/`、`学习/`、`临时/` 等，与主 `docs/` 并列构建。
 
-> 注：`__old__/` 为历史归档，不参与主目录；`临时/` 用于未整理草稿。
+> 注：早期的 `__old__/` 历史归档已于 2026-08 全量梳理并合入 `docs/` 对应分类，该目录已移除。
 
 ## 内容编写约定（核心）
 
