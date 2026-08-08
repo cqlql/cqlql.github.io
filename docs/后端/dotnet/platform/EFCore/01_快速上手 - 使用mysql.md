@@ -6,7 +6,7 @@ icon: mdi:database-plus
 
 ## 在 docker 环境中安装 mysql
 
-[详情移步](/MySql/00_docker%20环境快速使用教程)
+[详情移步](../../../../数据库/mysql/01_安装部署/02_docker%20部署.md)
 
 ## 创建模型
 

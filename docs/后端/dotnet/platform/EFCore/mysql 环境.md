@@ -6,7 +6,7 @@ icon: mdi:docker
 
 ## mysql环境
 
-[这里我使用 docker 安装](/MySql/00_docker%20%E7%8E%AF%E5%A2%83%E5%BF%AB%E9%80%9F%E4%BD%BF%E7%94%A8%E6%95%99%E7%A8%8B)
+[这里我使用 docker 安装](../../../../数据库/mysql/01_安装部署/02_docker%20部署.md)
 
 
 ## 引入 mysql ef core 数据库提供程序
