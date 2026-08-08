@@ -1,5 +1,10 @@
 
 
+---
+title: ps7 (PowerShell 7)
+sort: 30
+---
+
 ## 常用命令
 
 ### tree 命令

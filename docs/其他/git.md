@@ -1,6 +1,7 @@
 ---
 title: git
 icon: devicon:git
+sort: 40
 ---
 
 ## 远程仓库
