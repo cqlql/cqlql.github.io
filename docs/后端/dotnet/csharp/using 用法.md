@@ -1,3 +1,8 @@
+---
+title: using 用法
+icon: mdi:import
+---
+
 ## 1. using 指令
 用在源代码文件开头。导入命名空间的所有类，这样使用类时就无需详细指定命名空间了。
 
@@ -7,6 +12,13 @@
 - `static` 导入静态类的所有成员，这样连类名都无需指定了。
 
 更详细的介绍参考官方文档：[using 指令 - C# 参考 | Microsoft Learn](https://learn.microsoft.com/zh-cn/dotnet/csharp/language-reference/keywords/using-directive)
+
+
+### 关于引入 cs 文件的疑问
+
+项目中写的 cs 文件需要引入吗？需要。导入方式就是通过完整限定名称，即 `命名空间名.类名` 完整写法。通过 using 可以省去命名空间，相当于导入命名空间下的所有类了。
+
+> 这是纯前端转后端的疑问，import 惯了，有些不适应。
 
 ## 2. 释放资源
 

@@ -1,3 +1,8 @@
+---
+title: ILogger 日志基本使用
+icon: mdi:file-document-outline
+---
+
 ```csharp
 using Microsoft.AspNetCore.Mvc;
 

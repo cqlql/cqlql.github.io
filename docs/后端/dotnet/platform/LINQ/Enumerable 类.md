@@ -1,3 +1,8 @@
+---
+title: Enumerable 类
+icon: mdi:format-list-checks
+---
+
 - [说明](#说明)
 - [Range 生成指定范围的整数序列](#range-生成指定范围的整数序列)
   - [基础](#基础)

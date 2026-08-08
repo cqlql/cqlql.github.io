@@ -1,4 +1,8 @@
 
+---
+title: 快速上手 - 使用 MySQL
+icon: mdi:database-plus
+---
 
 ## 在 docker 环境中安装 mysql
 

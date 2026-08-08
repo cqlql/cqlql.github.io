@@ -1,3 +1,8 @@
+---
+title: DbContext 配置
+icon: mdi:database-cog
+---
+
 ## 注入方式：webapi + EFCore 项目
 
 appsettings.json 配置文件

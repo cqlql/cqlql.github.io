@@ -1,3 +1,8 @@
+---
+title: Random 随机数
+icon: mdi:dice-5
+---
+
 ## 随机指定范围的整数
 
 ```c#

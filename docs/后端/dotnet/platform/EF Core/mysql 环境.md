@@ -1,4 +1,9 @@
 
+---
+title: MySQL 环境搭建
+icon: mdi:docker
+---
+
 ## mysql环境
 
 [这里我使用 docker 安装](/MySql/00_docker%20%E7%8E%AF%E5%A2%83%E5%BF%AB%E9%80%9F%E4%BD%BF%E7%94%A8%E6%95%99%E7%A8%8B)

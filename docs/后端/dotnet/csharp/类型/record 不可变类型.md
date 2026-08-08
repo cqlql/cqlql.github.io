@@ -1,3 +1,8 @@
+---
+title: record 不可变类型
+icon: mdi:lock-outline
+---
+
 ## record 不可变类型
 
 使用 record class 描述不可变类型，是引用类型，class 关键字可以省略。

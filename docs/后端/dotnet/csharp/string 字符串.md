@@ -1,3 +1,8 @@
+---
+title: string 字符串
+icon: mdi:format-text
+---
+
 ## 连接字符串
 
 在使用循环连接字符串时，应避免时用 String.Concat 或 + 运算符，应使用使用 [StringBuilder](https://learn.microsoft.com/zh-cn/dotnet/csharp/how-to/concatenate-multiple-strings#stringbuilder) 代替。
