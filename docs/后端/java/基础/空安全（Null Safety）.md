@@ -1,3 +1,8 @@
+---
+title: 空安全（Null Safety）
+icon: mdi:shield-check
+---
+
 # Java 空安全（Null Safety）与 IDE 静态分析
 
 > 目标：在**编译期 / IDE 阶段**尽早发现潜在的空指针风险，而不是等到运行时 NPE。

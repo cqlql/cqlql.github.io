@@ -1,6 +1,11 @@
 
 
-## spring boot 4 中变化
+---
+title: Jackson 序列化器配置
+icon: mdi:code-json
+---
+
+# Jackson 序列化器配置
 
 在 spring boot 4 中，`Jackson2JsonRedisSerializer` `GenericJackson2JsonRedisSerializer` 都已经废弃，改用
 

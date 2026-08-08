@@ -1,4 +1,9 @@
-## 发送 JSON
+---
+title: Spring WebSocket 服务端
+icon: mdi:server
+---
+
+# Spring WebSocket 服务端
 
 ### 推荐：用 Jackson
 

@@ -1,4 +1,9 @@
-## WebFlux
+---
+title: Java 异步方案对比
+icon: mdi:sync
+---
+
+# Java 异步方案对比
 
 真正的 java 异步，但不好用。
 

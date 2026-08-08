@@ -1,5 +1,10 @@
 
 
+---
+title: MyBatis vs JPA 选型
+icon: mdi:scale-balance
+---
+
 # MyBatis（@Mapper）vs JPA（ORM）使用边界与选型
 
 > [!TIP]

@@ -1,7 +1,12 @@
 
 
 
-# jpa-实体映射
+---
+title: JPA 实体映射
+icon: mdi:link-variant
+---
+
+# JPA 实体映射
 
 ```java
 package com.example.javademo.modules.user.entity;

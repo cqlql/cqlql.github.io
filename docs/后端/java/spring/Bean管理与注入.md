@@ -1,4 +1,9 @@
-# Bean管理与注入（Dependency Injection）
+---
+title: Bean 管理与注入
+icon: mdi:package-variant-closed
+---
+
+# Bean 管理与注入（Dependency Injection）
 
 ## @Component（及其派生）
 

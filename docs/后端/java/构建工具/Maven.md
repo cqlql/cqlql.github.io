@@ -1,4 +1,9 @@
-## Maven 常用命令
+---
+title: Maven 常用命令
+icon: devicon:maven
+---
+
+# Maven 常用命令
 
 ### 1. 基础构建常用命令
 

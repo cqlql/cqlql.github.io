@@ -1,4 +1,10 @@
-# 匿名类与Lambda
+---
+title: 匿名类与 Lambda
+icon: mdi:lambda
+---
+
+# 匿名类与 Lambda
+
 ## Java 匿名子类（Anonymous Subclass）
 
 ### 1️⃣ 定义

@@ -1,4 +1,9 @@
-# java类
+---
+title: Java 类
+icon: mdi:cube-outline
+---
+
+# Java 类
 
 ## static 只能是内部类
 

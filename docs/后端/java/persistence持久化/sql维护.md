@@ -1,4 +1,9 @@
-# sql 维护
+---
+title: SQL 维护方案
+icon: mdi:database-cog
+---
+
+# SQL 维护方案
 
 > [!WARNING]
 >

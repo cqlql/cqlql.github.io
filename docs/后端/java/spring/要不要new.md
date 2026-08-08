@@ -1,3 +1,8 @@
+---
+title: Spring 中要不要自己 new
+icon: mdi:help-circle
+---
+
 # Spring 中「要不要自己 `new`」
 
 ## 一、核心结论

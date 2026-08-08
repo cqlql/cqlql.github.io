@@ -1,4 +1,9 @@
-# SpringBoot 启动流程
+---
+title: Spring Boot 启动流程
+icon: mdi:rocket-launch
+---
+
+# Spring Boot 启动流程
 
 ## 1️⃣ `@Component`
 

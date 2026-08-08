@@ -1,3 +1,8 @@
+---
+title: JPA 事务机制
+icon: mdi:database-sync
+---
+
 # Spring Data JPA 事务管理机制详解
 
 ## 1. 核心结论

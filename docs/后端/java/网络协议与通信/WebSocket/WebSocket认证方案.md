@@ -1,6 +1,11 @@
 
 
-## web 访问 websocket 如何认证
+---
+title: WebSocket 认证方案
+icon: mdi:shield-account
+---
+
+# WebSocket 认证方案
 
 JWT 传输，由于标准的浏览器 WebSocket API 不支持自定义 Header，所以只能通过 **URL 参数**或者在 **STOMP 握手帧**中传递，或者使用**一次性票据**
 

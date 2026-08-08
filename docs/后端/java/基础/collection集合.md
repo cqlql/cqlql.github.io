@@ -1,4 +1,9 @@
-## 循环方式
+---
+title: 集合与循环
+icon: mdi:format-list-bulleted
+---
+
+# 集合与循环
 
 ### 经典方式（最常用 & 性能最好）
 

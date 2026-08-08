@@ -1,4 +1,9 @@
-## 建议结构
+---
+title: Java 项目目录结构规划
+icon: mdi:folder-structure
+---
+
+# Java 项目目录结构规划
 
 ```
 javademo

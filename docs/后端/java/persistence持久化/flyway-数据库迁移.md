@@ -1,4 +1,9 @@
-# flyway-数据库迁移
+---
+title: Flyway 数据库迁移
+icon: mdi:database-arrow-up
+---
+
+# Flyway 数据库迁移
 
 ## 一、依赖配置
 

@@ -1,3 +1,8 @@
+---
+title: Hibernate ddl-auto 说明
+icon: mdi:database-cog
+---
+
 # Hibernate ddl-auto 说明
 
 ## 作用

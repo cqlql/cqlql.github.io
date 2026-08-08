@@ -1,4 +1,9 @@
-# java enum 枚举
+---
+title: Enum 枚举
+icon: mdi:format-list-numbered
+---
+
+# Java Enum 枚举
 
 ## 基础语法
 

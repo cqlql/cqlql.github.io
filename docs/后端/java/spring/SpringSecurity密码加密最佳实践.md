@@ -1,3 +1,8 @@
+---
+title: Spring Security 密码加密最佳实践
+icon: mdi:lock
+---
+
 # Spring Security 密码编码器最佳实践
 
 **分类：** `#SpringSecurity` `#Cryptography` `#Java` `#Backend`

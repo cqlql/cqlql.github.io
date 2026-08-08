@@ -1,4 +1,9 @@
-## 方法引用（Method Reference）
+---
+title: Lambda 表达式与方法引用
+icon: mdi:lambda
+---
+
+# Lambda 表达式与方法引用
 
 方法引用实际上是 Lambda 表达式的一种**缩写形式（语法糖）**只要一个 Lambda 表达式仅仅是调用一个已存在的方法，就可以用方法引用来替换。
 

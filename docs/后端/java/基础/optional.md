@@ -1,4 +1,11 @@
- `Optional` 是在 Java 8 中引入的一个容器对象，它的核心目的是为了**更优雅地处理 `null` 值**，减少代码中随处可见的 `if (obj != null)` 判断，从而避免恼人的 `NullPointerException` (NPE)。
+---
+title: Optional 容器
+icon: mdi:shield-half-full
+---
+
+# Optional 容器
+
+`Optional` 是在 Java 8 中引入的一个容器对象，它的核心目的是为了**更优雅地处理 `null` 值**，减少代码中随处可见的 `if (obj != null)` 判断，从而避免恼人的 `NullPointerException` (NPE)。
 
 ## 传统 vs Optional
 

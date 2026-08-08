@@ -1,3 +1,8 @@
+---
+title: Debug 日志动态开启
+icon: mdi:bug-check
+---
+
 # 已部署 Spring Boot 项目动态开启 Debug 日志
 
 **分类：** `#SpringBoot` `#Actuator` `#Logging` `#Java` `#Backend`
