@@ -51,7 +51,7 @@ pg_dump -U username -d dbname > backup.sql
 
 > 适用场景：**小库 / 测试环境 / 数据量小、无需精准恢复**。
 
-> Docker 环境下 `pg_dump` 的完整实操（三种用法、恢复命令、定时脚本、Crontab 配置、Makefile 封装、项目目录位置），见独立文章：[pg_dump 实操指南：脚本、定时与工程化](./pg_dump实操指南.md)。本文只保留方案原理层面的内容。
+> Docker 环境下 `pg_dump` 的完整实操（三种用法、恢复命令、定时脚本、Crontab 配置、Makefile 封装、项目目录位置），见独立文章：[pg_dump 实操指南：脚本、定时与工程化](./pg_dump单机docker实操指南.md)。本文只保留方案原理层面的内容。
 
 ## 方案 2：WAL 增量备份 / PITR（生产常用）
 
