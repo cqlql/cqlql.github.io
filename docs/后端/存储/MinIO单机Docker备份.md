@@ -38,7 +38,7 @@ mc mirror --overwrite my-src/my-bucket my-backup/my-bucket-backup
 - `mc mirror` 是**客户端对象同步工具**，本质是 S3 到 S3 的镜像，简单、无需额外集群配置，对单机 Docker + MinIO 完全够用。
 - 它不是 MinIO 官方的 **Bucket Replication（服务端复制）**——后者由 MinIO 服务端感知对象变化、不依赖常驻 `mc` 进程、失败自动恢复、支持版本复制，更适合企业跨集群灾备。
 
-```text
+```plaintext
 生产 MinIO ──(Bucket Replication, 服务端)──► 备份 MinIO   (企业生产级推荐)
 生产 MinIO ──(mc mirror,        客户端)──► 备份 MinIO   (小团队/个人可用)
 ```
@@ -47,7 +47,7 @@ mc mirror --overwrite my-src/my-bucket my-backup/my-bucket-backup
 
 > ⚠️ **禁止把 `rsync` / `tar` 复制 `/data` 作为主备份。** MinIO 内部不是简单文件服务器，带有 `xl.meta` 元数据、multipart 分片状态、version 信息等。若在对象**写入过程中**复制，会得到不一致状态的半成品对象。主备份必须走 **API 层（对象级）**。
 
-```text
+```plaintext
 业务写入 MinIO
       │
       │ mc mirror (对象级, 一致性由 MinIO 保证)
@@ -66,7 +66,7 @@ mc mirror --overwrite my-src/my-bucket my-backup/my-bucket-backup
 
 正确做法是**数据分源、各管各的**：
 
-```text
+```plaintext
 业务数据: PostgreSQL ──pg_dump + WAL 归档──► 独立备份存储
 文件数据: MinIO      ──mc mirror──────────► 备份 MinIO / OSS
 ```
@@ -83,6 +83,17 @@ mc mirror --overwrite my-src/my-bucket my-backup/my-bucket-backup
 
   建议对用户文件桶开启 Versioning——用户误删 `resume.pdf` 后仍有旧版本可恢复。
 
+- **备份端应防篡改（对象锁定 / 合规模式）**：版本控制可防误删，但**挡不住勒索软件主动覆盖旧版本**。若备份端 MinIO 支持，建议为备份桶开启 **WORM（对象锁定 / 合规模式 Compliance）**，使历史版本在保留期内（如 30 天）**既不可删也不可改**，即使备份服务器被攻破、凭证泄露，勒索程序也无法抹掉历史备份。
+
+  ```bash
+  # 创建带对象锁定的备份桶（需在创建时启用，开启后不可关闭）
+  mc mb --with-lock backup-minio/passup-backup-bucket
+  # 为已有桶启用版本控制（锁定桶须配合版本控制）
+  mc version enable backup-minio/passup-backup-bucket
+  ```
+
+  > 注意：对象锁定需在**创建桶时**用 `--with-lock` 一并开启，已存在的普通桶无法再追加锁定能力。合规模式（Compliance）比治理模式（Governance）更严格，连管理员都无法提前删除。
+
 - **备份介质与宿主机不要在同一块硬盘**：否则硬盘损坏时备份也会一并丢失。
 - **远期规划（升级为集群）**：条件允许时迁移到 **MinIO 分布式集群模式（Erasure Code 纠删码）**，提供节点级高可用。
 
@@ -98,7 +109,7 @@ mc mirror --overwrite my-src/my-bucket my-backup/my-bucket-backup
 
 ### 5.2 项目目录结构
 
-```text
+```plaintext
 project/
 ├── Makefile                      # 运维指挥官：封装 cron-install / uninstall / status / backup
 └── deploy/
@@ -261,7 +272,7 @@ sudo chown -R "$USER:$USER" /var/log/minio-backup
 
 对单机 Ubuntu + Docker 的个人 / 小团队项目，不必上 Bucket Replication，用 `mc mirror` 定时同步即可：
 
-```text
+```plaintext
             主服务器(业务)
               MinIO (/data/minio)
                 │
@@ -291,7 +302,7 @@ sudo chown -R "$USER:$USER" /var/log/minio-backup
 
 - **MinIO 原生 TLS**：将证书放入容器内凭证目录（Docker 部署通常挂载为 `/root/.minio/certs/`，即容器内的 `~/.minio/certs/`，具体路径以容器实际挂载为准），包含：
 
-  ```text
+  ```plaintext
   certs/
   ├── public.crt
   └── private.key
@@ -314,6 +325,8 @@ DEST_URL="https://backup-minio.yourdomain.com:9000"
 ssh -f -N -L 19000:localhost:9000 user@<备份服务器公网IP> -p <SSH端口>
 ```
 
+> 隧道进程挂掉会导致备份静默失败，建议用 **`autossh`** 或 **Systemd 服务**守护该转发，并加 `-o ServerAliveInterval=30 -o ServerAliveCountMax=3` 自动检测断连重连。
+
 脚本中把目标指向本地映射端口：
 
 ```bash
@@ -326,9 +339,11 @@ DEST_URL="http://127.0.0.1:19000"
 1. **限速（非常重要）**：公网带宽昂贵或受限，加 `--limit-upload` 避免备份跑满生产出口：
 
    ```bash
-   # 限制最大上传速度为 50 MB/s
+   # 限制最大上传速度为 50 MB/s（mc 中 M=MB/s，也可写 MiB；支持 K/M/G 后缀）
    mc mirror --overwrite --limit-upload 50M src-minio/my-bucket dest-minio/my-bucket
    ```
+
+   > 若需同时限制下载（从备份端拉取恢复时的下行），可加 `--limit-download`，用法与 `--limit-upload` 相同。
 
 2. **断点续传与重试**：公网波动时保持定时 Cron 增量同步（如每小时）。`mc mirror` 会自动跳过已同步且大小 / ETag 未变动的文件，仅重传遗漏部分。
 3. **防误删**：脚本**不加 `--remove`**，即便生产端遭勒索或误删，备份端数据依然留存。
@@ -352,7 +367,7 @@ DEST_URL="http://127.0.0.1:19000"
 
 **可选双保险（仅当需要秒级 RPO 时采用）**：两种方式基于文件状态比对，具有**幂等性**，并行不会冲突——`--watch` 解决 RPO 实现秒级热备，Cron 解决自愈、补全遗漏事件。
 
-```text
+```plaintext
           生产端 MinIO
                │
    ┌───────────┴────────────┐
@@ -391,20 +406,23 @@ Cron 频率建议：核心业务数据每 **15 分钟 / 1 小时**；普通文�
 
 **大文件避坑**：若用户会上传大文件（如 5GB 视频，上传耗时长），**不要**实时同步，否则可能复制「上传中」的半成品。企业常见做法是在业务表记录对象状态，只备份 `COMPLETED` 的对象，或结合离峰 Cron 而非 `--watch` 实时，天然避开上传中途的不一致窗口：
 
-```text
+```plaintext
 file_object 表: id | bucket | object_key | status(UPLOADING/COMPLETED) | size | created_time
 备份只同步 status = COMPLETED 的对象
 ```
 
-## 十、最终检查清单（Checklist）
+## 十、备份策略总览与检查清单
+
+### 10.1 最终检查清单（Checklist）
 
 - [ ] 备份服务器的 `9000` / `9001` 端口已在防火墙中对生产服务器放行。
 - [ ] 生产端与备份端的存储桶均已开启 **版本控制（Versioning）**，防止误删或勒索破坏。
+- [ ] （可选但推荐）备份端桶已开启 **对象锁定（WORM / 合规模式）**，保留期内历史版本防篡改、防勒索覆盖。
 - [ ] 备份服务器挂载了**独立**的大容量磁盘 / NAS，确保与宿主机不同盘、存储空间充足。
 - [ ] 公网传输已加密（HTTPS / SSH 隧道）并限速，避免挤占生产出口。
 - [ ] 脚本未加 `--remove`，防范生产端误删 / 勒索同步到备份端。
 
-### 项目最终备份建议表
+### 10.2 项目最终备份建议表
 
 | 数据 | 方案 | 频率 |
 | --- | --- | --- |
@@ -413,3 +431,179 @@ file_object 表: id | bucket | object_key | status(UPLOADING/COMPLETED) | size |
 | Redis | 不备份 | 缓存可重建 |
 | Docker 配置 / Compose | Git 保存 | 每次发布 |
 | 上传文件 | MinIO Versioning | 开启 |
+
+## 十一、灾难恢复（从备份还原）
+
+基于 `mc mirror` 的**对象级备份**，恢复的过程本质上就是把备份镜像「反向同步」回生产环境。根据故障程度的不同，提供 3 种常见场景的恢复指引。
+
+### 11.1 场景一：生产环境完全崩溃（全新节点 / 硬盘替换）
+
+生产服务器硬盘损坏或容器毁弃，需在**新部署的 MinIO** 上做全量数据恢复。
+
+**1. 部署新的 MinIO Docker 容器**
+
+```bash
+docker run -d \
+  --name minio-prod \
+  -p 9000:9000 -p 9001:9001 \
+  -v /data/minio/data:/data \
+  minio/minio server /data --console-address ":9001"
+```
+
+**2. 执行反向同步恢复（把备份拉回生产环境）**
+
+在能访问两台机器的节点上执行（或直接在新的生产服务器上操作）。别名体系与第 11.6 节的恢复脚本保持一致（`backup-minio`=备份端、`prod-minio`=生产端）：
+
+```bash
+# 1. 配置源（备份节点）与目标（新生产节点）
+mc alias set backup-minio http://192.168.1.200:9000 BACKUP_KEY BACKUP_SECRET
+mc alias set prod-minio   http://127.0.0.1:9000  NEW_PROD_KEY NEW_PROD_SECRET
+
+# 2. 若新生产端没有桶，先创建
+mc mb prod-minio/your-bucket
+
+# 3. 反向镜像同步：将备份端数据推回新生产端
+mc mirror --overwrite backup-minio/your-bucket-backup prod-minio/your-bucket
+```
+
+> ⚠️ 方向务必核对：源是 **备份端**（`backup-minio`），目标是 **新生产端**（`prod-minio`）。`mc mirror` 会把「源」覆盖写到「目标」，方向写反会把空的生产端反向抹掉备份端。
+
+### 11.2 场景二：业务误删或损坏了单个 / 部分文件
+
+业务 Bug 误删某些文件，或某个文件被损坏，可进行精准恢复。
+
+**方案 A：按路径 / 文件恢复单个对象**
+
+```bash
+# 将备份端指定文件单独拷回生产端（别名与场景一、恢复脚本保持一致）
+mc cp backup-minio/your-bucket-backup/path/to/lost-file.pdf \
+      prod-minio/your-bucket/path/to/lost-file.pdf
+```
+
+**方案 B：利用版本控制（Versioning）一键回滚**
+
+若生产端开启了 **Versioning**，误删操作只是打上了一个「删除标记（Delete Marker）」，无需从备份端拉取，可直接恢复：
+
+```bash
+# 1. 查看文件历史版本（找到带 Delete Marker 的版本）
+mc ls --versions prod-minio/your-bucket/path/to/lost-file.pdf
+
+# 2. 删除该「删除标记」，最新版本自动变回被删前的文件
+mc rm --version-id "YOUR_DELETE_MARKER_ID" \
+      prod-minio/your-bucket/path/to/lost-file.pdf
+```
+
+### 11.3 场景三：灾难应急响应（直接接管生产流量）
+
+生产硬件损坏且**短时间内无法修复或买不到新服务器**时，可直接让备份服务器接管读写：
+
+1. **临时将业务切到备份服务器**：修改后端 `application.yml`（或微服务 Nacos / 环境变量中的 MinIO Endpoint），把连接地址从生产 IP（`192.168.1.100`）改为备份服务器 IP（`192.168.1.200`）。
+2. **继续提供服务**：备份服务器上的 MinIO 本身是全量最新的对象存储，业务可直接读写。
+3. **后续修复**：主服务器硬件修复后，将备份服务器新产生的数据同步回主服务器，最后把 Endpoint 切回主服务器。
+
+### 11.4 恢复场景与策略速查
+
+| 故障场景 | 恢复策略 | 是否需运行恢复脚本 |
+| --- | --- | --- |
+| **场景 A：整机 / 硬盘崩溃（重建 MinIO）** | 重新启动生产端 MinIO 容器后，运行 `make restore` 全量拉回数据 | **需要** |
+| **场景 B：业务 Bug 误删单个文件** | 无需脚本。开启 Bucket Versioning 后，在 Console 或 `mc rm --version-id` 移除 Delete Marker 即可秒级回滚 | 不需要（用控制台 / 版本控制） |
+| **场景 C：生产机硬件故障短期无法修复** | 应急接管：修改后端 `application.yml` 中的 MinIO 地址，直接切到备份服务器 Endpoint 提供读写 | 不需要（切应用配置） |
+
+### 11.5 为什么恢复操作也建议「脚本化 / Makefile 化」？
+
+恢复不依赖 Cron 定时（它是**人工触发的应急响应**），但把恢复逻辑写成脚本或集成进 `Makefile` 仍很有价值：
+
+1. **高压场景防误操作（降低 MTTR）**：生产灾难时运维高度紧张，预写脚本可避免临时敲错 `mc` 参数（如误把空的生产端反向覆盖备份端）。
+2. **自动化安全防护**：恢复前必须**先停止定时备份 Cron 和 `--watch` 监听**，并在执行前做**二次确认（Are you sure?）**，这些逻辑写在脚本里最安全。
+3. **反向同步逻辑固定**：基于 `mc mirror` 的恢复本质就是把备份镜像「反向传输」回生产环境，流程可固化。
+
+### 11.6 在 Makefile 中集成恢复命令
+
+在现有 `Makefile` 尾部追加恢复 target，配合恢复脚本，简化灾难恢复流程。
+
+**1. 编写恢复脚本 `deploy/scripts/minio_restore.sh`**
+
+```bash
+#!/bin/bash
+
+# 获取当前脚本所在目录（Crontab 执行时不依赖 cwd）
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ENV_FILE="${SCRIPT_DIR}/backup.env"
+
+if [ -f "$ENV_FILE" ]; then
+    source "$ENV_FILE"
+else
+    echo "错误: 未找到配置文件 $ENV_FILE"
+    exit 1
+fi
+
+SRC_ALIAS="prod-minio"    # 目标：生产端
+DEST_ALIAS="backup-minio" # 源：备份端
+
+echo "=========================================="
+echo "警告：您正在执行 MinIO 灾难恢复操作！"
+echo "数据方向: 备份端 [${DEST_URL}/${DEST_BUCKET}] -> 生产端 [${SRC_URL}/${SRC_BUCKET}]"
+echo "=========================================="
+
+# 1. 交互式二次确认，防止误操作
+read -p "确认要将备份数据覆盖/还原回生产环境吗？(输入 'YES' 继续): " CONFIRM
+if [ "$CONFIRM" != "YES" ]; then
+    echo "操作已取消。"
+    exit 0
+fi
+
+# 2. 预先初始化 mc 别名配置
+mc alias set $SRC_ALIAS  $SRC_URL  $SRC_KEY  $SRC_SECRET  > /dev/null 2>&1
+mc alias set $DEST_ALIAS $DEST_URL $DEST_KEY $DEST_SECRET > /dev/null 2>&1
+
+# 3. 提示检查 Cron 是否已停止
+echo "[提示] 请确保已暂停定时备份任务 (执行 make cron-uninstall)，避免恢复过程中产生写冲突。"
+
+# 4. 执行反向同步恢复（把备份端数据推回生产端）
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] 开始拉取备份数据..."
+mc mirror --overwrite $DEST_ALIAS/$DEST_BUCKET $SRC_ALIAS/$SRC_BUCKET
+
+if [ $? -eq 0 ]; then
+    echo "数据恢复完成！请检查生产端 MinIO 桶数据。"
+else
+    echo "数据恢复失败，请检查网络或 mc 权限配置！"
+    exit 1
+fi
+```
+
+> 💡 脚本复用第 5 章的 `backup.env`（同一份凭证文件），无需额外维护配置。`SRC_ALIAS / DEST_ALIAS` 与备份脚本保持一致，避免混淆方向。
+
+**2. 在 `Makefile` 尾部追加恢复 Target**
+
+```makefile
+# ==========================================
+# 恢复命令（追加到 Makefile 尾部）
+# ==========================================
+
+RESTORE_SCRIPT := $(PROJECT_DIR)/deploy/scripts/minio_restore.sh
+
+.PHONY: restore restore-dry-run
+
+# 1. 试运行/预览恢复（仅对比差异，不产生实际写入）
+restore-dry-run:
+	@chmod +x $(RESTORE_SCRIPT)
+	@echo "正在对比备份端与生产端的数据差异 (Dry-Run)..."
+	@bash -c "source $(ENV_FILE) && \
+		mc alias set prod-minio \$${SRC_URL} \$${SRC_KEY} \$${SRC_SECRET} >/dev/null 2>&1 && \
+		mc alias set backup-minio \$${DEST_URL} \$${DEST_KEY} \$${DEST_SECRET} >/dev/null 2>&1 && \
+		mc mirror --dry-run backup-minio/\$${DEST_BUCKET} prod-minio/\$${SRC_BUCKET}"
+
+# 2. 执行实际灾难恢复
+restore:
+	@chmod +x $(RESTORE_SCRIPT)
+	@$(RESTORE_SCRIPT)
+```
+
+- `make restore-dry-run`：用 `--dry-run` 预览备份端相比生产端的差异，**不实际写入**，适合恢复前先确认范围。
+- `make restore`：执行真实反向同步，脚本内含二次确认，避免误触发。
+
+### 11.7 灾难恢复最佳实践
+
+- **恢复前暂停实时同步脚本**：若采用了 `--watch` 实时同步，准备恢复或处理故障前，**先停止系统服务**（`make cron-uninstall` / 停掉 `--watch` 常驻进程），避免异常状态被误同步。
+- **定期做「演练」**：建议每半年在测试环境模拟一次 `mc mirror` 反向恢复，确保备份数据的完整性和恢复流程的可行性。
+- **备份与恢复职责分离**：备份脚本负责**自动、高频、静默**运行；恢复脚本强调**防错、可视化、人工控制**。`make restore-dry-run`（预览差异）+ `make restore`（实际恢复）是单机 Docker 项目最清晰、安全的应急响应组合。
