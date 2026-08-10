@@ -1,15 +1,19 @@
 <template>
-  <div class="home-view">
-    <MenuList :items="sidebar" />
-  </div>
+  <nav class="home-view" aria-label="目录导航">
+    <NavTree :items="sidebar" />
+  </nav>
 </template>
 
 <script setup lang="ts">
 import type { NavNode } from '../shared/types.js'
-import sidebarData from './data.json'
-import MenuList from './MenuList.vue'
+import sidebarData from '../.generated/nav-tree.json'
+import NavTree from './NavTree.vue'
+import { provideCollapse } from '../composables/useCollapse.js'
 
 const sidebar = sidebarData as NavNode[]
+
+// 全局折叠状态
+provideCollapse()
 </script>
 
 <style lang="scss">
@@ -17,43 +21,47 @@ const sidebar = sidebarData as NavNode[]
   padding: 10px 0;
   font-size: 15px;
 
-  > ul {
-    list-style-type: none;
+  ul {
+    margin: 0;
     padding: 0;
+    list-style-type: none;
   }
 
+  // 分类卡片
   > ul > li {
     break-inside: avoid;
-    background-color: #242424;
+    page-break-inside: avoid;
+    background-color: var(--vp-c-bg-soft);
     margin-bottom: 20px;
     border-radius: 8px;
     padding: 28px 32px;
+    border: 1px solid var(--vp-c-border);
+    transition: border-color 0.2s;
 
+    &:hover {
+      border-color: var(--vp-c-brand);
+    }
+
+    // 分类标题行（带图标的顶层名称）
     > .name {
-      padding-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding-bottom: 12px;
+      margin-bottom: 12px;
+      border-bottom: 1px solid var(--vp-c-divider);
 
       .t {
-        font-size: 24px;
+        font-size: 22px;
+        font-weight: 600;
       }
 
-      .iconfont {
-        font-size: 24px;
+      .item-icon {
+        font-size: 22px;
+        color: var(--vp-c-brand);
+        flex-shrink: 0;
       }
     }
-  }
-
-  ul {
-    margin: 0;
-  }
-
-  .t {
-    font-size: 18px;
-  }
-}
-
-html[data-theme='light'] .home-view {
-  > ul > li {
-    background-color: #f9f9f9;
   }
 }
 

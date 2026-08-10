@@ -87,16 +87,17 @@ git-auto-push.bat          # 检测变更后自动 git add/commit/push
    ```json
    {
      "title": ".NET",
-     "icon": "javascript",
+     "icon": "devicon:dotnetcore",
      "sort": 99
    }
    ```
    > 注意：`.config` 仅作用于**目录**，由 `docs/.vuepress/scripts/build-nav-tree.ts` 的 `readDirConfig()` 读取目录内的 `.config` 文件。
+   > `sort` 也可通过文件名前缀实现，如 `01_开始`，构建时 `01_` 前缀会被自动去掉。
 2. **Markdown 文件 front matter**：每篇文档建议带：
    ```yaml
    ---
    title: 文档标题
-   icon: home
+   icon: mdi:home
    sort: 99
    ---
    ```

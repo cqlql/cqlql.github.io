@@ -6,7 +6,7 @@ export interface NavNode {
   text: string
   /** 相对于当前节点的链接（文件：xxx.md；目录节点不存在此字段） */
   link?: string
-  /** 图标名（对应 iconfont） */
+  /** 图标名（Iconify 格式，如 mdi:home、devicon:docker） */
   icon: string
   /** 侧边栏路径前缀（仅目录节点有值，如 "/前端/"、"vue/"） */
   prefix?: string

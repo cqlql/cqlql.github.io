@@ -2,9 +2,9 @@
 node_modules/
 docs/.vuepress/.cache/
 docs/.vuepress/.temp/
+docs/.vuepress/.generated
 docs/.vuepress/dist/
 docs/.vuepress/logs/
-docs/.vuepress/components/data.json
 docs/.vuepress/server/out.log
 docs/.vuepress/server/process.log
 .workbuddy/

@@ -131,7 +131,9 @@ export function buildNavTree(options?: { writeToFile?: boolean }): NavNode[] {
   const navTree = scanDir(DOCS_PATH, '', '')
 
   if (writeToFile) {
-    const outputPath = path.resolve(__dirname, '../components/data.json')
+    const outputDir = path.resolve(__dirname, '../.generated')
+    fs.mkdirSync(outputDir, { recursive: true })
+    const outputPath = path.join(outputDir, 'nav-tree.json')
     fs.writeFileSync(outputPath, JSON.stringify(navTree), 'utf8')
   }
 

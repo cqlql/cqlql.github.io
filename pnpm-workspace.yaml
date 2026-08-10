@@ -1,7 +1,8 @@
 allowBuilds:
   '@parcel/watcher': true
   esbuild: true
-  vue-demi: set this to true or false
+  vue-demi: true
+
 minimumReleaseAgeExclude:
   - '@vue/compiler-core@3.5.41'
   - '@vue/compiler-dom@3.5.41'
