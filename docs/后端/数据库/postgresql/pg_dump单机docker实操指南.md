@@ -90,233 +90,195 @@ docker exec -i <your_postgres_container_name> \
 
 生产环境中需要无人值守的每日自动备份，编写 Shell 脚本配合宿主机 `crontab` 运行。
 
-### 2.1 本地单机备份脚本（入门版）
-
-最简版本，备份直接写在宿主机本地磁盘：
-
-```bash
-#!/bin/bash
-
-# --- 配置区 ---
-CONTAINER_NAME="postgres-prod"   # PG 容器名称
-DB_USER="postgres"               # 数据库用户名
-DB_NAME="mydb"                   # 数据库名称
-BACKUP_DIR="/data/backups/postgres"   # 宿主机备份根目录
-RETENTION_DAYS=3                 # 本地仅保留 3 天（远端 MinIO 保留更久）
-
-# --- 执行备份 ---
-DATE=$(date +%Y%m%d_%H%M%S)
-FILE_NAME="${DB_NAME}_${DATE}.dump"
-FILE_PATH="${BACKUP_DIR}/${FILE_NAME}"
-
-# 创建备份目录
-mkdir -p "${BACKUP_DIR}"
-
-# 【可选】业务一致性：高并发场景下先做一次检查点，减少恢复时的重放量
-docker exec "${CONTAINER_NAME}" psql -U "${DB_USER}" -d "${DB_NAME}" -c "CHECKPOINT;"
-
-# 执行导出（-Z 9 最高压缩，适合 AI 聊天这类 JSON/TEXT 数据）
-docker exec "${CONTAINER_NAME}" pg_dump -U "${DB_USER}" -d "${DB_NAME}" -F c -Z 9 -b > "${FILE_PATH}"
-
-# 校验备份文件是否生成且非空
-if [ -s "${FILE_PATH}" ]; then
-    # 生成校验和，恢复前可 sha256sum -c 验证完整性
-    sha256sum "${FILE_PATH}" > "${FILE_PATH}.sha256"
-    echo "[$(date)] Backup succeeded: ${FILE_PATH}"
-    # 清理指定天数之前的旧备份
-    find "${BACKUP_DIR}" -type f -name "*.dump*" -mtime +"${RETENTION_DAYS}" -exec rm -f {} \;
-else
-    echo "[$(date)] Backup failed!"
-    exit 1
-fi
-```
-
-### 2.2 备份保留策略：本地短期 + 远端长期 + 分级
+### 2.1 备份保留策略：3-2-1 原则 + 分级
 
 > 备份只存在本地一台机器上是不够的——宿主机硬件故障、勒索病毒、误删都可能导致备份全丢。
 
-**生产最佳实践**：本地 + 远端双写，且按时间粒度分级，方便按恢复点精确定位。
+**生产最佳实践**：遵循 **3-2-1 备份原则**（3 份数据副本，2 种不同介质，1 份异地/异机存储），本地 + 远端双写，且按时间粒度分级：
 
 ```text
 /data/backups/postgres/
-├── daily/      # 每日全量，保留 30 天（本地可只留 3 天，远端 30 天）
-├── weekly/     # 每周全量，保留 12 周
-└── monthly/    # 每月全量，保留 12 个月
+├── daily/      # 每日全量，本地保留 3 天，远端保留 30 天
+├── weekly/     # 每周全量，远端保留 12 周
+└── monthly/    # 每月全量，远端保留 12 个月
 ```
 
 | 存储位置 | 分级 | 保留周期 | 用途 |
 | --- | --- | --- | --- |
-| 本地宿主机 | daily | 1~3 天 | 快速恢复日常误操作（几秒~几分钟），降低 RTO |
-| 远端 MinIO / 对象存储 | daily/weekly/monthly | 30 天 / 12 周 / 12 个月 | 防灾难性故障（宿主机损坏、勒索病毒等） |
+| 本地宿主机 | daily | 3 天 | 快速恢复日常误操作，降低 RTO |
+| 远端 MinIO / SCP / NFS | daily / weekly / monthly | 30 天 / 12 周 / 12 个月 | 防灾难性故障（宿主机损坏、勒索病毒等） |
 
-> 这符合 **3-2-1 备份原则**：3 份数据副本，2 种不同介质，1 份异地/异机存储。
+> 脚本中通过 `cron` 的 `$(date +%u)`（星期几，1=周一）和 `$(date +%d)`（几号）判断当天属于哪个分级，自动写入对应子目录。
 
-### 2.3 异机备份方案（本地 + 远端双写）
+### 2.2 生产级备份脚本（核心）
 
-在单机 Docker + Linux 环境下，将备份文件同步到远端常用三种方案。**对于已在使用 MinIO 的技术栈，强烈推荐方案 A（MinIO）作为主路径**，SCP / NFS 作为备选。
-
----
-
-#### 方案 A：对象存储 MinIO / S3（已用 MinIO 栈的首选 ⭐）
-
-若已部署 MinIO 或云对象存储（阿里云 OSS / 腾讯云 COS），使用 `mc` (MinIO Client) 或 `rclone` 上传。**最大优势是生命周期管理**：在 MinIO 控制台配置 `daily 保留 30 天 / weekly 保留 12 周 / monthly 保留 12 个月`，无需自己写 `find -mtime` 清理逻辑。
-
-**前提条件**：已通过 `mc alias set backup-minio http://minio-host:9000 ACCESSKEY SECRETKEY` 配置好 MinIO 别名。
+以下脚本整合了**业务库 dump + 全局对象备份 + 完整性校验 + 分级目录 + 本地清理**，作为所有远端方案的基础。远端同步部分在 2.3 中以"追加片段"形式给出，避免脚本主体重复。
 
 ```bash
 #!/bin/bash
 set -euo pipefail
 
-# --- 配置区 ---
-CONTAINER_NAME="postgres-prod"
-DB_USER="postgres"
-DB_NAME="mydb"
-LOCAL_BACKUP_DIR="/data/backups/postgres/daily"   # 本地短期存储目录
-LOCAL_RETENTION_DAYS=3                             # 本地仅保留 3 天
+# ============================================================
+# 配置区（按实际环境修改）
+# ============================================================
+CONTAINER_NAME="postgres-prod"                  # PG 容器名称
+DB_USER="postgres"                              # 数据库用户名
+DB_NAME="mydb"                                  # 数据库名称
+BACKUP_ROOT="/data/backups/postgres"            # 宿主机备份根目录
+LOCAL_RETENTION_DAYS=3                          # 本地 daily 保留天数
 
-# MinIO 配置
-MINIO_ALIAS="backup-minio"        # 已用 mc alias set 配置好的别名
-MINIO_BUCKET="pg-backups-bucket"  # MinIO Bucket 名称
+# ============================================================
+# 分级目录判定（daily / weekly / monthly）
+# ============================================================
+DOW=$(date +%u)                                 # 1=周一 ... 7=周日
+DOM=$(date +%d)                                 # 当月第几天（01-31）
 
-# --- 执行本地备份 ---
-DATE=$(date +%Y%m%d_%H%M%S)
-FILE_NAME="${DB_NAME}_${DATE}.dump"
-LOCAL_FILE_PATH="${LOCAL_BACKUP_DIR}/${FILE_NAME}"
-
-mkdir -p ${LOCAL_BACKUP_DIR}
-
-# 备份 + 最高压缩（去 -t，适配 cron 无 TTY）
-docker exec ${CONTAINER_NAME} pg_dump -U ${DB_USER} -d ${DB_NAME} -F c -Z 9 -b > ${LOCAL_FILE_PATH}
-
-# --- 生成 sha256 校验和 ---
-sha256sum "${LOCAL_FILE_PATH}" > "${LOCAL_FILE_PATH}.sha256"
-
-# --- 校验本地备份完整性 ---
-if sha256sum -c "${LOCAL_FILE_PATH}.sha256" --status; then
-  echo "✅ 本地备份校验通过: ${FILE_NAME}"
+if [ "${DOM}" = "01" ]; then
+    GRADE="monthly"                             # 每月 1 号 → monthly
+elif [ "${DOW}" = "1" ]; then
+    GRADE="weekly"                              # 每周一 → weekly
 else
-  echo "❌ 本地备份校验失败！"
-  exit 1
+    GRADE="daily"                               # 其余 → daily
 fi
 
-# --- 同步到 MinIO（备份文件 + 校验和） ---
-echo "开始同步到 MinIO..."
-mc cp "${LOCAL_FILE_PATH}"         "${MINIO_ALIAS}/${MINIO_BUCKET}/daily/"
-mc cp "${LOCAL_FILE_PATH}.sha256"  "${MINIO_ALIAS}/${MINIO_BUCKET}/daily/"
-echo "✅ MinIO 同步完成"
+BACKUP_DIR="${BACKUP_ROOT}/${GRADE}"
+mkdir -p "${BACKUP_DIR}"
 
-# --- 本地清理过期备份 ---
-find ${LOCAL_BACKUP_DIR} -name "*.dump" -type f -mtime +${LOCAL_RETENTION_DAYS} -delete
-find ${LOCAL_BACKUP_DIR} -name "*.sha256" -type f -mtime +${LOCAL_RETENTION_DAYS} -delete
-```
-
-恢复前先在 MinIO 侧（或下载后）校验：
-
-```bash
-mc cat ${MINIO_ALIAS}/${MINIO_BUCKET}/daily/"${FILE_NAME}".sha256 | sha256sum -c -
-```
-
-**优点**：天然版本控制、生命周期自动清理、异地容灾，安全性极高。本地保留近期备份，兼顾恢复速度（RTO）与数据安全。
-
----
-
-#### 方案 B：SCP 推送（最常用、最简单）
-
-在本地宿主机生成备份后，使用 `scp` 自动传输到远程备份机器。
-
-**前提条件**：宿主机配置 SSH 免密登录到备份机器（`ssh-keygen` + `ssh-copy-id`）。
-
-```bash
-#!/bin/bash
-
-# --- 配置区 ---
-CONTAINER_NAME="postgres-prod"
-DB_USER="postgres"
-DB_NAME="mydb"
-LOCAL_BACKUP_DIR="/data/backups/postgres/daily"   # 本地短期存储目录
-LOCAL_RETENTION_DAYS=3                             # 本地仅保留 3 天
-
-# 远程备份机器配置
-REMOTE_USER="backupuser"
-REMOTE_IP="192.168.1.200"               # 备份机器 IP
-REMOTE_BACKUP_DIR="/nas/pg_backups"     # 远程机器存储目录
-REMOTE_RETENTION_DAYS=30                # 远程保留 30 天
-
-# --- 执行本地备份 ---
 DATE=$(date +%Y%m%d_%H%M%S)
-FILE_NAME="${DB_NAME}_${DATE}.dump"
-LOCAL_FILE_PATH="${LOCAL_BACKUP_DIR}/${FILE_NAME}"
+DUMP_FILE="${BACKUP_DIR}/${DB_NAME}_${DATE}.dump"
+GLOBALS_FILE="${BACKUP_DIR}/globals_${DATE}.sql"
 
-mkdir -p ${LOCAL_BACKUP_DIR}
+# ============================================================
+# 1. 全局对象备份（角色 / 权限）
+# ============================================================
+echo "[$(date)] 开始备份全局对象（角色/权限）..."
+docker exec "${CONTAINER_NAME}" pg_dumpall -U "${DB_USER}" --globals-only > "${GLOBALS_FILE}"
+sha256sum "${GLOBALS_FILE}" > "${GLOBALS_FILE}.sha256"
+echo "[$(date)] 全局对象备份完成: ${GLOBALS_FILE}"
 
-# 备份 + 最高压缩（去 -t，适配 cron 无 TTY）
-docker exec ${CONTAINER_NAME} pg_dump -U ${DB_USER} -d ${DB_NAME} -F c -Z 9 -b > ${LOCAL_FILE_PATH}
+# ============================================================
+# 2. 业务库备份
+# ============================================================
+echo "[$(date)] 开始备份业务库 ${DB_NAME}..."
 
-# --- 校验并传输到远程机器 ---
-if [ -s "${LOCAL_FILE_PATH}" ]; then
-    sha256sum "${LOCAL_FILE_PATH}" > "${LOCAL_FILE_PATH}.sha256"
-    echo "[$(date)] 本地备份成功: ${LOCAL_FILE_PATH}"
+# 高并发场景可选：先做检查点减少恢复重放量
+docker exec "${CONTAINER_NAME}" psql -U "${DB_USER}" -d "${DB_NAME}" -c "CHECKPOINT;" 2>/dev/null || true
 
-    # 1. 推送文件及校验和到远程机器
-    scp "${LOCAL_FILE_PATH}" "${LOCAL_FILE_PATH}.sha256" "${REMOTE_USER}@${REMOTE_IP}:${REMOTE_BACKUP_DIR}/"
-    SCP_RET=$?
+# 导出（-F c 自定义格式，-Z 9 最高压缩）
+docker exec "${CONTAINER_NAME}" pg_dump \
+    -U "${DB_USER}" -d "${DB_NAME}" -F c -Z 9 -b > "${DUMP_FILE}"
 
-    if [ ${SCP_RET} -eq 0 ]; then
-        echo "[$(date)] 远程传输成功！"
-    else
-        echo "[$(date)] ⚠️ 远程传输失败！"
-    fi
-
-    # 2. 清理本地过期备份
-    find ${LOCAL_BACKUP_DIR} -type f -name "*.dump*" -mtime +${LOCAL_RETENTION_DAYS} -exec rm -f {} \;
-
-    # 3. 远程清理过期备份 (通过 SSH 在远程机器执行删除)
-    ssh ${REMOTE_USER}@${REMOTE_IP} "find ${REMOTE_BACKUP_DIR} -type f -name '*.dump*' -mtime +${REMOTE_RETENTION_DAYS} -exec rm -f {} \;"
-
-else
-    echo "[$(date)] ❌ 备份失败，文件为空！"
+# ============================================================
+# 3. 完整性校验
+# ============================================================
+if [ ! -s "${DUMP_FILE}" ]; then
+    echo "[$(date)] ❌ 备份失败：文件为空！"
     exit 1
 fi
+
+sha256sum "${DUMP_FILE}" > "${DUMP_FILE}.sha256"
+
+if ! sha256sum -c "${DUMP_FILE}.sha256" --status; then
+    echo "[$(date)] ❌ 校验和验证失败！"
+    exit 1
+fi
+
+echo "[$(date)] ✅ 备份成功: ${DUMP_FILE} (分级: ${GRADE})"
+
+# ============================================================
+# 4. 本地清理过期备份（仅清理 daily 目录）
+# ============================================================
+find "${BACKUP_ROOT}/daily" -type f -mtime +"${LOCAL_RETENTION_DAYS}" -delete 2>/dev/null || true
+
+# ============================================================
+# 5. 【远端同步占位】—— 将下方 2.3 中选定的方案片段追加到此处
+# ============================================================
+```
+
+> **关键点**：
+> - `set -euo pipefail`：任何命令失败立即退出，未定义变量报错，管道中任一命令失败即失败。
+> - **分级逻辑**：每月 1 号 → `monthly/`，每周一 → `weekly/`，其余 → `daily/`。远端保留策略由 MinIO 生命周期 / 远程清理脚本控制，本地只清理 `daily/`。
+> - **全局对象备份内置**：`pg_dumpall --globals-only` 与业务库 dump 在同一脚本中执行，保证时间一致。
+> - **`CHECKPOINT` 容错**：`2>/dev/null || true` 避免容器未就绪时中断脚本。
+
+### 2.3 远端同步方案（三选一追加到 2.2 脚本末尾）
+
+在单机 Docker + Linux 环境下，将备份同步到远端常用三种方案。**对于已在使用 MinIO 的技术栈，强烈推荐方案 A 作为主路径**，SCP / NFS 作为备选。
+
+将选定方案的代码片段追加到 2.2 脚本的"远端同步占位"处即可。
+
+---
+
+#### 方案 A：MinIO / S3（已用 MinIO 栈的首选 ⭐）
+
+若已部署 MinIO 或云对象存储（阿里云 OSS / 腾讯云 COS），使用 `mc` (MinIO Client) 上传。**最大优势是生命周期管理**：在 MinIO 控制台配置 `daily 保留 30 天 / weekly 保留 12 周 / monthly 保留 12 个月`，无需自己写清理逻辑。
+
+**前提条件**：`mc alias set backup-minio http://minio-host:9000 ACCESSKEY SECRETKEY`
+
+追加到 2.2 脚本末尾的片段：
+
+```bash
+# --- MinIO 同步（追加到 2.2 脚本的“远端同步占位”处） ---
+MINIO_ALIAS="backup-minio"
+MINIO_BUCKET="pg-backups-bucket"
+
+echo "[$(date)] 同步到 MinIO: ${MINIO_ALIAS}/${MINIO_BUCKET}/${GRADE}/"
+mc cp "${DUMP_FILE}"          "${MINIO_ALIAS}/${MINIO_BUCKET}/${GRADE}/"
+mc cp "${DUMP_FILE}.sha256"   "${MINIO_ALIAS}/${MINIO_BUCKET}/${GRADE}/"
+mc cp "${GLOBALS_FILE}"       "${MINIO_ALIAS}/${MINIO_BUCKET}/${GRADE}/"
+mc cp "${GLOBALS_FILE}.sha256" "${MINIO_ALIAS}/${MINIO_BUCKET}/${GRADE}/"
+echo "[$(date)] ✅ MinIO 同步完成"
+```
+
+> 恢复前校验：`mc cat ${MINIO_ALIAS}/${MINIO_BUCKET}/${GRADE}/filename.sha256 | sha256sum -c -`
+
+---
+
+#### 方案 B：SCP 推送
+
+在本地宿主机生成备份后，使用 `scp` 传输到远程备份机器。
+
+**前提条件**：宿主机配置 SSH 免密登录（`ssh-keygen` + `ssh-copy-id`）。
+
+追加到 2.2 脚本末尾的片段：
+
+```bash
+# --- SCP 远程同步（追加到 2.2 脚本的“远端同步占位”处） ---
+REMOTE_USER="backupuser"
+REMOTE_IP="192.168.1.200"
+REMOTE_DIR="/nas/pg_backups/${GRADE}"
+REMOTE_RETENTION_DAYS=30
+
+# 确保远程目录存在
+ssh "${REMOTE_USER}@${REMOTE_IP}" "mkdir -p ${REMOTE_DIR}"
+
+# 推送文件
+scp "${DUMP_FILE}" "${DUMP_FILE}.sha256" \
+    "${GLOBALS_FILE}" "${GLOBALS_FILE}.sha256" \
+    "${REMOTE_USER}@${REMOTE_IP}:${REMOTE_DIR}/"
+
+if [ $? -eq 0 ]; then
+    echo "[$(date)] ✅ SCP 同步完成"
+else
+    echo "[$(date)] ⚠️ SCP 同步失败！"
+fi
+
+# 远程清理过期备份
+ssh "${REMOTE_USER}@${REMOTE_IP}" \
+    "find ${REMOTE_DIR}/.. -type f -mtime +${REMOTE_RETENTION_DAYS} -delete"
 ```
 
 ---
 
-#### 方案 C：NFS 共享挂载（本地直写远程）
+#### 方案 C：NFS 共享挂载
 
-如果备份机器支持 NFS，直接将远程目录挂载到宿主机，脚本中无需任何传输命令：
+如果备份机器支持 NFS，直接将远程目录挂载到宿主机：
 
 ```bash
-# 在宿主机上把远程机器的 /nas/pg_backups 挂载到本地 /mnt/remote_backups
 mount -t nfs 192.168.1.200:/nas/pg_backups /mnt/remote_backups
 ```
 
-之后 `pg_backup.sh` 直接将备份写入 `/mnt/remote_backups`，数据就落到了远程机器上。
-
----
-
-### 2.4 全局对象备份（角色 / 权限）
-
-`pg_dump` **只备份单个库**，不会包含数据库用户、角色、密码、表空间等全局对象。灾难恢复时必须先恢复全局对象，否则 `pg_restore` 因缺少同名角色而报错。建议把 `globals.sql` 纳入每日备份：
-
-```bash
-#!/bin/bash
-# 与业务库 dump 同源执行（复用 pg_backup.sh 中的 CONTAINER_NAME / DB_USER / BACKUP_DIR 变量）
-GLOBALS_FILE="${BACKUP_DIR}/globals_$(date +%Y%m%d).sql"
-docker exec ${CONTAINER_NAME} pg_dumpall -U ${DB_USER} --globals-only > "${GLOBALS_FILE}"
-sha256sum "${GLOBALS_FILE}" > "${GLOBALS_FILE}.sha256"
-```
-
-> 建议把以上片段**直接并入 `pg_backup.sh`**，与业务库 dump 在同一每日任务中执行，保证角色/权限与数据备份时间一致。
-
-**恢复顺序**（关键）：
-
-1. 先恢复全局对象（用户、权限）：
-   ```bash
-   docker exec -i ${CONTAINER_NAME} psql -U ${DB_USER} -d postgres < globals_xxx.sql
-   ```
-2. 再恢复业务库（见第 3 节 `pg_restore`）。
-
-> 目录约定：`/data/backups/postgres/` 下同时保留 `*.dump`（业务库）与 `globals_*.sql`（全局对象）。
+之后将 2.2 脚本中的 `BACKUP_ROOT` 改为 `/mnt/remote_backups`，数据直接落到远程机器上，无需任何传输命令。
 
 ---
 
