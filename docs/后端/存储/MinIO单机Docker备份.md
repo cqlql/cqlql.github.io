@@ -60,14 +60,14 @@ mc mirror --overwrite my-src/my-bucket my-backup/my-bucket-backup
 1. **一致性快照**：宿主机底层使用 ZFS / LVM 时，定期给 `/data` 所在卷打快照（优先在写入低峰或暂停写入时）。
 2. **定时冷备归档**：通过 `crontab` + `rsync` / `tar` 打包同步到远程服务器——仅作辅助兜底。
 
-## 三、不要「MinIO 备份再备份 MinIO」（避免套娃）
+## 三、避免「备份套娃」
 
-若 PostgreSQL 的备份产物也存进 MinIO（如把 `pg_dump` 文件上传到桶里），**不要**再让 MinIO 把「自己内部这些备份文件」整体镜像一遍，否则会形成 `PostgreSQL → MinIO → mc mirror → 备份 MinIO → (再备份?)` 的套娃。
+若 PostgreSQL 的备份产物也存进 MinIO（如把 `pg_dump` 文件上传到桶里），**不要**再让 MinIO 把这些备份文件整体镜像一遍，否则会形成 `PostgreSQL → MinIO → mc mirror → 备份 MinIO` 的套娃链路——pg_dump 的产物已经间接存在于备份 MinIO 中，这是一种无意义的冗余。
 
 正确做法是**数据分源、各管各的**：
 
 ```plaintext
-业务数据: PostgreSQL ──pg_dump + WAL 归档──► 独立备份存储
+业务数据: PostgreSQL ──pg_dump + WAL 归档──► 独立备份存储 / 备份 MinIO（直接输出，不经过主机 MinIO）
 文件数据: MinIO      ──mc mirror──────────► 备份 MinIO / OSS
 ```
 
@@ -294,7 +294,7 @@ sudo chown -R "$USER:$USER" /var/log/minio-backup
 
 - **反向代理（最便捷）**：在备份服务器用 Nginx / Caddy 为 MinIO 提供 HTTPS。以 Caddy 为例（自带 Let's Encrypt 自动申请与续期）：
 
-  ```nginx
+  ```
   backup-minio.yourdomain.com {
       reverse_proxy localhost:9000
   }
@@ -358,7 +358,7 @@ DEST_URL="http://127.0.0.1:19000"
 | 系统资源开销 | 低（仅触发时占用） | 持续占用（常驻后台进程监听事件） |
 | 网络带宽 | 脉冲式（触发时可能占满带宽） | 平滑式（有写入才传输） |
 | 运维成本 | 极低（脚本 + Cron，断网可自动恢复） | 中等（需 Systemd 守护防挂） |
-| 适用网络 | 局域网 / 专线 / **公网（可限速）** | 局域网 / 高质量专线（公网易打断） |
+| 适用网络 | 局域网 / 专线 / 公网（可限速） | 局域网 / 高质量专线（公网易打断） |
 
 **选型建议：**
 
@@ -397,14 +397,14 @@ mc mirror --watch --overwrite src-minio/your-bucket dest-minio/your-bucket
 
 Cron 频率建议：核心业务数据每 **15 分钟 / 1 小时**；普通文件每天凌晨（如 `0 2 * * *`）。
 
-## 九、数据增长：首次慢、之后只增量
+## 九、数据增长：首次全量、后续增量
 
 不必担心「文件越来越多备份越慢」。`mc mirror` 是增量同步：
 
-- 首次（如 1TB）：千兆网实际约 80MB/s，≈ 3.5 小时属正常，仅第一次慢。
+- 首次全量（如 1TB）：千兆网实际约 80MB/s，≈ 3.5 小时属正常，仅第一次慢。
 - 之后每天只同步**新增 / 变化**的对象（如 100MB），不会每天重传全量。
 
-**大文件避坑**：若用户会上传大文件（如 5GB 视频，上传耗时长），**不要**实时同步，否则可能复制「上传中」的半成品。企业常见做法是在业务表记录对象状态，只备份 `COMPLETED` 的对象，或结合离峰 Cron 而非 `--watch` 实时，天然避开上传中途的不一致窗口：
+**大文件避坑**：若用户会上传大文件（如 5GB 视频，上传耗时长），**不要**实时同步，否则可能复制「上传中」的半成品。常见做法是在业务表记录对象状态，只备份 `COMPLETED` 的对象，或结合离峰 Cron 而非 `--watch` 实时，天然避开上传中途的不一致窗口：
 
 ```plaintext
 file_object 表: id | bucket | object_key | status(UPLOADING/COMPLETED) | size | created_time
@@ -505,9 +505,9 @@ mc rm --version-id "YOUR_DELETE_MARKER_ID" \
 
 | 故障场景 | 恢复策略 | 是否需运行恢复脚本 |
 | --- | --- | --- |
-| **场景 A：整机 / 硬盘崩溃（重建 MinIO）** | 重新启动生产端 MinIO 容器后，运行 `make restore` 全量拉回数据 | **需要** |
-| **场景 B：业务 Bug 误删单个文件** | 无需脚本。开启 Bucket Versioning 后，在 Console 或 `mc rm --version-id` 移除 Delete Marker 即可秒级回滚 | 不需要（用控制台 / 版本控制） |
-| **场景 C：生产机硬件故障短期无法修复** | 应急接管：修改后端 `application.yml` 中的 MinIO 地址，直接切到备份服务器 Endpoint 提供读写 | 不需要（切应用配置） |
+| 场景 A：整机 / 硬盘崩溃（重建 MinIO） | 重新启动生产端 MinIO 容器后，运行 `make restore` 全量拉回数据 | 需要 |
+| 场景 B：业务 Bug 误删单个文件 | 无需脚本。开启 Bucket Versioning 后，在 Console 或 `mc rm --version-id` 移除 Delete Marker 即可秒级回滚 | 不需要（用控制台 / 版本控制） |
+| 场景 C：生产机硬件故障短期无法修复 | 应急接管：修改后端 `application.yml` 中的 MinIO 地址，直接切到备份服务器 Endpoint 提供读写 | 不需要（切应用配置） |
 
 ### 11.5 为什么恢复操作也建议「脚本化 / Makefile 化」？
 
