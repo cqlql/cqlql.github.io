@@ -1,6 +1,6 @@
 ---
 title: Java 项目目录结构规划
-icon: mdi:folder-structure
+icon: mdi:file-tree
 ---
 
 # Java 项目目录结构规划
