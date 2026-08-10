@@ -83,6 +83,26 @@ mc mirror --overwrite my-src/my-bucket my-backup/my-bucket-backup
 
   建议对用户文件桶开启 Versioning——用户误删 `resume.pdf` 后仍有旧版本可恢复。
 
+  > **版本控制会无限膨胀吗？**
+  >
+  > 不会自动无限膨胀，但**旧版本不会自动删除**，每次覆盖写入或删除都会产生历史版本/delete marker，持续占用空间。
+  >
+  > 通过**生命周期管理（ILM）**定期清理即可控制增长：
+  >
+  > ```bash
+  > # 非当前版本保留 30 天后自动删除，并清理无实际对象的 delete marker
+  > mc ilm rule add prod-minio/prod-data \
+  >   --noncurrent-expire-days "30" \
+  >   --expire-delete-marker
+  > ```
+  >
+  > | 参数 | 作用 |
+  > |------|------|
+  > | `--noncurrent-expire-days` | 非当前版本保留 N 天后自动删除 |
+  > | `--expire-delete-marker` | 当所有旧版本都清理完后，自动清理 delete marker |
+  >
+  > 保留天数可根据备份频率灵活设置，比如每天备份一次、设置 `30` 天就能保留约 30 个历史版本，超出自动清理。
+
 - **备份端应防篡改（对象锁定 / 合规模式）**：版本控制可防误删，但**挡不住勒索软件主动覆盖旧版本**。若备份端 MinIO 支持，建议为备份桶开启 **WORM（对象锁定 / 合规模式 Compliance）**，使历史版本在保留期内（如 30 天）**既不可删也不可改**，即使备份服务器被攻破、凭证泄露，勒索程序也无法抹掉历史备份。
 
   ```bash
