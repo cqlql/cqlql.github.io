@@ -102,6 +102,8 @@ docker exec -i <container> psql -U <username> -d <dbname> < /path/to/backup/db_2
 | 本地宿主机 | daily | 3 天 | 快速恢复日常误操作，降低 RTO |
 | 远端 MinIO / SCP / NFS | daily / weekly / monthly | 30 天 / 12 周 / 12 个月 | 防灾难性故障（宿主机损坏、勒索病毒等） |
 
+> **远端备份机的硬件建议**：备份服务器对计算性能要求不高，重点是大容量低成本存储。推荐低配 CPU + 8TB HDD RAID 1/10，大幅降低整体硬件 TCO。若远端采用专用 MinIO，还可利用其 Bucket Lifecycle 自动清理过期备份，无需手写清理脚本。
+
 > 脚本中通过 `cron` 的 `$(date +%u)`（星期几，1=周一）和 `$(date +%d)`（几号）判断当天属于哪个分级，自动写入对应子目录。
 
 ### 2.2 生产级备份脚本（核心）
