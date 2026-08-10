@@ -161,56 +161,62 @@ fi
 
 若已部署 MinIO 或云对象存储（阿里云 OSS / 腾讯云 COS），使用 `mc` (MinIO Client) 或 `rclone` 上传。**最大优势是生命周期管理**：在 MinIO 控制台配置 `daily 保留 30 天 / weekly 保留 12 周 / monthly 保留 12 个月`，无需自己写 `find -mtime` 清理逻辑。
 
-```bash
-# 备份生成后连同校验和一起同步到 MinIO Bucket（含分级前缀）
-mc cp "${LOCAL_FILE_PATH}"         backup-minio/pg-backups-bucket/daily/
-mc cp "${LOCAL_FILE_PATH}.sha256"  backup-minio/pg-backups-bucket/daily/
-```
-
-恢复前先在 MinIO 侧（或下载后）校验：
-
-```bash
-mc cat backup-minio/pg-backups-bucket/daily/"${FILE_NAME}".sha256 | sha256sum -c -
-```
-
-**优点**：天然版本控制、生命周期自动清理、异地容灾，安全性极高。
-
-##### 管道直推版（免落盘 ⭐）：`pg_backup_to_minio.sh`
-
-如果本地磁盘紧张、或不想保留本地临时文件，可用 `pg_dump | mc pipe` 把备份流**直接推送到 MinIO**，全程不经过宿主机磁盘：
+**前提条件**：已通过 `mc alias set backup-minio http://minio-host:9000 ACCESSKEY SECRETKEY` 配置好 MinIO 别名。
 
 ```bash
 #!/bin/bash
 set -euo pipefail
 
 # --- 配置区 ---
-DB_HOST="localhost"            # PG 容器映射的宿主机地址（或容器名，需同网络）
-DB_NAME="mydb"
+CONTAINER_NAME="postgres-prod"
 DB_USER="postgres"
-DB_PASSWORD="${DB_PASSWORD:?请通过环境变量 DB_PASSWORD 传入数据库密码}"
-MINIO_ALIAS="backup-minio"     # 已用 mc alias set 配置好的别名
-BUCKET_NAME="pg-backups"
-DATE=$(date +%Y%m%d_%H%M%S)
-BACKUP_NAME="${DB_NAME}_${DATE}.dump"
+DB_NAME="mydb"
+LOCAL_BACKUP_DIR="/data/backups/postgres/daily"   # 本地短期存储目录
+LOCAL_RETENTION_DAYS=3                             # 本地仅保留 3 天
 
-# 1. 执行备份并通过管道直接推送到 MinIO（免落盘）
-echo "开始备份 ${DB_NAME} 到 MinIO..."
-if PGPASSWORD="${DB_PASSWORD}" pg_dump -h "${DB_HOST}" -U "${DB_USER}" -d "${DB_NAME}" -Fc \
-  | mc pipe "${MINIO_ALIAS}/${BUCKET_NAME}/${BACKUP_NAME}"; then
-  echo "✅ 备份成功: ${BACKUP_NAME}"
-  # 可在此处触发成功告警或日志记录
+# MinIO 配置
+MINIO_ALIAS="backup-minio"        # 已用 mc alias set 配置好的别名
+MINIO_BUCKET="pg-backups-bucket"  # MinIO Bucket 名称
+
+# --- 执行本地备份 ---
+DATE=$(date +%Y%m%d_%H%M%S)
+FILE_NAME="${DB_NAME}_${DATE}.dump"
+LOCAL_FILE_PATH="${LOCAL_BACKUP_DIR}/${FILE_NAME}"
+
+mkdir -p ${LOCAL_BACKUP_DIR}
+
+# 备份 + 最高压缩（去 -t，适配 cron 无 TTY）
+docker exec ${CONTAINER_NAME} pg_dump -U ${DB_USER} -d ${DB_NAME} -F c -Z 9 -b > ${LOCAL_FILE_PATH}
+
+# --- 生成 sha256 校验和 ---
+sha256sum "${LOCAL_FILE_PATH}" > "${LOCAL_FILE_PATH}.sha256"
+
+# --- 校验本地备份完整性 ---
+if sha256sum -c "${LOCAL_FILE_PATH}.sha256" --status; then
+  echo "✅ 本地备份校验通过: ${FILE_NAME}"
 else
-  echo "❌ 备份失败！"
-  # 可在此处触发钉钉/企微告警通知
+  echo "❌ 本地备份校验失败！"
   exit 1
 fi
+
+# --- 同步到 MinIO（备份文件 + 校验和） ---
+echo "开始同步到 MinIO..."
+mc cp "${LOCAL_FILE_PATH}"         "${MINIO_ALIAS}/${MINIO_BUCKET}/daily/"
+mc cp "${LOCAL_FILE_PATH}.sha256"  "${MINIO_ALIAS}/${MINIO_BUCKET}/daily/"
+echo "✅ MinIO 同步完成"
+
+# --- 本地清理过期备份 ---
+find ${LOCAL_BACKUP_DIR} -name "*.dump" -type f -mtime +${LOCAL_RETENTION_DAYS} -delete
+find ${LOCAL_BACKUP_DIR} -name "*.sha256" -type f -mtime +${LOCAL_RETENTION_DAYS} -delete
 ```
 
-> **要点**：
-> - `set -euo pipefail` 中的 `pipefail` 很关键——它保证管道中任意一段失败（如 `pg_dump` 中途报错）都能让整条命令返回非零，避免"dump 已经失败却仍被当成成功推送"的静默错误。
-> - `DB_PASSWORD:?...` 在变量未设置时直接报错退出，避免 `PGPASSWORD` 为空导致认证失败却难排查。
-> - 若 `pg_dump` 走的是 **Docker 容器**（而非宿主机直接装了 `pg_dump`），把该行替换为 `docker exec ${CONTAINER_NAME} pg_dump -U ... -Fc | mc pipe ...` 即可，其余不变。
-> - 注意：管道直推方式**无法在本地生成 `.sha256` 校验和**（文件没落盘）。如需完整性校验，建议仍采用上面的"本地落盘 + `mc cp` + 校验和"方式，或恢复时通过 `mc cat | sha256sum` 临时校验。
+恢复前先在 MinIO 侧（或下载后）校验：
+
+```bash
+mc cat ${MINIO_ALIAS}/${MINIO_BUCKET}/daily/"${FILE_NAME}".sha256 | sha256sum -c -
+```
+
+**优点**：天然版本控制、生命周期自动清理、异地容灾，安全性极高。本地保留近期备份，兼顾恢复速度（RTO）与数据安全。
 
 ---
 
