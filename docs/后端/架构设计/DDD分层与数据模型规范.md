@@ -1,7 +1,9 @@
 ---
 title: DDD 分层与数据模型规范
 icon: mdi:layers-triple-outline
-sort: 1
+sort: 2
+category: 架构设计
+tag: [DDD, 分层架构, 数据模型, CQRS]
 ---
 
 # DDD 分层与数据模型规范

@@ -1,7 +1,9 @@
 ---
 title: 双 ID 设计规范
 icon: mdi:identifier
-sort: 2
+sort: 3
+category: 架构设计
+tag: [ID设计, Snowflake, ULID, 分布式]
 ---
 
 # 双 ID 设计规范
