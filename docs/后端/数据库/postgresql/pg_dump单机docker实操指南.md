@@ -14,72 +14,66 @@ sort: 4
 
 在单机 Docker 环境下使用 `pg_dump` 非常简单：无需在宿主机安装任何工具，直接利用现有的 PostgreSQL 容器即可完成操作。文中所有 `docker exec` 命令都假设已有一个运行中的 PG 容器（如 `postgres-prod`）。**生产首选方案 A（自定义二进制格式）**。
 
-### 方案 A：导出为自定义二进制格式（生产首选，带压缩）
+### 方案 A：自定义二进制格式（生产首选）
 
-使用 `-F c` 参数导出为 Custom 二进制格式，不仅自带压缩、体积小，而且后续可以使用 `pg_restore` 开启**多线程并发恢复**。
+使用 `-F c` 导出为 Custom 格式，自带压缩、体积小，且恢复时可用 `pg_restore -j` 开启**多线程并发恢复**。
 
 ```bash
-docker exec <your_postgres_container_name> \
-  pg_dump -U <username> -d <dbname> -F c -Z 9 -b -v > /path/to/backup/db_$(date +%Y%m%d_%H%M%S).dump
+docker exec <container> \
+  pg_dump -U <username> -d <dbname> -F c -Z 9 -b > /path/to/backup/db_$(date +%Y%m%d_%H%M%S).dump
 ```
 
 | 参数 | 含义 |
 | --- | --- |
-| `-i` | **恢复侧必须带**：`pg_restore` / `psql` 读取文件时保持 stdin 打开以喂入备份内容。**备份侧不要加 `-t`**（Cron 无 TTY，否则报 `cannot allocate TTY`）。 |
 | `-F c` | Format Custom（自定义二进制格式） |
-| `-Z 9` | 压缩级别 0~9，默认 6。**推荐 9**：对 JSON / TEXT / Markdown 这类 AI 聊天数据压缩效果显著（如 20GB 原始数据可压到 3~6GB）。 |
-| `-b` | 导出大对象数据（Blobs） |
-| `-v` | 显示备份详细日志 |
-| `> /path/...` | 通过重定向直接将数据保存到**宿主机**的物理磁盘上，不占用容器内部空间 |
+| `-Z 9` | 压缩级别 0~9，默认 6。**推荐 9**：对 JSON/TEXT 类数据压缩效果显著（20GB 原始数据可压到 3~6GB） |
+| `-b` | 包含大对象（Blobs） |
+| `docker exec`（无 `-it`） | **注意**：备份脚本跑在 Cron 下无 TTY，不能用 `-it`（会报 `cannot allocate TTY`）。只用 `docker exec` 即可 |
+| `> /path/...` | 重定向到宿主机磁盘，不占用容器内部空间 |
 
-> **备份一致性提示**：`pg_dump` 内部基于 MVCC，不会产出脏数据，但**不保证业务层一致性**（例如 `recharge_order` 已提交而 `user_asset` 尚未更新时，恢复后业务状态可能不一致）。高并发支付/资产类系统可在备份窗口暂停写入接口，或先执行 `CHECKPOINT;` 再 dump：
+> **备份一致性**：`pg_dump` 基于 MVCC，不会产出脏数据，但**不保证业务层一致性**（例如 `recharge_order` 已提交而 `user_asset` 尚未更新）。高并发支付/资产类系统可在备份前执行 `CHECKPOINT;` 减少恢复重放量：
 > ```bash
 > docker exec <container> psql -U <username> -d <dbname> -c "CHECKPOINT;"
 > ```
-> 当前项目规模较小，不停服、仅加 `-Z 9` 与下文 checksum 即可满足日常需求。
 
-### 方案 B：导出为标准纯文本 SQL 文件（适合小库、易查看）
+### 方案 B：纯文本 SQL（适合小库、可读）
 
-如果数据量很小，或者希望用文本编辑器直接查看 SQL 脚本：
+数据量很小或希望直接查看 SQL 内容时使用：
 
 ```bash
-docker exec <your_postgres_container_name> \
+docker exec <container> \
   pg_dump -U <username> -d <dbname> -F p > /path/to/backup/db_$(date +%Y%m%d_%H%M%S).sql
 ```
 
-> **注意**：这种方式生成的文件体积较大，恢复时无法进行多线程并行加速。
+> 体积较大，恢复时无法并行加速。
 
 ### 数据恢复
-
-恢复命令取决于备份时的文件格式：
 
 **`.dump` 自定义格式（方案 A）**：
 
 ```bash
-# -j 4 开启 4 线程并行加速，-c 恢复前先清理/删表
-docker exec -i <your_postgres_container_name> \
-  pg_restore -U <username> -d <dbname> -c -j 4 < /path/to/backup/db_20260807.dump
+# --clean --if-exists: 先清理再灌入；-j 4: 4 线程并行
+docker exec -i <container> \
+  pg_restore -U <username> -d <dbname> --clean --if-exists --no-owner -j 4 < /path/to/backup/db_20260807.dump
 ```
 
-> **坑：目标库不存在时 `-c` 会报错**。`-c` 只负责 DROP 库内的对象，不会自动建库。两种处理方式：
-> 1. 先建库再恢复：`docker exec -i <container> createdb -U <username> <dbname>`，再执行上面的 `pg_restore`；
-> 2. 或直接用 `-C`（连同建库一起做，此时 `-d` 应指向 `postgres` 等已有库）：`pg_restore -U <username> -C -d postgres -c -j 4 < file.dump`。
+> **目标库不存在时**：`pg_restore` 不会自动建库。先 `docker exec -i <container> createdb -U <username> <dbname>`，或加 `-C -d postgres` 让 `pg_restore` 自行建库。
 
 **`.sql` 文本格式（方案 B）**：
 
 ```bash
-docker exec -i <your_postgres_container_name> \
-  psql -U <username> -d <dbname> < /path/to/backup/db_20260807.sql
+docker exec -i <container> psql -U <username> -d <dbname> < /path/to/backup/db_20260807.sql
 ```
 
 ### 常见避坑
 
-1. **全局对象丢失**：`pg_dump` 仅备份单个数据库的表结构和数据，**不会**备份数据库用户/角色、密码及表空间。需额外运行：
+1. **全局对象丢失**：`pg_dump` 只备份单库，**不含**用户/角色/密码/表空间。需额外执行：
    ```bash
    docker exec <container> pg_dumpall -U postgres --globals-only > globals.sql
    ```
+   恢复时先恢复 `globals.sql`，再 `pg_restore` 业务库（第 2、3 节脚本已内置此步骤）。
 
-2. **免密处理**：如果容器设置了 `POSTGRES_HOST_AUTH_METHOD=trust` 或使用默认 `postgres` 用户本地套接字连接，通常不会提示密码。否则可指定环境变量：
+2. **免密处理**：若容器未设 `POSTGRES_HOST_AUTH_METHOD=trust`，需传密码：
    ```bash
    docker exec -e PGPASSWORD='your_password' <container> pg_dump ...
    ```
@@ -282,118 +276,201 @@ mount -t nfs 192.168.1.200:/nas/pg_backups /mnt/remote_backups
 
 ---
 
-## 3. 数据恢复自动化（脚本 + Makefile）
+## 3. 数据恢复自动化
 
-在生产事故或灾难恢复（DR）发生时，运维/开发人员往往处于高压状态，手动敲命令行极易出错（如漏掉 `-j` 多线程参数、选错数据库名、忽略 `-i` 输入流等）。将恢复流程封装为自动化脚本，能大幅降低 **RTO（恢复时间目标）**。
+在生产事故或灾难恢复（DR）发生时，运维/开发人员往往处于高压状态，手动敲命令行极易出错（如漏掉 `-j` 多线程参数、选错数据库名）。将恢复流程封装为自动化脚本，能大幅降低 **RTO（恢复时间目标）**。
 
-> **备份 vs 恢复的核心区别 —— 安全性**：
+> **备份 vs 恢复的核心区别**：
 > - **备份**：无人值守、自动定时、高频执行、无破坏性。
-> - **恢复**：**有人值守、手动触发、低频执行、具备高破坏性（会覆盖/清理当前数据）**。
+> - **恢复**：**有人值守、手动触发、低频执行、具备高破坏性（会覆盖当前数据）**。
 >
-> 因此，恢复脚本必须引入 **交互式二次确认** 与 **防误触保护**，且**绝对禁止放进 Crontab**。
+> 因此恢复脚本必须引入 **二次确认** 与 **防误触保护**，且**绝对禁止放进 Crontab**。
 
-### 3.1 恢复脚本设计（`pg_restore.sh`）
+### 3.1 统一恢复脚本（`pg_restore.sh`）
 
-在 `deploy/backup/` 目录下新增 `pg_restore.sh`，特点：
-
-- 支持通过命令行参数指定恢复文件；未指定时自动查找最新 `.dump`。
-- **强制二次确认**：要求手动输入目标库名，输入不匹配即中止。
-- 自动识别 `.dump`（走 `pg_restore -c -j`）与 `.sql`（走 `psql`）两种格式。
+一个脚本覆盖两种场景：**本地恢复**（指定文件或自动查找最新）与 **MinIO 直取恢复**（免下载）。放在 `deploy/backup/` 目录下。
 
 ```bash
 #!/bin/bash
 
 # 注意：【不】使用 set -e。原因：脚本含交互式 read、文件查找等逻辑，
-# 且需在恢复失败时打印自定义错误信息而非直接崩溃，故改为手动检查关键命令退出码。
+# 且需在恢复失败时打印自定义信息而非直接崩溃，故改为手动检查关键命令退出码。
 
-# --- 配置区 ---
-CONTAINER_NAME="postgres-prod"        # PG 容器名称
-DB_USER="postgres"                     # 数据库用户名
-DB_NAME="mydb"                         # 目标数据库名称
-BACKUP_DIR="/data/backups/postgres"    # 默认备份目录
-JOBS=4                                 # pg_restore 并行线程数
+# ============================================================
+# 配置区（按实际环境修改）
+# ============================================================
+CONTAINER_NAME="postgres-prod"                  # PG 容器名称
+DB_USER="postgres"                              # 数据库用户名
+DB_NAME="mydb"                                  # 目标数据库名称
+BACKUP_ROOT="/data/backups/postgres"            # 本地备份根目录（含 daily/weekly/monthly 子目录）
+JOBS=4                                          # pg_restore 并行线程数
 
-# --- 获取恢复目标文件 ---
-# 支持通过命令行第一个参数指定文件；若未指定，默认自动查找最新的 .dump 文件
-SPECIFIED_FILE="$1"
+# MinIO 配置（仅 --source minio 时需要）
+MINIO_ALIAS="backup-minio"
+MINIO_BUCKET="pg-backups-bucket"
 
-if [ -n "${SPECIFIED_FILE}" ]; then
-    RESTORE_FILE="${SPECIFIED_FILE}"
-else
-    echo "🔍 未指定备份文件，正在寻找最新备份..."
-    RESTORE_FILE=$(ls -t "${BACKUP_DIR}"/*.dump 2>/dev/null | head -n 1)
-fi
+# ============================================================
+# 参数解析
+# ============================================================
+SOURCE="local"          # local | minio
+RESTORE_FILE=""         # 指定文件路径（可选）
 
-# 检查文件是否存在且非空
-if [ ! -s "${RESTORE_FILE}" ]; then
-    echo "❌ 错误: 未找到可用的备份文件！路径: ${RESTORE_FILE}"
-    exit 1
-fi
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --source)   SOURCE="$2"; shift 2 ;;
+        --file)     RESTORE_FILE="$2"; shift 2 ;;
+        --db)       DB_NAME="$2";    shift 2 ;;
+        *)          echo "未知参数: $1"; echo "用法: $0 [--source local|minio] [--file /path/to/backup.dump] [--db dbname]"; exit 1 ;;
+    esac
+done
 
-# 校验容器运行状态（防向未就绪的数据库灌数据）
-CONTAINER_STATUS=$(docker inspect -f '{{.State.Health.Status}}' "${CONTAINER_NAME}" 2>/dev/null || echo "unknown")
-if [ "${CONTAINER_STATUS}" = "unhealthy" ]; then
-    echo "❌ 容器 [${CONTAINER_NAME}] 健康状态为 unhealthy，请先修复后再恢复！"
-    exit 1
-elif [ "${CONTAINER_STATUS}" = "starting" ]; then
-    echo "⚠️ 容器 [${CONTAINER_NAME}] 仍在启动中，建议等待健康后再执行恢复。"
-fi
-
-# 校验完整性（若同目录存在 .sha256 校验和文件则自动验证，防磁盘坏块/传输损坏）
-CHECKSUM_FILE="${RESTORE_FILE}.sha256"
-if [ -f "${CHECKSUM_FILE}" ]; then
-    echo "🔑 检测到校验和文件，正在验证完整性..."
-    if ! sha256sum -c "${CHECKSUM_FILE}" --status 2>/dev/null; then
-        echo "❌ 校验和验证失败！备份文件可能已损坏，操作已中止。"
+# ============================================================
+# 1. 确定恢复源文件
+# ============================================================
+if [ "${SOURCE}" = "minio" ]; then
+    # --- MinIO 模式：自动查找最新备份 ---
+    echo "🔍 正在从 MinIO 查找最新备份..."
+    # 优先 daily 目录，按文件名（含时间戳）排序取最新
+    LATEST=$(mc ls "${MINIO_ALIAS}/${MINIO_BUCKET}/daily/" 2>/dev/null \
+        | awk '{print $NF}' | grep '\.dump$' | sort -r | head -n 1)
+    if [ -z "${LATEST}" ]; then
+        echo "❌ 未在 MinIO 找到任何 .dump 备份文件！"
         exit 1
     fi
-    echo "✅ 校验和验证通过。"
+    RESTORE_SRC="minio://${MINIO_ALIAS}/${MINIO_BUCKET}/daily/${LATEST}"
+    echo "最新备份: ${RESTORE_SRC}"
+
+elif [ -n "${RESTORE_FILE}" ]; then
+    # --- 指定文件模式 ---
+    RESTORE_SRC="${RESTORE_FILE}"
+
+else
+    # --- 本地自动查找：递归搜索 daily/weekly/monthly 子目录 ---
+    echo "🔍 未指定备份文件，正在递归搜索最新备份..."
+    RESTORE_FILE=$(find "${BACKUP_ROOT}" -name "*.dump" -type f -printf '%T@ %p\n' 2>/dev/null \
+        | sort -rn | head -n 1 | awk '{print $2}')
+    RESTORE_SRC="${RESTORE_FILE}"
 fi
 
-# --- 灾难防护：强制二次确认 ---
+# ============================================================
+# 2. 前置校验
+# ============================================================
+
+# 2a. 容器健康检查（仅本地/容器模式需要）
+if [ "${SOURCE}" != "minio" ]; then
+    CONTAINER_STATUS=$(docker inspect -f '{{.State.Health.Status}}' "${CONTAINER_NAME}" 2>/dev/null || echo "unknown")
+    if [ "${CONTAINER_STATUS}" = "unhealthy" ]; then
+        echo "❌ 容器 [${CONTAINER_NAME}] 健康状态为 unhealthy，请先修复后再恢复！"
+        exit 1
+    elif [ "${CONTAINER_STATUS}" = "starting" ]; then
+        echo "⚠️  容器 [${CONTAINER_NAME}] 仍在启动中，建议等待健康后再执行恢复。"
+    fi
+fi
+
+# 2b. 文件存在性检查（本地模式）
+if [ "${SOURCE}" != "minio" ]; then
+    if [ ! -s "${RESTORE_FILE}" ]; then
+        echo "❌ 错误: 未找到可用的备份文件！路径: ${RESTORE_FILE}"
+        exit 1
+    fi
+fi
+
+# 2c. 完整性校验
+if [ "${SOURCE}" != "minio" ]; then
+    CHECKSUM_FILE="${RESTORE_FILE}.sha256"
+    if [ -f "${CHECKSUM_FILE}" ]; then
+        echo "🔑 正在验证备份完整性..."
+        if ! sha256sum -c "${CHECKSUM_FILE}" --status 2>/dev/null; then
+            echo "❌ 校验和验证失败！备份文件可能已损坏，操作已中止。"
+            exit 1
+        fi
+        echo "✅ 校验和验证通过。"
+    fi
+else
+    # MinIO 模式：先下载 .sha256 校验
+    REMOTE_SHA256="${MINIO_ALIAS}/${MINIO_BUCKET}/daily/${LATEST}.sha256"
+    echo "🔑 正在从 MinIO 获取校验和..."
+    if mc cat "${REMOTE_SHA256}" 2>/dev/null | sha256sum -c --status 2>/dev/null; then
+        echo "✅ MinIO 备份完整性校验通过。"
+    else
+        echo "⚠️  无法校验 MinIO 备份完整性（校验和文件不存在或验证失败），继续执行..."
+    fi
+fi
+
+# ============================================================
+# 3. 二次确认
+# ============================================================
+echo ""
 echo "=================================================="
 echo "🚨 警告：准备执行数据库恢复操作！"
 echo "=================================================="
-echo "目标容器 : ${CONTAINER_NAME}"
+echo "数据来源   : ${SOURCE}"
+echo "目标容器   : ${CONTAINER_NAME}"
 echo "目标数据库 : ${DB_NAME}"
-echo "恢复源文件 : ${RESTORE_FILE}"
+echo "恢复源     : ${RESTORE_SRC}"
 echo "=================================================="
-echo "⚠️  此操作可能会清空或覆盖当前数据库 [${DB_NAME}] 中的原有数据！"
-read -p "确认继续执行吗？输入 [${DB_NAME}] 以确认操作: " CONFIRM_DB
+echo "⚠️  此操作将清空/覆盖数据库 [${DB_NAME}] 中的原有数据！"
+read -r -p "确认继续？输入 [${DB_NAME}] 以确认: " CONFIRM_DB
 
 if [ "${CONFIRM_DB}" != "${DB_NAME}" ]; then
-    echo "❌ 数据库名称输入不匹配，恢复操作已取消。"
+    echo "❌ 数据库名称不匹配，恢复操作已取消。"
     exit 1
 fi
 
-echo "🚀 开始恢复数据库..."
+# ============================================================
+# 4. 先恢复全局对象（角色/权限）
+# ============================================================
+if [ "${SOURCE}" != "minio" ]; then
+    # 本地：查找与 dump 同目录的最新 globals_*.sql
+    DUMP_DIR=$(dirname "${RESTORE_FILE}")
+    GLOBALS_FILE=$(find "${DUMP_DIR}" -maxdepth 1 -name "globals_*.sql" -type f -printf '%T@ %p\n' 2>/dev/null \
+        | sort -rn | head -n 1 | awk '{print $2}')
+    if [ -n "${GLOBALS_FILE}" ] && [ -s "${GLOBALS_FILE}" ]; then
+        echo "📋 正在恢复全局对象（角色/权限）: ${GLOBALS_FILE}"
+        docker exec -i "${CONTAINER_NAME}" psql -U "${DB_USER}" -d postgres < "${GLOBALS_FILE}"
+        echo "✅ 全局对象恢复完成。"
+    else
+        echo "⚠️  未找到 globals_*.sql，跳过全局对象恢复。"
+    fi
+fi
 
-# --- 执行恢复 ---
-FILENAME=$(basename "${RESTORE_FILE}")
+# ============================================================
+# 5. 执行业务库恢复
+# ============================================================
+echo "🚀 开始恢复业务库 ${DB_NAME}..."
 
-if [[ "${FILENAME}" == *.dump ]]; then
-    # 方案 A：Custom 自定义二进制格式 (pg_restore)
-    # -c: 恢复前先 DROP 数据库对象
-    # -j: 开启多线程并行恢复
-    docker exec -i "${CONTAINER_NAME}" \
-      pg_restore -U "${DB_USER}" -d "${DB_NAME}" -c -j "${JOBS}" < "${RESTORE_FILE}"
+if [ "${SOURCE}" = "minio" ]; then
+    # MinIO 直取：先建库，再灌数据流
+    docker exec -i "${CONTAINER_NAME}" psql -U "${DB_USER}" -d postgres \
+        -c "CREATE DATABASE ${DB_NAME};" 2>/dev/null || true
+    mc cat "${MINIO_ALIAS}/${MINIO_BUCKET}/daily/${LATEST}" \
+        | docker exec -i "${CONTAINER_NAME}" pg_restore \
+            -U "${DB_USER}" -d "${DB_NAME}" --clean --if-exists --no-owner -j "${JOBS}"
     RET=$?
-
-elif [[ "${FILENAME}" == *.sql ]]; then
-    # 方案 B：纯文本 SQL 脚本 (psql)
-    docker exec -i "${CONTAINER_NAME}" \
-      psql -U "${DB_USER}" -d "${DB_NAME}" < "${RESTORE_FILE}"
-    RET=$?
-
 else
-    echo "❌ 无法识别的文件扩展名（仅支持 .dump 或 .sql）"
-    exit 1
+    FILENAME=$(basename "${RESTORE_FILE}")
+    case "${FILENAME}" in
+        *.dump)
+            docker exec -i "${CONTAINER_NAME}" \
+                pg_restore -U "${DB_USER}" -d "${DB_NAME}" --clean --if-exists --no-owner -j "${JOBS}" < "${RESTORE_FILE}"
+            RET=$?
+            ;;
+        *.sql)
+            docker exec -i "${CONTAINER_NAME}" \
+                psql -U "${DB_USER}" -d "${DB_NAME}" < "${RESTORE_FILE}"
+            RET=$?
+            ;;
+        *)
+            echo "❌ 无法识别的文件扩展名（仅支持 .dump 或 .sql）"
+            exit 1
+            ;;
+    esac
 fi
 
-if [ ${RET} -eq 0 ]; then
+if [ "${RET}" -eq 0 ]; then
     echo "✅ 数据库恢复成功！"
 else
-    echo "❌ 数据库恢复过程中出现异常（退出码 ${RET}），请检查日志！"
+    echo "❌ 数据库恢复异常（退出码 ${RET}），请检查日志！"
     exit 1
 fi
 ```
@@ -404,192 +481,145 @@ fi
 chmod +x deploy/backup/pg_restore.sh
 ```
 
-### 3.2 从 MinIO 直接恢复（免下载 ⭐）：`pg_restore_from_minio.sh`
-
-当备份只存在于远端 MinIO、且不想先把大文件下载到本地磁盘时，可用 `mc cat | pg_restore` 把数据流**直接从 MinIO 灌入数据库**（配合第 2.3 节管道直推版形成闭环）。与 3.1 的本地脚本相比，本方案**省去下载环节**，但同样需要二次确认 + 环境锁，绝不能进 Crontab。
-
-> ⚠️ **提示**：恢复脚本中一定要加入**环境校验锁**（比如检查是否为生产环境，避免误操作覆盖线上库）。
+### 3.2 使用方式
 
 ```bash
-#!/bin/bash
+# 本地恢复：自动查找最新备份（递归搜索 daily/weekly/monthly 子目录）
+bash deploy/backup/pg_restore.sh
 
-# 注意：【不】使用 set -e，因脚本含交互式 read，且需在失败时打印自定义信息而非直接崩溃。
+# 本地恢复：指定文件
+bash deploy/backup/pg_restore.sh --file /data/backups/postgres/daily/mydb_20260810_020000.dump
 
-# --- 防误触安全锁（禁止在生产服务器直接运行）---
-if [ "${NODE_ENV:-}" = "production" ]; then
-  echo "ERROR: 禁止在生产环境直接运行恢复脚本！"
-  exit 1
-fi
+# 本地恢复：指定目标库（默认 mydb）
+bash deploy/backup/pg_restore.sh --db restore_test
 
-# --- 配置区 ---
-TARGET_DB="mydb_restore_test"   # 恢复到独立测试库，避免误覆盖线上
-MINIO_ALIAS="backup-minio"
-BUCKET_NAME="pg-backups"
-DB_HOST="localhost"
-DB_USER="postgres"
-DB_PASSWORD="${DB_PASSWORD:-}"  # 可选：通过环境变量传入数据库密码
-
-# 1. 从 MinIO 获取最新的备份文件名（按文件名/时间倒序取第一条）
-LATEST_BACKUP=$(mc ls "${MINIO_ALIAS}/${BUCKET_NAME}/" | sort -k5 | tail -n 1 | awk '{print $5}')
-if [ -z "${LATEST_BACKUP}" ]; then
-  echo "❌ 未在 MinIO 找到任何备份文件！"
-  exit 1
-fi
-echo "最新备份文件: ${LATEST_BACKUP}"
-
-# 2. 强制二次确认（防误触）
-echo "=================================================="
-echo "🚨 警告：准备从 MinIO 执行数据库恢复！"
-echo "=================================================="
-echo "目标数据库 : ${TARGET_DB}"
-echo "恢复源文件 : ${LATEST_BACKUP}"
-echo "=================================================="
-read -p "确认继续执行吗？输入 [${TARGET_DB}] 以确认: " CONFIRM_DB
-if [ "${CONFIRM_DB}" != "${TARGET_DB}" ]; then
-  echo "❌ 数据库名称输入不匹配，恢复操作已取消。"
-  exit 1
-fi
-
-# 3. 先建库（容忍已存在），再灌入数据
-echo "正在从 MinIO 恢复数据到 ${TARGET_DB}..."
-PGPASSWORD="${DB_PASSWORD}" psql -h "${DB_HOST}" -U "${DB_USER}" -c "CREATE DATABASE ${TARGET_DB};" 2>/dev/null || true
-mc cat "${MINIO_ALIAS}/${BUCKET_NAME}/${LATEST_BACKUP}" \
-  | pg_restore -h "${DB_HOST}" -U "${DB_USER}" -d "${TARGET_DB}" --clean --if-exists --no-owner -j 4
-
-echo "✅ 恢复完成！"
+# MinIO 直取恢复（免下载，自动定位最新备份）
+bash deploy/backup/pg_restore.sh --source minio --db restore_test
 ```
 
-> **要点**：
-> - **安全锁**：`NODE_ENV=production` 时直接拒绝运行；生产恢复务必走独立测试库（`mydb_restore_test`）演练，确认无误后再人工切库。
-> - **`mc ls | sort -k5 | tail`**：`mc ls` 输出第 5 列为文件名，按该列排序后取末尾即最新（前提是文件名含时间前缀 `mydb_20260810_020000.dump`，与备份脚本命名一致）。
-> - **目标库处理**：先用 `CREATE DATABASE` 建库（`|| true` 容忍库已存在），再 `pg_restore --clean --if-exists` 灌入；`--no-owner` 避免恢复时因角色缺失报错。`-j 4` 开启并行恢复加速。
-> - 若 `pg_restore` 在容器内执行，把管道右侧改为 `docker exec -i ${CONTAINER_NAME} pg_restore ...` 即可。
+### 3.3 定期恢复演练（DR 演练）
 
-### 3.3 在 Makefile 中封装恢复指令
+"每天备份、从没恢复过"是生产最大隐患。建议**每月**用独立测试库做一次演练：
 
-与第 5 节的备份指令呼应，在根目录 `Makefile` 中追加恢复相关目标：
+```bash
+# 用最新备份恢复到临时库验证
+bash deploy/backup/pg_restore.sh --db restore_test
 
-```makefile
-# 在原有 Makefile 变量后追加：
-RESTORE_SCRIPT_PATH := $(shell pwd)/deploy/backup/pg_restore.sh
+# 验证关键指标（表数量、行数等）
+docker exec -i postgres-prod psql -U postgres -d restore_test -c "
+  SELECT schemaname, tablename, n_live_tup
+  FROM pg_stat_user_tables
+  ORDER BY n_live_tup DESC
+  LIMIT 20;
+"
 
-.PHONY: db-restore db-restore-latest
-
-## 恢复最新的 .dump 备份文件
-db-restore-latest:
-	@chmod +x $(RESTORE_SCRIPT_PATH)
-	@$(RESTORE_SCRIPT_PATH)
-
-## 恢复指定的备份文件 (用法: make db-restore FILE=/path/to/backup.dump)
-db-restore:
-	@chmod +x $(RESTORE_SCRIPT_PATH)
-	@$(RESTORE_SCRIPT_PATH) $(FILE)
+# 演练结束清理
+docker exec -i postgres-prod psql -U postgres -d postgres -c "DROP DATABASE restore_test;"
 ```
 
-### 3.4 运维实操对比
+> 演练也可直接走 MinIO 直取：`bash deploy/backup/pg_restore.sh --source minio --db restore_test`
 
-| 场景 | 命令 | 说明 |
-| --- | --- | --- |
-| **日常演练 / 恢复最新本地备份** | `make db-restore-latest` | 自动寻找 `/data/backups/postgres` 下最新的 `.dump` 文件并提示确认 |
-| **恢复特定历史节点** | `make db-restore FILE=/data/backups/postgres/mydb_20260801_020000.dump` | 显式传入历史备份文件进行精准还原 |
-| **从 MinIO 直接恢复（免下载）** | `bash deploy/backup/pg_restore_from_minio.sh` | 含环境锁 + 二次确认，自动定位最新备份并直灌测试库 |
-| **定时自动备份部署** | `make backup-cron-install` | 部署 Crontab 自动任务（**仅备份，恢复不在此列**） |
+### 3.4 恢复脚本关键设计要点
 
-### 3.5 恢复脚本的工程避坑原则
-
-1. **绝对禁止放进 Cron**：恢复脚本只能由管理员手动触发，绝不能包含任何自动循环或无人值守逻辑。
-2. **校验容器运行状态**：脚本执行前可通过 `docker inspect -f '{{.State.Health.Status}}' ${CONTAINER_NAME}` 确认容器健康状态，防止向未准备好的数据库灌数据。
-3. **环境隔离保护**：如需防止误在**生产环境容器**上直接运行恢复脚本，可在脚本开头增加环境变量检查（例如判断 `ENV != production`，否则要求额外输入超级密钥）。
-4. **目标库不存在时 `-c` 会报错**：若恢复目标库尚未创建，参考第 1 节「数据恢复」中的处理方式（先 `createdb` 或用 `-C`）。
-5. **先恢复全局对象**：若备份包含 `globals_*.sql`，必须先恢复它（用户/权限）再 `pg_restore` 业务库，否则会因缺角色报错。
-6. **恢复前校验和验证**：本地脚本已自动校验同目录 `.sha256` 文件，避免把损坏备份灌入生产库；MinIO 直取方案可先用 `mc cat ... | sha256sum` 临时校验。
-
-### 3.6 定期恢复演练（DR 演练）
-
-"每天备份、从没恢复过"是生产最大隐患——真出事才发现备份不可用。建议**每月**做一次恢复演练：
-
-1. 创建临时库 `restore_test`；
-2. 用最新 `.dump`（或 `.sha256` 校验通过后）恢复：
-   ```bash
-   docker exec -i ${CONTAINER_NAME} pg_restore -U ${DB_USER} -d restore_test -c -j 4 < latest.dump
-   ```
-3. 校验关键指标（表数量、用户数、订单数）是否符合预期；
-4. 演练结束 `DROP DATABASE restore_test` 清理。
-
-> 演练可用 `make db-restore FILE=...` 复用同一套二次确认逻辑，只是目标库改成 `restore_test`；也可直接使用 3.2 的 MinIO 直取脚本指向独立测试库。
+| 要点 | 说明 |
+| --- | --- |
+| **绝对禁止进 Cron** | 恢复只能手动触发 |
+| **二次确认** | 输入目标库名才放行，防手滑 |
+| **容器健康检查** | `docker inspect Health.Status`，拒绝向 unhealthy 容器灌数据 |
+| **完整性校验** | 自动验证同目录 `.sha256`，MinIO 模式先拉校验和再恢复 |
+| **全局对象优先** | 自动查找同目录最新 `globals_*.sql` 并先恢复角色/权限 |
+| **分级目录兼容** | `find` 递归搜索 `daily/weekly/monthly` 子目录，按修改时间取最新 |
+| **`--no-owner`** | 避免恢复时因角色缺失报错 |
+| **`--clean --if-exists`** | 先清理再灌入，`--if-exists` 容错首次恢复时对象不存在 |
 
 ---
 
-## 4. 配置 Crontab 定时任务
+## 4. 定时执行（Crontab + Makefile）
 
-赋予脚本执行权限并加入定时任务（例如每天凌晨 2:00 执行）：
+备份脚本需要无人值守定时运行。推荐用 Makefile 封装 Crontab 操作，避免手动编辑 `crontab -e` 时出现拼写错误。
+
+### 4.1 手动方式（快速验证）
 
 ```bash
 chmod +x deploy/backup/pg_backup.sh
 crontab -e
 ```
 
-在打开的编辑器中添加：
+添加：
 
 ```
 0 2 * * * /bin/bash /path/to/deploy/backup/pg_backup.sh >> /var/log/pg_backup.log 2>&1
 ```
 
----
+### 4.2 Makefile 封装（推荐）
 
-## 5. Makefile 封装 Crontab（推荐）
-
-将 Crontab 配置封装到 `Makefile` 中，团队成员用统一指令完成部署，避免手动编辑 `crontab -e` 时出现拼写错误。核心原则是**使用幂等性逻辑（避免重复添加）**。
+核心原则：**幂等性**（重复执行不会产生重复条目）。
 
 ```makefile
 # 定义变量
 SCRIPT_PATH := $(shell pwd)/deploy/backup/pg_backup.sh
+RESTORE_SCRIPT := $(shell pwd)/deploy/backup/pg_restore.sh
 LOG_PATH := /var/log/pg_backup.log
 # Crontab 表达式：每天凌晨 2:00 执行
 CRON_SCHEDULE := 0 2 * * *
 CRON_JOB := $(CRON_SCHEDULE) /bin/bash $(SCRIPT_PATH) >> $(LOG_PATH) 2>&1
 
 .PHONY: backup-cron-install backup-cron-status backup-cron-uninstall
+.PHONY: db-restore db-restore-latest db-restore-minio
 
 ## 安装或更新 Crontab 定时任务
 backup-cron-install:
 	@chmod +x $(SCRIPT_PATH)
 	@mkdir -p /var/log
-	@# 读取现有 crontab，过滤掉旧的该脚本任务，追加新任务后重新写入（实现幂等更新）
+	@# 读取现有 crontab，过滤旧任务，追加新任务（幂等）
 	@(crontab -l 2>/dev/null | grep -v "$(SCRIPT_PATH)"; echo "$(CRON_JOB)") | crontab -
-	@echo "✅ Crontab 备份任务已成功配置/更新！"
-	@echo "当前任务列表："
+	@echo "✅ Crontab 备份任务已配置！"
 	@crontab -l | grep "$(SCRIPT_PATH)"
 
-## 查看当前的备份 Crontab 状态
+## 查看备份 Crontab 状态
 backup-cron-status:
-	@echo "🔍 检查备份定时任务状态："
-	@crontab -l 2>/dev/null | grep "$(SCRIPT_PATH)" || echo "⚠️ 未找到相关备份任务！"
+	@crontab -l 2>/dev/null | grep "$(SCRIPT_PATH)" || echo "⚠️ 未找到备份任务！"
 
 ## 卸载 Crontab 定时任务
 backup-cron-uninstall:
 	@(crontab -l 2>/dev/null | grep -v "$(SCRIPT_PATH)") | crontab -
-	@echo "🗑️  Crontab 备份任务已移除！"
+	@echo "🗑️  备份任务已移除！"
+
+## 恢复最新本地备份（递归搜索分级目录）
+db-restore-latest:
+	@chmod +x $(RESTORE_SCRIPT)
+	@$(RESTORE_SCRIPT)
+
+## 恢复指定备份文件 (用法: make db-restore FILE=/path/to/x.dump)
+db-restore:
+	@chmod +x $(RESTORE_SCRIPT)
+	@$(RESTORE_SCRIPT) --file $(FILE)
+
+## 从 MinIO 直接恢复到测试库 (用法: make db-restore-minio DB=restore_test)
+db-restore-minio:
+	@chmod +x $(RESTORE_SCRIPT)
+	@$(RESTORE_SCRIPT) --source minio --db $(DB)
 ```
 
-### Make 指令速查
+### 指令速查
 
 | 命令 | 作用 |
 | --- | --- |
-| `make backup-cron-install` | 赋予脚本执行权限，写入 Crontab 定时任务（自动去重） |
-| `make backup-cron-status` | 查看当前系统是否已挂载该备份任务 |
-| `make backup-cron-uninstall` | 精准移除该备份任务，不影响其他 Cron |
-| `make db-restore-latest` | 恢复 `/data/backups/postgres` 下最新的 `.dump` 备份（含二次确认） |
+| `make backup-cron-install` | 安装 Crontab 定时备份（自动去重） |
+| `make backup-cron-status` | 查看备份定时任务状态 |
+| `make backup-cron-uninstall` | 移除备份定时任务 |
+| `make db-restore-latest` | 自动查找最新本地备份并恢复（含二次确认） |
 | `make db-restore FILE=/path/to/x.dump` | 恢复指定备份文件（含二次确认） |
+| `make db-restore-minio DB=restore_test` | 从 MinIO 直取最新备份恢复到测试库 |
 
 ### 避坑
 
-1. **缩进必须为 Tab**：Makefile 命令行开头必须使用 Tab 键缩进，不能用空格，否则报 `missing separator` 错误。
-2. **`$(shell pwd)` 解析为绝对路径**：保证 Crontab 运行时不会因相对路径找不到脚本而失败。
+1. **缩进必须为 Tab**：Makefile 命令行开头必须用 Tab，不能用空格。
+2. **`$(shell pwd)` 解析为绝对路径**：保证 Cron 运行时不会因相对路径找不到脚本。
 
 ---
 
-## 6. 放到项目哪个位置好？
+## 5. 项目目录结构建议
 
 结合 **Docker、PostgreSQL 备份脚本、Makefile** 以及 **Spring Boot 后端**，建议采用**标准 Maven 架构 + 运维部署解耦**的目录组织方式：
 
@@ -600,10 +630,8 @@ my-springboot-project/               # 项目根目录
 │   │   ├── Dockerfile               # Spring Boot 镜像构建文件
 │   │   └── docker-compose.yml       # 单机容器编排（App + PG）
 │   ├── backup/                      # 备份恢复统一目录（未来可扩 redis/minio 备份）
-│   │   ├── pg_backup.sh             # ← 本地落盘备份（定时、无人值守）
-│   │   ├── pg_backup_to_minio.sh    # ← 管道直推 MinIO（免落盘）
-│   │   ├── pg_restore.sh            # ← 本地恢复脚本（含二次确认、手动触发）
-│   │   ├── pg_restore_from_minio.sh # ← MinIO 直取恢复（含环境锁、手动触发）
+│   │   ├── pg_backup.sh             # ← 核心备份脚本（定时、无人值守，含 MinIO/SCP 远端同步片段）
+│   │   ├── pg_restore.sh            # ← 统一恢复脚本（支持本地 / MinIO 两种来源，含二次确认）
 │   │   ├── README.md                # 备份恢复操作手册
 │   │   └── init.sql                 # 数据库初始化 SQL
 │   └── env/
@@ -627,17 +655,17 @@ my-springboot-project/               # 项目根目录
 
 ---
 
-## 7. 数据量选型：pg_dump 还是物理备份？
+## 6. 数据量选型：pg_dump 还是物理备份？
 
-`pg_dump` 是逻辑备份，简单可靠、可跨大版本恢复，但库越大越慢、恢复越久，且不支持增量。当前项目（Spring Boot + PostgreSQL + Redis + MinIO + AI 业务，数据量通常在 20GB 以内）使用 `pg_dump + 压缩 + MinIO` 完全够用；当数据规模增长后应按下表升级：
+`pg_dump` 是逻辑备份，简单可靠、可跨大版本恢复，但库越大越慢、恢复越久，且不支持增量。随着数据规模增长，应按以下路线升级：
 
-| 数据库大小     | 推荐方案                | 说明 |
-| --------- | ------------------- | ---- |
-| < 20GB    | `pg_dump -Fc -Z9`   | 当前方案，简单、可跨版本恢复 |
-| 20~200GB  | `pg_dump` + 压缩 + MinIO | 配合分级保留（daily/weekly/monthly） |
-| 200GB~1TB | pgBackRest          | 支持增量备份、并行、WAL 归档，恢复更快 |
-| TB 级      | 物理备份（pg_basebackup）+ WAL 连续归档 | 逻辑备份已不现实 |
+| 数据库大小 | 推荐方案 | 说明 |
+| --- | --- | --- |
+| < 20GB | `pg_dump -Fc -Z9` | 本文方案，简单、可跨版本恢复 |
+| 20~100GB | `pg_dump` + 压缩 + 分级保留 | 配合 daily/weekly/monthly，恢复时间尚可接受 |
+| 100GB~1TB | pgBackRest | 支持增量备份、并行、WAL 归档、PITR 时间点恢复 |
+| TB 级 | `pg_basebackup` + WAL 连续归档 | 物理备份，逻辑备份已不现实 |
 
-> 物理备份与 WAL 归档的定位，见：[单机 Docker PostgreSQL 备份与恢复](./单机Docker备份与恢复.md)（若尚未单独成文，可参考本文第 7 节选型表）。
+> 物理备份与 WAL 归档方案见：[单机 Docker PostgreSQL 备份与恢复](./单机Docker备份与恢复.md)。
 
-> 更多关于项目目录结构的设计原则，见：[项目目录结构规范](../../架构设计/项目目录结构规范.md)。
+> 项目目录结构设计原则见：[项目目录结构规范](../../架构设计/项目目录结构规范.md)。
