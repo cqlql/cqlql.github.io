@@ -36,7 +36,7 @@ scrape_configs:
 
 ## PromQL 常用查询
 
-```promql
+```sql
 # CPU 使用率（5 分钟平均）
 100 - (avg(rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)
 

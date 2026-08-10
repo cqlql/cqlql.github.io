@@ -46,7 +46,7 @@ LogQL 的查询语法与 PromQL 风格一致：
 
 ### 基础查询
 
-```logql
+```sql
 # 按容器筛选日志
 {container="my-app"}
 
@@ -65,7 +65,7 @@ LogQL 的查询语法与 PromQL 风格一致：
 
 ### JSON 日志解析
 
-```logql
+```sql
 # 解析 JSON 并过滤字段
 {container="my-app"} | json | level = "error"
 
@@ -78,7 +78,7 @@ sum by(level) (count_over_time({container="my-app"} | json | level != "" [5m]))
 
 ### 高级查询
 
-```logql
+```sql
 # 统计错误日志速率
 rate({container="my-app"} | json | level = "error" [5m])
 
@@ -217,7 +217,7 @@ networks:
 
 ## LogQL 调试技巧
 
-```logql
+```sql
 # 查看某标签所有可能的值
 {container="my-app"} | json | unwrap level
 

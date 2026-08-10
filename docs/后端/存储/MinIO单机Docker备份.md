@@ -283,7 +283,7 @@ sudo chown -R "$USER:$USER" /var/log/minio-backup
 
 - **反向代理（最便捷）**：在备份服务器用 Nginx / Caddy 为 MinIO 提供 HTTPS。以 Caddy 为例（自带 Let's Encrypt 自动申请与续期）：
 
-  ```caddy
+  ```nginx
   backup-minio.yourdomain.com {
       reverse_proxy localhost:9000
   }

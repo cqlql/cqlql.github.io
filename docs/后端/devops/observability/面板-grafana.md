@@ -65,7 +65,7 @@ networks:
 
 在 Dashboard 设置中使用变量实现动态过滤：
 
-```promql
+```sql
 # 查询所有 job
 label_values(job)
 

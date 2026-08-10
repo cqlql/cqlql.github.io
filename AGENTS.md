@@ -115,6 +115,10 @@ git-auto-push.bat          # 检测变更后自动 git add/commit/push
 - **插件**：`slimsearchPlugin`（全文搜索）、以及一个自定义 `modifyTitle` 插件（用 `removeBasenameFirstNo` 修正路由标题）。
 - **导航自动生成**：`navbar.ts` 调用 `utils/nav-generate.js` 读取目录结构，将 `navbarConfig` 中的字符串 key 解析为真实链接；若 key 无对应菜单会 `console.warn`。
 - **主题**：`theme.ts` 配置了 `repo: cqlql/node-md`、`hostname`、`pageInfo`（Author/Original/Date/Category/Tag）等。
+- **代码高亮（Shiki）**：由 `@vuepress/plugin-shiki` 提供，版本 `@shikijs/core@4.4.2`。`theme.ts` 中 `markdown.highlighter.langs` 当前仅登记 `['bash', 'nginx', 'ini', 'jsx', 'tsx']`。
+  - Shiki 4.x **未内置** `caddy`、`logql`、`promql` 等社区扩展语言。若把它们写进 `langs` 数组，会导致 `ShikiError: Language xxx is not included in this bundle`，`docs:dev` / `docs:build` 直接启动失败。
+  - 未登记且 Shiki 不认识的语言，会报 `⚠ Missing xxx highlighter, skip highlighting`（警告，服务可跑，但代码块不高亮）。
+  - **约定**：Markdown 代码块使用 Shiki 内置语言。PromQL / LogQL 这类查询语言统一用 `sql` 作为代码块语言（已应用于 `后端/devops/observability/` 下笔记）。如需新语言，先确认它存在于 Shiki 内置 bundle，再决定是否加入 `langs` 数组——切勿把 Shiki 不支持的语言名写入 `langs`。
 
 ## 图标使用规范
 
@@ -143,3 +147,4 @@ git-auto-push.bat          # 检测变更后自动 git add/commit/push
 - 依赖版本多为 `2.0.0-rc.*`（VuePress 2 RC），升级需谨慎，优先用 `pnpm run docs:update-package`。
 - `git-auto-push.bat` 会自动提交全部变更（`git add .`），本地调试产生的临时文件建议放在 `docs/临时/` 或忽略，避免被自动推送。
 - 文档语言为简体中文，`lang: zh-CN`。
+- 代码块语言务必使用 Shiki 内置语言（见上方「代码高亮（Shiki）」约定）。不要为了「看起来对」而写 `caddy`/`logql`/`promql` 等 Shiki 不支持的语言名，否则会触发构建失败。
