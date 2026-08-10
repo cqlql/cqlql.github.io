@@ -1,12 +1,28 @@
+---
+title: MinIO 实战
+icon: thesvg-color:minio
+sort: 1
+---
+
 相比本地磁盘和数据库，对象存储具备天然的分布式能力，可以支持海量文件存储和高并发访问，同时具备高可用和自动扩容能力。
 
-此外它支持前端直传，能够显著降低后端服务器的带宽压力。在安全上可以通过签名URL控制访问权限。
+此外它支持前端直传，能够显著降低后端服务器的带宽压力。在安全上可以通过签名 URL 控制访问权限。
 
 综合来看，对象存储在扩展性、可靠性和成本上都更优，是文件存储的标准方案。
 
-## 上传模式
+## 一、整体架构（推荐）
 
-### 前端直传（推荐）
+```
+前端 → 后端（签名/校验） → MinIO
+                     ↓
+                  数据库（file 表）
+```
+
+核心思路：**MinIO 存文件 + MySQL 存元数据 + 预签名 URL 直传**。
+
+## 二、上传模式
+
+### 1. 前端直传（推荐）
 
 流程：
 
@@ -14,7 +30,7 @@
 前端 → 后端（拿上传凭证） → MinIO
 ```
 
-- 后端生成上传 URL
+- 后端生成上传凭证（预签名 URL）
 - 前端直接传到 MinIO
 - 后端只负责记录元数据
 
@@ -24,459 +40,30 @@
 - 节省服务器带宽
 - 更适合简历这种附件场景
 
-###  简单方案：通过后端转存
+### 2. 后端转存（简单方案）
 
-- 前端 → 后端 → MinIO
+```
+前端 → 后端 → MinIO
+```
 
 👉 适合：
 
 - 小系统
 - 内网系统
 
-## 生成访问 URL
+## 三、MinIO 准备
 
-### 方式一：公开 Bucket（简单）
+### 1. 创建 Bucket
 
-```java
-String url = "http://localhost:9000/resume-bucket/" + objectName;
-```
-
-用户头像 / 展示图片，建议公开 URL
-
-### 方式二：预签名 URL（推荐）
-
-过期后只能后端重新签发
-
-```java
-String url = minioClient.getPresignedObjectUrl(
-    GetPresignedObjectUrlArgs.builder()
-        .bucket("passup")
-        .object("resume/xxx.pdf")
-        .method(Method.GET)
-        .expiry(1, TimeUnit.DAYS)
-        .build()
-);
-```
-
-如果是简历附件（PDF / DOC），必须用预签名 URL
-
-- 访问流程：
-
-  ```
-  前端 -> 请求后端 -> 后端生成预签名 URL -> 返回 -> 前端下载
-  ```
-
-
-
-## 待整理
-
-
-
-
-
-### 清理方案
-
-```
-@Scheduled(cron = "0 0 3 * * ?")
-public void cleanFiles() {
-    List<ResumeFile> files = repository.findDeletedFiles();
-
-    for (ResumeFile file : files) {
-        minioClient.removeObject(
-            RemoveObjectArgs.builder()
-                .bucket(file.getBucketName())
-                .object(file.getObjectName())
-                .build()
-        );
-
-        repository.delete(file);
-    }
-}
-```
-
-
-
-### ✔ 清理“临时文件”
-
-```
-条件：
-- status = UPLOADING
-- 无 attachment
-- 超过24小时
-```
-
-------
-
-### ✔ 清理“已删除文件”
-
-```
-条件：
-- status = DELETED
-- 超过7天
-```
-
-------
-
-### ✔ 执行方式
-
-```
-定时任务 + 分批 + 二次校验
-```
-
-###  文件类型校验
-
-```
-if (!file.getContentType().equals("application/pdf")) {
-    throw new RuntimeException("只允许PDF简历");
-}
-```
-
-------
-
-###  限制大小
-
-```
-if (file.getSize() > 5 * 1024 * 1024) {
-    throw new RuntimeException("文件过大");
-}
-```
-
-### 幂等设计（避免重复上传）
-
-- 文件 hash（MD5）
-- 相同文件直接复用
-
-### bucket 目录结构推荐（标准企业方案）
-
-✔ bucket
-
-```
-passup
-```
-
-✔ object key 设计
-
-```
-resume/{userId}/{yyyy}/{MM}/{ulid}.pdf
-avatar/{userId}/{ulid}.jpg
-chat/{conversationId}/{ulid}.png
-report/{yyyy}/{MM}/{file}.xlsx
-```
-
-✔ 示例
-
-```
-passup/resume/10001/2026/04/01HZY3K8GZP.pdf
-passup/avatar/10001/01HZY3K8GZP.jpg
-```
-
-
-
-# ####待整理#################
-
-# 清理策略实现
-
-# ✅ 一、你当前模型下的清理对象
-
-基于你现在的表设计：
-
-## 🟡 1. 临时文件（核心）
-
-```
-file.status = 'UPLOADING'
-AND 不存在 attachment
-AND created_at < NOW() - 24h
-```
-
-------
-
-## 🔴 2. 逻辑删除文件
-
-```
-file.status = 'DELETED'
-AND updated_at < NOW() - 7天
-```
-
-------
-
-# 🚀 二、推荐清理方案（生产可用）
-
-------
-
-# 🟢 方案：定时任务 + 批处理（推荐 👍）
-
-------
-
-## ✏️ 1. 定时任务（Spring）
-
-```
-@Scheduled(cron = "0 0 * * * ?") // 每小时执行
-public void cleanUnusedFiles() {
-    fileCleanupService.cleanUploadingFiles();
-    fileCleanupService.cleanDeletedFiles();
-}
-```
-
-------
-
-## ✏️ 2. 查询待删除文件（分页很重要）
-
-```
-SELECT id, storage_key
-FROM file
-WHERE status = 'UPLOADING'
-  AND created_at < NOW() - INTERVAL 1 DAY
-  AND NOT EXISTS (
-    SELECT 1 FROM attachment WHERE file_id = file.id
-  )
-LIMIT 100
-```
-
-👉 ❗一定要 LIMIT（防止一次删爆）
-
-------
-
-## ✏️ 3. 删除流程（关键）
-
-```
-for (File file : files) {
-    try {
-        // ① 再次校验（防止并发误删）
-        if (attachmentRepository.existsByFileId(file.getId())) {
-            continue;
-        }
-
-        // ② 删除 MinIO 文件
-        minioStorageService.deleteQuietly(file.getStorageKey());
-
-        // ③ 删除数据库（或标记 DELETED）
-        fileRepository.deleteById(file.getId());
-
-    } catch (Exception e) {
-        log.error("清理文件失败 fileId={}", file.getId(), e);
-    }
-}
-```
-
-------
-
-# ⚠️ 三、必须加的“安全机制”（很重要）
-
-------
-
-## ❗1. 二次校验（防并发）
-
-```
-if (attachmentRepository.existsByFileId(fileId))
-```
-
-👉 防止：
-
-```
-刚查出来没人用 → 刚好被绑定 → 被你删了 ❌
-```
-
-------
-
-## ❗2. 分批删除（防雪崩）
-
-```
-一次最多 100 条
-循环执行
-```
-
-------
-
-## ❗3. 异常隔离
-
-```
-一个删失败 → 不影响其他
-```
-
-------
-
-## ❗4. 不要直接物理删除（推荐）
-
-可以先：
-
-```
-status = DELETED
-```
-
-再延迟物理删除
-
-------
-
-# 🧠 四、进阶优化（你可以后面加）
-
-------
-
-## 🟢 1. MinIO 生命周期（强烈推荐）
-
-如果你用了 `/temp`：
-
-👉 可以直接：
-
-```
-temp/ 目录 → 1天自动删除
-```
-
-👉 不用你写代码
-
-------
-
-## 🟢 2. 软删除 + 延迟删除
-
-```
-ACTIVE → DELETED → 7天后物理删除
-```
-
-👉 防误删恢复
-
-------
-
-## 🟢 3. 清理任务拆分
-
-```
-cleanUploadingFiles()
-cleanDeletedFiles()
-```
-
-👉 可控性更强
-
-------
-
-## 🟢 4. 日志 + 监控（很加分）
-
-```
-本次清理：
-- 扫描 100 条
-- 删除 87 条
-- 失败 2 条
-```
-
-------
-
-# 🚨 五、常见错误（你一定要避免）
-
-------
-
-## ❌ 1. 只看 status 删除
-
-```
-status = UPLOADING 就删 ❌
-```
-
-👉 必须加：
-
-```
-NOT EXISTS attachment
-```
-
-------
-
-## ❌ 2. 一次删全部
-
-```
-DELETE FROM file WHERE ...
-```
-
-👉 ❌ 极其危险（锁表 + IO爆炸）
-
-------
-
-## ❌ 3. 不校验 MinIO
-
-👉 DB删了，但文件还在 → 存储泄漏
-
-------
-
-# ✨ 六、推荐你最终方案（总结）
-
-------
-
-## ✔ 清理“临时文件”
-
-```
-条件：
-- status = UPLOADING
-- 无 attachment
-- 超过24小时
-```
-
-------
-
-## ✔ 清理“已删除文件”
-
-```
-条件：
-- status = DELETED
-- 超过7天
-```
-
-------
-
-## ✔ 执行方式
-
-```
-定时任务 + 分批 + 二次校验
-```
-
-# ####待整理#################
-
-# 一、整体架构（推荐）
-
-```
-前端 → 后端（签名/校验） → MinIO
-                     ↓
-                  数据库（file表）
-```
-
-有两种上传模式：
-
-## ✅ 推荐：直传 MinIO（预签名 URL）
-
-- 后端生成上传 URL
-- 前端直接传到 MinIO
-- 后端只负责记录元数据
-
-👉 优点：
-
-- 高并发
-- 节省服务器带宽
-- 更适合简历这种附件场景
-
-------
-
-## 🟡 简单方案：通过后端转存
-
-- 前端 → 后端 → MinIO
-
-👉 适合：
-
-- 小系统
-- 内网系统
-
-------
-
-# 二、MinIO 准备
-
-## 1. 创建 Bucket
-
-```
+```sh
 mc mb minio/resume
 ```
 
-建议：
+建议：bucket 名称统一（如 `resume` / `passup`），**默认不要公开（private）**，访问统一走预签名 URL。
 
-- bucket: `resume`
-- 不要公开（private）
+### 2. 引入依赖
 
-------
-
-## 2. 引入依赖
-
-```
+```xml
 <dependency>
   <groupId>io.minio</groupId>
   <artifactId>minio</artifactId>
@@ -484,11 +71,9 @@ mc mb minio/resume
 </dependency>
 ```
 
-------
+### 3. 配置客户端
 
-## 3. 配置客户端
-
-```
+```java
 @Bean
 public MinioClient minioClient() {
     return MinioClient.builder()
@@ -498,52 +83,52 @@ public MinioClient minioClient() {
 }
 ```
 
-------
+> 生产建议区分内网 `endpoint`（后端操作）与外网 `publicEndpoint`（给前端的预签名 URL），见下文「内外网与代理部署」。
 
-# 三、上传方案一（推荐）：预签名 URL
+## 四、上传方案（预签名 URL）
 
-## 1. 后端生成上传 URL
+### 1. 后端生成上传 URL
 
-```
+```java
 public String generateUploadUrl(String objectName) throws Exception {
     return minioClient.getPresignedObjectUrl(
             GetPresignedObjectUrlArgs.builder()
                     .method(Method.PUT)
                     .bucket("resume")
                     .object(objectName)
-                    .expiry(60 * 10) // 10分钟
+                    .expiry(60 * 10) // 10 分钟
                     .build()
     );
 }
 ```
 
-------
-
-## 2. objectName 设计（很关键）
+### 2. objectName 设计（很关键）
 
 建议结构：
 
 ```
-resume/{userId}/{yyyy}/{MM}/{uuid}.pdf
+resume/{userId}/{yyyy}/{MM}/{ulid}.pdf
+avatar/{userId}/{ulid}.jpg
+chat/{conversationId}/{ulid}.png
+report/{yyyy}/{MM}/{file}.xlsx
 ```
 
 示例：
 
 ```
-resume/10001/2026/04/01HZX8...ULID.pdf
+passup/resume/10001/2026/04/01HZY3K8GZP.pdf
+passup/avatar/10001/01HZY3K8GZP.jpg
 ```
 
 👉 好处：
 
 - 避免重名
-- 支持按用户/时间清理
-- 可扩展
+- 支持按用户 / 时间清理
+- 可扩展、objectName 不可预测（防恶意上传）
 
-------
+### 3. 前端上传
 
-## 3. 前端上传
-
-```
+```js
 await fetch(uploadUrl, {
   method: 'PUT',
   body: file,
@@ -553,9 +138,7 @@ await fetch(uploadUrl, {
 });
 ```
 
-------
-
-## 4. 上传完成后通知后端
+### 4. 上传完成后通知后端
 
 ```
 POST /file/confirm
@@ -567,11 +150,41 @@ POST /file/confirm
 }
 ```
 
-------
+## 五、下载方案（预签名 URL）
 
-# 四、数据库设计（重点）
+### 1. 后端生成下载 URL
 
+```java
+public String generateDownloadUrl(String objectName) throws Exception {
+    return minioClient.getPresignedObjectUrl(
+            GetPresignedObjectUrlArgs.builder()
+                    .method(Method.GET)
+                    .bucket("resume")
+                    .object(objectName)
+                    .expiry(60 * 5) // 5 分钟
+                    .build()
+    );
+}
 ```
+
+### 2. 权限控制（重点）
+
+不要直接暴露 objectName，也不要使用公开 Bucket 存敏感文件：
+
+- 校验当前用户是否有权限访问该文件
+- 校验通过后再生成 URL 返回
+
+公开资源（如用户头像 / 展示图片）可直接使用公开 URL：
+
+```java
+String url = "http://localhost:9000/resume-bucket/" + objectName;
+```
+
+简历附件（PDF / DOC）等敏感文件**必须使用预签名 URL**。
+
+## 六、数据库设计（重点）
+
+```sql
 CREATE TABLE file (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
 
@@ -585,34 +198,50 @@ CREATE TABLE file (
     bucket VARCHAR(100) NOT NULL,
     object_name VARCHAR(500) NOT NULL,
 
-    biz_type VARCHAR(50) COMMENT '业务类型（resume/avatar等）',
+    biz_type VARCHAR(50) COMMENT '业务类型（resume/avatar 等）',
     biz_id BIGINT COMMENT '业务ID（比如简历ID）',
 
-    status TINYINT NOT NULL DEFAULT 0 COMMENT '0临时 1已使用 2已删除'
+    status TINYINT NOT NULL DEFAULT 0 COMMENT '0 临时 1 已使用 2 已删除'
 );
 ```
 
-------
-
-## 状态设计（非常重要）
+### 状态设计（非常重要）
 
 | 状态 | 含义       |
 | ---- | ---------- |
 | 0    | 临时上传   |
-| 1    | 已绑定简历 |
+| 1    | 已绑定业务 |
 | 2    | 已删除     |
 
-------
+## 七、完整流程（推荐实现）
 
-# 五、删除 & 垃圾清理
+### 上传流程
 
-MinIO 本身不会自动删除 → 必须你自己控制
+1. 前端请求：获取上传 URL
+2. 后端生成：objectName + presignedUrl
+3. 前端直传 MinIO
+4. 前端通知后端 confirm
+5. 后端写 file 表（status = 0）
 
-------
-
-## 方案一：业务删除
+### 绑定业务
 
 ```
+用户提交简历 → file.status = 1
+```
+
+### 删除业务
+
+```
+删除记录 → file.status = 2 → 删除 MinIO 文件
+```
+
+## 八、删除与垃圾清理
+
+MinIO 本身**不会自动删除**文件，必须自行控制。
+
+### 1. 业务删除
+
+```java
 minioClient.removeObject(
     RemoveObjectArgs.builder()
         .bucket(bucket)
@@ -621,157 +250,118 @@ minioClient.removeObject(
 );
 ```
 
-------
+### 2. 定时清理（推荐）
 
-## 方案二：定时清理（推荐）
+清理未使用的临时文件：
 
-清理「未使用的文件」：
-
-```
-DELETE FROM file 
-WHERE status = 0 
-AND created_at < NOW() - INTERVAL 1 DAY;
-```
-
-同时删除 MinIO 文件。
-
-👉 建议：
-
-- 延迟 1~24 小时清理
-- 防止用户上传后没提交
-
-------
-
-# 六、下载方案
-
-## 1. 生成预签名下载 URL
-
-```
-public String generateDownloadUrl(String objectName) throws Exception {
-    return minioClient.getPresignedObjectUrl(
-            GetPresignedObjectUrlArgs.builder()
-                    .method(Method.GET)
-                    .bucket("resume")
-                    .object(objectName)
-                    .expiry(60 * 5)
-                    .build()
-    );
+```java
+@Scheduled(cron = "0 0 3 * * ?")
+public void cleanFiles() {
+    List<ResumeFile> files = repository.findDeletedFiles();
+    for (ResumeFile file : files) {
+        minioClient.removeObject(
+            RemoveObjectArgs.builder()
+                .bucket(file.getBucketName())
+                .object(file.getObjectName())
+                .build()
+        );
+        repository.delete(file);
+    }
 }
 ```
 
-------
+清理对象与条件：
 
-## 2. 控制权限（重点）
+| 类型         | 条件                                       |
+| ------------ | ------------------------------------------ |
+| 临时文件     | status = UPLOADING 且 无 attachment 且 > 24h |
+| 已删除文件   | status = DELETED 且 > 7 天                  |
 
-不要直接暴露 objectName：
+执行方式：**定时任务 + 分批 + 二次校验**。
 
-👉 必须：
+### 3. 生产级清理实现（分页 + 二次校验 + 异常隔离）
 
-- 校验用户是否有权限访问该简历
-- 再生成 URL
+```java
+// 定时任务
+@Scheduled(cron = "0 0 * * * ?") // 每小时
+public void cleanUnusedFiles() {
+    fileCleanupService.cleanUploadingFiles();
+    fileCleanupService.cleanDeletedFiles();
+}
 
-------
+// 查询待删除文件（必须 LIMIT）
+// SELECT id, storage_key FROM file
+// WHERE status = 'UPLOADING'
+//   AND created_at < NOW() - INTERVAL 1 DAY
+//   AND NOT EXISTS (SELECT 1 FROM attachment WHERE file_id = file.id)
+// LIMIT 100
 
-# 七、一个完整流程（推荐实现）
-
-### 上传流程：
-
-1. 前端请求：获取上传URL
-2. 后端生成：
-   - objectName
-   - presignedUrl
-3. 前端直传 MinIO
-4. 前端通知后端 confirm
-5. 后端写 file 表（status=0）
-
-------
-
-### 绑定简历：
-
-```
-用户提交简历 → file.status = 1
-```
-
-------
-
-### 删除简历：
-
-```
-删除记录 → file.status = 2 → 删除 MinIO
-```
-
-------
-
-# 八、进阶优化（你这个项目很适合）
-
-结合你现在的系统，我建议你加这几个能力：
-
-------
-
-## ✅ 1. 文件去重（可选）
-
-```
-hash(md5) 唯一索引
+for (File file : files) {
+    try {
+        // ① 再次校验（防并发误删）
+        if (attachmentRepository.existsByFileId(file.getId())) {
+            continue;
+        }
+        // ② 删除 MinIO 文件
+        minioStorageService.deleteQuietly(file.getStorageKey());
+        // ③ 删除数据库记录
+        fileRepository.deleteById(file.getId());
+    } catch (Exception e) {
+        log.error("清理文件失败 fileId={}", file.getId(), e);
+    }
+}
 ```
 
-避免重复上传同一个简历
+### 4. 必须加的安全机制
 
-------
+- **二次校验（防并发）**：删除前再查一次 `attachmentRepository.existsByFileId`，防止「查出时未绑定 → 刚好被绑定 → 误删」。
+- **分批删除（防雪崩）**：一次最多 100 条，循环执行，禁止 `DELETE FROM file WHERE ...` 全量删除（锁表 + IO 爆炸）。
+- **异常隔离**：单条失败不影响其他。
+- **软删除优先**：先 `status = DELETED`，延迟 7 天后再物理删除，便于误删恢复。
+- **DB 与 MinIO 一致性**：DB 删了必须同步删 MinIO，否则存储泄漏。
 
-## ✅ 2. 限制文件类型
+### 5. MinIO 生命周期（进阶）
 
-```
-application/pdf
-application/msword
-```
+若使用 `/temp` 目录，可配置 MinIO 生命周期实现「temp/ 1 天自动删除」，无需写代码。
 
-------
+## 九、安全与校验
 
-## ✅ 3. 限制大小
+### 1. 文件类型校验
 
-```
-比如：5MB
-```
-
-------
-
-## ✅ 4. 防止恶意上传
-
-- 预签名 URL 过期时间短
-- objectName 不可预测（ULID）
-
-------
-
-## ✅ 5. CDN（以后）
-
-MinIO 前面挂 CDN，加速下载
-
-------
-
-# 九、一句话总结
-
-👉 **推荐最佳实践：**
-
-```
-MinIO（存文件） + MySQL（存元数据） + 预签名URL（直传）
+```java
+if (!"application/pdf".equals(file.getContentType())) {
+    throw new RuntimeException("只允许 PDF 简历");
+}
 ```
 
-------
+允许的类型示例：`application/pdf`、`application/msword`、`application/vnd.openxmlformats-officedocument.wordprocessingml.document`。
 
-如果你愿意，我可以帮你把这一套直接落成：
+### 2. 限制大小
 
-✅ Spring Boot 完整代码（Controller + Service）
- ✅ Vue 上传组件
- ✅ file 表 + repository + 事务设计
+```java
+if (file.getSize() > 5 * 1024 * 1024) {
+    throw new RuntimeException("文件过大");
+}
+```
 
-甚至可以帮你把它 **接进你现在的 Conversation / Resume 系统里**。
+### 3. 幂等设计（去重）
 
-## 推荐分内外网
+- 计算文件 hash（MD5），建唯一索引
+- 相同文件直接复用，避免重复上传
+
+### 4. 防恶意上传
+
+- 预签名 URL 过期时间短（如 10 分钟）
+- objectName 不可预测（使用 ULID / UUID）
+
+## 十、内外网与代理部署
+
+### 1. 推荐分内外网
 
 - **后端主动操作**（查询元数据、删除）→ 走内网 `endpoint`，性能好、延迟低、不经过代理。
-- **生成预签名 URL 给前端**（上传/下载）→ 走外网 `publicEndpoint`，确保前端拿到的 URL 是公网可访问的。
+- **生成预签名 URL 给前端**（上传 / 下载）→ 走外网 `publicEndpoint`，确保前端拿到的 URL 公网可访问。
 
-```
+```yaml
 minio:
   endpoint: http://minio:8007
   access-key:
@@ -782,24 +372,22 @@ minio:
   presigned-url-expiry-seconds: 900
 ```
 
+### 2. 两层代理转发实践
 
+Nginx 第一层：
 
-## 两层代理转发实践
-
-nginx第一层，关键配置
-
-```
+```nginx
 server {
     listen 80;
     server_name example.com;
 
     location / {
-        proxy_pass http://127.0.0.1:8080; # 假设 Caddy 监听在 8080 端口
-        
+        proxy_pass http://127.0.0.1:8080; # 假设 Caddy 监听 8080
+
         # 核心：将客户端原本访问的域名传给 Caddy
         proxy_set_header Host $host;
-        
-        # 可选：透传客户端真实 IP 
+
+        # 可选：透传客户端真实 IP
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
@@ -807,16 +395,27 @@ server {
 }
 ```
 
-caddy 第二层，关键配置
+Caddy 第二层：
 
-```
+```nginx
 :8080 {
-    reverse_proxy http://127.0.0.1:9000 { # 假设后端服务在 9000 端口
-	    # 把从 Nginx 传过来的 Host 继续传给后端，直接使用内置变量：
-        header_up Host {http.request.host}        
-        # 注意！有些地方说这样配置，这是无效的：
+    reverse_proxy http://127.0.0.1:9000 { # 假设 MinIO 在 9000 端口
+        # 把从 Nginx 传过来的 Host 继续传给后端
+        header_up Host {http.request.host}
+        # 注意！以下写法无效：
         # header_up Host {header.Host}
     }
 }
 ```
 
+## 十一、进阶优化
+
+- **文件去重**：hash(md5) 唯一索引，避免重复上传同一文件。
+- **软删除 + 延迟删除**：ACTIVE → DELETED → 7 天后物理删除，防误删恢复。
+- **清理任务拆分**：`cleanUploadingFiles()` / `cleanDeletedFiles()`，可控性更强。
+- **日志 + 监控**：记录「扫描 N 条 / 删除 M 条 / 失败 K 条」。
+- **CDN**：MinIO 前置 CDN 加速下载。
+
+## 十二、一句话总结
+
+**MinIO（存文件）+ MySQL（存元数据）+ 预签名 URL（直传）** 是企业级文件存储的标准方案：高并发、省带宽、权限可控。
