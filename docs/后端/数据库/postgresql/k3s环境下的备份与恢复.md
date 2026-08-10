@@ -1,7 +1,7 @@
 ---
 title: k3s 环境下的 PostgreSQL 备份与恢复
 icon: devicon:kubernetes
-sort: 3
+sort: 5
 ---
 
 # k3s 环境下的 PostgreSQL 备份与恢复
@@ -19,24 +19,26 @@ sort: 3
 | 推荐工具 | `pgBackRest` | `WAL-G` + CloudNativePG Operator |
 | 整机恢复 | 重部署容器 | Velero 卷快照 / 重建 StatefulSet + PVC |
 
-## 方案与实操（待补充）
+## 方案与实操（规划中）
+
+> 本节为结构规划，具体命令与 YAML 示例待补充。核心思路与单机 Docker 一致（逻辑备份 / 物理增量 PITR / 卷快照），差异主要在**执行载体**由宿主机变为 k8s 资源（Pod / Job / PVC），工具链偏向 `WAL-G` + Operator。
 
 ### 1. pg_dump 逻辑备份（集群内）
 
-- [ ] 通过 `kubectl exec` 执行 `pg_dump` 并导出到 PVC / S3
-- [ ] 从 PVC / S3 拉取 dump 的恢复流程
+- 通过 `kubectl exec` 在 PG Pod 中执行 `pg_dump`，导出到 PVC 或上传 S3
+- 恢复时从 PVC / S3 拉取 dump，再用 `pg_restore` 回灌
 
 ### 2. WAL 增量 / PITR（WAL-G + CloudNativePG）
 
-- [ ] CloudNativePG Operator 备份配置（Backup 资源）
-- [ ] WAL-G 自动归档到 MinIO / S3
-- [ ] 基于 Backup 的还原（Recovery 资源）
+- CloudNativePG Operator 的 `Backup` / `ScheduledBackup` 资源触发备份
+- WAL-G 自动将 WAL 归档到 MinIO / S3
+- 通过 `Recovery` 资源基于指定备份 + 时间点还原出新集群
 
 ### 3. 卷级快照（Velero）
 
-- [ ] 使用 Velero 对 PostgreSQL PVC 做卷快照
-- [ ] 快照恢复注意事项（一致性、WAL 对齐）
+- 用 Velero 对 PostgreSQL PVC 做卷快照（需 Storage Class 支持快照）
+- 恢复时注意数据库一致性：优先配合 `pg_start_backup()` / 短暂停写，避免 WAL 与数据页错位
 
 ### 4. 恢复演练
 
-- [ ] 定期将生产备份恢复到测试命名空间校验
+- 定期将生产备份恢复到测试命名空间，校验关键表行数与业务可用性

@@ -1,7 +1,7 @@
 ---
 title: pg_dump 单机 Docker 实操指南
 icon: mdi:console
-sort: 3
+sort: 4
 ---
 
 # pg_dump 单机 Docker 实操指南
@@ -25,7 +25,8 @@ docker exec -t <your_postgres_container_name> \
 
 | 参数 | 含义 |
 | --- | --- |
-| `-t` | 分配伪终端（确保能正常输出数据流，注意**不要**带 `-i`，否则在 Cron 自动化脚本中会报错） |
+| `-t` | 分配伪终端。**Cron 等无 TTY 的无人值守环境建议去掉 `-t`**（否则可能报 `cannot allocate TTY`）；交互式手工执行时可保留。 |
+| `-i` | 保持 stdin 打开。**恢复（pg_restore/psql）读取文件时必须带 `-i`**，用于将备份文件内容喂给容器内进程。 |
 | `-F c` | Format Custom（自定义二进制格式） |
 | `-b` | 导出大对象数据（Blobs） |
 | `-v` | 显示备份详细日志 |
@@ -53,6 +54,10 @@ docker exec -t <your_postgres_container_name> \
 docker exec -i <your_postgres_container_name> \
   pg_restore -U <username> -d <dbname> -c -j 4 < /path/to/backup/db_20260807.dump
 ```
+
+> **坑：目标库不存在时 `-c` 会报错**。`-c` 只负责 DROP 库内的对象，不会自动建库。两种处理方式：
+> 1. 先建库再恢复：`docker exec -i <container> createdb -U <username> <dbname>`，再执行上面的 `pg_restore`；
+> 2. 或直接用 `-C`（连同建库一起做，此时 `-d` 应指向 `postgres` 等已有库）：`pg_restore -U <username> -C -d postgres -c -j 4 < file.dump`。
 
 **`.sql` 文本格式（方案 B）**：
 

@@ -1,7 +1,7 @@
 ---
 title: pgBackRest 备份策略：增量粒度、定期全量与滚动轮转
 icon: mdi:layers-outline
-sort: 4
+sort: 6
 ---
 
 # pgBackRest 备份策略

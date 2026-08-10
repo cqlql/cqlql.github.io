@@ -1,7 +1,7 @@
 ---
 title: 单机 Docker PostgreSQL 备份与恢复
 icon: mdi:database-outline
-sort: 2
+sort: 3
 ---
 
 # 单机 Docker PostgreSQL 备份与恢复
@@ -12,7 +12,7 @@ sort: 2
 
 本文以**单机 Docker** 为实操示例，讲解备份/恢复的核心机制与通用流程。不同运行环境的落地差异较大，请按需查看：
 
-- **单机 Docker（本文）**：👉 [单机 Docker PostgreSQL 备份与恢复](./单机Docker备份与恢复.md) — `docker` / `pg_dump` / `pg_restore` / 单机 MinIO
+- **单机 Docker（本文）**：`docker` / `pg_dump` / `pg_restore` / 单机 MinIO
 - **k3s / Kubernetes**：👉 [k3s 环境下的备份与恢复](./k3s环境下的备份与恢复.md)（PVC、WAL-G、CloudNativePG Operator、Velero 等）
 
 ## 方案 1：pg_dump（逻辑全量备份）
@@ -165,8 +165,8 @@ PG **不推荐**直接对运行中的数据目录做文件级增量，原因：
 
 恢复方式取决于采用了哪种备份方案。当前主要有两类：
 
-1. `pg_dump` 全量备份（当前推荐）
-2. `pgBackRest + WAL` 增量备份（以后生产级）
+1. `pg_dump` 逻辑全量备份（小库 / 测试环境推荐）
+2. `pgBackRest + WAL` 物理增量备份（生产 / 大库推荐，支持 PITR）
 
 ### 一、pg_dump 恢复（最简单）
 
@@ -326,15 +326,10 @@ select count(*) from app_user;
 select count(*) from interview_record;
 ```
 
-## 方案对比总表
+## 方案对比与选型结论
 
-| 备份方案 | 核心原生命令 / 机制 | 是否必须 pgBackRest / WAL-G | 说明 |
-| --- | --- | --- | --- |
-| 方案 1：逻辑全量 | `pg_dump` | ❌ 不需要 | PG 自带工具，一条命令搞定 |
-| 方案 2：物理增量 (PITR) | `pg_basebackup` + WAL 归档 | ⚠️ 非必须，但生产强烈推荐 | 原生命令就能做；第三方工具用于自动上传 MinIO、压缩、生命周期管理 |
-| 方案 3：文件级 | `rsync` / 快照 | ❌（但不推荐） | 易造成 Torn Pages，恢复易失败 |
+三类方案的横向对比与最终选型结论，已在 [方案总览](./方案总览.md) 中给出，此处不再重复。要点速记：
 
-## 落地选型结论
-
-- **小库 / 测试环境**：继续用 `pg_dump`。
-- **生产环境 / 大库**：直接上 **`pgBackRest` + MinIO + WAL 归档 (PITR)**，这是目前业内最标准、最稳妥的方案。
+- **小库 / 测试环境**：`pg_dump` 逻辑全量即可。
+- **生产环境 / 大库**：`pgBackRest` + MinIO + WAL 归档（PITR），见 [pgBackRest 备份策略](./pgBackRest备份策略.md)。
+- **文件级（rsync / 快照）直接复制运行中的数据目录**：不推荐，易产生 Torn Pages 导致恢复失败。
