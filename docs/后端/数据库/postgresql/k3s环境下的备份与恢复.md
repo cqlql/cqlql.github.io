@@ -8,6 +8,9 @@ sort: 5
 
 > 本文聚焦 **k3s / Kubernetes** 运行形态下的 PostgreSQL 备份与恢复落地。
 > 通用机制（pg_dump / WAL / PITR 原理、工具对比）见姊妹篇：[单机 Docker PostgreSQL 备份与恢复](./单机Docker备份与恢复.md)。
+> 备份工具选型（pgBackRest vs WAL-G）见：[备份工具选型对比](./工具选型对比.md)。
+
+> 🚧 **本文状态：结构规划中**。下文为方案骨架与思路，具体命令 / YAML 示例待补充；与单机 Docker 的差异主要在**执行载体**（Pod / Job / PVC），原理一致。
 
 ## 与单机 Docker 的核心差异
 

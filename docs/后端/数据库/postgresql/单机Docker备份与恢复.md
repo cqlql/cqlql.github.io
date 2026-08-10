@@ -19,7 +19,7 @@ sort: 3
 
 ### 原理与结构
 
-```
+```text
 PostgreSQL
     |
     ↓
@@ -59,12 +59,12 @@ pg_dump -U username -d dbname > backup.sql
 
 PostgreSQL 本身有 WAL（Write-Ahead Log，预写日志）：
 
-```
+```text
 数据库修改
-    |
+    │
     ↓
 WAL 日志（记录底层数据页的变化）
-    |
+    │
     ↓
 保存变化
 ```
@@ -75,7 +75,7 @@ WAL 日志（记录底层数据页的变化）
 
 恢复时：
 
-```
+```text
 全量基础备份 (Base Backup)
   +
 WAL 日志重放 (Replay)
@@ -112,7 +112,7 @@ archive_command = 'cp %p /path/to/wal_archive/%f'
 
 结构：
 
-```
+```text
 PostgreSQL
     |
     ↓
@@ -145,9 +145,9 @@ pgBackRest
 
 思路：直接同步数据目录 `/var/lib/postgresql/data` 的变化文件。
 
-```
+```text
 /var/lib/postgresql/data
-    |
+    │
     ↓ rsync
 变化文件
 ```
@@ -223,13 +223,13 @@ docker start passup-backend
 
 例如服务器 A 的 Docker / PostgreSQL / MinIO 全部失效，但备份在服务器 B 的 MinIO 上：
 
-```
-服务器B:
+```text
+服务器 B:
 MinIO 备份
  └── backup/postgres/passup.dump
 ```
 
-流程：
+以下命令均在新服务器（宿主机）上执行：
 
 1. **重新部署 PostgreSQL**
 
@@ -242,7 +242,7 @@ postgres:
 docker compose up -d postgres
 ```
 
-2. **下载备份**
+2. **下载备份**（用 `mc` 从服务器 B 的 MinIO 拉取到本地）
 
 ```bash
 mc cp backup/postgres/passup.dump .
@@ -251,13 +251,13 @@ mc cp backup/postgres/passup.dump .
 3. **创建数据库**
 
 ```bash
-createdb passup
+docker exec -it postgres createdb -U passup passup
 ```
 
-4. **restore**
+4. **恢复**（注意 `docker exec -i` 保持 stdin 打开以喂入备份内容）
 
 ```bash
-pg_restore -U passup -d passup passup.dump
+docker exec -i postgres pg_restore -U passup -d passup < passup.dump
 ```
 
 ### 三、pgBackRest 恢复（增量 / PITR）
@@ -272,14 +272,14 @@ WAL:   2026-08-03  3GB
 
 恢复过程：
 
-```
+```text
 全量备份
-  |
+  │
   ↓ 恢复数据文件
   +
-  |
+  │
   ↓ 重放 WAL
-  |
+  │
   ↓ 恢复完成
 ```
 
