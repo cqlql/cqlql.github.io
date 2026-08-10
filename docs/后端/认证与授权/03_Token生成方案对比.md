@@ -12,6 +12,8 @@ sort: 3
 > UUID ≈ 唯一 ID
 > RandomStringUtils ≈ 普通随机字符串
 
+> 本文结论被 `01_认证方案设计.md`、`02_Token刷新策略.md` 直接复用（token 一律用 SecureRandom 生成）。
+
 ------
 
 ## 1. RandomStringUtils.randomAlphanumeric
@@ -20,7 +22,7 @@ sort: 3
 String token = RandomStringUtils.randomAlphanumeric(32);
 ```
 
-**本质**：工具库级随机字符串生成，底层 `java.util.Random`，❌ 非加密安全。
+**本质**：工具库级随机字符串，底层 `java.util.Random`，❌ 非加密安全。
 
 | 项目     | 说明           |
 | -------- | -------------- |
@@ -30,10 +32,10 @@ String token = RandomStringUtils.randomAlphanumeric(32);
 | 长度     | 完全可控       |
 | 依赖     | Apache Commons |
 
-适合场景：✅ requestId、临时标识、UI 层的 key
+适合场景：✅ requestId、临时标识、UI 层 key
 不适合场景：❌ accessToken / refreshToken、登录态标识
 
-> ⚠️ RandomStringUtils 生成的 token **不应该拿来当"安全凭证"**
+> ⚠️ RandomStringUtils 生成的 token **不该拿来当安全凭证**
 
 ------
 
@@ -57,7 +59,7 @@ String token = UUID.randomUUID().toString().replace("-", "");
 勉强能用：⚠️ token
 不适合场景：❌ 高安全需求 token
 
-> UUID 是**"唯一"设计**，不是**"安全"设计**
+> UUID 是**「唯一」设计**，不是**「安全」设计**
 
 ------
 
@@ -73,7 +75,7 @@ String token = Base64.getUrlEncoder()
         .encodeToString(bytes);
 ```
 
-**本质**：密码学级随机数，专门用来生成密钥 / token / nonce。
+**本质**：密码学级随机数，专用于生成密钥 / token / nonce。
 
 | 项目     | 说明         |
 | -------- | ------------ |
@@ -103,12 +105,26 @@ String token = Base64.getUrlEncoder()
 
 ------
 
-## 重复可能性对比
+## 长度与熵：安全下限
 
-| 方法                             | 随机位数 | Base64/UUID | 理论碰撞概率   | 适用场景                        |
-| -------------------------------- | -------- | ----------- | -------------- | ------------------------------- |
-| `SecureRandom 32 bytes + Base64` | 256      | Base64 URL  | 极低（接近零） | 高安全 token，比如 access token |
-| `UUID.randomUUID()`              | 128      | UUID        | 很低           | 一般标识符、会话 ID             |
+Token 的安全性取决于**熵（有效随机位数）**，而熵 = 字节长度 × 8。
+
+| Token 长度        | 熵        | 暴力破解难度 | 建议用途            |
+| ----------------- | --------- | ------------ | ------------------- |
+| 16 bytes (128 bit)| 128 bit   | 高           | 最低安全下限        |
+| **32 bytes (256 bit)** | **256 bit** | **极高（推荐）** | access / refresh token |
+| 64 bytes (512 bit)| 512 bit   | 几乎不可破   | 长期凭证 / API Key  |
+
+> 实践建议：**安全 token 一律 ≥ 32 字节（256 bit）**，并使用 URL-safe Base64 编码（无填充）避免传输问题。
+
+------
+
+## 重复 / 碰撞概率
+
+| 方法                              | 随机位数 | 编码        | 理论碰撞概率   | 适用场景              |
+| --------------------------------- | -------- | ----------- | -------------- | --------------------- |
+| `SecureRandom 32B + Base64 URL`   | 256      | Base64 URL  | 极低（接近零） | 高安全 token（推荐）  |
+| `UUID.randomUUID()`               | 128      | UUID        | 很低           | 一般标识符、会话 ID   |
 
 ------
 
@@ -116,11 +132,56 @@ String token = Base64.getUrlEncoder()
 
 | 用途          | 推荐                 |
 | ------------- | -------------------- |
-| accessToken   | SecureRandom         |
-| refreshToken  | SecureRandom         |
+| accessToken   | SecureRandom (≥32B)  |
+| refreshToken  | SecureRandom (≥32B)  |
 | jwt jti / sid | UUID 或 SecureRandom |
 | requestId     | UUID                 |
 | 前端 key      | RandomStringUtils    |
+
+------
+
+## RefreshToken 的 Hash 存储（密钥隔离）
+
+RefreshToken 存入 Redis 前必须 hash，避免明文令牌泄露后被直接重放。**不要复用 JWT 签名密钥**做 hash——违反 **Key Separation（密钥隔离）** 原则，且限制未来扩展。
+
+更推荐单独给 refresh 设置 secret：
+
+```yaml
+security:
+  jwt:
+    secret: xxx
+  refresh:
+    hash-secret: yyy   # 单独一份
+```
+
+```java
+// 1. 派生 key（或直接使用独立 hash-secret）
+refreshSecret = HMAC_SHA256(jwtSecret, "refresh-token");
+
+// 2. 计算 hash
+hash = hmacSha256Hex(refreshToken, refreshSecret);
+
+// 3. 存储（见 01 的 auth:refresh:{hash}）
+```
+
+Hash 工具类：
+
+```java
+public class SecurityUtil {
+    public static String hmacSha256Hex(String value, String secret) {
+        try {
+            Mac mac = Mac.getInstance("HmacSHA256");
+            SecretKeySpec key = new SecretKeySpec(
+                secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256");
+            mac.init(key);
+            byte[] raw = mac.doFinal(value.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(raw);
+        } catch (Exception e) {
+            throw new IllegalStateException("HmacSHA256 unavailable", e);
+        }
+    }
+}
+```
 
 ------
 
@@ -135,7 +196,7 @@ import java.util.UUID;
 
 /**
  * Token 生成器工具类
- * - 安全随机 token: SecureRandom + Base64 URL-safe
+ * - 安全随机 token: SecureRandom + Base64 URL-safe（≥32 字节）
  * - UUID token: 用于唯一标识、requestId
  */
 public class TokenGenerator {
@@ -150,7 +211,7 @@ public class TokenGenerator {
         return generateSecureToken(DEFAULT_TOKEN_BYTE_LENGTH);
     }
 
-    /** 生成指定长度的安全随机 token */
+    /** 生成指定字节长度的安全随机 token */
     public static String generateSecureToken(int byteLength) {
         byte[] bytes = new byte[byteLength];
         SECURE_RANDOM.nextBytes(bytes);
@@ -167,7 +228,7 @@ public class TokenGenerator {
         String chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
         StringBuilder sb = new StringBuilder(length);
         for (int i = 0; i < length; i++) {
-            sb.append(chars.charAt(SECURE_RANDOM.nextInt(chars.length())));
+            sb.append(chars.charAt(SECURE_RANDOM.nextInt(chars.length)));
         }
         return sb.toString();
     }
