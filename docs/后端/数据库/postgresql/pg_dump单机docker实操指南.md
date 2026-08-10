@@ -1,10 +1,10 @@
 ---
-title: pg_dump 实操指南：脚本、定时与工程化
+title: pg_dump 单机 Docker 实操指南
 icon: mdi:console
 sort: 3
 ---
 
-# pg_dump 实操指南：脚本、定时与工程化
+# pg_dump 单机 Docker 实操指南
 
 本文聚焦 **单机 Docker 环境下 `pg_dump` 逻辑全量备份** 的完整落地流程，从手工命令 → 自动化脚本 → Crontab 定时 → Makefile 封装 → 项目目录位置，形成一条可复制的工程化实践链。
 
