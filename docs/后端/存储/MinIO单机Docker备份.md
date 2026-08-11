@@ -129,16 +129,29 @@ mc mirror --overwrite my-src/my-bucket my-backup/my-bucket-backup
 
 ### 5.2 项目目录结构
 
-```plaintext
+MinIO 备份是**基础设施层**的操作，与业务代码无关。建议将备份相关文件放在独立目录中，纳入 Git 版本控制，与业务仓库解耦：
+
+```text
 project/
-├── Makefile                      # 运维指挥官：封装 cron-install / uninstall / status / backup
-└── deploy/
-    └── scripts/
-        ├── backup.env.example    # 凭证模板（可提交 Git）
-        └── minio_backup.sh       # 备份脚本（可提交 Git，凭证从外部 env 读取）
+├── docker/
+│   ├── docker-compose.yml         # 单机容器编排（含 MinIO + App 等）
+│   └── .env.example               # 容器环境变量模板
+│
+├── backup/                        # 备份相关（独立于业务代码）
+│   ├── minio_backup.sh            # ← 备份脚本：mc mirror 增量同步到远端
+│   ├── minio_restore.sh           # ← 恢复脚本：从远端拉回指定备份（含二次确认）
+│   ├── backup.env.example         # 凭证模板（可提交 Git，含 SRC/DEST 两套密钥）
+│   └── README.md                  # 操作手册：定时任务安装、手动触发、恢复流程
+│
+├── src/                           # 业务源码
+│   └── ...
+│
+├── .gitignore                     # 忽略 *.log、backup.env、.env 等敏感文件
+├── Makefile                       # 统一入口：make backup-cron-install / backup-now / restore
+└── README.md
 ```
 
-> 真实凭证 `backup.env` 由运维根据 `.example` 创建，**不提交 Git**，建议放在 `/etc/project/backup.env` 或项目目录下但加入 `.gitignore`。
+> 真实凭证 `backup.env` 由运维根据 `.example` 创建，**不提交 Git**。建议放在 `/etc/project/backup.env` 或 `backup/` 目录下并加入 `.gitignore`。
 
 ### 5.3 `backup.env.example`（提交到 Git 的模板）
 
