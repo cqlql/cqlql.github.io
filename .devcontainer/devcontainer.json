@@ -1,0 +1,22 @@
+{
+    "name": "note-md-dev",
+    "dockerComposeFile": [
+        "docker-compose.dev.yml"
+    ],
+    "service": "note-md-dev",
+    "workspaceFolder": "/workspace",
+    "customizations": {
+        "vscode": {
+            "settings": {}
+        }
+    },
+    "mounts": [
+        // 挂载整个 root，解决部分配置重建后丢失问题
+        "source=root,target=/root,type=volume",
+        // 代码，目前使用 wsl 子系统方案
+        "source=${localWorkspaceFolder}/../,target=${containerWorkspaceFolder},type=bind"
+    ],
+    // 关闭vscode不自动关闭容器
+    "overrideCommand": true,
+    "shutdownAction": "none"
+}
