@@ -143,6 +143,74 @@ docker inspect --format='{{.LogPath}}' <容器名>
 sudo du -h $(docker inspect --format='{{.LogPath}}' <容器名>)
 ```
 
+### 用容器 ID 反查是哪个容器
+
+`du` 输出的目录名就是**容器完整 ID**（64 位短哈希的前段），但 `docker ps` 默认只显示 12 位短 ID。两种反查方式：
+
+**方式一：直接拿完整 ID 查**（最准，ID 前后缀一致即可匹配）
+
+```bash
+docker ps -a --no-trunc --format 'table {{.ID}}\t{{.Names}}\t{{.Image}}\t{{.Status}}' \
+  | grep f9618fed10c728d42f646c6d034cdbb3892bdf71624c7256a075e90b51697f60
+# 输出示例：
+# CONTAINER ID                                                      NAMES        IMAGE         STATUS
+# f9618fed10c728d42f646c6d034cdbb3892bdf71624c7256a075e90b51697f60  passup-app   passup:1.0    Up 3 weeks
+```
+
+`--no-trunc` 显示完整 ID，用 `grep` 匹配那段哈希即可定位容器名与镜像。
+
+**方式二：批量列出 ID ↔ 容器名对照表**（适合一次性核对所有大日志）
+
+```bash
+docker ps -a --no-trunc --format '{{.ID}}  {{.Names}}  ({{.Image}})'
+```
+
+把 `du` 结果里的 `<容器ID>` 前缀和这份表对照，就能知道 1.4G 的日志属于哪个容器。
+
+> 注：日志目录名 = 容器完整 ID，与 `docker ps` 的 12 位短 ID 同源（短 ID 是完整 ID 的前 12 位），所以 `docker inspect <完整ID或前12位>` 都能直接查到对应容器。
+
+### 一键：把每个日志文件标注上容器名与占用
+
+```bash
+sudo sh -c 'du -h /var/lib/docker/containers/*/*-json.log' \
+  | sort -h \
+  | while read size path; do
+      id=$(basename $(dirname "$path") | cut -c1-12)
+      name=$(docker ps -a --filter "id=$id" --format '{{.Names}}' 2>/dev/null)
+      echo "$size  $id  ${name:-<已删除容器>}"
+    done
+```
+
+`cut -c1-12` 取 12 位短 ID 喂给 `docker ps --filter`，自动补出容器名；容器已删除（仅剩孤儿日志）时显示 `<已删除容器>`。
+
+### 清理已删除容器的孤儿日志
+
+容器被 `docker rm` / `docker compose down` 删除后，Docker **不会自动删** `/var/lib/docker/containers/<ID>/` 下的 `*-json.log`，于是留下"孤儿日志"（上面命令里标 `<已删除容器>` 的就是）。两种清理方式：
+
+**注意：`docker system prune` 无法清理孤儿日志**
+
+`docker system prune` 只清理已停止的容器、未使用的网络和悬空镜像，**不会删除已删除容器的残留日志目录**。孤儿日志需要手动清理。
+
+**方式一：精确删孤儿日志（不动镜像/网络，推荐）**
+
+自己遍历 `containers/*`，用 12 位短 ID 问 `docker ps -a` "还在不在"，不在就删：
+
+```bash
+sudo sh -c '
+for d in /var/lib/docker/containers/*; do
+  id=$(basename "$d" | cut -c1-12)
+  if ! docker ps -a --filter "id=$id" -q | grep -q "$id"; then
+    echo "孤儿: $id -> $d"
+    rm -rf "$d"
+  fi
+done
+'
+```
+
+> 想先只清日志文件、保留目录结构，把上面 `rm -rf "$d"` 改成 `rm -f "$d"/*-json.log` 即可。
+
+> 注：你 `du` 里那些 4K / 8K 的小日志，基本都是历史容器残留，跑一遍 `docker system prune` 就干净了。长期仍靠 `log-opts` 限制单容器体积（见上文），避免个别容器爆到 1.4G。
+
 ### 爆盘排查：各目录整体占用
 
 ```bash
