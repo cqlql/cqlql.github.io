@@ -1,4 +1,10 @@
-相比于 bing mount，volumes 通常是持久化数据的首选机制，更好的性能、可移植性和管理能力
+---
+title: Volumes 数据卷
+icon: devicon:docker
+sort: 9
+---
+
+相比于 bind mount，volumes 通常是持久化数据的首选机制，更好的性能、可移植性和管理能力
 
 
 

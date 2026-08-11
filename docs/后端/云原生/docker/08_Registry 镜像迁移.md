@@ -1,3 +1,9 @@
+---
+title: Registry 镜像迁移
+icon: devicon:docker
+sort: 8
+---
+
 # Registry 镜像迁移
 
 ## 一、完整流程：外网镜像迁移到本地私有 Registry

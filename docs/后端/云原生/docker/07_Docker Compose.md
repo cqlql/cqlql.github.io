@@ -1,3 +1,9 @@
+---
+title: Docker Compose
+icon: devicon:docker
+sort: 7
+---
+
 ## restart
 
 用于定义容器退出后的自动重启策略
