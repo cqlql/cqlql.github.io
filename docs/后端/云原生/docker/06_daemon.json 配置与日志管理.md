@@ -64,6 +64,39 @@ docker info | grep Storage
 
 超过 `max-size` 后 Docker 自动滚动，保留最近 `max-file` 个文件。以 `50m × 5` 为例，单容器日志最多约 **250MB**。
 
+### 为什么可以设这么小？——与 Loki 的分工
+
+`json-file` **不负责长期日志保存**。它只是一个本地中转缓冲区：
+
+```
+应用 stdout
+    │
+    ↓
+Docker json-file（短期缓冲，50m × 5 滚动）
+    │
+    ↓
+Promtail 读取（tail + 推送）
+    │
+    ↓
+Loki 存储（长期保留，可查询）
+    │
+    ↓
+Grafana 查询
+```
+
+职责划分：
+
+| 组件       | 角色               | 保留策略         |
+| ---------- | ------------------ | ---------------- |
+| `json-file` | 本地短期缓冲       | 50m × 5，用完即滚 |
+| Promtail   | 日志采集转发       | 不存              |
+| Loki       | 长期集中存储与查询 | 按 retention 策略  |
+
+所以：
+- `max-size` / `max-file` 的**唯一目的是防止 Docker 本地磁盘被日志撑爆**
+- 日志的长期查询、聚合、告警全部交给 Loki + Grafana
+- 对单机部署（如 PassUp + PostgreSQL + MinIO），这是**必须配置项**——跑几个月后最容易出的问题就是 `/var/lib/docker` 被日志撑满
+
 ## 二、配置生效
 
 修改配置后需要重启 Docker 服务：
