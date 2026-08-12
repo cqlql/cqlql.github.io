@@ -1,8 +1,0 @@
-services:
-  note-md-dev:
-    container_name: note-md-dev
-    build:
-      context: ..
-      dockerfile: ./.devcontainer/Dockerfile.dev
-    tty: true
-    stdin_open: true

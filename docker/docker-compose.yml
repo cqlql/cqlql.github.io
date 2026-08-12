@@ -1,10 +1,11 @@
 services:
-  web:
-    image: nginx
+  note-md:
+    container_name: note-md
+    image: nginx:1.30.4-trixie
     # 配置此项便会随docker启动而启动
     restart: always
     volumes:
-    - ./docs/.vuepress/dist:/usr/share/nginx/html
+    - ../docs/.vuepress/dist:/usr/share/nginx/html
     ports:
     - "10010:80"
     environment:

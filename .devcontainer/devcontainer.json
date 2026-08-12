@@ -1,20 +1,27 @@
 {
     "name": "note-md-dev",
     "dockerComposeFile": [
-        "docker-compose.dev.yml"
+        "../docker/docker-compose.dev.yml"
     ],
     "service": "note-md-dev",
-    "workspaceFolder": "/workspace",
+    "workspaceFolder": "/_work/note-md",
     "customizations": {
         "vscode": {
             "settings": {}
         }
     },
+    "remoteUser": "ubuntu",
     "mounts": [
-        // 挂载整个 root，解决部分配置重建后丢失问题
-        "source=root,target=/root,type=volume",
-        // 代码，目前使用 wsl 子系统方案
-        "source=${localWorkspaceFolder}/../,target=${containerWorkspaceFolder},type=bind"
+        // 1. 持久化容器内 ubuntu 用户的 home 目录
+        "source=home,target=/home/ubuntu,type=volume",
+        // 2. 挂载宿主机项目源码目录
+        "source=${localWorkspaceFolder}/../,target=/_work,type=bind",
+        // 3. 挂载宿主机 WSL 内的 SSH 配置
+        "source=${localEnv:HOME}/.ssh,target=/home/ubuntu/.ssh,type=bind",
+        // 4. 挂载宿主机 VS Code Server，保持扩展与设置
+        "source=${localEnv:HOME}/.vscode-server,target=/home/ubuntu/.vscode-server,type=bind",
+        // 5. 挂载宿主机 CodeBuddy 配置
+        "source=${localEnv:HOME}/.codebuddy,target=/home/ubuntu/.codebuddy,type=bind"
     ],
     // 关闭vscode不自动关闭容器
     "overrideCommand": true,
