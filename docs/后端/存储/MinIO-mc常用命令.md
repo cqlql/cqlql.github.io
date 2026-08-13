@@ -4,11 +4,71 @@ icon: simple-icons:minio
 sort: 3
 ---
 
-`mc` 是 MinIO 官方命令行工具，语法贴近 Unix 命令。本文梳理日常高频命令的速查，配合《MinIO mc 客户端与 mirror 同步》使用：那篇侧重安装、`alias` 配置与 `mirror` 备份，本文侧重 bucket、对象、权限、版本等日常运维操作。
+`mc` 是 MinIO 官方命令行工具，语法贴近 Unix 命令。本文梳理日常高频命令的速查，并覆盖安装、`alias` 配置等前置知识；配合《MinIO mc 客户端与 mirror 同步》使用：那篇聚焦 `mirror` 增量同步/备份专题，本文侧重 bucket、对象、权限、版本等日常运维操作。
 
-## 一、别名（alias）
+## 一、mc 是什么
 
-连接 MinIO 前先配置别名，后续命令不再重复写地址与密钥。
+`mc`（MinIO Client）是官方命令行工具，相当于对象存储界的 `aws cli` / `rsync`。它提供了一套类似 Unix 命令的语法：
+
+| 命令 | 作用 | 类比 |
+|------|------|------|
+| `mc alias set` | 配置一个存储服务别名 | 配置 `~/.ssh/config` |
+| `mc mb` | 创建 bucket | `mkdir` |
+| `mc cp` | 拷贝对象/文件 | `cp` |
+| `mc ls` | 列 bucket / 对象 | `ls` |
+| `mc rm` | 删除对象 | `rm` |
+| `mc mirror` | **目录/桶镜像同步** | `rsync` |
+| `mc cat` | 查看对象内容 | `cat` |
+| `mc stat` | 查看对象元数据 | `stat` |
+
+## 二、安装
+
+### 1. 二进制（推荐，最通用）
+
+```sh
+# Linux (amd64)
+curl -L https://dl.min.io/client/mc/release/linux-amd64/mc \
+  -o /usr/local/bin/mc
+chmod +x /usr/local/bin/mc
+
+# macOS (intel)
+curl -L https://dl.min.io/client/mc/release/darwin-amd64/mc -o /usr/local/bin/mc
+chmod +x /usr/local/bin/mc
+
+# Windows (PowerShell)
+Invoke-WebRequest -Uri "https://dl.min.io/client/mc/release/windows-amd64/mc.exe" -OutFile "mc.exe"
+```
+
+验证：
+
+```sh
+mc --version
+```
+
+### 2. Docker（免安装，适合 CI / 临时使用）
+
+```sh
+docker run --rm -it \
+  -v ~/.mc:/root/.mc \
+  minio/mc \
+  mc --help
+```
+
+> 把 `~/.mc` 挂出来，配置好的 `alias` 可持久化复用。
+
+### 3. 包管理器
+
+```sh
+# macOS
+brew install minio/stable/mc
+
+# Arch
+yay -S minio-client
+```
+
+## 三、别名（alias）
+
+连接 MinIO 前先配置别名，后续命令不再重复写地址与密钥。`alias` 相当于给一个 MinIO 实例起个短名，之后所有命令不用重复写地址和密钥。
 
 ```sh
 # 添加别名：mc alias set <别名> <endpoint> <accessKey> <secretKey>
@@ -21,7 +81,20 @@ mc alias list
 mc alias remove local
 ```
 
-## 二、Bucket 管理
+多实例示例（配合备份服务器）：
+
+```sh
+mc alias set prod  https://oss.example.com  AKxxxx  SKxxxx
+mc alias set backup https://backup.example.com  AKyyyy  SKyyyy
+```
+
+测试连通性：
+
+```sh
+mc ls local
+```
+
+## 四、Bucket 管理
 
 ```sh
 # 创建 bucket
@@ -43,7 +116,7 @@ mc rb local/resume
 mc rb --force local/resume
 ```
 
-## 三、对象上传 / 下载
+## 五、对象上传 / 下载
 
 ```sh
 # 上传文件
@@ -62,7 +135,7 @@ mc cp -r local/resume/files ./
 mc cp --attr "Content-Type=application/pdf" ./a.pdf local/resume/a.pdf
 ```
 
-## 四、对象查看与元数据
+## 六、对象查看与元数据
 
 ```sh
 # 查看对象内容（直接输出到终端）
@@ -84,7 +157,7 @@ mc ls -r local/resume
 mc ls -r local/resume --summarize
 ```
 
-## 五、删除与移动
+## 七、删除与移动
 
 ```sh
 # 删除单个对象
@@ -103,7 +176,7 @@ mc mv local/resume/a.pdf local/resume/b.pdf
 mc mv local/resume/a.pdf local/archive/a.pdf
 ```
 
-## 六、权限管理（policy）
+## 八、权限管理（policy）
 
 ```sh
 # 查看 bucket 当前策略
@@ -121,7 +194,7 @@ mc anonymous set none local/resume
 
 > 预签名 URL 场景请保持 bucket 私有（`none`），不要为敏感文件开公开读。
 
-## 七、版本控制与保留
+## 九、版本控制与保留
 
 ```sh
 # 开启版本控制
@@ -137,7 +210,7 @@ mc version info local/resume
 mc ls --versions local/resume/简历.pdf
 ```
 
-## 八、其他常用
+## 十、其他常用
 
 ```sh
 # 查看磁盘/桶使用情况
@@ -150,7 +223,7 @@ mc ilm add --expiry-days 30 local/resume/temp
 mc alias export
 ```
 
-## 九、常用参数汇总
+## 十一、常用参数汇总
 
 | 参数 | 说明 |
 |------|------|
@@ -162,7 +235,7 @@ mc alias export
 | `--newer-than` | 只处理晚于指定时间的对象 |
 | `--exclude` | 排除匹配项（支持通配） |
 
-## 十、速查对照表
+## 十二、速查对照表
 
 | 操作 | 命令 |
 |------|------|
@@ -184,6 +257,8 @@ mc alias export
 ## 官方文档参考
 
 - MinIO Client (mc) 概览：<https://min.io/docs/minio/linux/reference/minio-mc.html>
+- 安装 mc（Quickstart）：<https://min.io/docs/minio/linux/reference/minio-mc.html#install-mc>
+- `mc alias` 命令参考：<https://min.io/docs/minio/linux/reference/minio-mc/mc-alias.html>
 - `mc cp` 命令参考：<https://min.io/docs/minio/linux/reference/minio-mc/mc-cp.html>
 - `mc anonymous` 命令参考：<https://min.io/docs/minio/linux/reference/minio-mc/mc-anonymous.html>
 - `mc version` 命令参考：<https://min.io/docs/minio/linux/reference/minio-mc/mc-version.html>
