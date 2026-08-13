@@ -46,7 +46,29 @@ sort: 3
 MinIO 对象存储数据
 ```
 
-## 三、docker-compose 配置
+## 三、目录属主与权限约定
+
+服务目录与数据目录职责不同，属主划分也各不一样，核心是：**配置/脚本归运维用户，数据归容器**。
+
+`/opt/services/minio/` 放的是「服务定义 + 备份脚本 + 日志」，由执行 `docker compose up`、`mc cp`、`pg_backup.sh` 的运维用户持有，**不要归属 `root` 独占**。推荐新建一个无登录 shell 的专用系统用户：
+
+```bash
+useradd -r -s /usr/sbin/nologin backup
+chown -R backup:backup /opt/services/minio
+```
+
+`.env` 含密钥，保持 `chmod 600`（见下文 compose 配置一节）。
+
+数据目录的属主则各归其主：
+
+| 目录 | 属主 | 说明 |
+|------|------|------|
+| `/data/minio/data/` | 容器内 MinIO 用户可读写 | 由 `minio/minio` 官方镜像内置用户读写，与 `/opt` 配置属主无关 |
+| `/data/temp-backup/` | `backup:backup` | 备份脚本（`pg_dump` 等）先落地此处，再由 `mc cp` 同步进 MinIO，需对备份用户可写 |
+
+> 容器内 MinIO 以官方镜像内置用户身份运行，其数据可写性由**目录权限**与**容器挂载**共同决定，与 `/opt/services/minio/` 的配置属主无关。配置目录只需保证运维用户能读 `.env`、跑脚本即可。
+
+## 四、docker-compose 配置
 
 `/opt/services/minio/docker-compose.yml`：
 
@@ -85,7 +107,7 @@ MINIO_ROOT_PASSWORD=xxxxxx
 chmod 600 .env
 ```
 
-## 四、为什么不放 `/home/user/` 下
+## 五、为什么不放 `/home/user/` 下
 
 `/home/xdt/minio/docker-compose.yml` 也不是不能跑，但长期维护不推荐：
 
@@ -105,7 +127,7 @@ Linux 服务器目录约定：
 
 Docker Compose 项目统一放 `/opt/services/`，数据放 `/data/`，符合运维惯例。
 
-## 五、典型备份数据流
+## 六、典型备份数据流
 
 以 PostgreSQL → MinIO 的场景为例：
 
@@ -124,7 +146,7 @@ MinIO bucket
 /data/minio/data              ← MinIO 内部存储
 ```
 
-## 六、服务独立原则
+## 七、服务独立原则
 
 MinIO **不要**和备份脚本混在一个 compose 里。
 
@@ -153,7 +175,7 @@ MinIO **不要**和备份脚本混在一个 compose 里。
 
 每个目录是一个独立的 compose 项目，职责单一，方便启停和维护。
 
-## 七、总结
+## 八、总结
 
 - **业务服务器**：只负责产生备份，不存长期数据
 - **备份服务器**：MinIO 负责接收和存储，配合生命周期策略管理保留周期
