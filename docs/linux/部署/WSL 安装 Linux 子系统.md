@@ -2,7 +2,7 @@
 
 ---
 title: WSL 安装 Linux 子系统
-sort: 15
+sort: 3
 ---
 
 > [!WARNING]

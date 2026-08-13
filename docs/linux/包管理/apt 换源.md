@@ -1,6 +1,6 @@
 ---
 title: apt 换源
-sort: 12
+sort: 2
 ---
 
 # Ubuntu 24.04 修改阿里云镜像源完整教程

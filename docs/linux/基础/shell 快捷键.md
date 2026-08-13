@@ -1,7 +1,7 @@
 
 ---
 title: shell 快捷键
-sort: 7
+sort: 3
 ---
 
 ## 光标移动

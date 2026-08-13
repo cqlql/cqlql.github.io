@@ -1,7 +1,7 @@
 
 ---
 title: apt 包管理
-sort: 11
+sort: 1
 ---
 
 ```sh

@@ -1,6 +1,6 @@
 ---
 title: systemctl
-sort: 9
+sort: 2
 ---
 
 # systemctl

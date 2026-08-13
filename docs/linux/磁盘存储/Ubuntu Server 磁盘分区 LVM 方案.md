@@ -1,6 +1,6 @@
 ---
 title: Ubuntu Server 磁盘分区 LVM 方案
-sort: 14
+sort: 4
 ---
 
 # Ubuntu Server 磁盘分区配置（EFI + LVM）

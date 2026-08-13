@@ -1,7 +1,7 @@
 ---
 title: wget 递归抓取链接
 icon: mdi:network-outline
-sort: 4
+sort: 3
 ---
 
 # wget 递归抓取链接

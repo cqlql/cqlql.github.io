@@ -1,7 +1,7 @@
 ---
 title: v2ray sing-box 一键部署
-icon: mdi:server-network
-sort: 7
+icon: mdi:network-outline
+sort: 4
 ---
 
 ## sing-box 一键脚本（推荐）

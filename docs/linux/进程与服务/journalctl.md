@@ -1,6 +1,6 @@
 ---
 title: journalctl
-sort: 10
+sort: 3
 ---
 
 # journalctl
