@@ -160,13 +160,20 @@ project/
 SRC_URL="http://127.0.0.1:9000"
 SRC_KEY="YOUR_PROD_ACCESS_KEY"
 SRC_SECRET="YOUR_PROD_SECRET_KEY"
-SRC_BUCKET="passup-prod-bucket"
 
-DEST_IP="192.168.1.200"
+# 需备份的源端桶名（空格分隔，支持多个）
+SRC_BUCKETS="passup-prod-bucket app-uploads user-avatars"
+
+# 备份端地址（仅此一处配置协议+主机+端口，连通性预检自动解析）
 DEST_URL="http://192.168.1.200:9000"
 DEST_KEY="YOUR_BACKUP_ACCESS_KEY"
 DEST_SECRET="YOUR_BACKUP_SECRET_KEY"
-DEST_BUCKET="passup-backup-bucket"
+
+# 备份端桶名前缀（源端桶名自动拼接此前缀，避免与生产端同名冲突）
+DEST_BUCKET_PREFIX="backup-"
+
+# 公网备份限速（可选，如 "50M"；局域网可留空不限制）
+UPLOAD_LIMIT=""
 ```
 
 ### 5.4 `minio_backup.sh`（提交到 Git，从外部 env 读取凭证）
@@ -178,7 +185,11 @@ DEST_BUCKET="passup-backup-bucket"
 
 # ==========================================
 # MinIO 生产环境自动化增量备份脚本（凭证外置）
+# 适用: 单机 Docker 部署的 MinIO
+# 功能: 将生产端多个桶增量同步到远程备份 MinIO
 # ==========================================
+
+set -euo pipefail
 
 # 获取当前脚本所在目录（Crontab 执行时不依赖 cwd）
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -189,39 +200,106 @@ if [ -f "$ENV_FILE" ]; then
     source "$ENV_FILE"
 else
     echo "错误: 未找到配置文件 $ENV_FILE"
+    echo "请先根据 backup.env.example 创建 backup.env 并填入真实凭证"
     exit 1
 fi
 
-# 别名与日志
+# ---------- 别名与日志 ----------
 SRC_ALIAS="prod-minio"
 DEST_ALIAS="backup-minio"
-LOG_FILE="/var/log/minio-backup/minio_backup.log"
-mkdir -p "$(dirname "$LOG_FILE")"
+LOG_DIR="/var/log/minio-backup"
+LOG_FILE="${LOG_DIR}/minio_backup.log"
+mkdir -p "$LOG_DIR"
 
-echo "==========================================" >> "$LOG_FILE"
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] 开始执行 MinIO 异地备份..." >> "$LOG_FILE"
+# ---------- 日志函数 ----------
+log() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a "$LOG_FILE"
+}
 
-# Step 1: 检查远程服务器网络连通性
-nc -z -w 3 "$DEST_IP" 9000 > /dev/null 2>&1
-if [ $? -ne 0 ]; then
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] 错误: 无法连接到备份服务器 ($DEST_IP:9000)，备份中断！" >> "$LOG_FILE"
-    # 可在此处接入告警（微信 / 钉钉 / 飞书 Webhook）
+log "=========================================="
+log "开始执行 MinIO 异地备份..."
+
+# ---------- Step 1: 检查远程服务器网络连通性 ----------
+# 从 DEST_URL 中自动解析出主机（IP/域名）与端口
+DEST_HOST="${DEST_URL#*://}"
+DEST_HOST="${DEST_HOST%%:*}"
+DEST_PORT="${DEST_URL##*:}"
+DEST_PORT="${DEST_PORT%%/*}"
+DEST_PORT="${DEST_PORT:-9000}"
+
+if [ -n "${DEST_HOST:-}" ]; then
+    if command -v nc &> /dev/null; then
+        if ! nc -z -w 3 "$DEST_HOST" "$DEST_PORT" > /dev/null 2>&1; then
+            log "错误: 无法连接到备份服务器 (${DEST_HOST}:${DEST_PORT})，备份中断！"
+            exit 1
+        fi
+    else
+        log "警告: nc 命令不可用，跳过网络连通性检查"
+    fi
+fi
+
+# ---------- Step 2: 初始化 mc 别名配置 ----------
+log "初始化 mc 别名配置..."
+if ! mc alias set $SRC_ALIAS  $SRC_URL  $SRC_KEY  $SRC_SECRET; then
+    log "错误: 无法连接源端 MinIO (${SRC_URL})，请检查 SRC_URL/SRC_KEY/SRC_SECRET"
+    exit 1
+fi
+if ! mc alias set $DEST_ALIAS $DEST_URL $DEST_KEY $DEST_SECRET; then
+    log "错误: 无法连接备份端 MinIO (${DEST_URL})，请检查 DEST_URL/DEST_KEY/DEST_SECRET"
     exit 1
 fi
 
-# Step 2: 初始化本地 mc 别名配置
-mc alias set $SRC_ALIAS $SRC_URL $SRC_KEY $SRC_SECRET > /dev/null 2>&1
-mc alias set $DEST_ALIAS $DEST_URL $DEST_KEY $DEST_SECRET > /dev/null 2>&1
+# ---------- Step 3: 对每个桶执行增量同步 ----------
+# 用于捕获 mc 真实错误输出的临时文件
+MC_ERR_FILE="$(mktemp)"
+trap 'rm -f "$MC_ERR_FILE"' EXIT
 
-# Step 3: 执行增量同步
-# --overwrite: 覆盖变更文件
-# 默认不加 --remove: 生产端删除时备份端仍保留，防止误删 / 勒索风险
-mc mirror --overwrite $SRC_ALIAS/$SRC_BUCKET $DEST_ALIAS/$DEST_BUCKET >> "$LOG_FILE" 2>&1
+FAILED_BUCKETS=""
+for BUCKET in $SRC_BUCKETS; do
+    DEST_BUCKET="${DEST_BUCKET_PREFIX}${BUCKET}"
+    log "正在同步桶: ${SRC_ALIAS}/${BUCKET} -> ${DEST_ALIAS}/${DEST_BUCKET}"
 
-if [ $? -eq 0 ]; then
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] 备份成功完成！" >> "$LOG_FILE"
+    # 校验源端桶是否存在（不存在则跳过并给出明确原因）
+    if ! mc ls "${SRC_ALIAS}/${BUCKET}" > /dev/null 2>&1; then
+        log "错误: 源端桶 ${SRC_ALIAS}/${BUCKET} 不存在，跳过！请检查 SRC_BUCKETS 配置或源端桶名。"
+        FAILED_BUCKETS="${FAILED_BUCKETS} ${BUCKET}"
+        continue
+    fi
+
+    # 确保备份端桶存在（不存在则创建）
+    if ! mc ls "${DEST_ALIAS}/${DEST_BUCKET}" &> /dev/null; then
+        log "备份端桶 ${DEST_BUCKET} 不存在，正在创建..."
+        if ! mc mb "${DEST_ALIAS}/${DEST_BUCKET}" > /dev/null 2>"$MC_ERR_FILE"; then
+            log "错误: 创建备份端桶 ${DEST_BUCKET} 失败：$(cat "$MC_ERR_FILE")"
+            FAILED_BUCKETS="${FAILED_BUCKETS} ${BUCKET}"
+            continue
+        fi
+    fi
+
+    # 构建 mc mirror 参数
+    MIRROR_ARGS=(mirror --overwrite)
+    if [ -n "${UPLOAD_LIMIT:-}" ]; then
+        MIRROR_ARGS+=(--limit-upload "$UPLOAD_LIMIT")
+    fi
+    MIRROR_ARGS+=("${SRC_ALIAS}/${BUCKET}" "${DEST_ALIAS}/${DEST_BUCKET}")
+
+    # 同步时：stdout 进日志，stderr 单独捕获，失败时打印真实错误
+    if mc "${MIRROR_ARGS[@]}" >> "$LOG_FILE" 2>"$MC_ERR_FILE"; then
+        log "桶 ${BUCKET} 同步成功"
+    else
+        log "桶 ${BUCKET} 同步失败！原因：$(cat "$MC_ERR_FILE")"
+        FAILED_BUCKETS="${FAILED_BUCKETS} ${BUCKET}"
+    fi
+done
+
+# ---------- Step 4: 汇总结果 & 写心跳 ----------
+if [ -z "$FAILED_BUCKETS" ]; then
+    log "所有桶备份成功完成！"
+    # 成功时写心跳文件（供 5.8 巡检脚本读取健康度）
+    echo "$(date '+%Y-%m-%d %H:%M:%S')" > "${LOG_DIR}/last_success.txt"
+    exit 0
 else
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] 备份过程中出现错误，请检查日志！" >> "$LOG_FILE"
+    log "以下桶备份失败:${FAILED_BUCKETS}"
     exit 1
 fi
 ```
@@ -301,7 +379,172 @@ sudo mkdir -p /var/log/minio-backup
 sudo chown -R "$USER:$USER" /var/log/minio-backup
 ```
 
-### 5.7 针对单机 Docker 的取舍
+### 5.7 备份日志轮转（logrotate，防止日志无限膨胀）
+
+脚本使用 `>> "$LOG_FILE"` 持续追加日志，在每日 Cron 高频运行（如每 15 分钟 / 每小时）数月后，单文件会无限膨胀、占满磁盘并拖慢排查效率。用 **`logrotate`**（主流 Linux 发行版自带）按天 / 按大小自动切割、压缩并清理旧日志，无需改动备份脚本本身。
+
+**1. 编写 logrotate 配置文件**（`/etc/logrotate.d/minio-backup`，root 权限）
+
+```bash
+# /etc/logrotate.d/minio-backup
+/var/log/minio-backup/*.log {
+    # 每天轮转一次
+    daily
+    # 日志缺失不报错
+    missingok
+    # 空文件不轮转
+    notifempty
+    # 最多保留 14 个历史文件
+    rotate 14
+    # 压缩历史日志（默认 gzip）
+    compress
+    # 延迟一轮再压缩，方便排查最近一次
+    delaycompress
+    # 拷贝后清空原文件，脚本持续 >> 追加不中断
+    copytruncate
+    # 历史文件加日期后缀，如 minio_backup.log-20260813.gz
+    dateext
+}
+```
+
+**关键参数说明：**
+
+| 参数 | 作用 |
+| --- | --- |
+| `daily` / `size 50M` | 触发条件：按天，或单文件超 50M（二选一，也可 `daily` + `size` 组合） |
+| `rotate 14` | 保留 14 个历史切片后自动删除最旧的，控制总占用 |
+| `compress` / `delaycompress` | gzip 压缩历史日志，`delaycompress` 让「最近一次」先留一天明文便于排查 |
+| `copytruncate` | **必须**：复制日志内容到新文件后立即截断原文件，备份脚本用 `>>` 追加、无信号感知，只有 `copytruncate` 能不重启脚本即生效（`create` 与之互斥语义，二者选其一，这里用 `copytruncate`） |
+
+> ⚠️ 为什么不用 `create` 或 `postrotate` 发信号？脚本是简单 `>>` 追加、没有监听 HUP 信号重新打开文件描述符的能力。`create` 模式会让脚本仍持有被 rename 后的旧 fd，日志继续写到已移走的旧文件。`copytruncate` 直接原地截断原文件，对脚本完全透明，是最省心的方案。
+
+**2. 验证与手动触发**
+
+```bash
+# 检查配置语法是否正确（dry-run，不实际切割）
+sudo logrotate -d /etc/logrotate.d/minio-backup
+
+# 强制立即轮转一次（验证效果，生产慎用 -f）
+sudo logrotate -f /etc/logrotate.d/minio-backup
+```
+
+> logrotate 默认由系统的 `cron.daily` / Systemd Timer（`logrotate.timer`）每天自动执行，无需额外配置。确认服务在跑：`systemctl status logrotate.timer`。
+
+**可选：按大小而非按天轮转**——若备份频率极高、单日日志就可能很大，改用 `size` 触发（注意 `size` 与 `daily` 同时存在时，满足任一即轮转）：
+
+```bash
+/var/log/minio-backup/*.log {
+    size 50M
+    rotate 20
+    compress
+    delaycompress
+    copytruncate
+    notifempty
+    missingok
+    dateext
+}
+```
+
+这样日志总量被严格约束（约 `50M × (20+1)` 上限），彻底杜绝无限膨胀。
+
+### 5.8 备份健康度统一巡检（一眼看健康 + 占用）
+
+备份脚本只"写日志"，本身不证明自己在跑、不汇报磁盘占用。日常运维最痛的点是：**出事了才发现上次成功是两周前**，或**磁盘悄悄写满**。建议加一层轻量、零依赖的「自检」机制，把"是否健康、占多大"统一到一个命令里看出来。
+
+**1. 让脚本自带"心跳"——成功时打 last-success 标记**
+
+在 `minio_backup.sh` 末尾（成功分支）追加一行，记录最近成功时间戳：
+
+```bash
+# 成功完成后写心跳文件（供巡检脚本读取）
+echo "$(date '+%Y-%m-%d %H:%M:%S')" > /var/log/minio-backup/last_success.txt
+```
+
+失败时**不更新**该文件，于是 `last_success.txt` 永远只代表"最后一次成功"，天然成为健康度基准。
+
+**2. 统一巡检脚本 `backup_status.sh`**
+
+把"是否健康、日志占多少、磁盘剩多少"收敛到一个脚本，一条命令全看清：
+
+```bash
+#!/bin/bash
+# 备份健康度巡检：是否在跑、上次成功、日志/磁盘占用
+LOG_DIR="/var/log/minio-backup"
+THRESHOLD_HOURS=26   # 超过该小时数未成功即告警（Cron 每天跑则设 ~26）
+
+echo "====== MinIO 备份健康巡检 $(date '+%Y-%m-%d %H:%M:%S') ======"
+
+# 1) 上次成功时间 & 是否超时
+if [ -f "$LOG_DIR/last_success.txt" ]; then
+    LAST=$(cat "$LOG_DIR/last_success.txt")
+    LAST_TS=$(date -d "$LAST" +%s 2>/dev/null)
+    NOW_TS=$(date +%s)
+    DELTA=$(( (NOW_TS - LAST_TS) / 3600 ))
+    if [ "$DELTA" -gt "$THRESHOLD_HOURS" ]; then
+        echo "❌ 异常：距上次成功已 ${DELTA} 小时（阈值 ${THRESHOLD_HOURS}h）"
+    else
+        echo "✅ 健康：上次成功 $LAST（${DELTA}h 前）"
+    fi
+else
+    echo "❌ 异常：从未成功过（无 last_success.txt）"
+fi
+
+# 2) 日志目录总占用（含轮转历史）
+echo "📄 日志占用: $(du -sh "$LOG_DIR" 2>/dev/null | cut -f1)"
+
+# 3) 当前日志文件大小（最新一份）
+CUR=$(ls -t "$LOG_DIR"/*.log 2>/dev/null | head -1)
+[ -n "$CUR" ] && echo "   当前日志: $CUR -> $(du -h "$CUR" | cut -f1)"
+
+# 4) 备份端磁盘剩余（按挂载点，示例 /data）
+echo "💽 磁盘剩余: $(df -h /data | awk 'NR==2{print $4" / "$2" (已用 "$5")"}')"
+```
+
+输出示例：
+
+```text
+====== MinIO 备份健康巡检 2026-08-13 09:00:00 ======
+✅ 健康：上次成功 2026-08-13 02:00:03（7h 前）
+📄 日志占用: 12M
+   当前日志: /var/log/minio-backup/minio_backup.log -> 1.1M
+💽 磁盘剩余: 1.4T / 2.0T (已用 28%)
+```
+
+**3. 主动告警（可选但推荐）**
+
+把巡检接入 Cron，异常时才发通知（飞书 / 钉钉 / 邮件），平时不打扰：
+
+```bash
+# 每天 9:00 巡检，仅当含 ❌ 时推送
+0 9 * * * /path/backup_status.sh | grep -q '❌' && curl -s -X POST $DINGTALK_WEBHOOK \
+  -H "Content-Type: application/json" \
+  -d '{
+    "msgtype": "text",
+    "text": {
+      "content": "MinIO 备份异常，请检查"
+    }
+  }'
+```
+
+也可直接在巡检脚本内判断 `DELTA` 超限就 `curl` 告警，逻辑更集中。
+
+**4. 立刻人工查看**
+
+运维时一条命令即可掌握全貌，无需翻日志：
+
+```bash
+bash /path/backup_status.sh
+```
+
+| 维度 | 看哪里 | 健康标准 |
+| --- | --- | --- |
+| 是否还在跑 | `last_success.txt` 距现在小时数 | < 阈值（如 26h） |
+| 日志是否膨胀 | `du -sh` 日志目录 + 当前日志大小 | 受 logrotate `rotate N` 约束 |
+| 磁盘是否将满 | `df -h /data` 已用% | 留足余量（如 < 80%） |
+
+> 这一层与 logrotate（5.7）互补：logrotate 防"日志膨胀"，巡检防"静默失效 + 磁盘写满"。二者都不需要改 `mc mirror` 主逻辑，纯外围增强。
+
+### 5.9 针对单机 Docker 的取舍
 
 对单机 Ubuntu + Docker 的个人 / 小团队项目，不必上 Bucket Replication，用 `mc mirror` 定时同步即可：
 
@@ -567,6 +810,7 @@ if [ -f "$ENV_FILE" ]; then
     source "$ENV_FILE"
 else
     echo "错误: 未找到配置文件 $ENV_FILE"
+    echo "请先根据 backup.env.example 创建 backup.env 并填入真实凭证"
     exit 1
 fi
 
@@ -575,7 +819,8 @@ DEST_ALIAS="backup-minio" # 源：备份端
 
 echo "=========================================="
 echo "警告：您正在执行 MinIO 灾难恢复操作！"
-echo "数据方向: 备份端 [${DEST_URL}/${DEST_BUCKET}] -> 生产端 [${SRC_URL}/${SRC_BUCKET}]"
+echo "数据方向: 备份端 [${DEST_URL}] -> 生产端 [${SRC_URL}]"
+echo "待恢复桶(备份端前缀 ${DEST_BUCKET_PREFIX}): ${SRC_BUCKETS}"
 echo "=========================================="
 
 # 1. 交互式二次确认，防止误操作
@@ -585,21 +830,36 @@ if [ "$CONFIRM" != "YES" ]; then
     exit 0
 fi
 
-# 2. 预先初始化 mc 别名配置
-mc alias set $SRC_ALIAS  $SRC_URL  $SRC_KEY  $SRC_SECRET  > /dev/null 2>&1
-mc alias set $DEST_ALIAS $DEST_URL $DEST_KEY $DEST_SECRET > /dev/null 2>&1
+# 2. 预先初始化 mc 别名配置（失败即中断，避免写到空别名）
+mc alias set $SRC_ALIAS  $SRC_URL  $SRC_KEY  $SRC_SECRET  > /dev/null 2>&1 || {
+    echo "错误: 无法连接生产端 MinIO (${SRC_URL})，请检查 SRC_URL/SRC_KEY/SRC_SECRET"
+    exit 1
+}
+mc alias set $DEST_ALIAS $DEST_URL $DEST_KEY $DEST_SECRET > /dev/null 2>&1 || {
+    echo "错误: 无法连接备份端 MinIO (${DEST_URL})，请检查 DEST_URL/DEST_KEY/DEST_SECRET"
+    exit 1
+}
 
 # 3. 提示检查 Cron 是否已停止
 echo "[提示] 请确保已暂停定时备份任务 (执行 make cron-uninstall)，避免恢复过程中产生写冲突。"
 
-# 4. 执行反向同步恢复（把备份端数据推回生产端）
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] 开始拉取备份数据..."
-mc mirror --overwrite $DEST_ALIAS/$DEST_BUCKET $SRC_ALIAS/$SRC_BUCKET
+# 4. 对每个桶执行反向同步恢复（把备份端数据推回生产端）
+FAILED_BUCKETS=""
+for BUCKET in $SRC_BUCKETS; do
+    DEST_BUCKET="${DEST_BUCKET_PREFIX}${BUCKET}"
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] 开始拉取桶 ${DEST_BUCKET} -> ${BUCKET} ..."
+    mc mirror --overwrite "${DEST_ALIAS}/${DEST_BUCKET}" "${SRC_ALIAS}/${BUCKET}" && \
+        echo "桶 ${BUCKET} 恢复完成！" || {
+        echo "桶 ${BUCKET} 恢复失败，请检查网络或 mc 权限配置！"
+        FAILED_BUCKETS="${FAILED_BUCKETS} ${BUCKET}"
+    }
+done
 
-if [ $? -eq 0 ]; then
-    echo "数据恢复完成！请检查生产端 MinIO 桶数据。"
+if [ -z "$FAILED_BUCKETS" ]; then
+    echo "所有桶数据恢复完成！请检查生产端 MinIO 桶数据。"
+    exit 0
 else
-    echo "数据恢复失败，请检查网络或 mc 权限配置！"
+    echo "以下桶恢复失败:${FAILED_BUCKETS}"
     exit 1
 fi
 ```
@@ -624,7 +884,9 @@ restore-dry-run:
 	@bash -c "source $(ENV_FILE) && \
 		mc alias set prod-minio \$${SRC_URL} \$${SRC_KEY} \$${SRC_SECRET} >/dev/null 2>&1 && \
 		mc alias set backup-minio \$${DEST_URL} \$${DEST_KEY} \$${DEST_SECRET} >/dev/null 2>&1 && \
-		mc mirror --dry-run backup-minio/\$${DEST_BUCKET} prod-minio/\$${SRC_BUCKET}"
+		for B in \$${SRC_BUCKETS}; do \
+			mc mirror --dry-run backup-minio/\$${DEST_BUCKET_PREFIX}\$$B prod-minio/\$$B; \
+		done"
 
 # 2. 执行实际灾难恢复
 restore:
