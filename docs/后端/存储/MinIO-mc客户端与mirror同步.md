@@ -1,7 +1,7 @@
 ---
 title: MinIO mc 客户端与 mirror 同步
 icon: simple-icons:minio
-sort: 4
+sort: 5
 ---
 
 `mc`（MinIO Client）是官方命令行工具，相当于对象存储界的 `aws cli` / `rsync`。本文聚焦 `mc mirror` 同步/备份能力，可以和《MinIO 专用备份服务器目录规范》配合落地。

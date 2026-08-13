@@ -1,7 +1,7 @@
 ---
 title: MinIO 存储挂载方式选型（bind mount vs volume）
 icon: mdi:harddisk
-sort: 5
+sort: 2
 ---
 
 对于 MinIO 这类**存储型 / 有状态服务（stateful service）**，不管是生产还是备份服务器，都更推荐 **bind mount（宿主机目录挂载）**，而非 Docker volume。

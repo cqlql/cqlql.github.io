@@ -1,7 +1,7 @@
 ---
 title: MinIO mc 客户端常用命令
 icon: simple-icons:minio
-sort: 3
+sort: 4
 ---
 
 `mc` 是 MinIO 官方命令行工具，语法贴近 Unix 命令。本文梳理日常高频命令的速查，并覆盖安装、`alias` 配置等前置知识；配合《MinIO mc 客户端与 mirror 同步》使用：那篇聚焦 `mirror` 增量同步/备份专题，本文侧重 bucket、对象、权限、版本等日常运维操作。

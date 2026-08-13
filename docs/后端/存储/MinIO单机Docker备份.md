@@ -1,7 +1,7 @@
 ---
 title: MinIO 单机 Docker 备份
 icon: devicon:docker
-sort: 2
+sort: 3
 tags:
   - MinIO
   - 备份

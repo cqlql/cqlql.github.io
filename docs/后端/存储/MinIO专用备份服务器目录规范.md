@@ -1,7 +1,7 @@
 ---
 title: MinIO 专用备份服务器目录规范
 icon: simple-icons:minio
-sort: 3
+sort: 6
 ---
 
 在专用备份服务器上部署 MinIO 时，推荐按照基础设施服务的标准来管理，而不是随意放在用户家目录下。本文整理推荐的目录结构、docker-compose 配置及运维规范。

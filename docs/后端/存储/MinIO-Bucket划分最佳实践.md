@@ -1,7 +1,7 @@
 ---
 title: MinIO Bucket 划分最佳实践
 icon: mdi:group
-sort: 2
+sort: 7
 ---
 
 对象存储（S3 / MinIO）的核心认知：**Bucket 应该作为权限边界，目录（子目录）只是对象 Key 的前缀，不应该用来承担权限、生命周期等职责。**
