@@ -1,6 +1,7 @@
 ---
 title: SSH 密钥管理
-sort: 1
+icon: mdi:key
+sort: 0
 ---
 
 # SSH 密钥管理
