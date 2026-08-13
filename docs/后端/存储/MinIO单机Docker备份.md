@@ -116,6 +116,12 @@ mc mirror --overwrite my-src/my-bucket my-backup/my-bucket-backup
   >
   > 保留天数可根据备份频率灵活设置，比如每天备份一次、设置 `30` 天就能保留约 30 个历史版本，超出自动清理。
 
+  > ⚠️ **关键边界：`mc mirror` 只同步「当前版本」，不跨端同步历史版本。** 生产端开启 Versioning 后，其历史版本仅保存在生产端本机；`mc mirror` 每次只把「当前版本」对象镜像到备份端。因此：
+  >
+  > - 「版本控制回滚」能力（§11.2 场景 B）**只对生产端自身有效**，备份端无法提供生产端的历史版本。
+  > - 备份端若开启了 Versioning + WORM，保护的也**只是「备份端被多次 mirror 覆盖产生的历史」**，而非生产端的历史。
+  > - 如需跨端保留历史版本，需另用 `mc mirror` 之外的手段（如生产端 ILM 定期归档历史到独立桶，或改用服务端 Bucket Replication 的版本复制）。
+
 - **备份端应防篡改（对象锁定 / 合规模式）**：版本控制可防误删，但**挡不住勒索软件主动覆盖旧版本**。若备份端 MinIO 支持，建议为备份桶开启 **WORM（对象锁定 / 合规模式 Compliance）**，使历史版本在保留期内（如 30 天）**既不可删也不可改**，即使备份服务器被攻破、凭证泄露，勒索程序也无法抹掉历史备份。
 
   ```bash
@@ -152,21 +158,22 @@ project/
 │   ├── docker-compose.yml         # 单机容器编排（含 MinIO + App 等）
 │   └── .env.example               # 容器环境变量模板
 │
-├── backup/                        # 备份相关（独立于业务代码）
+├── deploy/backup/                 # 备份相关（独立于业务代码）
 │   ├── minio_backup.sh            # ← 备份脚本：mc mirror 增量同步到远端
 │   ├── minio_restore.sh           # ← 恢复脚本：从远端拉回指定备份（含二次确认）
+│   ├── backup_status.sh           # ← 健康巡检脚本：是否在跑、上次成功、日志/磁盘占用
 │   ├── backup.env.example         # 凭证模板（可提交 Git，含 SRC/DEST 两套密钥）
-│   └── README.md                  # 操作手册：定时任务安装、手动触发、恢复流程
+│   └── minio_backup.logrotate     # logrotate 日志轮转配置
 │
 ├── src/                           # 业务源码
 │   └── ...
 │
 ├── .gitignore                     # 忽略 *.log、backup.env、.env 等敏感文件
-├── Makefile                       # 统一入口：make backup-cron-install / backup-now / restore
+├── Makefile                       # 统一入口：make backup / backup-cron-install / restore / backup-health
 └── README.md
 ```
 
-> 真实凭证 `backup.env` 由运维根据 `.example` 创建，**不提交 Git**。建议放在 `/etc/project/backup.env` 或 `backup/` 目录下并加入 `.gitignore`。
+> 真实凭证 `backup.env` 由运维根据 `.example` 创建，**不提交 Git**。建议放在 `deploy/backup/backup.env` 或 `/etc/passup/backup.env` 下并加入 `.gitignore`。
 
 ### 5.3 `backup.env.example`（提交到 Git 的模板）
 
@@ -189,6 +196,9 @@ DEST_BUCKET_PREFIX="backup-"
 
 # 公网备份限速（可选，如 "50M"；局域网可留空不限制）
 UPLOAD_LIMIT=""
+
+# 日志目录（minio_backup.sh / backup_status.sh 共用，默认 /var/log/minio-backup）
+BACKUP_LOG_DIR="/var/log/minio-backup"
 ```
 
 ### 5.4 `minio_backup.sh`（提交到 Git，从外部 env 读取凭证）
@@ -209,7 +219,7 @@ set -euo pipefail
 # 获取当前脚本所在目录（Crontab 执行时不依赖 cwd）
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# 加载环境变量文件（生产环境建议放在 /etc/project/backup.env）
+# 加载环境变量文件（生产环境建议放在 /etc/passup/backup.env）
 ENV_FILE="${SCRIPT_DIR}/backup.env"
 if [ -f "$ENV_FILE" ]; then
     source "$ENV_FILE"
@@ -222,7 +232,7 @@ fi
 # ---------- 别名与日志 ----------
 SRC_ALIAS="prod-minio"
 DEST_ALIAS="backup-minio"
-LOG_DIR="/var/log/minio-backup"
+LOG_DIR="${BACKUP_LOG_DIR:-/var/log/minio-backup}"
 LOG_FILE="${LOG_DIR}/minio_backup.log"
 mkdir -p "$LOG_DIR"
 
@@ -321,7 +331,7 @@ fi
 
 ### 5.5 用 Makefile 封装 Crontab（推荐）
 
-Makefile 自动通过 `$(shell pwd)` 获取项目绝对路径并注入 Crontab，避免路径硬编码；任务结尾打 `#MINIO_BACKUP` 标记，多次 `cron-install` 先清洗旧任务再写入，**幂等不会重复添加**。
+Makefile 自动通过 `$(shell pwd)` 获取项目绝对路径并注入 Crontab，避免路径硬编码；任务结尾打 `#MINIO_BACKUP` 标记，多次 `backup-cron-install` 先清洗旧任务再写入，**幂等不会重复添加**。
 
 ```makefile
 # ==========================================
@@ -329,42 +339,42 @@ Makefile 自动通过 `$(shell pwd)` 获取项目绝对路径并注入 Crontab�
 # ==========================================
 
 PROJECT_DIR := $(shell pwd)
-BACKUP_SCRIPT := $(PROJECT_DIR)/deploy/scripts/minio_backup.sh
-ENV_FILE := $(PROJECT_DIR)/deploy/scripts/backup.env
+BACKUP_SCRIPT := $(PROJECT_DIR)/deploy/backup/minio_backup.sh
+ENV_FILE := $(PROJECT_DIR)/deploy/backup/backup.env
 
 # 每天凌晨 2:00 执行；#MINIO_BACKUP 用于精准识别/删除
 CRON_SCHEDULE := 0 2 * * *
 CRON_TAG := \#MINIO_BACKUP
 CRON_JOB := $(CRON_SCHEDULE) $(BACKUP_SCRIPT) > /dev/null 2>&1 $(CRON_TAG)
 
-.PHONY: help backup cron-install cron-uninstall cron-status
+.PHONY: help backup backup-cron-install backup-cron-uninstall backup-cron-status
 
 help:
 	@echo "MinIO 备份管理命令:"
-	@echo "  make backup          - 立即手动执行一次 MinIO 备份"
-	@echo "  make cron-install    - 写入 Crontab 定时任务（幂等）"
-	@echo "  make cron-uninstall  - 从 Crontab 移除该任务"
-	@echo "  make cron-status     - 查看当前 Crontab 中的备份任务"
+	@echo "  make backup                 - 立即手动执行一次 MinIO 备份"
+	@echo "  make backup-cron-install    - 写入 Crontab 定时任务（幂等）"
+	@echo "  make backup-cron-uninstall  - 从 Crontab 移除该任务"
+	@echo "  make backup-cron-status     - 查看当前 Crontab 中的备份任务"
 
 backup:
 	@chmod +x $(BACKUP_SCRIPT)
 	@echo "开始手动执行 MinIO 备份..."
 	@$(BACKUP_SCRIPT)
 
-cron-install:
+backup-cron-install:
 	@chmod +x $(BACKUP_SCRIPT)
 	@if [ ! -f "$(ENV_FILE)" ]; then \
 		echo "错误: 未找到配置文件 $(ENV_FILE)，请先根据 backup.env.example 创建！"; \
 		exit 1; \
 	fi
-	@(crontab -l 2>/dev/null | grep -v "$(CRON_TAG)" ; echo "$(CRON_JOB)") | crontab -
+	@(crontab -l 2>/dev/null | grep -v "$(CRON_TAG)" ; printf '%s\n' "$(CRON_JOB)") | crontab -
 	@echo "MinIO 备份定时任务安装成功！规则: $(CRON_SCHEDULE)"
 
-cron-uninstall:
+backup-cron-uninstall:
 	@(crontab -l 2>/dev/null | grep -v "$(CRON_TAG)") | crontab -
 	@echo "MinIO 备份定时任务已移除！"
 
-cron-status:
+backup-cron-status:
 	@echo "=== 当前系统的备份 Crontab 状态 ==="
 	@crontab -l 2>/dev/null | grep "$(CRON_TAG)" || echo "未找到已安装的备份定时任务"
 ```
@@ -372,24 +382,24 @@ cron-status:
 **新服务器部署三步：**
 
 ```bash
-cp deploy/scripts/backup.env.example deploy/scripts/backup.env  # 1. 填入真实凭证
-vim deploy/scripts/backup.env
-make cron-install                                                # 2. 一键安装定时备份
-make cron-status                                                 # 3. 确认状态
+cp deploy/backup/backup.env.example deploy/backup/backup.env  # 1. 填入真实凭证
+vim deploy/backup/backup.env
+make backup-cron-install                                        # 2. 一键安装定时备份
+make backup-cron-status                                         # 3. 确认状态
 ```
 
 **这样设计的 3 个核心优势：**
 
-1. **路径自适应**：`$(shell pwd)` 获取项目绝对路径并注入 Crontab，在任何目录部署执行 `make cron-install` 都能自动适配。
-2. **安全与幂等**：`#MINIO_BACKUP` 标记使 `cron-install` 先清洗旧任务再写入，绝不产生重复行。
-3. **运维极简**：手动测试 `make backup`、安装 `make cron-install`、查看 `make cron-status`、卸载 `make cron-uninstall` 一句话搞定。
+1. **路径自适应**：`$(shell pwd)` 获取项目绝对路径并注入 Crontab，在任何目录部署执行 `make backup-cron-install` 都能自动适配。
+2. **安全与幂等**：`#MINIO_BACKUP` 标记使 `backup-cron-install` 先清洗旧任务再写入，绝不产生重复行。
+3. **运维极简**：手动测试 `make backup`、安装 `make backup-cron-install`、查看 `make backup-cron-status`、卸载 `make backup-cron-uninstall` 一句话搞定。
 
 ### 5.6 服务器侧权限与日志目录
 
 克隆项目后，确保脚本可执行且日志目录可写：
 
 ```bash
-chmod +x /data/www/project/deploy/scripts/minio_backup.sh
+chmod +x /data/www/project/deploy/backup/minio_backup.sh
 sudo mkdir -p /var/log/minio-backup
 sudo chown -R "$USER:$USER" /var/log/minio-backup
 ```
@@ -484,7 +494,8 @@ echo "$(date '+%Y-%m-%d %H:%M:%S')" > /var/log/minio-backup/last_success.txt
 ```bash
 #!/bin/bash
 # 备份健康度巡检：是否在跑、上次成功、日志/磁盘占用
-LOG_DIR="/var/log/minio-backup"
+LOG_DIR="${BACKUP_LOG_DIR:-/var/log/minio-backup}"
+mkdir -p "$LOG_DIR" 2>/dev/null || true   # 自建目录，避免外部重定向因目录缺失而静默失败
 THRESHOLD_HOURS=26   # 超过该小时数未成功即告警（Cron 每天跑则设 ~26）
 
 echo "====== MinIO 备份健康巡检 $(date '+%Y-%m-%d %H:%M:%S') ======"
@@ -525,9 +536,36 @@ echo "💽 磁盘剩余: $(df -h /data | awk 'NR==2{print $4" / "$2" (已用 "$5
 💽 磁盘剩余: 1.4T / 2.0T (已用 28%)
 ```
 
-**3. 主动告警（可选但推荐）**
+**3. 巡检已 Makefile 化（推荐，生产中已落地）**
 
-把巡检接入 Cron，异常时才发通知（飞书 / 钉钉 / 邮件），平时不打扰：
+上述巡检脚本已封装进 `Makefile`，一键查看健康度 / 安装每日巡检 Cron：
+
+```makefile
+# 立即查看备份健康度（读取 backup.env 注入阈值、挂载点、告警 Webhook）
+backup-health:
+	@chmod +x $(STATUS_SCRIPT)
+	@bash -c "set -a; source $(ENV_FILE); set +a; $(STATUS_SCRIPT)"
+
+# 安装"每日 9:00 健康巡检"定时任务（异常时按 ALERT_WEBHOOK 推送）
+# 注意：目录自建已下沉到 backup_status.sh 内部，Makefile 无需再 mkdir
+backup-health-cron-install:
+	@chmod +x $(STATUS_SCRIPT)
+	@(crontab -l 2>/dev/null | grep -v "$(HEALTH_CRON_TAG)" ; printf '%s\n' "$(HEALTH_CRON_JOB)") | crontab -
+```
+
+> `HEALTH_CRON_JOB` 中的输出重定向采用「stdout 进日志、stderr 独立进 `.err`」的双文件方案，避免 `2>&1` 把脚本错误吞进可能打不开的日志文件：
+>
+> ```makefile
+> HEALTH_CRON_JOB := $(HEALTH_CRON_SCHEDULE) $(STATUS_SCRIPT) >> $(BACKUP_LOG_DIR)/health_cron.log 2>> $(BACKUP_LOG_DIR)/health_cron.err $(HEALTH_CRON_TAG)
+> ```
+
+用法：`make backup-health`（即时查看）、`make backup-health-cron-install`（安装每日巡检）、`make backup-health-cron-uninstall`（卸载）。
+
+> 生产版 `backup_status.sh` 比上文示例更完善：阈值 / 磁盘挂载点 / 告警 Webhook 均可从 `backup.env` 注入，并带退出码（0=健康 / 1=异常），方便 Cron 联动告警。
+
+**4. 主动告警（可选但推荐）**
+
+巡检脚本本身已内置 `ALERT_WEBHOOK` 主动推送（异常时才发，平时不打扰），无需额外 Cron。若仍想用独立 Cron 实现，参考如下写法（飞书 / 钉钉 / 邮件）：
 
 ```bash
 # 每天 9:00 巡检，仅当含 ❌ 时推送
@@ -543,12 +581,14 @@ echo "💽 磁盘剩余: $(df -h /data | awk 'NR==2{print $4" / "$2" (已用 "$5
 
 也可直接在巡检脚本内判断 `DELTA` 超限就 `curl` 告警，逻辑更集中。
 
-**4. 立刻人工查看**
+**5. 立刻人工查看**
 
 运维时一条命令即可掌握全貌，无需翻日志：
 
 ```bash
 bash /path/backup_status.sh
+# 或
+make backup-health
 ```
 
 | 维度 | 看哪里 | 健康标准 |
@@ -622,6 +662,8 @@ DEST_URL="http://127.0.0.1:19000"
 
 2. **断点续传与重试**：公网波动时保持定时 Cron 增量同步（如每小时）。`mc mirror` 会自动跳过已同步且大小 / ETag 未变动的文件，仅重传遗漏部分。
 3. **防误删**：脚本**不加 `--remove`**，即便生产端遭勒索或误删，备份端数据依然留存。
+
+   > ⚠️ 不加 `--remove` 的**代价**：生产端删除对象后，备份端该对象会**永久残留**，长期累积会导致备份端膨胀、且与实际数据不一致。这是「防误删」与「数据一致性」之间的取舍。若确认生产端删除是「有意为之」且希望备份端同步清理，可在业务低峰期用**带 `--remove` 的独立命令**手动清理一次（务必先在备份端开启 Versioning + 对象锁定，防止误删不可逆）。
 
 ## 七、同步策略选型：`--watch` 实时 vs 定时增量
 
@@ -812,7 +854,7 @@ mc rm --version-id "YOUR_DELETE_MARKER_ID" \
 
 在现有 `Makefile` 尾部追加恢复 target，配合恢复脚本，简化灾难恢复流程。
 
-**1. 编写恢复脚本 `deploy/scripts/minio_restore.sh`**
+**1. 编写恢复脚本 `deploy/backup/minio_restore.sh`**
 
 ```bash
 #!/bin/bash
@@ -825,56 +867,68 @@ if [ -f "$ENV_FILE" ]; then
     source "$ENV_FILE"
 else
     echo "错误: 未找到配置文件 $ENV_FILE"
-    echo "请先根据 backup.env.example 创建 backup.env 并填入真实凭证"
     exit 1
 fi
 
-SRC_ALIAS="prod-minio"    # 目标：生产端
-DEST_ALIAS="backup-minio" # 源：备份端
+SRC_ALIAS="prod-minio"    # 目标：生产端（恢复目标）
+DEST_ALIAS="backup-minio" # 源：备份端（数据来源）
 
 echo "=========================================="
-echo "警告：您正在执行 MinIO 灾难恢复操作！"
-echo "数据方向: 备份端 [${DEST_URL}] -> 生产端 [${SRC_URL}]"
-echo "待恢复桶(备份端前缀 ${DEST_BUCKET_PREFIX}): ${SRC_BUCKETS}"
+echo "  MinIO 灾难恢复操作"
+echo "=========================================="
+echo "数据方向: 备份端 -> 生产端"
+echo "备份端: ${DEST_URL}"
+echo "生产端: ${SRC_URL}"
+echo "待恢复桶: ${SRC_BUCKETS}"
 echo "=========================================="
 
 # 1. 交互式二次确认，防止误操作
-read -p "确认要将备份数据覆盖/还原回生产环境吗？(输入 'YES' 继续): " CONFIRM
+read -r -p "确认要将备份数据覆盖/还原回生产环境吗？(输入 'YES' 继续): " CONFIRM
 if [ "$CONFIRM" != "YES" ]; then
     echo "操作已取消。"
     exit 0
 fi
 
 # 2. 预先初始化 mc 别名配置（失败即中断，避免写到空别名）
-mc alias set $SRC_ALIAS  $SRC_URL  $SRC_KEY  $SRC_SECRET  > /dev/null 2>&1 || {
+if ! mc alias set $SRC_ALIAS  $SRC_URL  $SRC_KEY  $SRC_SECRET  > /dev/null 2>&1; then
     echo "错误: 无法连接生产端 MinIO (${SRC_URL})，请检查 SRC_URL/SRC_KEY/SRC_SECRET"
     exit 1
-}
-mc alias set $DEST_ALIAS $DEST_URL $DEST_KEY $DEST_SECRET > /dev/null 2>&1 || {
+fi
+if ! mc alias set $DEST_ALIAS $DEST_URL $DEST_KEY $DEST_SECRET > /dev/null 2>&1; then
     echo "错误: 无法连接备份端 MinIO (${DEST_URL})，请检查 DEST_URL/DEST_KEY/DEST_SECRET"
     exit 1
-}
+fi
 
-# 3. 提示检查 Cron 是否已停止
-echo "[提示] 请确保已暂停定时备份任务 (执行 make cron-uninstall)，避免恢复过程中产生写冲突。"
+# 3. 提示检查 Cron 是否已停止（二次确认）
+echo "[提示] 请确保已暂停定时备份任务 (执行 make backup-cron-uninstall)，避免恢复过程中产生写冲突。"
+read -r -p "已确认暂停定时备份？(按 Enter 继续) "
 
 # 4. 对每个桶执行反向同步恢复（把备份端数据推回生产端）
 FAILED_BUCKETS=""
 for BUCKET in $SRC_BUCKETS; do
     DEST_BUCKET="${DEST_BUCKET_PREFIX}${BUCKET}"
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] 开始拉取桶 ${DEST_BUCKET} -> ${BUCKET} ..."
-    mc mirror --overwrite "${DEST_ALIAS}/${DEST_BUCKET}" "${SRC_ALIAS}/${BUCKET}" && \
-        echo "桶 ${BUCKET} 恢复完成！" || {
-        echo "桶 ${BUCKET} 恢复失败，请检查网络或 mc 权限配置！"
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] 正在恢复桶: ${DEST_ALIAS}/${DEST_BUCKET} -> ${SRC_ALIAS}/${BUCKET}"
+
+    # 确保生产端桶存在
+    if ! mc ls "${SRC_ALIAS}/${BUCKET}" &> /dev/null; then
+        echo "生产端桶 ${BUCKET} 不存在，正在创建..."
+        mc mb "${SRC_ALIAS}/${BUCKET}" || true
+    fi
+
+    if mc mirror --overwrite "${DEST_ALIAS}/${DEST_BUCKET}" "${SRC_ALIAS}/${BUCKET}"; then
+        echo "桶 ${BUCKET} 恢复成功"
+    else
+        echo "桶 ${BUCKET} 恢复失败！"
         FAILED_BUCKETS="${FAILED_BUCKETS} ${BUCKET}"
-    }
+    fi
 done
 
 if [ -z "$FAILED_BUCKETS" ]; then
     echo "所有桶数据恢复完成！请检查生产端 MinIO 桶数据。"
+    echo "恢复完成后，记得重新启用定时备份 (make backup-cron-install)"
     exit 0
 else
-    echo "以下桶恢复失败:${FAILED_BUCKETS}"
+    echo "以下桶恢复失败，请检查网络或 mc 权限配置:${FAILED_BUCKETS}"
     exit 1
 fi
 ```
@@ -888,19 +942,25 @@ fi
 # 恢复命令（追加到 Makefile 尾部）
 # ==========================================
 
-RESTORE_SCRIPT := $(PROJECT_DIR)/deploy/scripts/minio_restore.sh
+RESTORE_SCRIPT := $(PROJECT_DIR)/deploy/backup/minio_restore.sh
 
 .PHONY: restore restore-dry-run
 
 # 1. 试运行/预览恢复（仅对比差异，不产生实际写入）
 restore-dry-run:
 	@chmod +x $(RESTORE_SCRIPT)
+	@if [ ! -f "$(ENV_FILE)" ]; then \
+		echo "错误: 未找到配置文件 $(ENV_FILE)"; \
+		exit 1; \
+	fi
 	@echo "正在对比备份端与生产端的数据差异 (Dry-Run)..."
-	@bash -c "source $(ENV_FILE) && \
-		mc alias set prod-minio \$${SRC_URL} \$${SRC_KEY} \$${SRC_SECRET} >/dev/null 2>&1 && \
-		mc alias set backup-minio \$${DEST_URL} \$${DEST_KEY} \$${DEST_SECRET} >/dev/null 2>&1 && \
-		for B in \$${SRC_BUCKETS}; do \
-			mc mirror --dry-run backup-minio/\$${DEST_BUCKET_PREFIX}\$$B prod-minio/\$$B; \
+	@bash -c "set -e; source $(ENV_FILE); \
+		mc alias set prod-minio \$${SRC_URL} \$${SRC_KEY} \$${SRC_SECRET} >/dev/null 2>&1 || { echo '错误: 无法连接生产端 MinIO'; exit 1; }; \
+		mc alias set backup-minio \$${DEST_URL} \$${DEST_KEY} \$${DEST_SECRET} >/dev/null 2>&1 || { echo '错误: 无法连接备份端 MinIO'; exit 1; }; \
+		for BUCKET in \$${SRC_BUCKETS}; do \
+			DEST_BUCKET=\$${DEST_BUCKET_PREFIX}\$${BUCKET}; \
+			echo \"--- 桶: \$${BUCKET} ---\"; \
+			mc mirror --dry-run backup-minio/\$${DEST_BUCKET} prod-minio/\$${BUCKET} 2>&1 || echo \"  [跳过] 桶 \$${BUCKET} dry-run 失败，请检查桶是否存在或权限\"; \
 		done"
 
 # 2. 执行实际灾难恢复
@@ -914,6 +974,6 @@ restore:
 
 ### 11.7 灾难恢复最佳实践
 
-- **恢复前暂停实时同步脚本**：若采用了 `--watch` 实时同步，准备恢复或处理故障前，**先停止系统服务**（`make cron-uninstall` / 停掉 `--watch` 常驻进程），避免异常状态被误同步。
+- **恢复前暂停实时同步脚本**：若采用了 `--watch` 实时同步，准备恢复或处理故障前，**先停止系统服务**（`make backup-cron-uninstall` / 停掉 `--watch` 常驻进程），避免异常状态被误同步。
 - **定期做「演练」**：建议每半年在测试环境模拟一次 `mc mirror` 反向恢复，确保备份数据的完整性和恢复流程的可行性。
 - **备份与恢复职责分离**：备份脚本负责**自动、高频、静默**运行；恢复脚本强调**防错、可视化、人工控制**。`make restore-dry-run`（预览差异）+ `make restore`（实际恢复）是单机 Docker 项目最清晰、安全的应急响应组合。
