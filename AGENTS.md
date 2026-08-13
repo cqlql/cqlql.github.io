@@ -126,20 +126,40 @@ git-auto-push.bat          # 检测变更后自动 git add/commit/push
 
 **格式**：必须使用 `前缀:图标名` 格式，不可使用无前缀的短名称。
 
-**常用前缀**：
+**图标集范围（重要）**：`assets: "iconify"` 意味着 **Iconify 生态内的上千个图标集都可使用**，下表只是常用举例，**不是白名单**。挑选图标时以「语义贴切」优先，不必拘泥于 mdi。例如 `tabler:server-cog`、`carbon:process` 等非 mdi 图标同样可用。但注意：不同图标集视觉风格不同（mdi 实心、tabler 描边、carbon 线性），同级目录建议保持风格统一。
+
+**常用前缀（举例，非限制）**：
 | 前缀 | 图标集 | 适用场景 | 搜索入口 |
 |------|--------|----------|----------|
 | `mdi:` | Material Design Icons | 通用 UI 图标（最广泛） | https://icon-sets.iconify.design/mdi/ |
 | `devicon:` | Devicon | 编程语言/技术栈 | https://icon-sets.iconify.design/devicon/ |
 | `bi:` | Bootstrap Icons | 通用 UI 图标 | https://icon-sets.iconify.design/bi/ |
 | `logos:` | SVG Logos | 品牌/技术 Logo | https://icon-sets.iconify.design/logos/ |
+| `simple-icons:` | Simple Icons | 品牌/产品 Logo（devicon/logos 中缺失时优先用，如 `simple-icons:minio`） | https://icon-sets.iconify.design/simple-icons/ |
 | `carbon:` | Carbon Icons | IBM 设计系统图标 | https://icon-sets.iconify.design/carbon/ |
+| `tabler:` | Tabler Icons | 描边风格 UI 图标（语义图标丰富） | https://icon-sets.iconify.design/tabler/ |
 
 **添加新图标时**：
-1. 到 https://icon-sets.iconify.design/ 搜索合适的图标。
-2. 使用 `前缀:图标名` 格式（如 `mdi:home`、`devicon:docker`）。
+1. 到 https://icon-sets.iconify.design/ 搜索合适的图标，挑选语义最贴切的（不必限定 mdi）。
+2. 使用 `前缀:图标名` 格式（如 `mdi:home`、`devicon:docker`、`tabler:server-cog`）。
 3. 禁止使用无前缀的短名称（如 `home`、`code`），它们在 iconify 中无法解析。
-4. 新增后更新本文档的图标记录。
+4. **务必确认图标真实存在**：iconify 中很多「想当然」的名字并不存在（如 `mdi:progress-gear`、`mdi:array`、`mdi:transform`、`mdi:index`、`mdi:float`、`mdi:modules`、`mdi:crud` 都不存在）。写错图标名不会报构建错误，但会渲染空白。
+   - **可靠的核实方式**：直接请求 SVG 端点，HTTP 200 即存在、404 即不存在：
+     `https://api.iconify.design/{prefix}/{name}.svg`（例如 `https://api.iconify.design/devicon/docker.svg`）。
+   - 注意：`https://api.iconify.design/search?query=关键词&prefix=图标集前缀&limit=10` 仅返回「搜索建议」，不能可靠确认某个具体图标名一定存在，勿单独依赖。
+5. **技术栈 / 品牌类优先用对应图标集，勿用 `mdi:` 同名占位，勿发明非标准前缀**：
+   - 编程语言/框架/技术栈用 `devicon:`（如 `devicon:docker`、`devicon:kubernetes`、`devicon:json`、`devicon:mysql`、`devicon:postgresql`）。即使 `mdi:` 恰好有同名图标（如 `mdi:docker`、`mdi:kubernetes`、`mdi:json`），也应优先用 `devicon:`，风格统一且语义更准确。
+   - 品牌 Logo 优先 `logos:` / `simple-icons:`（如 MinIO 用 `simple-icons:minio`）。**严禁**使用 `thesvg-color:`、`custom:` 等不存在的图标集前缀——它们会渲染空白。
+6. **常见 mdi 易错名 → 正确替代**（已在本项目出现并修复）：
+   | 误写 | 应为 | 语义 |
+   |------|------|------|
+   | `mdi:array` | `mdi:code-array` | 数组 |
+   | `mdi:transform` | `mdi:axis-arrow` | 变换 |
+   | `mdi:float` | `mdi:decimal` | 浮动/浮点 |
+   | `mdi:index` | `mdi:sort` | 索引 |
+   | `mdi:crud` | `mdi:database` | 增删改查 |
+   | `mdi:modules` | `mdi:view-module` | 模块 |
+7. 新增后更新本文档的图标记录。
 
 ## 注意事项
 

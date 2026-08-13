@@ -1,6 +1,6 @@
 ---
 title: Array 数组
-icon: mdi:array
+icon: mdi:code-array
 sort: 13
 ---
 

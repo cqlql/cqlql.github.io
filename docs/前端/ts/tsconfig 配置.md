@@ -1,6 +1,6 @@
 ---
 title: tsconfig 配置
-icon: mdi:json
+icon: devicon:json
 sort: 15
 ---
 

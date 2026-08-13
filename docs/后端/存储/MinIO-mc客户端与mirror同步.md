@@ -1,6 +1,6 @@
 ---
 title: MinIO mc 客户端与 mirror 同步
-icon: thesvg-color:minio
+icon: simple-icons:minio
 sort: 4
 ---
 

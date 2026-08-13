@@ -1,6 +1,6 @@
 ---
 title: transform 变换
-icon: mdi:transform
+icon: mdi:axis-arrow
 sort: 3
 ---
 

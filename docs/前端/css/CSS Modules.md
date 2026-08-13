@@ -1,6 +1,6 @@
 ---
 title: CSS Modules
-icon: mdi:modules
+icon: mdi:view-module
 sort: 12
 ---
 

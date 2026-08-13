@@ -1,7 +1,7 @@
 
 ---
 title: MySQL 环境搭建
-icon: mdi:docker
+icon: devicon:docker
 ---
 
 ## mysql环境

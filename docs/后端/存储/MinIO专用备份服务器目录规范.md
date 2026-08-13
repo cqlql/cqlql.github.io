@@ -1,6 +1,6 @@
 ---
 title: MinIO 专用备份服务器目录规范
-icon: thesvg-color:minio
+icon: simple-icons:minio
 sort: 3
 ---
 

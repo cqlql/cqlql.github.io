@@ -1,6 +1,6 @@
 ---
 title: Kubernetes 介绍
-icon: mdi:kubernetes
+icon: devicon:kubernetes
 sort: 1
 ---
 

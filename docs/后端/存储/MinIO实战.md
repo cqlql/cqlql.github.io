@@ -1,6 +1,6 @@
 ---
 title: MinIO 实战
-icon: thesvg-color:minio
+icon: simple-icons:minio
 sort: 1
 ---
 
