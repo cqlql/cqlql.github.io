@@ -27,9 +27,9 @@ sort: 4
 
 ```sh
 # Linux (amd64)
-curl -L https://dl.min.io/client/mc/release/linux-amd64/mc \
+sudo curl -L https://dl.min.io/client/mc/release/linux-amd64/mc \
   -o /usr/local/bin/mc
-chmod +x /usr/local/bin/mc
+sudo chmod +x /usr/local/bin/mc
 
 # macOS (intel)
 curl -L https://dl.min.io/client/mc/release/darwin-amd64/mc -o /usr/local/bin/mc
