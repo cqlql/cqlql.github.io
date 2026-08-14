@@ -9,6 +9,8 @@ services:
     volumes:
       # - vscode-server:/home/ubuntu/.vscode-server
       - bash-history:/commandhistory
+    ports:
+      - "3008:3008"
 volumes:
   # vscode-server:
   #   name: vscode-server
