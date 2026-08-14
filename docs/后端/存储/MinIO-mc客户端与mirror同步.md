@@ -20,7 +20,7 @@ mc mirror [FLAGS] SOURCE TARGET
 
 `SOURCE` / `TARGET` 可以是：
 
-- 本地目录：`/data/temp-backup/files`
+- 本地目录：`/data/backups/postgres/daily`
 - 桶路径：`myminio/resume`
 - 跨实例桶：`backup/resume`（别名不同即跨实例）
 
@@ -42,7 +42,7 @@ mc mirror [FLAGS] SOURCE TARGET
 把本地备份目录同步进 MinIO bucket：
 
 ```sh
-mc mirror /data/temp-backup/files myminio/backups
+mc mirror /data/backups/postgres/daily myminio/backups
 ```
 
 > 首次全量，之后只传新增/变更文件，非常适合定时备份。
@@ -83,7 +83,7 @@ mc mirror prod/resume backup/resume --remove --overwrite
 ### 5. 排除临时文件
 
 ```sh
-mc mirror /data/temp-backup/files myminio/backups \
+mc mirror /data/backups/postgres/daily myminio/backups \
   --exclude "*.tmp" --exclude "*/temp/*"
 ```
 

@@ -158,7 +158,7 @@ project/
 │   ├── docker-compose.yml         # 单机容器编排（含 MinIO + App 等）
 │   └── .env.example               # 容器环境变量模板
 │
-├── deploy/backup/                 # 备份相关（独立于业务代码，部署在"备份服务器"上）
+├── deploy/backup/minio/           # MinIO 备份相关（独立于业务代码，部署在"备份服务器"上）
 │   ├── minio_backup.sh            # ← 备份脚本：备份端主动从生产端拉取，mc mirror 增量同步到本机备份 MinIO
 │   ├── minio_restore.sh           # ← 恢复脚本：从本机备份端反向推回生产端（含二次确认）
 │   ├── backup_status.sh           # ← 健康巡检脚本：是否在跑、上次成功、日志/磁盘占用
@@ -173,7 +173,7 @@ project/
 └── README.md
 ```
 
-> 真实凭证 `backup.env` 由运维根据 `.example` 创建，**不提交 Git**。建议放在 `deploy/backup/backup.env` 或 `/etc/passup/backup.env` 下并加入 `.gitignore`。
+> 真实凭证 `backup.env` 由运维根据 `.example` 创建，**不提交 Git**。建议放在 `deploy/backup/minio/backup.env` 或 `/etc/passup/backup.env` 下并加入 `.gitignore`。
 
 ### 5.3 `backup.env.example`（提交到 Git 的模板）
 
@@ -413,11 +413,15 @@ make minio-backup-cron-status                                         # 3. 确�
 
 ### 5.6 服务器侧权限与日志目录
 
-> 脚本部署在**备份服务器**上（不是生产服务器）。在备份服务器克隆项目后，确保脚本可执行且日志目录可写：
+> 脚本部署在**备份服务器**上（不是生产服务器）。按照《MinIO 专用备份服务器目录规范》，Git 仓库的 `deploy/backup/minio/` 直接映射到服务器 `/opt/deploy/backup/minio/`。部署后确保脚本可执行且日志目录可写：
 
 ```bash
-chmod +x /data/www/project/deploy/backup/minio/minio_backup.sh
-chmod +x /data/www/project/deploy/backup/minio/backup_status.sh
+# 1. 将仓库的 deploy/backup/ 同步到服务器（Git 与服务器目录一一对应）
+rsync -av deploy/backup/ backup-server:/opt/deploy/backup/
+
+# 2. 确保脚本可执行、日志目录可写
+chmod +x /opt/deploy/backup/minio/minio_backup.sh
+chmod +x /opt/deploy/backup/minio/backup_status.sh
 sudo mkdir -p /var/log/minio-backup
 sudo chown -R "$USER:$USER" /var/log/minio-backup
 ```
@@ -724,15 +728,41 @@ mc mirror --watch          Cron 增量 (每小时/每天 2:00)
 
 ```plaintext
             主服务器(业务)
-              MinIO (/data/minio)
+              MinIO (/data/minio/data)
                 ▲
                 │ mc mirror 拉取 (每小时/每天，由备份端发起)
                 │
             备份服务器(只跑 MinIO + 备份脚本)
-              MinIO (/data/backup)
+              MinIO (/data/backups/minio/data)
 ```
 
 > ⚠️ 方向说明：备份采用「**备份端主动拉取**」——`minio_backup.sh` 运行在**备份服务器**上，主动从主服务器(生产端)拉取数据写入本机。备份服务器不跑业务，只存 MinIO 与备份脚本，配一块大容量硬盘（如 2TB）即可达到小型 SaaS 不错的容灾水平。
+
+### 7.2 备份服务器目录规划
+
+备份服务器建议以 `/data/backups` 作为统一的备份数据根目录，一看便知整台机器存放的都是备份相关数据：
+
+```text
+/data/backups/
+├── postgres/              # PostgreSQL 备份文件（pg_dump 产物）
+│   ├── daily/
+│   ├── weekly/
+│   └── monthly/
+│
+└── minio/
+    └── data/              # MinIO 实际对象数据目录
+```
+
+对应关系：
+
+| 目录 | 用途 | 挂载方式 |
+| --- | --- | --- |
+| `/data/backups/postgres/{daily,weekly,monthly}` | 存 `pg_dump` 产生的 `.dump` / `.sql` 备份文件，按频率分层 | 由备份脚本直接写入 |
+| `/data/backups/minio/data` | MinIO 的实际对象数据（`xl.meta`、对象、版本等） | Docker 卷挂载：`- /data/backups/minio/data:/data` |
+
+> ⚠️ **关键边界：不要把 `/data/backups/minio` 同时当作「MinIO Docker 数据目录」和「MinIO 备份脚本临时目录」。** MinIO 的数据目录固定用 `/data/backups/minio/data`，备份脚本的临时 / 日志目录另放（如 `/var/log/minio-backup`），两者不混用。
+
+> 💡 **PostgreSQL 备份文件可再上传 / 同步到 MinIO，但不要把 `/data/backups/postgres` 与 `/data/backups/minio/data` 混成一个目录。** 保持「PostgreSQL 备份文件」与「MinIO 对象数据」分目录存放，后续做清理、容量统计、迁移都会简单很多，也避免 §三 提到的「备份套娃」。
 
 ## 八、局域网（LAN）环境优化
 
@@ -799,7 +829,7 @@ file_object 表: id | bucket | object_key | status(UPLOADING/COMPLETED) | size |
 docker run -d \
   --name minio-prod \
   -p 9000:9000 -p 9001:9001 \
-  -v /data/minio/data:/data \
+  -v /data/backups/minio/data:/data \
   minio/minio server /data --console-address ":9001"
 ```
 
@@ -964,7 +994,7 @@ fi
 # 恢复命令（追加到 Makefile 尾部）
 # ==========================================
 
-RESTORE_SCRIPT := $(PROJECT_DIR)/deploy/backup/minio_restore.sh
+RESTORE_SCRIPT := $(PROJECT_DIR)/deploy/backup/minio/minio_restore.sh
 
 .PHONY: restore restore-dry-run
 

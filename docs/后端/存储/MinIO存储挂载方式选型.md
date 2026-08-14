@@ -14,7 +14,7 @@ sort: 2
 
 ```yaml
 volumes:
-  - /data/minio/data:/data
+  - /data/backups/minio/data:/data
 ```
 
 适合：生产环境、备份服务器、单机部署、小型集群、企业内部对象存储。
@@ -52,7 +52,7 @@ docker volume inspect minio_data
 而 bind mount 路径完全透明，直接 `ls` 即可：
 
 ```bash
-ls /data/minio/data
+ls /data/backups/minio/data
 ```
 
 对备份、迁移、容量排查、磁盘监控都更友好——这是长期维护最省心的地方。
@@ -62,7 +62,7 @@ ls /data/minio/data
 MinIO 数据目录不是普通文件，内部结构类似：
 
 ```
-/data/minio/data
+/data/backups/minio/data
 
 ├── .minio.sys
 │   ├── buckets
@@ -81,7 +81,7 @@ MinIO 数据目录不是普通文件，内部结构类似：
 - 但**整体目录迁移非常简单**：整目录 `rsync` 即可
 
 ```
-旧机器 /data/minio/data  --rsync-->  新机器 /data/minio/data
+旧机器 /data/backups/minio/data  --rsync-->  新机器 /data/backups/minio/data
 ```
 
 这也是 bind mount 的优势：目录就在宿主机上，迁移/备份工具直接可用。
@@ -107,7 +107,7 @@ volumes:
 
 # MinIO
 volumes:
-  - /data/minio/data:/data
+  - /data/backups/minio/data:/data
 ```
 
 Redis 看情况：纯缓存用 `redis_data:/data` 也可以；一旦存业务数据，就应当和 MinIO/PG 一样走 bind mount。
@@ -124,18 +124,27 @@ Redis 看情况：纯缓存用 `redis_data:/data` 也可以；一旦存业务数
 └── 应用
 ```
 
-统一约定：**应用配置放 `/opt`，数据放 `/data`**——这是最容易长期维护的结构。
+统一约定：**服务配置放 `/opt/services`，部署脚本放 `/opt/deploy`，数据放 `/data`**——这是最容易长期维护的结构。其中 `/opt/deploy/` 与 Git 仓库的 `deploy/` 目录一一对应，迁移时整目录 `rsync` 即可。
 
 ```
-/opt/docker-compose
+/opt/services
     ├── minio
     │   └── docker-compose.yml
     ├── postgres
     └── redis
 
+/opt/deploy
+    └── backup
+        ├── postgres
+        │   └── pg_backup.sh
+        └── minio
+            └── minio_backup.sh
+
 /data
-    ├── minio
-    │   └── data
+    ├── backups                # 备份服务器：统一备份数据根目录
+    │   ├── postgres           #   PostgreSQL 备份文件（daily/weekly/monthly）
+    │   └── minio
+    │       └── data           #   MinIO 实际对象数据目录
     ├── postgres
     └── redis
 ```
