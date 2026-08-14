@@ -158,9 +158,9 @@ project/
 │   ├── docker-compose.yml         # 单机容器编排（含 MinIO + App 等）
 │   └── .env.example               # 容器环境变量模板
 │
-├── deploy/backup/                 # 备份相关（独立于业务代码）
-│   ├── minio_backup.sh            # ← 备份脚本：mc mirror 增量同步到远端
-│   ├── minio_restore.sh           # ← 恢复脚本：从远端拉回指定备份（含二次确认）
+├── deploy/backup/                 # 备份相关（独立于业务代码，部署在"备份服务器"上）
+│   ├── minio_backup.sh            # ← 备份脚本：备份端主动从生产端拉取，mc mirror 增量同步到本机备份 MinIO
+│   ├── minio_restore.sh           # ← 恢复脚本：从本机备份端反向推回生产端（含二次确认）
 │   ├── backup_status.sh           # ← 健康巡检脚本：是否在跑、上次成功、日志/磁盘占用
 │   ├── backup.env.example         # 凭证模板（可提交 Git，含 SRC/DEST 两套密钥）
 │   └── minio_backup.logrotate     # logrotate 日志轮转配置
@@ -179,15 +179,16 @@ project/
 
 ```bash
 # MinIO 备份环境变量配置模板（复制为 backup.env 后填入真实值，勿提交 backup.env）
-SRC_URL="http://127.0.0.1:9000"
+# 生产端（源）MinIO 地址——备份端主动拉取的"来源"，连通性预检会自动解析此地址
+SRC_URL="http://192.168.1.100:9000"
 SRC_KEY="YOUR_PROD_ACCESS_KEY"
 SRC_SECRET="YOUR_PROD_SECRET_KEY"
 
 # 需备份的源端桶名（空格分隔，支持多个）
 SRC_BUCKETS="passup-prod-bucket app-uploads user-avatars"
 
-# 备份端地址（仅此一处配置协议+主机+端口，连通性预检自动解析）
-DEST_URL="http://192.168.1.200:9000"
+# 备份端（目标）地址——脚本运行在备份端本机，通常指向本机 MinIO（如 127.0.0.1:9000）
+DEST_URL="http://127.0.0.1:9000"
 DEST_KEY="YOUR_BACKUP_ACCESS_KEY"
 DEST_SECRET="YOUR_BACKUP_SECRET_KEY"
 
@@ -203,15 +204,17 @@ BACKUP_LOG_DIR="/var/log/minio-backup"
 
 ### 5.4 `minio_backup.sh`（提交到 Git，从外部 env 读取凭证）
 
+> ⚠️ **部署位置**：本脚本运行在**备份服务器**上（与 `backup_status.sh` 同机），采用「**备份端主动拉取**」模式——由备份端主动从生产端(源) MinIO 拉取多个桶，增量同步到本机备份 MinIO。**不要把脚本放在生产服务器上推送到远端。**
+
 包含**网络连通性预检**、**日志记录**与**错误防护**，凭证全部来自同目录 / 指定的 `backup.env`，无任何硬编码密钥：
 
 ```bash
 #!/bin/bash
 
 # ==========================================
-# MinIO 生产环境自动化增量备份脚本（凭证外置）
-# 适用: 单机 Docker 部署的 MinIO
-# 功能: 将生产端多个桶增量同步到远程备份 MinIO
+# MinIO 自动化增量备份脚本（凭证外置）
+# 部署: 运行在"备份端"机器上（与 backup_status.sh 同机）
+# 功能: 由备份端主动从生产端(源) MinIO 拉取多个桶，增量同步到本机备份 MinIO
 # ==========================================
 
 set -euo pipefail
@@ -242,20 +245,32 @@ log() {
 }
 
 log "=========================================="
-log "开始执行 MinIO 异地备份..."
+log "开始执行 MinIO 异地备份（备份端拉取模式）..."
 
-# ---------- Step 1: 检查远程服务器网络连通性 ----------
-# 从 DEST_URL 中自动解析出主机（IP/域名）与端口
-DEST_HOST="${DEST_URL#*://}"
-DEST_HOST="${DEST_HOST%%:*}"
-DEST_PORT="${DEST_URL##*:}"
-DEST_PORT="${DEST_PORT%%/*}"
-DEST_PORT="${DEST_PORT:-9000}"
+# ---------- Step 1: 检查源端（生产端）网络连通性 ----------
+# 脚本运行在备份端本机，真正需要确认可达的是源端生产 MinIO。
+# 从 SRC_URL 中自动解析出主机（IP/域名）与端口
+SRC_HOST="${SRC_URL#*://}"   # 去掉 scheme，如 "172.16.0.222:8007" 或 "host/path"
+SRC_HOST="${SRC_HOST%%/*}"   # 去掉路径部分
+# 仅当 host 部分显式含 ":" 时才解析端口，否则按 scheme 取默认端口
+case "$SRC_HOST" in
+    *:*) SRC_PORT="${SRC_HOST##*:}"; SRC_HOST="${SRC_HOST%:*}";;
+    *)   SRC_HOST="$SRC_HOST"; SRC_PORT="";;
+esac
+SRC_PORT="${SRC_PORT:-}"
+# 未显式给出端口时，按协议取默认端口
+if [ -z "$SRC_PORT" ]; then
+    case "$SRC_URL" in
+        https://*) SRC_PORT=443;;
+        http://*)  SRC_PORT=80;;
+        *)         SRC_PORT=9000;;
+    esac
+fi
 
-if [ -n "${DEST_HOST:-}" ]; then
+if [ -n "${SRC_HOST:-}" ]; then
     if command -v nc &> /dev/null; then
-        if ! nc -z -w 3 "$DEST_HOST" "$DEST_PORT" > /dev/null 2>&1; then
-            log "错误: 无法连接到备份服务器 (${DEST_HOST}:${DEST_PORT})，备份中断！"
+        if ! nc -z -w 3 "$SRC_HOST" "$SRC_PORT" > /dev/null 2>&1; then
+            log "错误: 无法连接到源端生产服务器 (${SRC_HOST}:${SRC_PORT})，备份中断！"
             exit 1
         fi
     else
@@ -274,7 +289,7 @@ if ! mc alias set $DEST_ALIAS $DEST_URL $DEST_KEY $DEST_SECRET; then
     exit 1
 fi
 
-# ---------- Step 3: 对每个桶执行增量同步 ----------
+# ---------- Step 3: 对每个桶执行增量同步（拉取：源端 -> 本机备份端） ----------
 # 用于捕获 mc 真实错误输出的临时文件
 MC_ERR_FILE="$(mktemp)"
 trap 'rm -f "$MC_ERR_FILE"' EXIT
@@ -282,11 +297,11 @@ trap 'rm -f "$MC_ERR_FILE"' EXIT
 FAILED_BUCKETS=""
 for BUCKET in $SRC_BUCKETS; do
     DEST_BUCKET="${DEST_BUCKET_PREFIX}${BUCKET}"
-    log "正在同步桶: ${SRC_ALIAS}/${BUCKET} -> ${DEST_ALIAS}/${DEST_BUCKET}"
+    log "正在拉取桶: ${SRC_ALIAS}/${BUCKET} -> ${DEST_ALIAS}/${DEST_BUCKET}"
 
     # 校验源端桶是否存在（不存在则跳过并给出明确原因）
     if ! mc ls "${SRC_ALIAS}/${BUCKET}" > /dev/null 2>&1; then
-        log "错误: 源端桶 ${SRC_ALIAS}/${BUCKET} 不存在，跳过！请检查 SRC_BUCKETS 配置或源端桶名。"
+        log "错误: 源端桶 ${SRC_ALIAS}/${BUCKET} 不存在，视为备份失败！请检查 SRC_BUCKETS 配置或源端桶名。"
         FAILED_BUCKETS="${FAILED_BUCKETS} ${BUCKET}"
         continue
     fi
@@ -317,7 +332,7 @@ for BUCKET in $SRC_BUCKETS; do
     fi
 done
 
-# ---------- Step 4: 汇总结果 & 写心跳 ----------
+# ---------- Step 4: 汇总结果 ----------
 if [ -z "$FAILED_BUCKETS" ]; then
     log "所有桶备份成功完成！"
     # 成功时写心跳文件（供 5.8 巡检脚本读取健康度）
@@ -331,37 +346,39 @@ fi
 
 ### 5.5 用 Makefile 封装 Crontab（推荐）
 
+> 项目仓库实际已落地 `deploy/backup/minio/Makefile`，target 统一带 `minio-` 前缀（`minio-backup` / `minio-backup-cron-install` 等），并同时封装了备份、恢复（`minio-restore` / `minio-restore-dry-run`）与健康巡检（`minio-backup-health`）三类命令。下面给出其核心思路的简化示意。
+
 Makefile 自动通过 `$(shell pwd)` 获取项目绝对路径并注入 Crontab，避免路径硬编码；任务结尾打 `#MINIO_BACKUP` 标记，多次 `backup-cron-install` 先清洗旧任务再写入，**幂等不会重复添加**。
 
 ```makefile
 # ==========================================
-# 自动化运维 Makefile
+# 自动化运维 Makefile（简化示意，实际见 deploy/backup/minio/Makefile）
 # ==========================================
 
 PROJECT_DIR := $(shell pwd)
-BACKUP_SCRIPT := $(PROJECT_DIR)/deploy/backup/minio_backup.sh
-ENV_FILE := $(PROJECT_DIR)/deploy/backup/backup.env
+BACKUP_SCRIPT := $(PROJECT_DIR)/deploy/backup/minio/minio_backup.sh
+ENV_FILE := $(PROJECT_DIR)/deploy/backup/minio/backup.env
 
 # 每天凌晨 2:00 执行；#MINIO_BACKUP 用于精准识别/删除
 CRON_SCHEDULE := 0 2 * * *
 CRON_TAG := \#MINIO_BACKUP
 CRON_JOB := $(CRON_SCHEDULE) $(BACKUP_SCRIPT) > /dev/null 2>&1 $(CRON_TAG)
 
-.PHONY: help backup backup-cron-install backup-cron-uninstall backup-cron-status
+.PHONY: help minio-backup minio-backup-cron-install minio-backup-cron-uninstall minio-backup-cron-status
 
 help:
 	@echo "MinIO 备份管理命令:"
-	@echo "  make backup                 - 立即手动执行一次 MinIO 备份"
-	@echo "  make backup-cron-install    - 写入 Crontab 定时任务（幂等）"
-	@echo "  make backup-cron-uninstall  - 从 Crontab 移除该任务"
-	@echo "  make backup-cron-status     - 查看当前 Crontab 中的备份任务"
+	@echo "  make minio-backup                 - 立即手动执行一次 MinIO 备份"
+	@echo "  make minio-backup-cron-install    - 写入 Crontab 定时任务（幂等）"
+	@echo "  make minio-backup-cron-uninstall  - 从 Crontab 移除该任务"
+	@echo "  make minio-backup-cron-status     - 查看当前 Crontab 中的备份任务"
 
-backup:
+minio-backup:
 	@chmod +x $(BACKUP_SCRIPT)
 	@echo "开始手动执行 MinIO 备份..."
 	@$(BACKUP_SCRIPT)
 
-backup-cron-install:
+minio-backup-cron-install:
 	@chmod +x $(BACKUP_SCRIPT)
 	@if [ ! -f "$(ENV_FILE)" ]; then \
 		echo "错误: 未找到配置文件 $(ENV_FILE)，请先根据 backup.env.example 创建！"; \
@@ -370,22 +387,22 @@ backup-cron-install:
 	@(crontab -l 2>/dev/null | grep -v "$(CRON_TAG)" ; printf '%s\n' "$(CRON_JOB)") | crontab -
 	@echo "MinIO 备份定时任务安装成功！规则: $(CRON_SCHEDULE)"
 
-backup-cron-uninstall:
+minio-backup-cron-uninstall:
 	@(crontab -l 2>/dev/null | grep -v "$(CRON_TAG)") | crontab -
 	@echo "MinIO 备份定时任务已移除！"
 
-backup-cron-status:
+minio-backup-cron-status:
 	@echo "=== 当前系统的备份 Crontab 状态 ==="
 	@crontab -l 2>/dev/null | grep "$(CRON_TAG)" || echo "未找到已安装的备份定时任务"
 ```
 
-**新服务器部署三步：**
+**备份服务器部署三步**（在备份服务器上执行）：
 
 ```bash
-cp deploy/backup/backup.env.example deploy/backup/backup.env  # 1. 填入真实凭证
-vim deploy/backup/backup.env
-make backup-cron-install                                        # 2. 一键安装定时备份
-make backup-cron-status                                         # 3. 确认状态
+cp deploy/backup/minio/backup.env.example deploy/backup/minio/backup.env  # 1. 填入真实凭证
+vim deploy/backup/minio/backup.env
+make minio-backup-cron-install                                        # 2. 一键安装定时备份
+make minio-backup-cron-status                                         # 3. 确认状态
 ```
 
 **这样设计的 3 个核心优势：**
@@ -396,10 +413,11 @@ make backup-cron-status                                         # 3. 确认状�
 
 ### 5.6 服务器侧权限与日志目录
 
-克隆项目后，确保脚本可执行且日志目录可写：
+> 脚本部署在**备份服务器**上（不是生产服务器）。在备份服务器克隆项目后，确保脚本可执行且日志目录可写：
 
 ```bash
-chmod +x /data/www/project/deploy/backup/minio_backup.sh
+chmod +x /data/www/project/deploy/backup/minio/minio_backup.sh
+chmod +x /data/www/project/deploy/backup/minio/backup_status.sh
 sudo mkdir -p /var/log/minio-backup
 sudo chown -R "$USER:$USER" /var/log/minio-backup
 ```
@@ -607,10 +625,12 @@ make backup-health
 
 **方案一：HTTPS / TLS（推荐）**
 
-- **反向代理（最便捷）**：在备份服务器用 Nginx / Caddy 为 MinIO 提供 HTTPS。以 Caddy 为例（自带 Let's Encrypt 自动申请与续期）：
+> 在「备份端拉取」架构下，脚本跑在备份端、数据源是生产端。因此需要加密的是**生产端（源端）**的传输，以下 HTTPS / TLS 都应配置在**生产端**，脚本里改的是 `SRC_URL`。
+
+- **反向代理（最便捷）**：在生产服务器用 Nginx / Caddy 为 MinIO 提供 HTTPS。以 Caddy 为例（自带 Let's Encrypt 自动申请与续期）：
 
   ```
-  backup-minio.yourdomain.com {
+  prod-minio.yourdomain.com {
       reverse_proxy localhost:9000
   }
   ```
@@ -623,42 +643,42 @@ make backup-health
   └── private.key
   ```
 
-  端口映射保持 `9000`，即可通过 `https://backup-minio.yourdomain.com:9000` 访问。
+  端口映射保持 `9000`，即可通过 `https://prod-minio.yourdomain.com:9000` 访问。
 
-无论哪种方式，备份脚本里把远程地址改为 HTTPS 即可：
+无论哪种方式，备份脚本里把源端（生产端）地址改为 HTTPS 即可：
 
 ```bash
-DEST_URL="https://backup-minio.yourdomain.com:9000"
+SRC_URL="https://prod-minio.yourdomain.com:9000"
 ```
 
 **方案二：SSH 隧道（无需域名 / SSL 证书）**
 
-在生产服务器上建立 SSH 本地端口转发，将本地 `19000` 映射到备份服务器的 `9000`，所有流量经 SSH 加密：
+在备份服务器上建立 SSH 本地端口转发，将本地 `19000` 映射到生产服务器的 `9000`，所有流量经 SSH 加密（备份端主动拉取）：
 
 ```bash
-# 在生产服务器上执行，-f 后台运行，-N 仅做端口转发
-ssh -f -N -L 19000:localhost:9000 user@<备份服务器公网IP> -p <SSH端口>
+# 在备份服务器上执行，-f 后台运行，-N 仅做端口转发
+ssh -f -N -L 19000:localhost:9000 user@<生产服务器公网IP> -p <SSH端口>
 ```
 
 > 隧道进程挂掉会导致备份静默失败，建议用 **`autossh`** 或 **Systemd 服务**守护该转发，并加 `-o ServerAliveInterval=30 -o ServerAliveCountMax=3` 自动检测断连重连。
 
-脚本中把目标指向本地映射端口：
+脚本中把源端指向本地映射端口：
 
 ```bash
-DEST_URL="http://127.0.0.1:19000"
-# mc 以为在写本地，实际流量由 SSH 加密传往公网远程服务器
+SRC_URL="http://127.0.0.1:19000"
+# mc 以为在读取本地，实际流量由 SSH 加密从公网生产服务器拉取
 ```
 
 ### 公网传输的关键策略
 
-1. **限速（非常重要）**：公网带宽昂贵或受限，加 `--limit-upload` 避免备份跑满生产出口：
+1. **限速（非常重要）**：公网带宽昂贵或受限，加 `--limit-upload` 限制写入备份端的速率（即从生产端拉取数据入本机的速率），避免备份跑满链路：
 
    ```bash
    # 限制最大上传速度为 50 MB/s（mc 中 M=MB/s，也可写 MiB；支持 K/M/G 后缀）
    mc mirror --overwrite --limit-upload 50M src-minio/my-bucket dest-minio/my-bucket
    ```
 
-   > 若需同时限制下载（从备份端拉取恢复时的下行），可加 `--limit-download`，用法与 `--limit-upload` 相同。
+   > `--limit-upload` 限制的是「写入目标端（备份端）」，在拉取模式下即从生产端下载并写入本机的速率；若需同时限制其它方向，可加 `--limit-download`，用法与 `--limit-upload` 相同。
 
 2. **断点续传与重试**：公网波动时保持定时 Cron 增量同步（如每小时）。`mc mirror` 会自动跳过已同步且大小 / ETag 未变动的文件，仅重传遗漏部分。
 3. **防误删**：脚本**不加 `--remove`**，即便生产端遭勒索或误删，备份端数据依然留存。
@@ -705,14 +725,14 @@ mc mirror --watch          Cron 增量 (每小时/每天 2:00)
 ```plaintext
             主服务器(业务)
               MinIO (/data/minio)
+                ▲
+                │ mc mirror 拉取 (每小时/每天，由备份端发起)
                 │
-                │ mc mirror (每小时/每天)
-                ▼
-            备份服务器(只跑 MinIO)
+            备份服务器(只跑 MinIO + 备份脚本)
               MinIO (/data/backup)
 ```
 
-备份服务器不跑业务，只存 MinIO，配一块大容量硬盘（如 2TB）即可达到小型 SaaS 不错的容灾水平。
+> ⚠️ 方向说明：备份采用「**备份端主动拉取**」——`minio_backup.sh` 运行在**备份服务器**上，主动从主服务器(生产端)拉取数据写入本机。备份服务器不跑业务，只存 MinIO 与备份脚本，配一块大容量硬盘（如 2TB）即可达到小型 SaaS 不错的容灾水平。
 
 ## 八、局域网（LAN）环境优化
 
@@ -854,7 +874,9 @@ mc rm --version-id "YOUR_DELETE_MARKER_ID" \
 
 在现有 `Makefile` 尾部追加恢复 target，配合恢复脚本，简化灾难恢复流程。
 
-**1. 编写恢复脚本 `deploy/backup/minio_restore.sh`**
+> 恢复脚本与备份脚本一样，运行在**备份服务器**上：`minio_restore.sh` 从本机备份端（`backup-minio`）反向 `mc mirror` 到生产端（`prod-minio`）。方向与备份相反，但部署机器不变。
+
+**1. 编写恢复脚本 `deploy/backup/minio/minio_restore.sh`**
 
 ```bash
 #!/bin/bash
