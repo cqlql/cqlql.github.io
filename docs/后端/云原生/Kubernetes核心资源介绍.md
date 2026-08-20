@@ -250,6 +250,38 @@ spec:
           name: app-config
 ```
 
+### 注入方式：环境变量 vs 卷挂载
+
+ConfigMap / Secret 的键值可以两种方式进入容器，二者有明确分工：
+
+| 方式 | 写法 | 结果 | 适用 |
+| --- | --- | --- | --- |
+| **环境变量** | `envFrom`（`configMapRef` / `secretRef`）或单个 `env` | 每个 key 变成同名环境变量 | 小段标量配置（端口、地址、开关、密码） |
+| **卷挂载** | `volumes` + `volumeMounts` | 每个 key 变成目录下的一个文件 | 证书、大文件、完整配置文件（`.properties`/`nginx.conf`） |
+
+**环境变量注入（批量）**：`envFrom` 会把 ConfigMap / Secret 里的**每一个 key** 自动变成**同名环境变量**——所以 key 通常写成大写 + 下划线（如 `SPRING_DATASOURCE_URL`），符合环境变量命名规范。Secret 的值是 base64，注入时会**自动解码**为明文。
+
+**卷挂载（文件）**：适合证书、PEM 密钥、完整配置文件等大段或需要以文件形式存在的内容。应用侧通常配合环境变量指向文件路径来读取，例如：
+
+```yaml
+# 证书/密钥文件通过卷挂载，环境变量只存路径
+env:
+  - name: WECHAT_PAY_PRIVATE_KEY_PATH
+    value: /app/secrets/wechat-pay-private-key.pem
+volumeMounts:
+  - name: secrets
+    mountPath: /app/secrets
+volumes:
+  - name: secrets
+    secret:
+      secretName: app-secret
+      items:
+        - key: wechat-pay-private-key.pem
+          path: wechat-pay-private-key.pem
+```
+
+> **选型原则**：小配置走环境变量，证书 / 大文件走卷挂载。原因：环境变量存几十 KB 的 PEM 既不优雅，也可能触及环境变量大小限制；文件挂载还支持热更新（ConfigMap 挂载的文件会随变更自动同步）。
+
 ## 五、完整示例：Deployment + Service + Ingress
 
 三者通常配合使用，构成一个完整的对外服务：
