@@ -67,7 +67,60 @@ ports:
 
 > 而 `port`（Service 对外端口）必须写数字，因为它决定集群内 DNS 访问入口，如 `passup-backend.passup.svc.cluster.local:8005`。
 
-## 三、为什么这个 Service 没有 nodePort
+### `name: http` 这一行是什么
+
+```yaml
+ports:
+  - name: http        # ← 给「这一组端口配置」起名叫 http
+    port: 8005
+    targetPort: http
+```
+
+`name` 是给**这个端口条目（port + targetPort 这一组）**贴的标签，它的实际作用分场景：
+
+| 场景 | `name` 是否有实际作用 |
+| --- | --- |
+| 单端口 + `targetPort` 写数字 | 无，纯语义标签，可省略 |
+| **多端口**（本例 http + management） | **有，K8s 强制要求，不写会报错** |
+| `targetPort` 按名引用 | 有，但关键在 **Pod 侧的 name**（见下） |
+
+> 一句话：对「流量转发到哪个 Pod 端口」这件事，Service 的 `name` 本身不起作用（那是 `targetPort` 的职责）；但在**多端口场景下，`name` 是 K8s 强制要求的、用来区分端口条目的标识**。本例正好是多端口，所以 `name` 必须写。
+
+## 三、`metadata.name`（服务名）与 `ports[].name`（端口名）的区别
+
+两者都叫 `name`，但作用完全不同，别混淆：
+
+| 位置 | 示例 | 作用 |
+| --- | --- | --- |
+| `metadata.name` | `passup-backend` | **Service 资源名**，集群内 DNS 访问的依据 |
+| `spec.ports[].name` | `http` | **端口条目标识**，区分端口 / 供 `targetPort` 引用 |
+
+### 集群内访问 Service 用的是 `metadata.name`，不是端口名
+
+集群内其它 Pod 访问它的完整 DNS 名是：
+
+```text
+passup-backend.passup.svc.cluster.local:8005
+└─────── ① metadata.name ───────┘ └ ② port 数字 ┘
+```
+
+即 `<Service名称>.<命名空间>.svc.cluster.local`，加 `port` 数字端口。而 `ports[].name`（`http`）**不参与** DNS 访问。
+
+### 完整对应关系
+
+```yaml
+metadata:
+  name: passup-backend        # ① 访问入口名（DNS 依据）
+spec:
+  ports:
+    - name: http              # ② 端口条目标识（区分/引用）
+      port: 8005              # ③ Service 暴露端口（访问时用这个数字）
+      targetPort: http        # ④ 引用 Pod 里 name: http 的端口
+```
+
+> 小结：「服务名」是 `metadata.name`，「端口名」是 `ports[].name`，两者同名纯属约定，作用完全不同。
+
+## 四、为什么这个 Service 没有 nodePort
 
 因为它的类型是 `ClusterIP`（默认类型）。**`nodePort` 字段只在 `NodePort` 或 `LoadBalancer` 类型下才有效**，不同类型对端口字段的要求不同：
 
@@ -93,7 +146,7 @@ ports:
 - **对外**：用 Ingress（统一入口、域名路由、TLS、超时中间件等都集中在这一层）。
 - **对内**：用 ClusterIP（服务间互访，只暴露必要端口）。
 
-## 四、什么时候才会出现 nodePort
+## 五、什么时候才会出现 nodePort
 
 如果想让某个服务**绕过 Ingress、直接从集群节点 IP + 端口访问**，才需要 `NodePort`：
 
@@ -109,7 +162,7 @@ spec:
 
 **代价**：会暴露到所有节点的固定端口，安全性和可维护性都不如 Ingress。因此本项目的后端、MinIO Console（9001）都选择了 `ClusterIP`，不对外暴露。
 
-## 五、选型速记
+## 六、选型速记
 
 | 需求 | 推荐类型 |
 | --- | --- |
