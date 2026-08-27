@@ -106,7 +106,7 @@ export https_proxy=http://127.0.0.1:7897
 curl -I https://www.google.com
 ```
 
-> 更多代理配置（环境变量持久化、APT/Git/Docker 代理）见 [代理配置](../../linux/网络/代理配置.md)
+> 更多代理配置（环境变量持久化、APT/Git/Docker 代理）见 [代理配置](../../linux/代理与翻墙/代理配置.md)
 
 ## 流式请求 (SSE / 流式输出)
 
