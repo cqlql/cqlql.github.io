@@ -97,6 +97,90 @@ docker run --network host --rm ghcr.io/kube-vip/kube-vip:v1.2.2 manifest pod \
 >
 > 两者互不依赖：只传 `--controlplane` 就只做 Control Plane 高可用（如本例）；只传 `--services` 就只做 Service LB；两个都传则两者兼顾。本文档的 HA 示例仅使用 `--controlplane`，不传 `--services`（生成的 YAML 中 `svc_enable` 即为 `"false"`）。
 
+#### `--services` 与 `--controlplane` 的准确语义（避免误解）
+
+> ⚠️ 常见误解是把 `--services` 直接理解成「管业务入口」。更准确的说法是：**`--services` 管的是「`LoadBalancer` 类型的 Service」，而「业务入口」只是它的结果之一**。两者的根本区别在于「谁在被高可用」。
+
+| 维度 | `--controlplane` | `--services` |
+| --- | --- | --- |
+| 直接作用对象 | **Kube-apiserver**（控制面本身） | **`type: LoadBalancer` 的 Service**（通用，不特定于业务） |
+| 服务端口 | `6443`（apiserver 固定端口） | Service 自己声明的端口（80/443 等） |
+| 谁在使用 | kubelet、`kubectl`、节点 join | 任何 `LoadBalancer` Service（Traefik、DB 等都可能） |
+| 本质 | 给「集群控制面」一个统一可漂移的固定访问地址 | 充当「Service LoadBalancer 提供者」，给 LB 型 Service 分配外部 VIP |
+
+**为什么 `--services` ≠ 字面上的「业务入口」？**
+
+- `--services` 的职责是**通用的 LB 提供者**：凡是声明 `type: LoadBalancer` 的 Service，都会被它分配一个外部可达 VIP。
+- 在你的集群里，**恰好 Traefik 是那个 `LoadBalancer` Service**，于是它拿到 VIP 变成了业务入口——这是「结果」，不是 `--services` 的直接语义。
+- 如果以后又部署了一个 `type: LoadBalancer` 的数据库 Service，`--services` 同样会给它分配 VIP。它不是「业务专属」，而是「LB 型 Service 专属」。
+
+**为什么需要 `--controlplane`？**
+
+- 没有它时，多 Master 集群的 apiserver 没有「统一、固定的访问地址」，某台 Master 挂了，连它的人就得手动换 IP。
+- `--controlplane` 通过 Leader Election 把 VIP 挂到当前 leader 上，让 `kubectl`/kubelet/节点 join 都连 `https://VIP:6443`，对单点故障无感。
+
+**一句话比喻**：
+
+- `--controlplane` = 给「公司管理层」配一个永不换号的固定总机（员工永远拨这个号）；
+- `--services` = 给「各个业务部门」分配对外热线（客户拨号进对应部门）。
+
+> 一个管「集群自己怎么被访问」，一个管「集群里的 Service 怎么被访问」，层次不同，不可混为一谈。
+
+#### `--services` 的 VIP 从哪来？（地址池 / DHCP / 单地址）
+
+理解 `--services` 可漂移，关键是要搞清楚「它分配的 VIP 从哪来」。与 `--controlplane` 直接写死 `--address` 不同，`--services` 的 VIP 通常是**从地址池自动分配**的：
+
+| 方式 | 说明 | 典型配置 |
+| --- | --- | --- |
+| **静态地址池** | 从一段 IP 范围里按需分配 | `--address 192.168.1.210-192.168.1.220`（或 ConfigMap 的 `range-global`） |
+| **DHCP** | 从局域网 DHCP 服务器租用 IP | `--services` + DHCP 相关配置 |
+| **单地址** | 直接指定某个固定 IP | `--address 192.168.1.210`（单个） |
+
+> ⚠️ 关键点：`--services` 不是「手动指定一个全局业务入口 IP」，而是「**声明一段地址池，由 Kube-vip 给每个 `LoadBalancer` Service 自动分配一个 VIP**」。你有 N 个 `LoadBalancer` Service，就分 N 个 VIP，各自独立漂移。
+
+**完整链路（以 Traefik 业务入口为例）**：
+
+```text
+部署独立 --services Kube-vip（配地址池，如 192.168.1.210-192.168.1.220）
+        ↓
+Traefik Service (type: LoadBalancer) 被自动分配一个 VIP（如 .210）
+        ↓
+Kube-vip 在 leader 节点把 .210 挂到网卡，ARP 通告
+        ↓
+前端/客户端访问 http://192.168.1.210/ → Traefik → 后端 Pod
+        ↓
+leader 节点挂了 → VIP .210 漂到存活节点 → 访问继续（秒级切换窗口）
+```
+
+> 注意：**漂移的是「VIP」本身**（同一个 IP 从坏节点切到好节点），不是「换一个 IP」。对外始终是同一个 IP，客户端无感，只是漂移那几秒可能有请求失败，因此建议客户端带重试。
+
+#### VIP 是「一次性绑定」，不会变来变去
+
+> ⚠️ 高频误解：看到「自动分配」就担心「VIP 会变来变去、不方便」。实际上**分配是一次性绑定，之后永久固定**。
+
+**「自动」的真正含义**：指的是「创建 Service 时，Kube-vip 从地址池挑一个**当前空闲**的 IP 分给它，**无需你手动指定**」，而不是「每次访问都重新分配」。
+
+- 第一次分配后，VIP 会写进 Service 的 `status.loadBalancer.ingress`；
+- 只要 Service 不删，**VIP 永久不变**——Pod 重启、节点重启、VIP 漂移、滚动更新都不影响。
+
+**什么时候才会变？** 只有一种情况：`kubectl delete service` 删掉再重建，它会重新从池里拿 IP（可能相同也可能不同）。
+
+**VIP 生命周期一览表**：
+
+| 操作 | VIP 会变吗 |
+| --- | --- |
+| 改 `deployment.yaml` 并滚动更新 | ❌ 不变 |
+| Pod 崩溃 / 重建 | ❌ 不变 |
+| 节点 / 服务器重启 | ❌ 不变 |
+| VIP 漂移（节点挂了切到别的节点） | ❌ 不变（同一个 IP 漂移） |
+| `kubectl delete service` 再重建 | ✅ **会变**（重新分配） |
+
+> **「Service 不删」指的是 `kind: Service` 这个资源**（即 `service.yaml`），**不是 Ingress**。Ingress 只是「路由规则」（把外部请求转发到 Service），与 VIP 分配无关；VIP 绑定在 `LoadBalancer` 类型的 Service 上。
+>
+> 类比：像 DHCP 给电脑分 IP——第一次连上分到一个 IP，之后不掉线就一直固定；或像停车场分配固定车位，退了（删 Service）再重新登记才可能换。
+
+**为什么「自动分配」反而更方便？** 它帮你**自动规避 IP 冲突**：池里的 IP 由 Kube-vip 统一管理，不会出现两个 Service 抢同一个 IP 的问题，比手动指定单个 IP 更省心、更稳定。
+
 #### 机器上没有 Docker 怎么办？
 
 由于 K3s 默认使用的是容器运行时 **containerd**，生产环境的 K3s 节点上通常**没有安装原生的 `docker` 命令**，这完全正常。下面提供几种简单的解决办法，任选其一即可。
@@ -542,3 +626,151 @@ ping 192.168.1.200
 
 - **初始化 Master 1**：指定 `--tls-san=192.168.1.200`（告诉 K3s 生成证书时允许用这个 VIP 访问）。
 - **加入 Master 2 / Master 3 / Worker 节点**：连接地址直接填 `https://192.168.1.200:6443`。
+
+---
+
+## 6. 两种 VIP 并存时的区分（cp_enable vs Service LB）
+
+> ⚠️ **本节是实践中踩坑后的补充**。当集群**同时**运行「Control Plane 高可用」和「Service LoadBalancer」两种 Kube-vip 能力时，会出现**两个不同用途的 VIP 并存**，排查网络时极易混淆，务必区分清楚。
+
+### 6.1 现象：为什么 `.200` 能访问业务接口，但 Traefik 的 EXTERNAL-IP 却是 `.201`/`.202`？
+
+实际排查中遇到这样的困惑：
+
+- `kube-vip-ds` 的 DaemonSet 配置里 `address: 192.168.1.200`，用户认为「我的 VIP 就是 `.200`」。
+- 但 `kubectl get svc -n kube-system traefik` 显示 `EXTERNAL-IP` 是 `192.168.1.201,192.168.1.202`，且 `status.loadBalancer.ingress` 里 `ipMode: VIP`。
+- 然而 `curl http://192.168.1.200/...` 又能正常返回业务响应。
+
+三个 IP 都能访问，让人搞不清到底哪个才是「真正的入口」。
+
+### 6.2 真相：两个 VIP 各司其职
+
+关键在 DaemonSet 配置里的这几个环境变量：
+
+```yaml
+env:
+  - name: cp_enable
+    value: "true"        # 开启 Control Plane 模式
+  - name: port
+    value: "6443"        # 监听 kube-apiserver 端口
+  - name: address
+    value: 192.168.1.200 # 这个 VIP 是给 apiserver 用的
+```
+
+- **`cp_enable: true`** 的 Kube-vip，其 `address`（`.200`）定位是**控制平面 VIP**，服务 `kube-apiserver:6443`，用于多 Master 的 API Server 高可用（`kubectl` 连 `https://VIP:6443`）。
+- 而 **Traefik Service 的 `type: LoadBalancer`**，其 `EXTERNAL-IP`（`.201`/`.202`）是 Kube-vip 的 **Service LB 能力**（`--services`）另行分配的 VIP，用于**业务流量入口**。
+
+| VIP | 提供方 / 模式 | 用途 |
+| --- | --- | --- |
+| `192.168.1.200` | Kube-vip `cp_enable=true`（控制平面模式） | kube-apiserver 高可用（`6443` 端口） |
+| `192.168.1.201` / `.202` | Kube-vip Service LB（`--services`） | Traefik 业务入口（`80`/`443` 端口） |
+
+### 6.3 为什么 `.200`（控制平面 VIP）也能访问业务接口？
+
+因为 **VIP 是漂移的**，且 K3s 的 Traefik 通过 ServiceLB 在每个节点都监听了 `80`/`443`（NodePort）：
+
+1. 控制平面 VIP `.200` 由 Kube-vip 通过 ARP 通告，**当前承载在某个 leader 节点上**（会随 leader 漂移）。
+2. 该 leader 节点上有 `svclb-traefik` Pod 监听 `80` 端口（ServiceLB 机制）。
+3. 所以 `curl http://192.168.1.200/...`（80 端口）命中的是「VIP 漂到的那个节点」上的 Traefik，从而能访问业务。
+
+这本质上是「**借用了控制平面 VIP 的漂移机制，间接承载了业务流量**」，并非官方推荐的业务入口做法。
+
+### 6.4 如何验证 VIP 当前漂在哪个节点？
+
+```bash
+# 1. 看 leader 身份（Kube-vip 选主用的 Lease）
+kubectl get lease -n kube-system plndr-cp-lock -o yaml | grep -E 'holderIdentity|leaseTransitions'
+
+# 2. 在 leader 节点上确认 VIP 已绑定到网卡
+ip -4 addr show dev enp0s3
+# 应能看到 inet 192.168.1.200/32 scope global enp0s3
+```
+
+其中 `holderIdentity` 就是当前持有 VIP 的节点名，`leaseTransitions` 表示已发生过多少次选主漂移（大于 0 说明曾发生过故障切换）。
+
+### 6.5 实践建议
+
+- **对外业务入口**：优先使用 Traefik 的 Service LB VIP（`.201`/`.202`），或给该 VIP 配域名，语义清晰、符合官方「Control Plane HA 与 Service LB 分开」的推荐。
+- **`.200` 的定位**：它是控制平面 VIP，本意是给 `kube-apiserver:6443` 用的（`kubectl`/节点 join 的地址）。虽然在单网卡 + ServiceLB 环境下「顺带」能承载业务流量，但属于搭便车，不建议作为正式业务入口。
+- **如果确实想统一用 `.200` 做业务入口**：技术上可行（因为它是漂移 VIP，节点挂了也能切），但需清楚它同时承担了 apiserver 与业务两个职责，排查问题时要先分清「这次请求走的是哪条路径」。
+
+---
+
+## 7. `.201`/`.202` 不会漂移：业务入口的真实高可用现状
+
+> ⚠️ 本节是在 6 节基础上**进一步深入排查后**的重要修正：`.201`/`.202` 其实**并不是会漂移的 VIP**，而是各节点的物理 IP。如果只看 Traefik Service 的 `EXTERNAL-IP`，很容易误以为它们具备和 `.200` 一样的漂移能力。
+
+### 7.1 现象：Traefik 的 EXTERNAL-IP 是「两个节点各自的物理 IP」
+
+排查时发现：
+
+```yaml
+# k3s-01 网卡 enp0s3
+inet 192.168.1.201/24 brd 192.168.1.255 scope global enp0s3
+
+# Traefik Service status
+status:
+  loadBalancer:
+    ingress:
+    - ip: 192.168.1.201
+      ipMode: VIP
+    - ip: 192.168.1.202
+      ipMode: VIP
+```
+
+关键证据：
+
+- `.201` 是 k3s-01 网卡上的**物理 IP**（`/24`，不是 `/32` 的 VIP 绑定形式）；
+- `.202` 同理是 k3s-02 的物理 IP；
+- Traefik Service 的 `EXTERNAL-IP` 恰好就是这两个节点物理 IP，`ipMode: VIP` 只是标记「被 Kube-vip 管理」，**不代表它会漂移**。
+
+### 7.2 本质：ServiceLB 暴露，不是 VIP 漂移
+
+- K3s 的 Traefik 默认走 **ServiceLB**（`svclb-traefik` 在每个节点各一个 Pod），在每个节点上监听 `80`/`443`（NodePort `32407`/`31238`）。
+- 因此 `192.168.1.201:80`、`192.168.1.202:80` 都能访问 Traefik，但这本质是「**每个节点物理 IP 都能访问**」，靠的是**两个 IP 并存**，而非「单 IP 漂移」。
+
+### 7.3 所以「`.201` 挂了怎么办」的正确答案
+
+`.201` 是 k3s-01 的物理 IP，**不会漂移**：
+
+| IP | 本质 | 节点挂了会怎样 |
+| --- | --- | --- |
+| `.200` | Kube-vip `cp_enable` 漂移 VIP | ✅ 漂移到存活节点 |
+| `.201` | k3s-01 物理 IP（ServiceLB 暴露） | ❌ **直接不可用**（节点物理 IP 不漂移） |
+| `.202` | k3s-02 物理 IP（ServiceLB 暴露） | ❌ **直接不可用** |
+
+> 所以「业务入口走 `.201`，`.201` 挂了」的真实后果是：**走 `.201` 的流量会断**，除非上层（客户端/DNS/LB）能自动切到 `.202`。`.201`/`.202` 本身**没有单 IP 漂移的高可用能力**。
+
+### 7.4 要真正实现业务入口高可用，需部署独立 Service LB
+
+如果你希望业务入口也像 `.200` 一样「节点挂了自动漂移」，需要**额外部署一套独立 Kube-vip**，只开 `--services`（不开 `--controlplane`），让它给 Traefik 分配一个**独立、可漂移**的业务 VIP。
+
+> 🔗 补充：关于「Traefik 是 K3s 内置、为什么项目 k8s 目录里看不到它」「Ingress 与 Service 的分工」「Ingress 不分配 IP、高可用靠 Traefik 入口」「ServiceLB vs Kube-vip --services」「Traefik Service 能否删」等关联知识点，详见《Ingress与Service与Traefik入口的关系》。
+
+官方明确推荐「Control Plane HA 与 Service LB 分开部署」（见本文档 5.x 节 `--controlplane` 与 `--services` 的说明）。
+
+生成独立 Service LB 的 DaemonSet：
+
+```bash
+export INTERFACE=enp0s3
+
+# 仅 --services，不传 --controlplane
+docker run --network host --rm ghcr.io/kube-vip/kube-vip:v1.2.2 manifest daemonset \
+    --interface $INTERFACE \
+    --services \
+    --inCluster \
+    --arp \
+    --leaderElection | sudo tee /tmp/kube-vip-services.yaml
+```
+
+> 部署后，`type: LoadBalancer` 的 Service（如 Traefik）会被分配一个**独立的、会漂移的 VIP**（来自 Kube-vip 的地址池或配置），前端统一指向这个 VIP 即可实现单入口高可用。
+
+### 7.5 业务入口高可用的三种层次（选型参考）
+
+| 方案 | 高可用能力 | 复杂度 | 适用 |
+| --- | --- | --- | --- |
+| 直接走节点物理 IP（`.201`/`.202`） | ❌ 单 IP 不漂移，靠上层切换 | 最低 | 临时/开发调试 |
+| 部署独立 Service LB（`--services`） | ✅ 单 VIP 漂移 | 中 | 生产（推荐） |
+| 域名 + DNS 轮询指向多个 VIP/IP | ✅ 客户端天然分散 | 中 | 生产（配合上者更稳） |
+
+> **最佳实践**：独立 Service LB 提供可漂移的业务 VIP + 域名指向该 VIP + 客户端重试（扛漂移秒级窗口），三层叠加最稳。
