@@ -80,6 +80,46 @@ commonLabels:                # 给所有资源打公共标签
 | `patches` / `patchesStrategicMerge` | 精确修改资源某个字段 | 改 env、probe |
 | `configMapGenerator` / `secretGenerator` | 从文件/字面量生成 ConfigMap/Secret | 自动加 hash 后缀 |
 
+### 2.5 `images` 字段的匹配与替换语义
+
+`images` 字段**只能改镜像相关的三个属性**：`name`（用于匹配）、`newName`（替换 repo/名字）、`newTag`（替换 tag），**不能改其他任意字段**（如 replicas、env、端口、探针等）。
+
+- **匹配**：`name` 按镜像名（repo 部分，**忽略 tag**）去查找资源里所有 `image:` 字段。例如 base 里写 `xxx/backend-java:latest`，`name` 写不带 tag 的 `xxx/backend-java` 也能匹配上。
+- **替换**：`newName` 替换镜像 repo/名字部分，`newTag` 替换 tag；两者都可不写，只写 `name` 则仅匹配不改动。
+
+```yaml
+# base/deployment.yaml 里
+image: 192.168.1.221:5000/passup/backend-java:latest
+
+# overlay/kustomization.yaml 里
+images:
+  - name: 192.168.1.221:5000/passup/backend-java   # 按名字匹配（忽略 tag）
+    newTag: v1.2.3                                  # 只改 tag
+
+# 最终构建结果
+image: 192.168.1.221:5000/passup/backend-java:v1.2.3
+```
+
+### 2.6 `replicas` 字段的匹配语义
+
+`replicas` 字段**只作用于 Deployment / StatefulSet**，且**只能改 `spec.replicas` 这一个字段**，不是「任意字段」覆盖。
+
+```yaml
+replicas:
+  - name: passup-backend    # 匹配资源的 metadata.name
+    count: 2                # 把 spec.replicas 改成 2
+```
+
+- **匹配**：`name` 匹配的是资源的 **`metadata.name`**（资源对象名），而不是镜像名。Kustomize 会在 `resources` 引入的所有资源里，找到 `metadata.name` 等于该值的 Deployment/StatefulSet，然后把其 `spec.replicas` 改为 `count`。
+- **匹配时机**：`replicas` 的匹配发生在 name 变换（`namePrefix` / `nameSuffix`）**之后**。若用了 `namePrefix`/`nameSuffix`，`replicas[].name` 要写**最终生成后的名字**（`metadata.name` + 前后缀），而不是 base 里原始的 `metadata.name`。
+
+> 注意区分两个不同的 `name` 匹配目标：
+
+| 字段 | `name` 匹配的是什么 |
+| --- | --- |
+| `images[].name` | 镜像的**仓库名**（`image:` 字段的 repo 部分） |
+| `replicas[].name` | 资源的 **`metadata.name`**（对象名） |
+
 ### 3. 补丁（Patches）
 
 用于**精确修改**资源里的一小块内容，而不是整个文件重写：
