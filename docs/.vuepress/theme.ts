@@ -36,5 +36,6 @@ export default hopeTheme({
       type: 'shiki',
       langs: ['bash', 'nginx', 'ini', 'jsx', 'tsx'],
     },
+    mermaid: true,
   },
 })
