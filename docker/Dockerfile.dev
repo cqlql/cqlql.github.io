@@ -27,4 +27,4 @@ RUN corepack enable pnpm && corepack prepare pnpm@10.30.3 --activate \
     && pnpm config set fetch-timeout 600000
 
 # 5. 设置默认工作目录，进入终端后默认定位到项目源码
-WORKDIR /_work/note-md
+WORKDIR /_work/cqlql-notes

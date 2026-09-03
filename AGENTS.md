@@ -114,7 +114,7 @@ git-auto-push.bat          # 检测变更后自动 git add/commit/push
 - **别名**：`config.ts` 中 `@` 指向 `docs/.vuepress` 目录，组件中按 `@/components/xxx.vue` 引用。
 - **插件**：`slimsearchPlugin`（全文搜索）、以及一个自定义 `modifyTitle` 插件（用 `removeBasenameFirstNo` 修正路由标题）。
 - **导航自动生成**：`navbar.ts` 调用 `utils/nav-generate.js` 读取目录结构，将 `navbarConfig` 中的字符串 key 解析为真实链接；若 key 无对应菜单会 `console.warn`。
-- **主题**：`theme.ts` 配置了 `repo: cqlql/node-md`、`hostname`、`pageInfo`（Author/Original/Date/Category/Tag）等。
+- **主题**：`theme.ts` 配置了 `repo: cqlql/cqlql-notes`、`hostname`、`pageInfo`（Author/Original/Date/Category/Tag）等。
 - **代码高亮（Shiki）**：由 `@vuepress/plugin-shiki` 提供，版本 `@shikijs/core@4.4.2`。`theme.ts` 中 `markdown.highlighter.langs` 当前仅登记 `['bash', 'nginx', 'ini', 'jsx', 'tsx']`。
   - Shiki 4.x **未内置** `caddy`、`logql`、`promql` 等社区扩展语言。若把它们写进 `langs` 数组，会导致 `ShikiError: Language xxx is not included in this bundle`，`docs:dev` / `docs:build` 直接启动失败。
   - 未登记且 Shiki 不认识的语言，会报 `⚠ Missing xxx highlighter, skip highlighting`（警告，服务可跑，但代码块不高亮）。

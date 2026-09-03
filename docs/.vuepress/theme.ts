@@ -10,7 +10,7 @@ export default hopeTheme({
     url: '',
   },
 
-  repo: 'cqlql/node-md',
+  repo: 'cqlql/cqlql-notes',
 
   docsDir: 'docs',
 

@@ -1,6 +1,6 @@
 services:
-  note-md-dev:
-    container_name: note-md-dev
+  cqlql-notes-dev:
+    container_name: cqlql-notes-dev
     build:
       context: ..
       dockerfile: ./docker/Dockerfile.dev
