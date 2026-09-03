@@ -15,7 +15,7 @@ icon: devicon:vitejs
 
 | 项目 | CRA（Webpack） | Vite |
 | --- | --- | --- |
-| DevTools Open-in-Editor 按钮 | 原生可用 | 原生按钮不可用，需第三方插件（见 [React-DevTools跳转编辑器](./../react/React-DevTools跳转编辑器.md)） |
+| DevTools Open-in-Editor 按钮 | 原生可用 | 原生按钮不可用，需第三方插件（见 [React-DevTools跳转编辑器](../../react/React-DevTools跳转编辑器.md)） |
 | 冷启动 | 慢 | 极快 |
 | HMR 热更新 | 项目大后卡顿 | 几乎瞬时 |
 | 生产构建 | 慢 | 更快 |
