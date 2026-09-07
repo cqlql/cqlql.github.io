@@ -4,102 +4,80 @@ icon: mdi:lan
 sort: 4
 ---
 
-在 K3s 中部署 Kube-vip，有两种主流方式：**K3s Auto-Manifests**（简单快速，适合初始化）和 **DaemonSet**（有控制器管理，适合生产环境长期运行）。
+在 K3s 中部署 Kube-vip，本文以官方现行推荐的 **DaemonSet** 方式为主线：部署一次自动覆盖所有 Control Plane 节点，具备控制器级别的自愈与滚动升级能力。以下是针对 **ARP 模式（最常用、最简单的局域网 VIP 漂移模式）** 的完整部署流程。
 
-以下是针对 **ARP 模式（最常用、最简单的局域网 VIP 漂移模式）** 的完整部署流程。
+> 旧教程中常见的「`manifest pod` 生成裸 Pod 丢进 `/var/lib/rancher/k3s/server/manifests/`」方式已被官方弃用，完整步骤与迁移说明单独归档在 👉 [Kube-vip 部署：Auto-Manifests 裸 Pod 方式（旧）](./Kube-vip部署-AutoManifests裸Pod（旧方式）.md)。
 
-## 部署方式选型
+## 1. 部署方式选型
 
-### 三种方式对比：谁在管理这个 Pod？
+### 两个正交维度：资源形态 × 投递通道
+
+讨论"怎么部署 kube-vip"时，其实混着两个互不依赖的维度，先拆开：
+
+| 维度 | 选项 | 说明 |
+|:-----|:-----|:-----|
+| **① 资源形态**（谁守护 Pod） | 裸 Pod / DaemonSet / Static Pod | 决定 Pod 被删后谁来重建、怎么升级 |
+| **② 投递通道**（YAML 怎么进集群） | K3s Auto-Manifests 目录 / `kubectl apply -f` | 决定是随 K3s 启动自动就位，还是集群就绪后手动提交 |
+
+二者可以自由组合，官方现行 [K3s 安装文档](https://kube-vip.io/docs/usage/k3s/) 用的就是 **DaemonSet × Auto-Manifests 目录**（目录机制照用，只是里面放的资源从裸 Pod 换成了 DaemonSet，官方原话："kube-vip runs as a DaemonSet under K3s and **not a static Pod**"）；本文示例用 **DaemonSet × `kubectl apply`**，两种投递通道效果等价。
+
+### 三种资源形态对比：谁在管理这个 Pod？
 
 | 方式 | 管理主体 | 典型路径 / 方式 |
 |------|---------|----------------|
-| **K3s Auto-Manifests** | K3s Server 进程（内置 apply 逻辑） | `/var/lib/rancher/k3s/server/manifests/` |
-| **DaemonSet** | Kubernetes DaemonSet Controller | `kubectl apply -f` |
+| **DaemonSet（推荐）** | Kubernetes DaemonSet Controller | `kubectl apply -f`，或放入 `server/manifests/` |
+| **K3s Auto-Manifests 裸 Pod（旧）** | 无人管理（K3s Server 只负责 apply 一次） | `/var/lib/rancher/k3s/server/manifests/` |
 | **Static Pod** | 节点上的 kubelet | `/etc/kubernetes/manifests/`（需 kubelet 开启） |
 
 ### 为什么不用 Static Pod？
 
 K3s 为了轻量化，其 kubelet 默认**没有**配置 `--pod-manifest-path` 参数。直接往 `/var/lib/rancher/k3s/agent/podmanifests/` 放文件，kubelet 根本不会理睬。K3s 推荐使用 `/var/lib/rancher/k3s/server/manifests/`（注意是 `server` 不是 `agent`），这是 K3s 内置的 AddOn 自动部署路径。
 
-### 核心对比一览
+### 核心对比一览（已修正自愈语义）
 
-| 特性 | Static Pod | K3s Auto-Manifests | DaemonSet |
-|:------|:-----------|:-------------------|:----------|
-| **管理主体** | kubelet（节点级守护进程） | K3s Server（文件同步器） | DaemonSet Controller（集群级控制器） |
-| **Pod 挂了会怎样？** | **立即重启**（kubelet 强制拉起） | **不会重启**（除非你改文件） | **立即重建**（控制器检测到副本数不足） |
-| **节点重启后** | **自动重建**（kubelet 启动后读取目录） | **不会重建**（文件没变，不会触发 apply） | **自动重建**（调度到重启后的节点） |
-| **依赖 API Server 吗？** | **不依赖**（即使集群挂了，kubelet 依然守护它） | **依赖**（必须通过 API Server 创建） | **依赖**（需要 API Server 协调） |
+| 特性 | Static Pod | Auto-Manifests 裸 Pod（旧） | DaemonSet（推荐） |
+|:------|:-----------|:----------------------------|:------------------|
+| **管理主体** | kubelet（节点级守护进程） | 无人管理（K3s Server 只做 apply） | DaemonSet Controller（集群级控制器） |
+| **容器进程崩溃** | **kubelet 重启容器** | **kubelet 一样会重启容器**（`restartPolicy: Always` 对裸 Pod 同样生效，并非完全没人管） | **kubelet 重启容器** |
+| **Pod 被 `kubectl delete`** | **立即重建**（kubelet 按宿主机清单拉起） | **不会重建**：只能 `touch` manifests 文件触发重新 apply，或重启 K3s | **立即重建**（控制器检测到副本缺失） |
+| **节点重启后** | **自动重建**（kubelet 启动后读取目录） | **会回来**：K3s server 启动时会对 manifests 目录重新 apply 一遍（并非"文件没变就不恢复"） | **自动重建**（调度到重启后的节点） |
+| **依赖 API Server 吗？** | **不依赖**（集群挂了 kubelet 依然守护它） | **依赖**（通过 API Server apply 出来） | **依赖**（需要 API Server 协调） |
 | **升级方式** | 登录服务器改文件 | 登录服务器改文件 | `kubectl edit` / `kubectl set image` 滚动升级 |
-| **多节点部署** | 手动复制文件到每个节点 | 手动复制文件到每个节点 | `kubectl apply` 一次，自动调度 |
-| **典型用途** | 集群引导（启动 etcd、apiserver） | 集群初始化时一次性安装插件 | 生产环境长驻服务（如网络插件、kube-vip） |
+| **多节点部署** | 手动复制文件到每个节点 | 手动复制文件到每个节点 | `kubectl apply` 一次，自动调度；新 Master 加入自动覆盖 |
+| **典型用途** | 集群引导（启动 etcd、apiserver） | 旧版教程的 kube-vip 装法（已不推荐） | 生产环境长驻服务（网络插件、kube-vip 等） |
 
-> **一句话总结**：Static Pod 有自愈（靠 kubelet），K3s Auto-Manifests 无自愈（靠文件触发），DaemonSet 有自愈且更强大（靠控制器）。
+> **一句话总结**：容器崩溃三者都靠 kubelet 重启，差别在「**Pod 对象整体消失后谁兜底**」——Static Pod 靠 kubelet、DaemonSet 靠控制器、裸 Pod 没人兜底。
 
 ### 对部署 kube-vip 的建议
 
-1. **测试环境 / K3s 快速初始化**：用 Auto-Manifests 丢文件即可，够简单。但注意节点重启后 Pod 不会自动恢复，需要手动 `touch` 一下文件触发重新 apply。
-2. **生产环境（推荐）**：**强烈建议用 DaemonSet**。由集群控制器管理，具备完整的自愈和滚动更新能力，节点重启后自动恢复，无需人工干预。
-3. **标准 K8s（如 kubeadm）**：Static Pod 是控制面引导的标配，但部署 kube-vip 这类附加组件，仍然推荐 **DaemonSet**，因为 Static Pod 无法通过 `kubectl rollout` 平滑升级。
+1. **K3s 新部署（推荐）**：直接用 **DaemonSet**。想实现"装好 K3s 即自动就位"，就把 RBAC + DaemonSet YAML 预置进 `/var/lib/rancher/k3s/server/manifests/`（官方 K3s 路径）；想集群起来后再手动提交，就按本文 `kubectl apply` 流程走，两者等价。
+2. **历史集群里已有裸 Pod**：能跑，但建议迁移到 DaemonSet（获得 Pod 删除自愈、新节点自动覆盖、滚动升级），步骤见归档文档。
+3. **标准 K8s（如 kubeadm）**：Static Pod 是控制面引导的标配，但 kube-vip 这类附加组件仍然推荐 **DaemonSet**——Static Pod 无法通过 `kubectl rollout` 平滑升级。
 
-> 💡 两种方式的生成命令几乎一样，只需把 `manifest pod` 改成 `manifest daemonset` 即可。
+> 裸 Pod 与 DaemonSet 的生成命令几乎一样，只需把 `manifest pod` 改成 `manifest daemonset`，并补上 `--inCluster`（必须）与 `--taint`（建议）。
 
----
-
-## 1. 准备工作与参数确认
+## 2. 准备工作与参数确认
 
 在开始前，请先确认以下信息：
 
-- **VIP（虚拟 IP）**：准备一个未被分配的局域网 IP（例如 `192.168.1.200`）。
+- **VIP（虚拟 IP）**：准备一个未被分配的局域网 IP（例如 `192.168.1.200`），选定前先在局域网内 `ping` 确认无法 ping 通（没被其他设备占用）。
 - **网卡名称**：主节点的网卡名（例如 `eth0` 或 `ens33`），可通过 `ip a` 查看。
-- **K3s Manifests 目录**（仅 Auto-Manifests 方式需要）：K3s 的自动部署清单存放路径是 `/var/lib/rancher/k3s/server/manifests/`。
+- **版本号**：到 [kube-vip Releases](https://github.com/kube-vip/kube-vip/releases) 查看最新版本标签，下文以 `v1.2.2` 为例。
 
----
-
-## 方式 A：K3s Auto-Manifests（快速部署）
-
-### A-1. 部署步骤（在第一个 Master 节点上）
-
-#### A-1-1. 创建 Manifests 目录
-
-```bash
-sudo mkdir -p /var/lib/rancher/k3s/server/manifests/
-```
-
-#### A-1-2. 生成 Kube-vip 配置文件
-
-我们可以直接使用 Kube-vip 官方的 Docker 镜像来自动生成 Pod 的 YAML 文件。请将命令中的 `192.168.1.200` 替换为你实际的 **VIP**，`eth0` 替换为你的**网卡名**。
-
-> 💡 **关于版本号**：建议先到 [kube-vip Releases](https://github.com/kube-vip/kube-vip/releases) 页面查看最新版本号（最新的 Release 标签即为版本号），然后将下方命令中的 `v1.2.2` 替换为最新版本。
-
-```bash
-# 设置环境变量（按需修改）
-export VIP=192.168.1.200
-export INTERFACE=eth0
-
-# 自动生成 YAML 并保存至 K3s Manifests 目录
-docker run --network host --rm ghcr.io/kube-vip/kube-vip:v1.2.2 manifest pod \
-    --interface $INTERFACE \
-    --address $VIP \
-    --controlplane \
-    --arp \
-    --leaderElection | sudo tee /var/lib/rancher/k3s/server/manifests/kube-vip.yaml
-```
-
-> ⚠️ **K3s 专属坑：kubeconfig 路径不同！** 原生 K8s 的 kubeconfig 路径是 `/etc/kubernetes/admin.conf`，但 **K3s 的配置文件路径是 `/etc/rancher/k3s/k3s.yaml`**。如果生成后的 YAML 中硬编码了原生 K8s 的路径，Pause 容器启动后 `kube-vip` 会因找不到文件而报错 `CrashLoopBackOff`。用 `k3s kubectl describe pod -n kube-system kube-vip-<node-name>` 可查看具体日志。
+### 2.1 核心参数：`--controlplane` 与 `--services`
 
 > **参数语义变化（v1.x 重要）**：旧版本中的 `--active` 是 v0.8 之前旧架构遗留的 Flag，在 **v1.x** 中已被彻底重构，拆分为两个职责明确的开关：
 >
-> - **`--controlplane`**：让 Kube-vip 接管 **Kubernetes 控制面（Control Plane）** 的 VIP。它会监听 API Server 的 **6443 端口**，在你多个 Master 节点间做 ARP 广播与选主（Leader Election），对外提供一个统一、可漂移的 `https://VIP:6443` 访问入口。这也是**本文档多 Master 高可用（HA）场景所必须的参数**。
-> - **`--services`**：让 Kube-vip 同时充当 **Service LoadBalancer（负载均衡器）**，给 `type: LoadBalancer` 的 Service 自动分配并绑定一个外部 VIP。开启后，访问这些 Service 不再需要云厂商的 LB，也能在局域网内被直接路由。
+> - **`--controlplane`**：让 Kube-vip 接管 **Kubernetes 控制面（Control Plane）** 的 VIP。它会监听 API Server 的 **6443 端口**，在多个 Master 节点间做 ARP 广播与选主（Leader Election），对外提供统一、可漂移的 `https://VIP:6443` 访问入口。这也是**多 Master 高可用（HA）场景所必须的参数**。
+> - **`--services`**：让 Kube-vip 同时充当 **Service LoadBalancer（负载均衡器）**，给 `type: LoadBalancer` 的 Service 自动分配并绑定外部 VIP。开启后访问这些 Service 不再需要云厂商 LB，局域网内即可直接路由。
 >
->   ⚠️ **不建议在这里开启 `--services`！** 官方推荐 Control Plane HA 与 Service LB 分开部署：Service LB 功能应**单独通过 DaemonSet 或 Helm Chart** 部署一套独立的 kube-vip（仅传 `--services`，不加 `--controlplane`），不要和 Manifests 里部署的 Control Plane HA 混在一起，职责更清晰、升级也更方便。
+>   注意：**不建议和 `--controlplane` 混在同一实例里开启 `--services`！** 官方推荐 Control Plane HA 与 Service LB 分开部署：Service LB 功能应**单独部署一套独立的 kube-vip DaemonSet**（仅传 `--services`，不加 `--controlplane`），职责更清晰、升级也更方便。
 >
-> 两者互不依赖：只传 `--controlplane` 就只做 Control Plane 高可用（如本例）；只传 `--services` 就只做 Service LB；两个都传则两者兼顾。本文档的 HA 示例仅使用 `--controlplane`，不传 `--services`（生成的 YAML 中 `svc_enable` 即为 `"false"`）。
+> 两者互不依赖：只传 `--controlplane` 就只做控制面高可用（如本例）；只传 `--services` 就只做 Service LB；两个都传则两者兼顾。本文 HA 示例仅使用 `--controlplane`（生成的 YAML 中 `svc_enable` 即为 `"false"`）。
 
 #### `--services` 与 `--controlplane` 的准确语义（避免误解）
 
-> ⚠️ 常见误解是把 `--services` 直接理解成「管业务入口」。更准确的说法是：**`--services` 管的是「`LoadBalancer` 类型的 Service」，而「业务入口」只是它的结果之一**。两者的根本区别在于「谁在被高可用」。
+> 常见误解是把 `--services` 直接理解成「管业务入口」。更准确的说法是：**`--services` 管的是「`LoadBalancer` 类型的 Service」，而「业务入口」只是它的结果之一**。两者的根本区别在于「谁在被高可用」。
 
 | 维度 | `--controlplane` | `--services` |
 | --- | --- | --- |
@@ -108,7 +86,7 @@ docker run --network host --rm ghcr.io/kube-vip/kube-vip:v1.2.2 manifest pod \
 | 谁在使用 | kubelet、`kubectl`、节点 join | 任何 `LoadBalancer` Service（Traefik、DB 等都可能） |
 | 本质 | 给「集群控制面」一个统一可漂移的固定访问地址 | 充当「Service LoadBalancer 提供者」，给 LB 型 Service 分配外部 VIP |
 
-**为什么 `--services` ≠ 字面上的「业务入口」？**
+**为什么 `--services` 不等于字面上的「业务入口」？**
 
 - `--services` 的职责是**通用的 LB 提供者**：凡是声明 `type: LoadBalancer` 的 Service，都会被它分配一个外部可达 VIP。
 - 在你的集群里，**恰好 Traefik 是那个 `LoadBalancer` Service**，于是它拿到 VIP 变成了业务入口——这是「结果」，不是 `--services` 的直接语义。
@@ -126,229 +104,57 @@ docker run --network host --rm ghcr.io/kube-vip/kube-vip:v1.2.2 manifest pod \
 
 > 一个管「集群自己怎么被访问」，一个管「集群里的 Service 怎么被访问」，层次不同，不可混为一谈。
 
-#### `--services` 的 VIP 从哪来？（地址池 / DHCP / 单地址）
+### 2.2 VIP 基础概念答疑
 
-理解 `--services` 可漂移，关键是要搞清楚「它分配的 VIP 从哪来」。与 `--controlplane` 直接写死 `--address` 不同，`--services` 的 VIP 通常是**从地址池自动分配**的：
+刚开始接触 VIP 时最容易产生的几个疑问，提前在这里集中解答。
 
-| 方式 | 说明 | 典型配置 |
-| --- | --- | --- |
-| **静态地址池** | 从一段 IP 范围里按需分配 | `--address 192.168.1.210-192.168.1.220`（或 ConfigMap 的 `range-global`） |
-| **DHCP** | 从局域网 DHCP 服务器租用 IP | `--services` + DHCP 相关配置 |
-| **单地址** | 直接指定某个固定 IP | `--address 192.168.1.210`（单个） |
+#### VIP 是某个 Master 节点的真实 IP 吗？
 
-> ⚠️ 关键点：`--services` 不是「手动指定一个全局业务入口 IP」，而是「**声明一段地址池，由 Kube-vip 给每个 `LoadBalancer` Service 自动分配一个 VIP**」。你有 N 个 `LoadBalancer` Service，就分 N 个 VIP，各自独立漂移。
+**不是**，`192.168.1.200` **不能**是任何一个 Master 节点的真实 IP，它必须是一个**独立、未被使用的空闲 IP**。
 
-**完整链路（以 Traefik 业务入口为例）**：
+它在架构中扮演的角色是 **VIP（Virtual IP，虚拟 IP）**：
 
-```text
-部署独立 --services Kube-vip（配地址池，如 192.168.1.210-192.168.1.220）
-        ↓
-Traefik Service (type: LoadBalancer) 被自动分配一个 VIP（如 .210）
-        ↓
-Kube-vip 在 leader 节点把 .210 挂到网卡，ARP 通告
-        ↓
-前端/客户端访问 http://192.168.1.210/ → Traefik → 后端 Pod
-        ↓
-leader 节点挂了 → VIP .210 漂到存活节点 → 访问继续（秒级切换窗口）
-```
+| 角色 | IP 示例 |
+|------|---------|
+| Master 1 真实 IP | `192.168.1.10` |
+| Master 2 真实 IP | `192.168.1.11` |
+| Master 3 真实 IP | `192.168.1.12` |
+| **VIP（虚拟 IP）** | **`192.168.1.200`** |
 
-> 注意：**漂移的是「VIP」本身**（同一个 IP 从坏节点切到好节点），不是「换一个 IP」。对外始终是同一个 IP，客户端无感，只是漂移那几秒可能有请求失败，因此建议客户端带重试。
+> 在选定 VIP 前，请在局域网内 `ping 192.168.1.200` 确认**无法 ping 通**（确保当前没有被路由器或其他设备占用）。
 
-#### VIP 是「一次性绑定」，不会变来变去
+#### 它的工作原理是怎样的？
 
-> ⚠️ 高频误解：看到「自动分配」就担心「VIP 会变来变去、不方便」。实际上**分配是一次性绑定，之后永久固定**。
+1. **自动漂移**：Kube-vip 在三个 Master 之间进行"选主（Leader Election）"。假设选中 Master 1，就把 `192.168.1.200` 动态**挂载**到 Master 1 的网卡上。
+2. **故障转移**：如果 Master 1 突然宕机，另外两个节点立刻感知，几秒钟内自动把 `192.168.1.200` **抢过来**挂载到 Master 2 的网卡上。
 
-**「自动」的真正含义**：指的是「创建 Service 时，Kube-vip 从地址池挑一个**当前空闲**的 IP 分给它，**无需你手动指定**」，而不是「每次访问都重新分配」。
+#### 在安装 K3s 时该怎么用这个 VIP？
 
-- 第一次分配后，VIP 会写进 Service 的 `status.loadBalancer.ingress`；
-- 只要 Service 不删，**VIP 永久不变**——Pod 重启、节点重启、VIP 漂移、滚动更新都不影响。
+有了 VIP 之后，Worker 节点和 `kubectl` **不需要**绑定某一台具体 Master 的 IP，统一连接 VIP：
 
-**什么时候才会变？** 只有一种情况：`kubectl delete service` 删掉再重建，它会重新从池里拿 IP（可能相同也可能不同）。
+- **初始化 Master 1**：指定 `--tls-san=192.168.1.200`（告诉 K3s 生成证书时允许用这个 VIP 访问）。
+- **加入 Master 2 / Master 3 / Worker 节点**：连接地址直接填 `https://192.168.1.200:6443`。
 
-**VIP 生命周期一览表**：
+## 3. 部署 DaemonSet
 
-| 操作 | VIP 会变吗 |
-| --- | --- |
-| 改 `deployment.yaml` 并滚动更新 | ❌ 不变 |
-| Pod 崩溃 / 重建 | ❌ 不变 |
-| 节点 / 服务器重启 | ❌ 不变 |
-| VIP 漂移（节点挂了切到别的节点） | ❌ 不变（同一个 IP 漂移） |
-| `kubectl delete service` 再重建 | ✅ **会变**（重新分配） |
+DaemonSet 是 Kubernetes 原生的控制器资源，会确保**每个匹配节点上恰好运行一个 Pod**：一次部署自动覆盖所有 Control Plane 节点，新 Master 加入自动纳管，升级回滚也方便。
 
-> **「Service 不删」指的是 `kind: Service` 这个资源**（即 `service.yaml`），**不是 Ingress**。Ingress 只是「路由规则」（把外部请求转发到 Service），与 VIP 分配无关；VIP 绑定在 `LoadBalancer` 类型的 Service 上。
->
-> 类比：像 DHCP 给电脑分 IP——第一次连上分到一个 IP，之后不掉线就一直固定；或像停车场分配固定车位，退了（删 Service）再重新登记才可能换。
+### 3.1 关键参数：`--inCluster` 与 `--taint`
 
-**为什么「自动分配」反而更方便？** 它帮你**自动规避 IP 冲突**：池里的 IP 由 Kube-vip 统一管理，不会出现两个 Service 抢同一个 IP 的问题，比手动指定单个 IP 更省心、更稳定。
-
-#### 机器上没有 Docker 怎么办？
-
-由于 K3s 默认使用的是容器运行时 **containerd**，生产环境的 K3s 节点上通常**没有安装原生的 `docker` 命令**，这完全正常。下面提供几种简单的解决办法，任选其一即可。
-
-##### 方法一：直接用 `k3s ctr` 代替 `docker`
-
-K3s 内置了 `ctr`（containerd 的命令行工具），可以直接拉取并运行临时镜像，效果和 `docker run` 完全一样：
-
-```bash
-export VIP=172.16.0.210
-export INTERFACE=enp0s3
-
-# 用 k3s 内置的 ctr 拉取并运行镜像生成配置文件
-sudo k3s ctr run --rm --net-host ghcr.io/kube-vip/kube-vip:v1.2.2 kube-vip-gen \
-    manifest pod \
-    --interface $INTERFACE \
-    --address $VIP \
-    --controlplane \
-    --arp \
-    --leaderElection | sudo tee /var/lib/rancher/k3s/server/manifests/kube-vip.yaml
-```
-
-> 注：`ctr run` 的语法要求给容器指定一个临时名称（例如上面的 `kube-vip-gen`）。
-
-##### 方法二：在其他有 Docker 的电脑上生成
-
-如果你本地电脑（比如 Mac/Windows 安装了 Docker）或者另一台测试机上有 `docker`，可以在那台机器上运行原始 `docker run ... manifest pod` 命令，把控制台输出的 YAML 内容**复制粘贴**到 K3s 服务器的 `/var/lib/rancher/k3s/server/manifests/kube-vip.yaml` 文件中即可（注意记得把里面的 `vip_address`、`vip_interface` 改成服务器实际的值）。
-
-##### 方法三：手动编写 YAML
-
-直接参考下方生成的 YAML 结构，手动创建 `/var/lib/rancher/k3s/server/manifests/kube-vip.yaml` 文件，把 `vip_interface` 和 `vip_address` 改成你的实际网络参数即可：
-
-```yaml
-apiVersion: v1
-kind: Pod
-metadata:
-  name: kube-vip
-  namespace: kube-system
-spec:
-  containers:
-  - args:
-    - manager
-    name: kube-vip
-    image: ghcr.io/kube-vip/kube-vip:v1.2.2
-    imagePullPolicy: Always
-    securityContext:
-      capabilities:
-        add:
-        - NET_ADMIN
-        - NET_RAW
-    env:
-    - name: vip_arp
-      value: "true"
-    - name: port
-      value: "6443"
-    - name: vip_interface
-      value: eth0              # 修改为你的网卡名
-    - name: vip_cidr
-      value: "32"
-    - name: cp_enable
-      value: "true"           # 代表开启了 Control Plane 高可用
-    - name: svc_enable
-      value: "false"          # 未传 --services，默认不开启 Service 代理
-    - name: cp_namespace
-      value: kube-system
-    - name: vip_leaderelection
-      value: "true"
-    - name: vip_address
-      value: 192.168.1.200     # 修改为你的 VIP
-  hostNetwork: true
-```
-
-> 💡 **推荐做法**：生产环境、多网卡或对稳定性要求高的场景，**强烈建议显式指定 `--interface`**（如上方示例），明确写死 `vip_interface`，避免因自动探测出错导致 VIP 漂移失败。下面的「自动探测」仅作为多节点便捷方案，需自行评估风险。
-
-##### 验证部署
-
-文件保存完成后，K3s 的 Manifests 自动部署机制会检测到该文件并拉取镜像运行：
-
-```bash
-# 查看 pod 状态（可能需要等待几十秒拉取镜像）
-sudo k3s kubectl get pods -n kube-system -l app.kubernetes.io/name=kube-vip-ds
-# 或者直接看 pod 状态
-sudo k3s kubectl get pods -n kube-system | grep kube-vip
-```
-
-#### A-1-3. 进阶：生成时自动探测网卡（便捷方案，有风险）
-
-如果你希望生成的 YAML 一份通吃所有 Master 节点，可以在**生成命令里直接去掉 `--interface` 参数**。Kube-vip 的命令行生成器（`manifest pod`）支持不传 `--interface`，这样生成的 YAML 中**完全不会包含 `vip_interface` 这个环境变量**，Kube-vip 启动时会自动触发网卡检测，找到有默认路由（Default Gateway）的主网卡：
-
-```bash
-export VIP=192.168.1.200
-
-# 直接去掉 --interface 参数
-docker run --network host --rm ghcr.io/kube-vip/kube-vip:v1.2.2 manifest pod \
-    --address $VIP \
-    --controlplane \
-    --arp \
-    --leaderElection | sudo tee /var/lib/rancher/k3s/server/manifests/kube-vip.yaml
-```
-
-> ⚠️ **风险提示**：自动探测依赖"默认网关所在网卡"这一假设。**多网卡环境**（如业务网卡与管理网卡分离）、网络拓扑复杂或重启后默认路由变化的生产环境，探测结果可能与预期不符，导致 VIP 绑定到错误网卡甚至绑定失败。这类场景请务必显式指定 `vip_interface`。
->
-> 这个不带 `vip_interface` 的 YAML 可以直接复制给所有 Master 节点，效果与在 YAML 里把 `vip_interface` 显式设为 `""` 完全一致（详见下一节）。
-
----
-
-## A-2. 部署到其他 Control Plane 节点
-
-如果你有多个 Master 节点（如 3 节点 HA 架构）：
-
-只需要将第一步生成的 `/var/lib/rancher/k3s/server/manifests/kube-vip.yaml` 配置文件，**原封不动地复制到其他每一个 Master 节点的对应目录下**即可：
-
-```bash
-# 示例：复制到 master2 和 master3
-scp /var/lib/rancher/k3s/server/manifests/kube-vip.yaml root@master2:/var/lib/rancher/k3s/server/manifests/
-scp /var/lib/rancher/k3s/server/manifests/kube-vip.yaml root@master3:/var/lib/rancher/k3s/server/manifests/
-```
-
-K3s 的 Manifests 自动部署机制会检测到该文件并启动 Kube-vip Pod。
-
-> ⚠️ **关于「原封不动复制」的关键前提**：之所以前面说"原封不动复制"，前提是**所有 Master 节点的网卡名称一致**。Kube-vip 绑定 VIP 时需要知道宿主机的网卡名称（ARP 广播要指定从哪张网卡发出去），因此 `vip_interface` 的值必须与实际节点的网卡名匹配。下面分两种情况说明。
-
-### 情况一：所有节点网卡名【一致】（最常见）
-
-在绝大多数 Linux 部署（尤其是统一安装的同型号虚拟机或物理机）中，所有节点的网卡名都是相同的（例如都是 `eth0` 或都是 `ens33`）。
-
-- **结果**：在第一个节点生成的 `kube-vip.yaml` 可以直接复制给 Master 2、Master 3，**完全不需要修改**。
-
-### 情况二：不同 Master 节点网卡名【不一致】（重点！）
-
-如果各 Master 节点的网卡名不统一（例如 Master 1 是 `eth0`、Master 2 是 `ens33`、Master 3 是 `enp1s0`）：
-
-- **必须修改**：复制 `kube-vip.yaml` 到 Master 2、Master 3 后，**必须打开该文件，把 `vip_interface` 改为对应节点自己的实际网卡名**。否则 Kube-vip 漂移到该节点时会因找不到网卡而无法绑定 VIP。
-
-```yaml
-# 在 Master 2 上修改 /var/lib/rancher/k3s/server/manifests/kube-vip.yaml
-- name: vip_interface
-  value: ens33              # <-- 改成 Master 2 自己的网卡名
-```
-
-### 极简避坑技巧：让 Kube-vip 自动探测网卡
-
-如果不想为每个节点单独改网卡名（尤其节点很多、且确认单网卡环境时），可以参考上方「进阶」中的做法：去掉 `--interface` 参数生成 YAML，或者手动把 `vip_interface` 设为 `""`（留空），Kube-vip 会自动寻找当前节点上带有**默认网关（Default Gateway）**的那张主网卡。
-
-这样生成的 YAML 就可以直接复制到所有 Master 节点上，省去逐节点改网卡名的麻烦。但注意上文中提到的**自动探测风险**同样适用。
-
----
-
-## 方式 B：DaemonSet（推荐生产环境）
-
-DaemonSet 是 Kubernetes 原生的控制器资源，会确保**每个匹配节点上恰好运行一个 Pod**。与 Auto-Manifests 方式相比，DaemonSet 部署一次即可自动覆盖所有节点，升级和回滚也更方便。
-
-### B-1. DaemonSet 的关键参数：`--inCluster` 与 `--taint`
-
-与 Auto-Manifests 的 `manifest pod` 不同，DaemonSet 方式有两个必须关注的额外参数：
+与旧的 `manifest pod` 不同，DaemonSet 方式有两个必须关注的额外参数：
 
 | 参数 | 必要性 | 作用 |
 |:-----|:------|:-----|
-| **`--inCluster`** | ✅ **必须添加** | 让 kube-vip 使用 Pod 内置的 ServiceAccount Token 与 API Server 通信（`InClusterConfig`）。不加会导致容器因找不到外部 kubeconfig 文件而 **CrashLoopBackOff**。 |
-| **`--taint`** | ⚠️ 视环境而定 | 让生成器自动添加针对 Control Plane 污点的 `tolerations`，确保 kube-vip 能调度到 Master 节点上。 |
+| **`--inCluster`** | **必须添加** | 让 kube-vip 使用 Pod 内置的 ServiceAccount Token 与 API Server 通信（`InClusterConfig`）。不加会导致容器因找不到外部 kubeconfig 文件而 **CrashLoopBackOff**。 |
+| **`--taint`** | 视环境而定 | 让生成器自动添加针对 Control Plane 污点的 `tolerations`，确保 kube-vip 能调度到 Master 节点上。 |
 
-> **为什么 DaemonSet 必须加 `--inCluster`？** Auto-Manifests 生成的 `kind: Pod` 默认挂载宿主机路径读取 kubeconfig，但 DaemonSet 是运行在集群**内部**的，依赖 InCluster 认证来执行 Leader Election 和监听节点变化。不加 `--inCluster`，容器启动后会因找不到 kubeconfig 文件直接报错退出。
+> **为什么 DaemonSet 必须加 `--inCluster`？** 裸 Pod 方式生成的 YAML 默认挂载宿主机路径读取 kubeconfig，但 DaemonSet 运行在集群**内部**，依赖 InCluster 认证来执行 Leader Election 和监听节点变化。不加 `--inCluster`，容器启动后会因找不到 kubeconfig 文件直接报错退出。
 >
 > **关于 `--taint`**：K3s 默认 Master 节点**不带污点**，此时不加也没事。但如果你初始化时传了 `--node-taint`，或者希望确保 kube-vip 只在 Control Plane 节点上运行，就必须加 `--taint` 让生成的 YAML 包含对应的 `tolerations`。**建议一律加上，生成的 YAML 更健壮。**
 
-### B-2. 生成 DaemonSet YAML
+### 3.2 生成 DaemonSet YAML
 
-完整的推荐命令如下（比 Auto-Manifests 多了 `--inCluster` 和 `--taint`）：
+完整推荐命令如下（比旧裸 Pod 方式多了 `--inCluster` 和 `--taint`）：
 
 ```bash
 export VIP=192.168.1.200
@@ -364,23 +170,76 @@ docker run --network host --rm ghcr.io/kube-vip/kube-vip:v1.2.2 manifest daemons
     --leaderElection | sudo tee /tmp/kube-vip-daemonset.yaml
 ```
 
-> 如果机器上没有 Docker，同样可以用 `k3s ctr` 替代（参考上文 A-1-2 中的方法）。
+#### 机器上没有 Docker：用 `k3s ctr` 代替
 
-### B-3. 应用 DaemonSet
+K3s 内置 containerd 的命令行 `ctr`，可直接拉取并运行临时镜像，效果与 `docker run` 一致：
 
-生成完成后，用 `kubectl` 提交到集群：
+```bash
+export VIP=192.168.1.200
+export INTERFACE=eth0
+
+sudo k3s ctr run --rm --net-host ghcr.io/kube-vip/kube-vip:v1.2.2 kube-vip-gen \
+    manifest daemonset \
+    --interface $INTERFACE \
+    --address $VIP \
+    --controlplane \
+    --inCluster \
+    --taint \
+    --arp \
+    --leaderElection | sudo tee /tmp/kube-vip-daemonset.yaml
+```
+
+> 注：`ctr run` 的语法要求给容器指定一个临时名称（例如上面的 `kube-vip-gen`）。也可以在另一台有 Docker 的机器上生成后把 YAML 复制过来。
+
+### 3.3 应用到集群：两种投递通道（任选其一）
+
+**通道一：`kubectl apply`（本文示例，集群已就绪时最直接）**
 
 ```bash
 sudo k3s kubectl apply -f /tmp/kube-vip-daemonset.yaml
 ```
 
-DaemonSet Controller 会自动在所有 Control Plane 节点上创建 Kube-vip Pod。
+**通道二：预置进 Auto-Manifests 目录（官方 K3s 路径，适合全新安装引导）**
 
-> ⚠️ **RBAC 权限前置条件**：通过 `--inCluster` + `--leaderElection` 运行时，kube-vip 需要读写 Lease 资源来做选主。如果应用 YAML 后 Pod 报 `403 Forbidden` 错误，说明缺少 RBAC 权限。`manifest daemonset` 命令默认**会**在生成的 YAML 中附带 `ServiceAccount`、`ClusterRole` 和 `ClusterRoleBinding`，无需手动创建。如果使用手动编写的 YAML（下方 B-4），请确保包含了这些 RBAC 资源。
+先把 RBAC 清单与 DaemonSet 清单放进目录，再安装（或重启）K3s，K3s 启动时会自动按文件名顺序 apply：
 
-### B-4. 手动编写 DaemonSet YAML（参考）
+```bash
+# 1. RBAC（DaemonSet 做选主必须有 ServiceAccount / ClusterRole / ClusterRoleBinding）
+curl -s https://kube-vip.io/manifests/rbac.yaml | sudo tee /var/lib/rancher/k3s/server/manifests/kube-vip-rbac.yaml
 
-如果不方便使用命令行生成，可以直接编写如下 DaemonSet 清单：
+# 2. 把第 3.2 节生成的 DaemonSet YAML 也放进该目录（可与 RBAC 合并为一个文件，注意用 --- 分隔）
+sudo cp /tmp/kube-vip-daemonset.yaml /var/lib/rancher/k3s/server/manifests/kube-vip.yaml
+```
+
+> 两种通道对**资源形态**没有任何影响——跑起来的都是同一个 DaemonSet，区别只是"谁、在什么时机执行 apply"。
+
+> **RBAC 权限前置条件**：通过 `--inCluster` + `--leaderElection` 运行时，kube-vip 需要读写 Lease 资源来做选主。`manifest daemonset` 命令默认**会**在生成的 YAML 中附带 `ServiceAccount`、`ClusterRole` 和 `ClusterRoleBinding`，走通道一时无需额外操作；若生成时没带或被裁剪，按第 5 节排查修复。
+
+### 3.4 多节点部署与网卡一致性
+
+DaemonSet 方式**不需要手动 `scp` 文件到每个节点**：
+
+- **新节点加入**：新的 Master 加入集群后，DaemonSet Controller 自动在该节点创建 Kube-vip Pod，无需人工干预。
+- **节点下线**：Master 被移除后，对应 Pod 自动清理。
+
+但**网卡名一致性问题依然存在**：DaemonSet 对所有节点下发同一份 env，如果各 Master 网卡名不同（如 `eth0` / `ens33` / `enp1s0` 混用），需要让 Kube-vip 自动探测——生成时**去掉 `--interface`**，或在 env 中把 `vip_interface` 设为 `""`（留空），Kube-vip 会自动选择带有**默认网关（Default Gateway）**的主网卡：
+
+```bash
+# 不指定 --interface，一份 YAML 通吃所有 Master（单网卡环境推荐）
+docker run --network host --rm ghcr.io/kube-vip/kube-vip:v1.2.2 manifest daemonset \
+    --address $VIP \
+    --controlplane \
+    --inCluster \
+    --taint \
+    --arp \
+    --leaderElection | sudo tee /tmp/kube-vip-daemonset.yaml
+```
+
+> **自动探测的风险**：它依赖"默认网关所在网卡"这一假设。**多网卡环境**（业务网卡与管理网卡分离）、拓扑复杂或重启后默认路由变化时，可能绑定到错误网卡甚至失败。生产环境、多网卡节点建议统一网卡命名（如 grub 固定 `net.ifnames=0`）后显式指定 `--interface`，最稳妥。
+
+### 3.5 手动编写 DaemonSet YAML（参考）
+
+不方便用命令生成时，可直接编写如下清单：
 
 ```yaml
 apiVersion: apps/v1
@@ -415,7 +274,7 @@ spec:
         - name: port
           value: "6443"
         - name: vip_interface
-          value: eth0              # 修改为你的网卡名
+          value: eth0              # 修改为你的网卡名；多节点网卡名不一致时设为 ""
         - name: vip_cidr
           value: "32"
         - name: cp_enable
@@ -439,154 +298,71 @@ spec:
         node-role.kubernetes.io/control-plane: "true"
 ```
 
-> **关于 `nodeSelector` 与 `tolerations`**：DaemonSet 默认会在所有节点上运行，这里通过 `nodeSelector` 限制仅运行在 Control Plane 节点上，并通过 `tolerations` 允许调度到有污点的 Master 节点。如果你使用的是旧版 K3s（使用 `node-role.kubernetes.io/master` 标签），请相应调整 `nodeSelector`。
+> **关于 `nodeSelector` 与 `tolerations`**：DaemonSet 默认会在所有节点上运行，这里通过 `nodeSelector` 限制仅运行在 Control Plane 节点上，并通过 `tolerations` 允许调度到有污点的 Master 节点。旧版 K3s 使用 `node-role.kubernetes.io/master` 标签，请相应调整。
 >
-> ⚠️ **手动编写时注意**：上方 YAML 只展示了 DaemonSet 资源本身。实际运行时还需要配套的 RBAC 资源（`ServiceAccount`、`ClusterRole`、`ClusterRoleBinding`），否则 `--leaderElection` 会因权限不足而失败。**建议直接用 `manifest daemonset` 命令生成**，它会自动附带完整的 RBAC 配置，省去手动编写的麻烦。
+> **手动编写时注意**：上方只展示了 DaemonSet 资源本身。实际运行还需要配套 RBAC（`ServiceAccount`、`ClusterRole`、`ClusterRoleBinding`），否则 `--leaderElection` 会因权限不足失败。**建议直接用 `manifest daemonset` 命令生成**，它会自动附带完整 RBAC。
 
-### B-5. 验证 DaemonSet 状态
+### 3.6 升级镜像版本
 
-```bash
-# 查看 DaemonSet 整体状态（DESIRED / CURRENT / READY 应该一致）
-sudo k3s kubectl get daemonset -n kube-system kube-vip
-
-# 查看各节点上的 Pod
-sudo k3s kubectl get pods -n kube-system -l app.kubernetes.io/name=kube-vip-ds -o wide
-```
-
-### B-6. DaemonSet 方式的多节点优势
-
-DaemonSet 方式不需要手动 `scp` 文件到每个节点：
-
-- **新节点加入**：新的 Master 节点加入集群后，DaemonSet Controller 会自动在该节点上创建 Kube-vip Pod，无需人工干预。
-- **节点下线**：Master 节点被移除后，对应的 Pod 自动清理。
-- **升级**：修改 DaemonSet 的镜像版本即可触发滚动更新：
+修改 DaemonSet 的镜像即可触发滚动更新：
 
 ```bash
 sudo k3s kubectl set image daemonset/kube-vip -n kube-system \
     kube-vip=ghcr.io/kube-vip/kube-vip:v1.2.2
 ```
 
-> ⚠️ **注意**：DaemonSet 方式**同样需要关注网卡名一致性问题**。如果各节点网卡名不同，需要在 `env` 中将 `vip_interface` 设为 `""`（留空），让 Kube-vip 自动探测网卡，否则生成的 YAML 对所有节点使用同一个 `vip_interface` 值。
+## 4. 验证与测试
 
-### B-7. 故障排查：DaemonSet 报 `FailedCreate`（缺少 RBAC）
-
-如果在应用 DaemonSet 后，Pod 一直无法创建，可用 `describe` 查看 DaemonSet 事件：
+### 4.1 查看 Pod 运行状态
 
 ```bash
-sudo k3s kubectl describe daemonset kube-vip-ds -n kube-system
-```
+# DaemonSet 整体状态（DESIRED / CURRENT / READY 应一致，数量等于 Master 数）
+sudo k3s kubectl get daemonset -n kube-system kube-vip
 
-如果事件中出现如下报错，说明问题出在 **RBAC 权限缺失**：
-
-```text
-Events:
-  Type     Reason        Age                  From                 Message
-  ----     ------        ----                 ----                 -------
-  Warning  FailedCreate  12m (x22 over 117m)  daemonset-controller  Error creating: pods "kube-vip-ds-" is forbidden: error looking up service account kube-system/kube-vip: serviceaccount "kube-vip" not found
-```
-
-#### 根本原因
-
-报错核心原因是 `kube-system` 命名空间中缺少名为 **`kube-vip`** 的**服务账号（ServiceAccount）**及其对应的 RBAC 权限配置，导致 DaemonSet 无法创建 Pod。
-
-> 💡 这通常发生在：使用了**手动编写的 DaemonSet YAML（B-4）但漏掉了 RBAC 资源**，或者生成的 YAML 中 `serviceAccountName` 引用了不存在的 ServiceAccount。正常通过 `manifest daemonset` 命令生成的 YAML 会自带 RBAC，不会出现此问题。
-
-#### 修复步骤
-
-**1）应用 kube-vip RBAC 配置文件**
-
-确保清单中包含 `ServiceAccount`、`ClusterRole` 及 `ClusterRoleBinding`。可以直接应用官方 RBAC 资源：
-
-```bash
-sudo k3s kubectl apply -f https://kube-vip.io/manifests/rbac.yaml
-```
-
-（也可以将官方清单保存到本地后 `kubectl apply -f` 离线应用）
-
-**2）验证 ServiceAccount 是否建立**
-
-确认 `kube-vip` ServiceAccount 已成功生成：
-
-```bash
-sudo k3s kubectl get serviceaccount kube-vip -n kube-system
-```
-
-**3）检查 DaemonSet Pod 创建状态**
-
-查看 `kube-vip-ds` 的 Pod 是否已成功调度并运行：
-
-```bash
-sudo k3s kubectl get pods -n kube-system -l name=kube-vip-ds
-```
-
-> ⚠️ 注意：官方 RBAC 清单中 DaemonSet 的标签可能是 `name=kube-vip-ds`，而本文档 B-2/B-5 通过 `manifest daemonset` 生成的标签为 `app.kubernetes.io/name=kube-vip-ds`。查询时请以你实际 YAML 中的 `matchLabels` 为准（二选一即可，或两者都试）。
-
----
-
-## 4. 验证与测试（两种方式通用）
-
-### 1) 查看 Pod 运行状态
-
-在集群中运行命令检查 Pod：
-
-```bash
-# DaemonSet 方式：按标签查看
+# 按标签查看各节点上的 Pod（-o wide 可看调度到了哪个节点）
 sudo k3s kubectl get pods -n kube-system -l app.kubernetes.io/name=kube-vip-ds -o wide
-
-# Auto-Manifests 方式：直接按名称查看
-sudo k3s kubectl get pods -n kube-system kube-vip
 ```
 
-#### 1.1) 诊断技巧：定位 Pod 异常原因
+> 若是旧裸 Pod 方式，没有 DaemonSet 标签，用 `sudo k3s kubectl get pods -n kube-system | grep kube-vip` 按名称查看，详见归档文档。
 
-如果 Pod 状态不是 `Running`，不要先看日志，按以下顺序排查：
+#### 诊断技巧：Pod 异常时按这个顺序排查
 
-#### 查看 Pod 事件（定位确切原因）
+不要先看日志，按以下顺序：
 
-`describe` 命令是诊断 Pod 问题的第一入口，重点关注输出的 **`Events:`** 部分：
+**1）查看 Pod 事件（定位确切原因）**，`describe` 是诊断第一入口，重点看输出最底部的 **`Events:`**：
 
 ```bash
-sudo k3s kubectl describe pod kube-vip -n kube-system
+sudo k3s kubectl describe pod -n kube-system -l app.kubernetes.io/name=kube-vip-ds
 ```
 
-在输出最底部，Events 会直接告诉你问题所在：
+- 看到 `Pulling image "ghcr.io/..."` 且长时间卡住 → **镜像下载不下来**
+- 看到 `Failed to pull image... i/o timeout` → **网络连接超时**
+- CNI 或挂载问题也会在这里抛出明确报错
 
-- 如果看到 `Pulling image "ghcr.io/..."` 且长时间卡住 → **镜像下载不下来**
-- 如果看到 `Failed to pull image... i/o timeout` → **网络连接超时**
-- 如果是 CNI 或挂载问题，也会在这里抛出明确报错
-
-#### 实时观察 Pod 状态变化
-
-`-w`（`--watch`）会持续监听 Pod 状态变化并实时输出，适合观察 Pod 从 `Pending` → `Running` 的整个过程：
+**2）实时观察状态变化**，`-w`（`--watch`）持续监听，适合观察 `Pending` → `Running` 的全过程：
 
 ```bash
-sudo k3s kubectl get pod kube-vip -n kube-system -w
+sudo k3s kubectl get pods -n kube-system -l app.kubernetes.io/name=kube-vip-ds -w
 ```
 
-配合使用技巧：先 `-w` 看状态变化节奏，再 `describe` 查 Events 定位原因。
-
-#### 查看 Pod 日志
-
-当 Events 不够详细或需要进一步排查运行时错误时，查看容器日志：
+**3）查看 Pod 日志**，Events 不够时再看运行时日志：
 
 ```bash
-sudo k3s kubectl logs -n kube-system kube-vip --tail=100
+sudo k3s kubectl logs -n kube-system -l app.kubernetes.io/name=kube-vip-ds --tail=100
 ```
-
-`--tail=100` 只拉取最近 100 行日志，避免输出过多。如果 Pod 中有多个容器，还需要用 `-c <容器名>` 指定容器。
 
 > 完整排查顺序：`get pods` 确认状态 → `describe` 看 Events → `logs` 查运行时日志。
 
-### 2) 检查 VIP 绑定
+### 4.2 检查 VIP 绑定
 
-在获得了 Leader 身份的 Master 节点上运行 `ip a`，你应该能看到 VIP 已经绑定到了对应网卡上：
+在获得 Leader 身份的 Master 节点上运行 `ip a`，应能看到 VIP 已绑定到对应网卡：
 
 ```bash
 ip a show dev eth0
 # 输出中应该包含：inet 192.168.1.200/32 scope global eth0
 ```
 
-### 3) 连通性测试
+### 4.3 连通性测试
 
 在局域网内任意一台机器上 ping 该 VIP：
 
@@ -594,44 +370,58 @@ ip a show dev eth0
 ping 192.168.1.200
 ```
 
-如果能 ping 通，说明 Control Plane 的高可用 VIP 已经生效！后续其他 Node 节点加入集群或 `kubectl` 命令行工具都可以直接使用 `https://192.168.1.200:6443` 作为 Master 地址。
+能 ping 通，说明 Control Plane 的高可用 VIP 已生效。后续其他 Node 节点加入集群或 `kubectl` 都可以直接使用 `https://192.168.1.200:6443` 作为 Master 地址。
 
----
+## 5. 故障排查：DaemonSet 报 `FailedCreate`（缺少 RBAC）
 
-## 5. 关于 VIP 的常见疑问
+应用 DaemonSet 后 Pod 一直无法创建，先 describe DaemonSet 看事件：
 
-### VIP 是某个 Master 节点的真实 IP 吗？
+```bash
+sudo k3s kubectl describe daemonset kube-vip-ds -n kube-system
+```
 
-**不是**，`192.168.1.200` **不能**是任何一个 Master 节点的真实 IP，它必须是一个**独立、未被使用的空闲 IP**。
+事件中出现如下报错，说明问题出在 **RBAC 权限缺失**：
 
-它在架构中扮演的角色是 **VIP（Virtual IP，虚拟 IP）**：
+```text
+Events:
+  Type     Reason        Age                  From                 Message
+  ----     ------        ----                 ------              -------
+  Warning  FailedCreate  12m (x22 over 117m)  daemonset-controller  Error creating: pods "kube-vip-ds-" is forbidden: error looking up service account kube-system/kube-vip: serviceaccount "kube-vip" not found
+```
 
-| 角色 | IP 示例 |
-|------|---------|
-| Master 1 真实 IP | `192.168.1.10` |
-| Master 2 真实 IP | `192.168.1.11` |
-| Master 3 真实 IP | `192.168.1.12` |
-| **VIP（虚拟 IP）** | **`192.168.1.200`** |
+### 根本原因
 
-> 在选定 VIP 前，请在局域网内 `ping 192.168.1.200` 确认**无法 ping 通**（确保当前没有被路由器或其他设备占用）。
+`kube-system` 命名空间缺少名为 **`kube-vip`** 的 **ServiceAccount** 及其 RBAC 绑定，DaemonSet 无权创建 Pod。
 
-### 它的工作原理是怎样的？
+> 这通常发生在：**手动编写的 YAML 漏掉了 RBAC 资源**，或 `serviceAccountName` 引用了不存在的 ServiceAccount。正常 `manifest daemonset` 生成的 YAML 自带 RBAC，不会出现此问题。
 
-1. **自动漂移**：Kube-vip 会在三个 Master 节点之间进行"选主（Leader Election）"。假设选中了 Master 1，Kube-vip 就会动态地把 `192.168.1.200` 这个 IP **挂载**到 Master 1 的网卡上。
-2. **故障转移**：如果 Master 1 突然宕机，另外两个节点上的 Kube-vip 会立刻感知到，并在几秒钟内自动把 `192.168.1.200` **抢过来**挂载到 Master 2 的网卡上。
+### 修复步骤
 
-### 在安装 K3s 时该怎么用这个 VIP？
+**1）应用 kube-vip RBAC 配置**
 
-有了这个 VIP 之后，你所有的 Worker 节点和 `kubectl` 工具就**不需要**绑定某一台具体的 Master 节点 IP 了，直接统一连接 VIP 即可：
+```bash
+sudo k3s kubectl apply -f https://kube-vip.io/manifests/rbac.yaml
+```
 
-- **初始化 Master 1**：指定 `--tls-san=192.168.1.200`（告诉 K3s 生成证书时允许用这个 VIP 访问）。
-- **加入 Master 2 / Master 3 / Worker 节点**：连接地址直接填 `https://192.168.1.200:6443`。
+（也可把清单保存到本地后 `kubectl apply -f` 离线应用；走 Auto-Manifests 通道时直接放进 `server/manifests/` 目录即可）
 
----
+**2）验证 ServiceAccount**
+
+```bash
+sudo k3s kubectl get serviceaccount kube-vip -n kube-system
+```
+
+**3）检查 Pod 创建状态**
+
+```bash
+sudo k3s kubectl get pods -n kube-system -l app.kubernetes.io/name=kube-vip-ds
+```
+
+> 注意：官方 RBAC 清单配套的标签可能是 `name=kube-vip-ds`，而 `manifest daemonset` 生成的是 `app.kubernetes.io/name=kube-vip-ds`。查询时以你实际 YAML 的 `matchLabels` 为准（二选一，或都试）。
 
 ## 6. 两种 VIP 并存时的区分（cp_enable vs Service LB）
 
-> ⚠️ **本节是实践中踩坑后的补充**。当集群**同时**运行「Control Plane 高可用」和「Service LoadBalancer」两种 Kube-vip 能力时，会出现**两个不同用途的 VIP 并存**，排查网络时极易混淆，务必区分清楚。
+> **本节是实践中踩坑后的补充**。当集群**同时**运行「Control Plane 高可用」和「Service LoadBalancer」两种 Kube-vip 能力时，会出现**两个不同用途的 VIP 并存**，排查网络时极易混淆，务必区分清楚。
 
 ### 6.1 现象：为什么 `.200` 能访问业务接口，但 Traefik 的 EXTERNAL-IP 却是 `.201`/`.202`？
 
@@ -663,7 +453,7 @@ env:
 | VIP | 提供方 / 模式 | 用途 |
 | --- | --- | --- |
 | `192.168.1.200` | Kube-vip `cp_enable=true`（控制平面模式） | kube-apiserver 高可用（`6443` 端口） |
-| `192.168.1.201` / `.202` | Kube-vip Service LB（`--services`） | Traefik 业务入口（`80`/`443` 端口） |
+| `192.168.1.201` / `.202` | 当时初步判断为 Kube-vip Service LB（**第 7 章修正：实为 K3s 内置 ServiceLB 暴露的节点物理 IP，不漂移**） | Traefik 业务入口（`80`/`443` 端口） |
 
 ### 6.3 为什么 `.200`（控制平面 VIP）也能访问业务接口？
 
@@ -694,11 +484,9 @@ ip -4 addr show dev enp0s3
 - **`.200` 的定位**：它是控制平面 VIP，本意是给 `kube-apiserver:6443` 用的（`kubectl`/节点 join 的地址）。虽然在单网卡 + ServiceLB 环境下「顺带」能承载业务流量，但属于搭便车，不建议作为正式业务入口。
 - **如果确实想统一用 `.200` 做业务入口**：技术上可行（因为它是漂移 VIP，节点挂了也能切），但需清楚它同时承担了 apiserver 与业务两个职责，排查问题时要先分清「这次请求走的是哪条路径」。
 
----
-
 ## 7. `.201`/`.202` 不会漂移：业务入口的真实高可用现状
 
-> ⚠️ 本节是在 6 节基础上**进一步深入排查后**的重要修正：`.201`/`.202` 其实**并不是会漂移的 VIP**，而是各节点的物理 IP。如果只看 Traefik Service 的 `EXTERNAL-IP`，很容易误以为它们具备和 `.200` 一样的漂移能力。
+> 本节是在第 6 章基础上**进一步深入排查后**的重要修正：`.201`/`.202` 其实**并不是会漂移的 VIP**，而是各节点的物理 IP。如果只看 Traefik Service 的 `EXTERNAL-IP`，很容易误以为它们具备和 `.200` 一样的漂移能力。
 
 ### 7.1 现象：Traefik 的 EXTERNAL-IP 是「两个节点各自的物理 IP」
 
@@ -735,26 +523,143 @@ status:
 
 | IP | 本质 | 节点挂了会怎样 |
 | --- | --- | --- |
-| `.200` | Kube-vip `cp_enable` 漂移 VIP | ✅ 漂移到存活节点 |
-| `.201` | k3s-01 物理 IP（ServiceLB 暴露） | ❌ **直接不可用**（节点物理 IP 不漂移） |
-| `.202` | k3s-02 物理 IP（ServiceLB 暴露） | ❌ **直接不可用** |
+| `.200` | Kube-vip `cp_enable` 漂移 VIP | 漂移到存活节点 |
+| `.201` | k3s-01 物理 IP（ServiceLB 暴露） | **直接不可用**（节点物理 IP 不漂移） |
+| `.202` | k3s-02 物理 IP（ServiceLB 暴露） | **直接不可用** |
 
 > 所以「业务入口走 `.201`，`.201` 挂了」的真实后果是：**走 `.201` 的流量会断**，除非上层（客户端/DNS/LB）能自动切到 `.202`。`.201`/`.202` 本身**没有单 IP 漂移的高可用能力**。
 
 ### 7.4 要真正实现业务入口高可用，需部署独立 Service LB
 
-如果你希望业务入口也像 `.200` 一样「节点挂了自动漂移」，需要**额外部署一套独立 Kube-vip**，只开 `--services`（不开 `--controlplane`），让它给 Traefik 分配一个**独立、可漂移**的业务 VIP。
+如果你希望业务入口也像 `.200` 一样「节点挂了自动漂移」，需要**额外部署一套独立 Kube-vip DaemonSet**，只开 `--services`（不开 `--controlplane`），让它给 Traefik 分配一个**独立、可漂移**的业务 VIP。
 
-> 🔗 补充：关于「Traefik 是 K3s 内置、为什么项目 k8s 目录里看不到它」「Ingress 与 Service 的分工」「Ingress 不分配 IP、高可用靠 Traefik 入口」「ServiceLB vs Kube-vip --services」「Traefik Service 能否删」等关联知识点，详见《Ingress与Service与Traefik入口的关系》。
+> 关联补充：关于「Traefik 是 K3s 内置、为什么项目 k8s 目录里看不到它」「Ingress 与 Service 的分工」「Ingress 不分配 IP、高可用靠 Traefik 入口」「ServiceLB vs Kube-vip --services」「Traefik Service 能否删」等知识点，详见 👉 [Ingress / Service / Traefik 入口的关系](./Ingress与Service与Traefik入口的关系.md)。
 
-官方明确推荐「Control Plane HA 与 Service LB 分开部署」（见本文档 5.x 节 `--controlplane` 与 `--services` 的说明）。
+官方明确推荐「Control Plane HA 与 Service LB 分开部署」（见本文 2.1 节 `--controlplane` 与 `--services` 的说明）。第二套 DaemonSet 的**完整部署步骤**——生成清单、避免与控制平面套重名、关闭 K3s 内置 ServiceLB（`--disable servicelb`）、用 kube-vip-cloud-provider 配置地址池自动分配、暴露与验证 Service、per-service 选主——见 👉 **第 9 章「部署 Service LB DaemonSet（`--services`）」**。
 
-生成独立 Service LB 的 DaemonSet：
+### 7.5 业务入口高可用的三种层次（选型参考）
+
+| 方案 | 高可用能力 | 复杂度 | 适用 |
+| --- | --- | --- | --- |
+| 直接走节点物理 IP（`.201`/`.202`） | 单 IP 不漂移，靠上层切换 | 最低 | 临时/开发调试 |
+| 部署独立 Service LB（`--services`） | 单 VIP 漂移 | 中 | 生产（推荐） |
+| 域名 + DNS 轮询指向多个 VIP/IP | 客户端天然分散 | 中 | 生产（配合上者更稳） |
+
+> **最佳实践**：独立 Service LB 提供可漂移的业务 VIP + 域名指向该 VIP + 客户端重试（扛漂移秒级窗口），三层叠加最稳。
+
+## 8. Service LB 前置知识：IP 分配与 VIP 生命周期
+
+> 本章内容与第 9 章的 Service LB 部署直接相关。如果只部署控制平面 HA（`--controlplane`），可跳过本章；如果要给业务 Service 提供可漂移 VIP，建议先读本章再操作。
+
+### 8.1 `--services` 的 VIP 从哪来？（地址池 / DHCP / 单地址）
+
+理解 `--services` 可漂移，关键是搞清楚「Service 的外部 IP 由谁分配」。这里其实是**两个组件分工**（完整部署见第 9 章）：
+
+- **kube-vip 本体（`--services` DaemonSet）**：只负责「拿到一个已经确定的 IP → 在 leader 节点绑定并 ARP 广播 → 故障时漂移」。它本身**不会凭空分配 IP**，只有当 Service 已被写入外部 IP（`spec.loadBalancerIP` 或注解 `kube-vip.io/loadbalancerIPs`）后才会动作。
+- **kube-vip-cloud-provider（独立的 Cloud Controller，可选）**：负责「自动分配 IP」——从 ConfigMap 地址池里挑一个空闲 IP 回填给 Service，模拟公有云 CCM 的行为。
+
+| 方式 | 谁分配 IP | 典型配置 |
+| --- | --- | --- |
+| **手动指定固定 IP** | kube-vip 本体 | Service 写 `spec.loadBalancerIP: 192.168.1.210`（或注解 `kube-vip.io/loadbalancerIPs`） |
+| **地址池自动分配（推荐）** | kube-vip-cloud-provider | ConfigMap `kube-system/kubevip` 配 `range-global=192.168.1.210-192.168.1.220` 或 `cidr-global=192.168.1.216/29` |
+| **命名空间级地址池** | kube-vip-cloud-provider | ConfigMap key 用 `range-<namespace>` / `cidr-<namespace>` |
+| **DHCP（实验性）** | kube-vip 本体 | `spec.loadBalancerIP: 0.0.0.0`，由 kube-vip 建 macvlan 接口向 DHCP 租约 |
+
+> 关键点：`--services` 不是「在启动参数里写死一个全局业务入口 IP」，而是「**每个 `LoadBalancer` Service 各拿一个外部 VIP，各自独立选主、独立漂移**」。你有 N 个 `LoadBalancer` Service，就有 N 个 VIP。
+
+**完整链路（以 Traefik 业务入口为例）**：
+
+```text
+部署独立 --services Kube-vip + kube-vip-cloud-provider（ConfigMap 配地址池 .210-.220）
+        ↓
+Traefik Service (type: LoadBalancer) 被 cloud-provider 自动回填一个 VIP（如 .210）
+        ↓
+Kube-vip 在 leader 节点把 .210 挂到网卡，ARP 通告
+        ↓
+前端/客户端访问 http://192.168.1.210/ → Traefik → 后端 Pod
+        ↓
+leader 节点挂了 → VIP .210 漂到存活节点 → 访问继续（秒级切换窗口）
+```
+
+> 注意：**漂移的是「VIP」本身**（同一个 IP 从坏节点切到好节点），不是「换一个 IP」。对外始终是同一个 IP，客户端无感，只是漂移那几秒可能有请求失败，因此建议客户端带重试。
+
+### 8.2 VIP 是「一次性绑定」，不会变来变去
+
+> 高频误解：看到「自动分配」就担心「VIP 会变来变去、不方便」。实际上**分配是一次性绑定，之后永久固定**。
+
+**「自动」的真正含义**：指的是「创建 Service 时，kube-vip-cloud-provider 从地址池挑一个**当前空闲**的 IP 分给它，**无需你手动指定**」，而不是「每次访问都重新分配」。
+
+- 第一次分配后，VIP 会写进 Service 的 `status.loadBalancer.ingress`；
+- 只要 Service 不删，**VIP 永久不变**——Pod 重启、节点重启、VIP 漂移、滚动更新都不影响。
+
+**什么时候才会变？** 只有一种情况：`kubectl delete service` 删掉再重建，它会重新从池里拿 IP（可能相同也可能不同）。
+
+**VIP 生命周期一览表**：
+
+| 操作 | VIP 会变吗 |
+| --- | --- |
+| 改 `deployment.yaml` 并滚动更新 | 不变 |
+| Pod 崩溃 / 重建 | 不变 |
+| 节点 / 服务器重启 | 不变 |
+| VIP 漂移（节点挂了切到别的节点） | 不变（同一个 IP 漂移） |
+| `kubectl delete service` 再重建 | **会变**（重新分配） |
+
+> **「Service 不删」指的是 `kind: Service` 这个资源**（即 `service.yaml`），**不是 Ingress**。Ingress 只是「路由规则」（把外部请求转发到 Service），与 VIP 分配无关；VIP 绑定在 `LoadBalancer` 类型的 Service 上。
+>
+> 类比：像 DHCP 给电脑分 IP——第一次连上分到一个 IP，之后不掉线就一直固定；或像停车场分配固定车位，退了（删 Service）再重新登记才可能换。
+
+**为什么「自动分配」反而更方便？** 它帮你**自动规避 IP 冲突**：池里的 IP 由 kube-vip-cloud-provider 统一管理，不会出现两个 Service 抢同一个 IP 的问题，比手动指定单个 IP 更省心、更稳定。
+
+## 9. 部署 Service LB DaemonSet（`--services`：业务入口高可用）
+
+第 3 章部署的是「控制平面高可用」DaemonSet（`--controlplane`，守护 `6443`）。本章部署**第二套独立 DaemonSet**（`--services`），给 `type: LoadBalancer` 的业务 Service（如 Traefik）提供**会漂移的外部 VIP**，解决第 7 章说的「节点物理 IP 不漂移」问题。
+
+### 9.1 先理清分工：kube-vip 本体 vs kube-vip-cloud-provider
+
+| 组件 | 形态 | 职责 |
+| --- | --- | --- |
+| **kube-vip 本体** | DaemonSet（`--services`） | 监听 LoadBalancer Service，在 leader 节点绑定 VIP、ARP 广播、故障漂移 |
+| **kube-vip-cloud-provider** | Deployment（Cloud Controller，可选） | 从 ConfigMap 地址池自动挑空闲 IP，回填到 Service（模拟公有云 CCM 的分配行为） |
+
+- **只装本体**：每个 Service 必须自己写 `spec.loadBalancerIP`（或注解 `kube-vip.io/loadbalancerIPs`）指定 IP，kube-vip 才会广播；
+- **本体 + cloud-provider（推荐）**：Service 不用写 IP，cloud-provider 从地址池自动分配。
+
+> 与第 3 章那套的关系：**两套 DaemonSet 共存、互不干扰**——一套 `cp_enable=true / svc_enable=false` 守 6443，一套 `cp_enable=false / svc_enable=true` 守业务 Service，关键 env 对照见 9.7。
+
+### 9.2 第一步：关闭 K3s 内置 ServiceLB（避免两个 LB 打架）
+
+K3s 默认自带 ServiceLB（`svclb-traefik`，即第 7 章把节点物理 IP 塞进 EXTERNAL-IP 的组件）。要用 kube-vip 统一接管 LoadBalancer，必须先关掉它，否则两个控制器会同时给 Service 分配地址。
+
+**全新安装**时用环境变量传递参数（K3s 官方推荐的标准写法）：
+
+```bash
+curl -sfL https://get.k3s.io | \
+  INSTALL_K3S_EXEC="server --tls-san 192.168.1.200 --disable servicelb" \
+  sh -
+```
+
+**已安装的集群**：写配置文件后重启 K3s：
+
+```yaml
+# /etc/rancher/k3s/config.yaml
+disable:
+  - servicelb
+```
+
+```bash
+sudo systemctl restart k3s
+# 1. 查看系统命名空间下所有 svclb 资源
+kubectl get ds -n kube-system | grep svclb
+# 2. 清理所有遗留的 servicelb 相关 DaemonSet（系统会自动清理对应 Pod，Traefik 的 EXTERNAL-IP 会先变 <pending>，稍后由 kube-vip 重新分配）
+kubectl get ds -n kube-system -o name | grep svclb | xargs -r kubectl delete -n kube-system
+```
+
+### 9.3 第二步：生成并部署 `--services` DaemonSet
 
 ```bash
 export INTERFACE=enp0s3
 
-# 仅 --services，不传 --controlplane
+# 只开 --services：不传 --controlplane，也不需要 --address（IP 由 Service 或地址池决定）
 docker run --network host --rm ghcr.io/kube-vip/kube-vip:v1.2.2 manifest daemonset \
     --interface $INTERFACE \
     --services \
@@ -763,14 +668,131 @@ docker run --network host --rm ghcr.io/kube-vip/kube-vip:v1.2.2 manifest daemons
     --leaderElection | sudo tee /tmp/kube-vip-services.yaml
 ```
 
-> 部署后，`type: LoadBalancer` 的 Service（如 Traefik）会被分配一个**独立的、会漂移的 VIP**（来自 Kube-vip 的地址池或配置），前端统一指向这个 VIP 即可实现单入口高可用。
+没有 Docker 时同样可用 `k3s ctr` 代替（语法见 3.2 节）；多节点网卡名不一致时去掉 `--interface` 自动探测（见 3.4 节）。
 
-### 7.5 业务入口高可用的三种层次（选型参考）
+**apply 前必须改两处，避免与控制平面那套冲突**：
 
-| 方案 | 高可用能力 | 复杂度 | 适用 |
-| --- | --- | --- | --- |
-| 直接走节点物理 IP（`.201`/`.202`） | ❌ 单 IP 不漂移，靠上层切换 | 最低 | 临时/开发调试 |
-| 部署独立 Service LB（`--services`） | ✅ 单 VIP 漂移 | 中 | 生产（推荐） |
-| 域名 + DNS 轮询指向多个 VIP/IP | ✅ 客户端天然分散 | 中 | 生产（配合上者更稳） |
+1. **改名字**：打开 `/tmp/kube-vip-services.yaml`，把 DaemonSet 的 `metadata.name`（以及配套 `ServiceAccount` / `ClusterRoleBinding` 中引用的名字，如有）改成与第 3 章不同的名字，例如 `kube-vip-services`，否则两套同名 DaemonSet 会互相覆盖。
+2. **（推荐）开启 per-service 选主**：在容器 `env` 中加上下面这段，让每个 Service 各自选主、流量分散到不同节点，而不是全部压在同一个全局 leader 上：
 
-> **最佳实践**：独立 Service LB 提供可漂移的业务 VIP + 域名指向该 VIP + 客户端重试（扛漂移秒级窗口），三层叠加最稳。
+```yaml
+- name: svc_election
+  value: "true"
+```
+
+> **`svc_election` 还有一个硬性使用场景**：Service 若设置 `externalTrafficPolicy: Local`（保留客户端源 IP），必须开启它——kube-vip 只会让「本地运行着该 Service Pod」的节点参与这个 Service 的选主。
+
+应用并确认两套 DaemonSet 并存：
+
+```bash
+sudo k3s kubectl apply -f /tmp/kube-vip-services.yaml
+
+# 应能同时看到控制面套与业务套两个 DaemonSet
+sudo k3s kubectl get ds -n kube-system | grep kube-vip
+```
+
+### 9.4 第三步（推荐）：部署 cloud-provider 并配置地址池
+
+**1）安装 kube-vip-cloud-provider**
+
+```bash
+sudo k3s kubectl apply -f https://raw.githubusercontent.com/kube-vip/kube-vip-cloud-provider/main/manifest/kube-vip-cloud-controller.yaml
+```
+
+**2）创建地址池 ConfigMap**（固定在 `kube-system` 命名空间、名为 `kubevip`）
+
+```bash
+# 方式一：IP 范围（range），.210~.220
+sudo k3s kubectl create configmap -n kube-system kubevip \
+  --from-literal=range-global=192.168.1.210-192.168.1.220
+
+# 方式二：CIDR 网段（/29 即 .216~.223 共 8 个地址，二选一即可）
+sudo k3s kubectl create configmap -n kube-system kubevip \
+  --from-literal=cidr-global=192.168.1.216/29
+```
+
+或用 YAML 声明（全局池 + 命名空间池示例）：
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kubevip
+  namespace: kube-system
+data:
+  range-global: 192.168.1.210-192.168.1.220   # 任意命名空间的 Service 都可用
+  cidr-default: 192.168.1.224/29              # 仅 default 命名空间可用
+```
+
+> 地址池规则：`*-global` 全集群可用；`range-<namespace>` / `cidr-<namespace>` 只对指定命名空间生效；池内 IP 必须与节点同网段且未被占用（先 `ping` 确认）。
+
+### 9.5 第四步：暴露 Service 并验证
+
+**方式 A：自动分配（依赖 9.4 的 cloud-provider）**
+
+```bash
+# 普通业务 Service 示例
+sudo k3s kubectl expose deployment nginx-deploy --port=80 --type=LoadBalancer --name=nginx
+
+# -w 持续观察，EXTERNAL-IP 会从 <pending> 变成池子里的某个 IP
+sudo k3s kubectl get svc nginx -w
+```
+
+对于 Traefik：它本身就是 `type: LoadBalancer`，`--disable servicelb` 并装好 kube-vip 后，其 EXTERNAL-IP 会自动从地址池获得一个可漂移 VIP，无需手工 expose。
+
+**方式 B：手动指定 IP（不装 cloud-provider 也行）**
+
+```bash
+# 命令行：--load-balancer-ip 指定固定 VIP
+sudo k3s kubectl expose deployment nginx-deploy --port=80 --type=LoadBalancer \
+  --name=nginx --load-balancer-ip=192.168.1.210
+```
+
+```yaml
+# 或在 Service YAML 中二选一指定
+spec:
+  type: LoadBalancer
+  loadBalancerIP: "192.168.1.210"
+  # kube-vip 0.5.12+ 更推荐用注解（支持多个 IP，逗号分隔）
+  # annotations:
+  #   kube-vip.io/loadbalancerIPs: "192.168.1.210"
+```
+
+**验证 VIP 绑定与连通性**：
+
+```bash
+# 1. EXTERNAL-IP 已分配（不再是 <pending>）
+sudo k3s kubectl get svc -A | grep -i loadbalancer
+
+# 2. 在该 Service 的 leader 节点上，能看到 /32 的 VIP 绑到了网卡
+ip -4 addr show dev enp0s3
+# inet 192.168.1.210/32 scope global enp0s3
+
+# 3. 局域网内访问验证
+curl -I http://192.168.1.210
+```
+
+### 9.6 常用注解与进阶用法
+
+| 注解 / 字段 | 作用 |
+| --- | --- |
+| `kube-vip.io/loadbalancerIPs: "x.x.x.x"` | 显式指定外部 IP（可多个，逗号分隔），优先级高于地址池 |
+| `kube-vip.io/ignore: "true"` | 让 kube-vip 忽略该 Service（不绑定、不广播） |
+| `spec.loadBalancerClass: kube-vip.io/kube-vip-class` | K8s 1.24+：多 LB 共存时声明只由 kube-vip 处理 |
+| `spec.loadBalancerIP: 0.0.0.0` | 实验性 DHCP 模式：kube-vip 建 macvlan 接口向局域网 DHCP 租地址 |
+
+- **多个 Service 共享同一个 VIP**：只要暴露端口不冲突即可（如同一 IP 上 80、81 各一个 Service），都用 `--load-balancer-ip` 指向同一 IP。
+- **保留客户端源 IP**：Service 设 `externalTrafficPolicy: Local`，同时业务 DaemonSet 的 env 必须有 `svc_election: "true"`（见 9.3）。
+
+### 9.7 两套 DaemonSet 关键 env 对照
+
+| env | 控制平面套（第 3 章） | 业务 Service 套（本章） |
+| --- | --- | --- |
+| `cp_enable` | `"true"` | `"false"` |
+| `svc_enable` | `"false"` | `"true"` |
+| `svc_election` | 不需要 | 建议 `"true"`（per-service 选主；Local 流量策略必需） |
+| `vip_address` / `--address` | 写死控制面 VIP（如 `.200`） | 不写，IP 由 Service 或地址池决定 |
+| `port` | `6443` | 不适用（跟随每个 Service 自己的端口） |
+| 守护对象 | kube-apiserver | 所有 `type: LoadBalancer` 的 Service |
+
+> 部署完成后，集群里同时存在三个层次的地址：**控制平面 VIP**（`.200`，漂移）、**业务 Service VIP**（`.210` 等，漂移）、**节点物理 IP**（`.201`/`.202`，不漂移）——对照第 6、7 章理解，排查网络问题时先判断自己访问的是哪一层。
