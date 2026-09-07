@@ -65,13 +65,18 @@ k3s 默认自带一个轻量 LoadBalancer 实现 **servicelb（Klipper LoadBalan
 curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="--disable servicelb" sh -
 ```
 
-**已运行集群**：编辑 k3s 的 systemd 服务文件，在 `ExecStart` 末尾追加 `--disable servicelb`，再重启。
+**已运行集群**：编辑 k3s 配置文件 `/etc/rancher/k3s/config.yaml`（不存在则新建），加入 `disable: servicelb` 再重启：
 
 ```bash
-sudo systemctl edit k3s   # 或直接编辑 /etc/systemd/system/k3s.service
-# 在 ExecStart 末尾追加：--disable servicelb
-sudo systemctl daemon-reload && sudo systemctl restart k3s
+sudo mkdir -p /etc/rancher/k3s
+sudo tee -a /etc/rancher/k3s/config.yaml <<'EOF'
+disable:
+  - servicelb
+EOF
+sudo systemctl restart k3s
 ```
+
+> `disable` 就是命令行 `--disable servicelb` 的配置文件写法。已存在该文件则用 `tee -a` 追加、不会覆盖原有配置。
 
 > ⚠️ **禁用后遗留的 `svclb` 资源不会自动删除**：`--disable servicelb` 只是停止 servicelb controller 的运行（不再新建 `svclb`），但**已经创建的 `svclb-*` DaemonSet 和 Pod 会残留**，继续占用端口、也可能抢占 IP。必须手动清理：
 
