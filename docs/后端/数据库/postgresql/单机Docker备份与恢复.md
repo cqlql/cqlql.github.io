@@ -203,15 +203,30 @@ OWNER passup;
 
 #### 3. 恢复
 
-若 dump 在宿主机：
+`pg_restore` 的传参方式取决于 **dump 文件在哪**：
 
-```bash
-docker exec -i postgres \
-pg_restore \
--U passup \
--d passup \
-< passup_20260806.dump
-```
+- **dump 在宿主机本地**（最常见）→ 用 stdin 重定向，把宿主机文件喂给容器内 pg_restore：
+
+  ```bash
+  docker exec -i postgres pg_restore -U passup -d passup < /tmp/passup_20260806.dump
+  ```
+
+- **dump 在容器内** → 直接传文件路径即可，无需 `-i`：
+
+  ```bash
+  docker exec postgres pg_restore -U passup -d passup /tmp/passup_20260806.dump
+  ```
+
+  也可先把宿主机文件拷进容器再执行：
+
+  ```bash
+  docker cp /tmp/passup_20260806.dump postgres:/tmp/
+  docker exec postgres pg_restore -U passup -d passup /tmp/passup_20260806.dump
+  ```
+
+> 易错点：
+> - `docker exec -i` 的 `-i` 表示「保持 stdin 打开」，配合 `< 文件` 时该文件必须是宿主机（执行命令那台机器）本地文件；文件在容器内 / 远端都不能直接这样传。
+> - 本小节命令适用于 `pg_dump -Fc` 自定义格式 dump；纯 SQL（`-Fp`）恢复应改用 `psql -d passup -f xxx.sql`。
 
 恢复完成后启动应用：
 
