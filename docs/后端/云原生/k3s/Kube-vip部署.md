@@ -69,7 +69,7 @@ K3s 为了轻量化，其 kubelet 默认**没有**配置 `--pod-manifest-path` �
 > **参数语义变化（v1.x 重要）**：旧版本中的 `--active` 是 v0.8 之前旧架构遗留的 Flag，在 **v1.x** 中已被彻底重构，拆分为两个职责明确的开关：
 >
 > - **`--controlplane`**：让 Kube-vip 接管 **Kubernetes 控制面（Control Plane）** 的 VIP。它会监听 API Server 的 **6443 端口**，在多个 Master 节点间做 ARP 广播与选主（Leader Election），对外提供统一、可漂移的 `https://VIP:6443` 访问入口。这也是**多 Master 高可用（HA）场景所必须的参数**。
-> - **`--services`**：让 Kube-vip 同时充当 **Service LoadBalancer（负载均衡器）**，给 `type: LoadBalancer` 的 Service 自动分配并绑定外部 VIP。开启后访问这些 Service 不再需要云厂商 LB，局域网内即可直接路由。
+> - **`--services`**：让 Kube-vip 同时充当 **Service LoadBalancer（负载均衡器）**，给 `type: LoadBalancer` 的 Service 绑定并通告外部 VIP（VIP 由 kube-vip-cloud-provider 自动分配、或手动 `loadbalancerIPs` 指定）。开启后访问这些 Service 不再需要云厂商 LB，局域网内即可直接路由。
 >
 >   注意：**不建议和 `--controlplane` 混在同一实例里开启 `--services`！** 官方推荐 Control Plane HA 与 Service LB 分开部署：Service LB 功能应**单独部署一套独立的 kube-vip DaemonSet**（仅传 `--services`，不加 `--controlplane`），职责更清晰、升级也更方便。
 >
@@ -561,9 +561,21 @@ status:
 | 方式 | 谁分配 IP | 典型配置 |
 | --- | --- | --- |
 | **手动指定固定 IP** | kube-vip 本体 | Service 写 `spec.loadBalancerIP: 192.168.1.210`（或注解 `kube-vip.io/loadbalancerIPs`） |
-| **地址池自动分配（推荐）** | kube-vip-cloud-provider | ConfigMap `kube-system/kubevip` 配 `range-global=192.168.1.210-192.168.1.220` 或 `cidr-global=192.168.1.216/29` |
+| **指定承载节点（`vipHost`）** | kube-vip 本体 | Service 加注解 `kube-vip.io/vipHost: <节点名>` 指定 VIP **承载节点**；**仅当同时没给 `loadbalancerIPs`/池分配时**，kube-vip 才 fallback 把该节点物理 IP 当 VIP（⚠️ 见下方警告） |
+| **地址池自动分配** | kube-vip-cloud-provider（CCM，需单独安装） | ConfigMap `kube-system/kubevip` 配 `range-global=192.168.1.210-192.168.1.220` 或 `cidr-global=192.168.1.216/29` |
 | **命名空间级地址池** | kube-vip-cloud-provider | ConfigMap key 用 `range-<namespace>` / `cidr-<namespace>` |
 | **DHCP（实验性）** | kube-vip 本体 | `spec.loadBalancerIP: 0.0.0.0`，由 kube-vip 建 macvlan 接口向 DHCP 租约 |
+
+> ⚠️ **VIP 取值的真正规则（官方 + 实测）**：core kube-vip **不分配 IP**，只把「已确定的 IP」绑到 leader 节点并通告。VIP 数值的确定顺序：
+> 1. 注解 `kube-vip.io/loadbalancerIPs: <IP>` → 用指定 IP（最高优先级）；
+> 2. `spec.loadBalancerIP`；
+> 3. `status.loadBalancer.ingress`（由 kube-vip-cloud-provider 等控制器回填）；
+> 4. **都没有 → fallback 用 leader 节点的物理 IP 当 VIP**（危险，见下）。
+>
+> ⚠️ **自动分配需要 CCM**：`range-global` 地址池的「自动分配」是 **kube-vip-cloud-provider（CCM）** 的职责，core kube-vip 不会读这个 ConfigMap 分配 IP。**没装 CCM 时，池子形同虚设**，每个 LoadBalancer Service 都必须手动写 `loadbalancerIPs`，否则就走第 4 条 fallback 到节点 IP。
+>
+> ⚠️ **致命坑**：**没装 CCM 又不写 `loadbalancerIPs`** → kube-vip fallback 用节点物理 IP 当 VIP；节点宕机漂移时二层抢 ARP，把节点挤成 `NotReady`（本环境 traefik 最早即此：无 CCM、无 `loadbalancerIPs`，VIP fallback 成 `172.16.0.211/212`，漂到 u1 后把 u2 挤掉）。
+> 关于 `vipHost`：它是 kube-vip 运行期写回的「VIP 当前承载节点」记录（删了会重现、无需删），**不决定 VIP 数值**。完整排障见《Kube-vip 排障（Service VIP 与节点 IP 冲突）》。**正确做法：VIP 一律取自 `range-global` 池里、且不与任何节点 IP 重叠的空闲地址（无 CCM 时用 `loadbalancerIPs` 手动指定）。**
 
 > 关键点：`--services` 不是「在启动参数里写死一个全局业务入口 IP」，而是「**每个 `LoadBalancer` Service 各拿一个外部 VIP，各自独立选主、独立漂移**」。你有 N 个 `LoadBalancer` Service，就有 N 个 VIP。
 
@@ -610,6 +622,58 @@ leader 节点挂了 → VIP .210 漂到存活节点 → 访问继续（秒级切
 
 **为什么「自动分配」反而更方便？** 它帮你**自动规避 IP 冲突**：池里的 IP 由 kube-vip-cloud-provider 统一管理，不会出现两个 Service 抢同一个 IP 的问题，比手动指定单个 IP 更省心、更稳定。
 
+### 8.3 手动指定固定 VIP（示例）
+
+**前提**：只有在**装了 kube-vip-cloud-provider（CCM）** 时，不写注解的 Service 才会从 `range-global` 池自动分配。**没装 CCM**（如本环境）时，每个 LoadBalancer Service 都**必须手动指定** VIP（否则 kube-vip 会 fallback 用节点 IP，危险）。如果某些业务需要一个固定、好记的入口 VIP，直接写注解即可——kube-vip 读到后就绑定你给的 IP。
+
+**方式 1：注解 `kube-vip.io/loadbalancerIPs`（推荐，新版本）**
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-app
+  annotations:
+    kube-vip.io/loadbalancerIPs: "192.168.1.215"   # 想固定成哪个 VIP
+spec:
+  type: LoadBalancer
+  ports:
+    - port: 80
+      targetPort: 8080
+  selector:
+    app: my-app
+```
+
+**方式 2：注解 `kube-vip.io/requestedIP`（老版本 / 经典 k3s 教程常用，与新版本 `loadbalancerIPs` 等价）**
+
+```yaml
+  annotations:
+    kube-vip.io/requestedIP: "192.168.1.215"
+```
+
+**方式 3：`spec.loadBalancerIP`（旧 API 字段，K8s 1.24+ 已废弃但仍可被 kube-vip 识别，不如注解稳妥）**
+
+```yaml
+spec:
+  type: LoadBalancer
+  loadBalancerIP: 192.168.1.215
+```
+
+> **指定 IP 的两铁律**：
+> 1. 必须落在集群**同一二层网段**，否则其他节点/客户端 ARP 不到它，访问不通；
+> 2. **绝对不能是任何节点的物理 IP**（如本环境的 `172.16.0.211` / `172.16.0.212`），否则节点宕机漂移时会二层抢 ARP，把原节点挤成 `NotReady`（见 8.1 致命坑）。
+> 推荐直接取你 `range-global` 池里的某个空闲地址（本环境即 `172.16.0.180-185` 中未占用者）。
+> 补充：地址池只是「自动分配时的管理范围」，kube-vip **不会校验**手动指定的 IP 是否落在池内——你可以指定池外的任意地址，前提是满足上面两铁律且网络中确实空闲。但池外 IP 跳过了 IPAM 的冲突保护，需你自行保证全网唯一，因此仍建议优先用池内地址。
+
+**优先级回顾**：装了 CCM 时，Service 没写任何 IP → 从 `range-global` 池自动分配；没装 CCM 时，必须写 `loadbalancerIPs`（否则 fallback 节点 IP）。写了 `loadbalancerIPs` 就用你给的值。`vipHost` 只是 kube-vip 写回的承载节点记录，不用管。
+
+**验证**：
+
+```bash
+kubectl get svc my-app -n <命名空间>        # 看 EXTERNAL-IP 是否为指定值
+kubectl describe svc my-app -n <命名空间>    # Events 里看 kube-vip 分配日志
+```
+
 ## 9. 部署 Service LB DaemonSet（`--services`：业务入口高可用）
 
 第 3 章部署的是「控制平面高可用」DaemonSet（`--controlplane`，守护 `6443`）。本章部署**第二套独立 DaemonSet**（`--services`），给 `type: LoadBalancer` 的业务 Service（如 Traefik）提供**会漂移的外部 VIP**，解决第 7 章说的「节点物理 IP 不漂移」问题。
@@ -650,7 +714,7 @@ disable:
 sudo systemctl restart k3s
 # 1. 查看系统命名空间下所有 svclb 资源
 kubectl get ds -n kube-system | grep svclb
-# 2. 清理所有遗留的 servicelb 相关 DaemonSet（系统会自动清理对应 Pod，Traefik 的 EXTERNAL-IP 会先变 <pending>，稍后由 kube-vip 重新分配）
+# 2. 清理所有遗留的 servicelb 相关 DaemonSet（系统会自动清理对应 Pod，Traefik 的 EXTERNAL-IP 会先变 <pending>，稍后由 CCM 自动分配或手动 loadbalancerIPs 指定）
 kubectl get ds -n kube-system -o name | grep svclb | xargs -r kubectl delete -n kube-system
 ```
 
@@ -659,7 +723,7 @@ kubectl get ds -n kube-system -o name | grep svclb | xargs -r kubectl delete -n 
 ```bash
 export INTERFACE=enp0s3
 
-# 只开 --services：不传 --controlplane，也不需要 --address（IP 由 Service 或地址池决定）
+# 只开 --services：不传 --controlplane，也不需要 --address（IP 由 Service 手动 loadbalancerIPs 指定，或由 cloud-provider 从地址池分配）
 docker run --network host --rm ghcr.io/kube-vip/kube-vip:v1.2.2 manifest daemonset \
     --interface $INTERFACE \
     --services \

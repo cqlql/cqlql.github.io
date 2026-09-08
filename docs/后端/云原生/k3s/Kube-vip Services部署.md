@@ -26,11 +26,11 @@ Ingress 规则（Host/Path 七层路由）
 
 | 层 | 类型 | 职责 | 高可用手段 |
 | --- | --- | --- | --- |
-| 入口 VIP | kube-vip `--services` | 给 LB 型 Service 分配**可漂移的 VIP** | 多副本 + 选主（`svc_election`） |
+| 入口 VIP | kube-vip `--services` | 给 LB 型 Service 提供**可漂移的 VIP**（绑定并通告；分配由 CCM 或手动完成） | 多副本 + 选主（`svc_election`） |
 | Traefik Service | `LoadBalancer` | 对外入口，拿到 VIP | VIP 漂移 |
 | 业务 Service | `ClusterIP` | 集群内稳定访问后端 | 多副本 + Service 负载均衡 |
 
-> 关键点：**只有 `LoadBalancer` 类型的 Service 才会被 kube-vip 分配 VIP**。Traefik 恰好是 K3s 内置的那个 `LoadBalancer` Service，所以它拿到 VIP 成为业务入口；而你的业务应用 Service 保持 `ClusterIP` 即可，**不需要**改成 LoadBalancer——业务流量走 `Ingress → ClusterIP Service → Pod`。
+> 关键点：**只有 `LoadBalancer` 类型的 Service 才会拿到 VIP**（VIP 由 CCM 自动分配、或你手动 `loadbalancerIPs` 指定，kube-vip 负责绑定并通告）。Traefik 恰好是 K3s 内置的那个 `LoadBalancer` Service，所以它拿到 VIP 成为业务入口；而你的业务应用 Service 保持 `ClusterIP` 即可，**不需要**改成 LoadBalancer——业务流量走 `Ingress → ClusterIP Service → Pod`。
 
 ## 二、两个关键配置（缺一不可）
 
@@ -217,9 +217,11 @@ spec:
 > 2. 上面的 `nodeAffinity` 把 kube-vip 限制在 control-plane 节点；若希望 Worker 节点也能承载 LB 流量，删掉整段 `affinity` 即可。
 > 3. `hostNetwork: true` 不可省略，否则 VIP 无法绑定到节点网卡。
 
-### 3.3 配置 IP 地址池（IPAM）
+### 3.3 配置 IP 地址池（必须依赖 cloud-provider）
 
-仅启动 kube-vip 还不够，还需要一个 **IP 地址池** 供 `type: LoadBalancer` 的 Service 分配 VIP。最简单的方式是用 ConfigMap 指定一段连续、未被占用的局域网 IP：
+> ⚠️ **关键认知（易踩坑）**：`range-global` 地址池的「自动分配」**只有装了 kube-vip-cloud-provider（CCM）才生效**。core kube-vip 只负责把「已确定的 IP」绑到网卡并通告，**不会读这个 ConfigMap 分配 IP**。若只装了 `--services` 的 kube-vip、没装 CCM，这个 ConfigMap 就是「写了没人读」的死配置——此时每个 LoadBalancer Service 都必须手动写 `kube-vip.io/loadbalancerIPs`，否则 kube-vip 会 fallback 用节点 IP（危险，见《Kube-vip 排障（Service VIP 与节点 IP 冲突）》）。
+
+先建地址池 ConfigMap（供 CCM 读取）：
 
 ```yaml
 apiVersion: v1
@@ -235,17 +237,116 @@ data:
 sudo k3s kubectl apply -f kubevip-configmap.yaml
 ```
 
-> 💡 **进阶 IPAM：kube-vip-cloud-provider（官方推荐）**。上面的 ConfigMap 是 kube-vip 内置的简单 IPAM，适合起步。若需要更细粒度的控制（例如通过注解给某个 Service 指定固定 IP、namespace 级地址池、标准 `LoadBalancer` status 同步），官方推荐部署 **kube-vip-cloud-provider**——一个实现标准 cloud-provider 接口的 Cloud Controller Manager（CCM），专门负责 IP 分配与 Service status 更新，而 kube-vip 本体只负责把 VIP 绑定到网卡并通告：
+再安装 cloud-provider（CCM），它才会读上面的池、给 LoadBalancer Service 自动回填 VIP：
 
 ```bash
 sudo k3s kubectl apply -f https://raw.githubusercontent.com/kube-vip/kube-vip-cloud-provider/main/manifest/kube-vip-cloud-controller.yaml
 ```
 
-> 部署后可在 Service 上用注解指定固定 IP（如 `kube-vip.io/requestedIP: "192.168.1.205"`）。两者区别：ConfigMap 是 kube-vip 自己读地址池分配；cloud-provider 由独立的 CCM 组件接管 IPAM，职责更清晰、功能更完整，生产环境更推荐后者。
+> 分工总结：**CCM 负责「分配 IP + 回填 status」；core kube-vip 负责「把已分配的 IP 绑定到网卡 + ARP 通告 + 漂移」**，二者是两套组件。
+> - 装了 CCM → Service 不用写 IP，自动从池分配（也可用注解 `kube-vip.io/loadbalancerIPs` 指定固定 IP）；
+> - **没装 CCM → 必须手动写 `kube-vip.io/loadbalancerIPs`**，否则 fallback 到节点 IP。
 
 ### Service VIP 从哪来？
 
-`--services` 模式下，VIP 从上面的**地址池（`range-global`）自动分配**，也可以在 Service 上用注解 `kube-vip.io/loadbalancerIPs` 指定某个固定 IP。分配是**一次性绑定**，只要不删 Service 就永久不变。详见《Kube-vip 部署》5.x 节「`--services` 的 VIP 从哪来」。
+`--services` 模式下，VIP 的来源分两种情况：**装了 cloud-provider（CCM）** → 从地址池（`range-global`）自动分配；**没装 CCM** → 必须在 Service 上手动指定（否则 fallback 节点 IP）。可用的注解：
+
+- `kube-vip.io/loadbalancerIPs: <IP>` → **真正决定 VIP 数值**的固定 IP；
+- `kube-vip.io/vipHost: <节点名>` → 指定该 VIP 的**承载节点**（kube-vip 也会把它写回 Service 做记录）。**单独写它、又不给 `loadbalancerIPs`** 时，kube-vip 会 fallback 把该节点物理 IP 当 VIP（这才是危险来源）。
+
+> ⚠️ **VIP 取值的真正规则（官方 + 实测）**：core kube-vip **不分配 IP**，只绑定/通告已确定的 IP。VIP 数值确定顺序：`loadbalancerIPs` 注解 → `spec.loadBalancerIP` → `status.loadBalancer.ingress`（由 CCM 回填）→ **都没有则 fallback 用节点物理 IP**（危险）。
+> - 有 `loadbalancerIPs`（或 CCM 已从池回填）→ VIP = 该地址，**安全**；`vipHost` 只是 kube-vip 写回的「承载节点」记录，可共存、无害、删了会重现；
+> - **没装 CCM 又没 `loadbalancerIPs`** → fallback 成节点物理 IP → 漂移时抢 ARP 把节点挤 `NotReady`（本环境 traefik 最早即此：无 CCM、无 `loadbalancerIPs`，VIP 退化成 `172.16.0.211/212`）。
+>
+> 所以「配了 `range-global` 池」**不等于**「自动分配生效」——没装 CCM 时池子根本没人读，必须手动 `loadbalancerIPs`。
+>
+> ⚠️ **致命坑**：危险的是「**没装 CCM 且不写 `loadbalancerIPs`**」（fallback 节点 IP），以及「显式把 `loadbalancerIPs` 写成某个节点 IP」——两者都会让 VIP 与节点 IP 重合，漂移时二层抢 ARP 把节点挤成 `NotReady`。详见《Kube-vip 排障（Service VIP 与节点 IP 冲突）》。正确做法：VIP 取自池中（或 `loadbalancerIPs` 指定的池内地址）、不与节点 IP 重叠。
+
+分配是**一次性绑定**，只要不删 Service 就永久不变。详见《Kube-vip 部署》8.1 节「`--services` 的 VIP 从哪来」。
+
+**如何手动指定（示例）**：
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-app
+  annotations:
+    kube-vip.io/loadbalancerIPs: "172.16.0.181"   # 固定成池里某个空闲 VIP
+spec:
+  type: LoadBalancer
+  ports:
+    - port: 80
+      targetPort: 8080
+  selector:
+    app: my-app
+```
+
+- 注解 `kube-vip.io/loadbalancerIPs`（推荐，新版本）或 `kube-vip.io/requestedIP`（老版本，等价）；也可用旧字段 `spec.loadBalancerIP`（K8s 1.24+ 已废弃，不如注解稳妥）。
+- 指定 IP 的**两铁律**：① 落在集群同一二层网段；② **绝不能是节点物理 IP**（如 `172.16.0.211` / `172.16.0.212`），否则漂移时抢 ARP 把节点挤成 `NotReady`。
+- 地址池只是自动分配的管理范围，kube-vip 不校验手动指定 IP 是否落在池内：可以指定池外地址，但须自行确保该地址在二层可达、且全网唯一（不被任何主机占用），否则同样会冲突。建议仍优先用池内空闲地址。
+- 装了 CCM 时不写注解 → 从 `range-global` 池自动分配；没装 CCM 则**必须写 `loadbalancerIPs`**（建议取池内地址），否则 fallback 成节点物理 IP，危险（见上）。验证：`kubectl get svc my-app` 看 `EXTERNAL-IP`。
+
+### 暴露方式选型：直接 LoadBalancer Service vs Ingress（Traefik）
+
+kube-vip `--services` 给**每一个** `type: LoadBalancer` 的 Service 分配一个可漂移的 VIP，所以「业务入口直接访问 LoadBalancer Service 的 VIP」本身就是合法、常见的做法。Traefik 的 VIP 本质也是「Traefik 这个 LoadBalancer Service 的 VIP」——两者是同一套机制，只是暴露的对象不同。区别在于**层级与 VIP 消耗**：
+
+| | 直接暴露 `LoadBalancer` Service | 走 Traefik Ingress（Traefik 本身是 LB Service） |
+| --- | --- | --- |
+| 对外形态 | 每个要暴露的业务 Service 各拿一个 VIP | 只有 Traefik 拿一个 VIP，业务 Service 用 `ClusterIP`（内部） |
+| 转发层级 | **L4**（TCP/UDP），按 IP:端口 直通 | **L7**（HTTP/HTTPS），按域名/路径路由 |
+| VIP 消耗 | N 个业务 = N 个 VIP（吃地址池） | 1 个 VIP 多路复用所有 Web 应用 |
+| 适合场景 | 数据库、gRPC、任意 TCP/UDP 服务；或简单 HTTP 不想管路由 | 多个网站/域名共享 80/443、要 TLS 终止、按 Host/Path 分流 |
+| 客户端访问 | `http://<业务VIP>:port` | `http://<Traefik VIP>/`，Traefik 按规则转到对应后端 |
+
+**结论**：
+
+- 想直接暴露某个业务 `LoadBalancer` Service，完全 OK——每个业务一个独立 VIP，客户端直连，简单直接；
+- Traefik 的价值是：一堆 HTTP 服务时不用给每个都申请 VIP、记一堆 IP/端口，只暴露 Traefik 一个 VIP，靠域名/路径分流到不同后端，**省 VIP、好管理、带 TLS/路由**；
+- 两者**可共存**：HTTP 类走 Traefik 那个 VIP；裸 TCP/UDP（如数据库 `5432`）直接给对应 Service 配 `LoadBalancer` VIP。
+
+> **主流做法**：对于 HTTP/HTTPS（绝大多数 Web 业务），业界默认走 **Ingress**——只把 Ingress Controller（Traefik/Nginx 等）暴露成一个 `LoadBalancer` Service（占 1 个 VIP），业务 Service 全用 `ClusterIP` + `Ingress` 资源按域名/路径路由；既省 VIP、又集中管 TLS 与路由。直接 `LoadBalancer` Service 更常用于 **Ingress 搞不定的 L4 场景**（裸 TCP/UDP：数据库、MQTT、游戏服等），或极简单服务图省事时。K3s 默认内置 Traefik，正是走这条「Ingress 为主」的主流路径。（补充：Traefik 也能用 TCP/UDP Router 接管部分 L4 流量，可进一步收敛 VIP 数量。）
+
+> **那 `range-global` 池子是不是可以不用配了？** 分两种情况：**装了 CCM** → 池子要配（自动分配的来源），但即使「所有业务都走 Ingress、只暴露 Traefik 一个 VIP」，也只需 1 个地址（Traefik 用掉），可配得很小（如 `172.16.0.180-180`，或留两三个做余量）；池子大不等于浪费，多出来的只是未被使用的空闲地址。**没装 CCM（本环境）** → 池子其实**没用**（core kube-vip 不读它），真正起作用的是手动 `loadbalancerIPs`；没装 CCM 又不写 `loadbalancerIPs` 时，LB Service 会 fallback 成节点 IP（危险）而非 `<pending>`。结论：要么「装 CCM + 配池」，要么「不装 CCM + 每个 LB Service 手动写 `loadbalancerIPs`」。
+
+> 无论选哪种，VIP 要么来自 `range-global` 池（需 CCM）、要么手动 `loadbalancerIPs`，且都**不能是节点物理 IP**——前面「Service VIP 从哪来?」里的规则与致命坑对两者同样适用。
+
+### Traefik 也能接管 TCP/UDP（L4）流量，进一步收敛 VIP
+
+上一节说「裸 TCP/UDP 用直接 LoadBalancer Service」，但 Traefik 不止能做 L7——它同样能用 **IngressRouteTCP / IngressRouteUDP**（Traefik CRD）路由 L4 流量。这样连数据库、Redis、MQTT 这类非 HTTP 服务也能统一从 Traefik 那**一个 VIP** 进出，VIP 数量进一步压到最少。
+
+**关键区别**：HTTP 靠 `Host`/路径分流，一个 `:80/:443` 能挂几十个站点；**TCP/UDP 没有 Host 头**，所以 L4 路由靠 **entrypoint 端口** 区分——每个 L4 服务在 Traefik 上占一个独立入口端口，客户端用 `VIP:端口` 访问。若后端本身走 TLS，Traefik 还能按 **SNI（域名）** 在同一条 TLS 端口上再分流。
+
+**示例：把 PostgreSQL 收编进 Traefik 的 VIP**
+
+1) 先在 Traefik 上开一个 TCP 入口（entrypoint 名 `postgres`，端口 `5432`）。K3s 里改 `/var/lib/rancher/k3s/server/manifests/traefik-config.yaml` 的 `entryPoints` 并给 Traefik 的 `LoadBalancer` Service 增加 `5432` 端口，让 `VIP:5432` 可达。
+
+2) 用 `IngressRouteTCP` 把该入口转到后端 `postgres` Service：
+
+```yaml
+apiVersion: traefik.io/v1alpha1
+kind: IngressRouteTCP
+metadata:
+  name: postgres
+  namespace: default
+spec:
+  entryPoints:
+    - postgres            # 对应上面开的 TCP 入口
+  routes:
+    - services:
+        - name: postgres
+          port: 5432
+```
+
+3) 客户端直连 Traefik 的 VIP 即可，不再需要给 postgres 单独申请 VIP：
+
+```bash
+psql -h <Traefik VIP> -p 5432 -U <用户> -d <库>   # 流量经 Traefik L4 转发到 postgres Pod
+```
+
+UDP 同理，换成 `IngressRouteUDP`（如把 DNS `53`、游戏/QUIC 端口收编进 Traefik）。
+
+> 取舍：走 Traefik L4 的好处是 VIP 最少、出入口统一；代价是每类 L4 协议要在 Traefik 上占一个端口、且需写 Traefik CRD（K3s 默认已带 IngressRoute 系列 CRD）。如果某 L4 服务就是想「最省事直连」、或端口难协调，仍可用上一节的「直接 LoadBalancer Service」——两种不冲突。
 
 ## 四、修改 Traefik Service（设置 `externalTrafficPolicy: Local`）
 
@@ -287,7 +388,7 @@ sudo k3s kubectl get pods -n kube-system -l app.kubernetes.io/name=kube-vip-ds -
 
 ```bash
 sudo k3s kubectl get svc -n kube-system traefik
-# EXTERNAL-IP 应是地址池分配的 VIP（网卡上 /32 形式），而非各节点物理 IP
+# EXTERNAL-IP 应是 VIP（网卡上 /32 形式）——装了 CCM 来自地址池、没装 CCM 来自手动 loadbalancerIPs；绝不能是各节点物理 IP
 ```
 
 > ⚠️ 判断要点：如果 EXTERNAL-IP 是各节点的**物理 IP**（`/24`），说明仍走 K3s 内置 ServiceLB（不漂移）；真正的 `--services` VIP 在网卡上是 `/32` 且会漂移。详见《Ingress与Service与Traefik入口的关系》。
@@ -353,7 +454,7 @@ sudo k3s kubectl get svc nginx-service
 # nginx-service   LoadBalancer   10.43.123.45    192.168.1.200   80:31234/TCP   10s
 ```
 
-`EXTERNAL-IP` 会自动从 `range-global` 地址池分一个 IP（如上例 `192.168.1.200`），局域网内直接访问 `http://192.168.1.200` 即可连通。测试完清理：
+`EXTERNAL-IP` 装了 CCM 时会自动从 `range-global` 池分一个 IP；**没装 CCM 时 nginx-service 需手动加注解 `kube-vip.io/loadbalancerIPs` 指定 VIP**（否则 fallback 成节点 IP）。拿到 IP 后局域网直接访问即可连通。测试完清理：
 
 ```bash
 sudo k3s kubectl delete -f nginx-demo.yaml
@@ -363,6 +464,6 @@ sudo k3s kubectl delete -f nginx-demo.yaml
 
 - **推荐方案**：kube-vip `--services`（LoadBalancer）+ Ingress(Traefik) + 业务 Service(ClusterIP)。
 - **两个开关**：kube-vip 侧 `svc_election: "true"`（选主），Traefik Service 侧 `externalTrafficPolicy: Local`（保源 IP），二者配套。
-- **部署前置**：先禁用 k3s 内置 servicelb（`--disable servicelb`），再配 IP 地址池（ConfigMap `range-global`），否则 kube-vip 拿不到/抢不到 VIP。
+- **部署前置**：先禁用 k3s 内置 servicelb（`--disable servicelb`）；若要自动分配，需再装 kube-vip-cloud-provider（CCM）并配地址池（ConfigMap `range-global`）；**不装 CCM 则每个 LB Service 手动写 `loadbalancerIPs`**。
 - **Traefik Service 可改**：它是 K3s 默认生成的，改 `/var/lib/rancher/k3s/server/manifests/traefik-config.yaml` 后自动热加载。
 - **关联阅读**：[Kube-vip 部署 (ARP 模式)](./Kube-vip部署.md) · [Ingress与Service与Traefik入口的关系](./Ingress与Service与Traefik入口的关系.md) · [VIP 方案选型](./VIP方案选型.md)
