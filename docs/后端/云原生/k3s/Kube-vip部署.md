@@ -860,3 +860,35 @@ curl -I http://192.168.1.210
 | 守护对象 | kube-apiserver | 所有 `type: LoadBalancer` 的 Service |
 
 > 部署完成后，集群里同时存在三个层次的地址：**控制平面 VIP**（`.200`，漂移）、**业务 Service VIP**（`.210` 等，漂移）、**节点物理 IP**（`.201`/`.202`，不漂移）——对照第 6、7 章理解，排查网络问题时先判断自己访问的是哪一层。
+
+## 10. 卸载与清理
+
+```bash
+# 1. 查看现有 kube-vip 相关 DaemonSet（两套可能并存）
+sudo k3s kubectl get ds -n kube-system | grep kube-vip
+
+# 2. 删除两套 DaemonSet（按实际名字；services 套若改过名，用改后的名字）
+sudo k3s kubectl delete ds -n kube-system kube-vip-ds kube-vip-services
+
+# 3. 删除 RBAC（两套若未分别改名则共用一套，删一次即可；若改过名用实际名字）
+sudo k3s kubectl delete serviceaccount kube-vip -n kube-system
+sudo k3s kubectl delete clusterrole system:kube-vip-role
+sudo k3s kubectl delete clusterrolebinding system:kube-vip-binding
+
+# 4. 删除 cloud-provider（与部署时同一份清单对称删除）
+sudo k3s kubectl delete -f https://raw.githubusercontent.com/kube-vip/kube-vip-cloud-provider/main/manifest/kube-vip-cloud-controller.yaml
+
+# 5. 删除地址池 ConfigMap
+sudo k3s kubectl delete configmap kubevip -n kube-system
+```
+
+**恢复 K3s 内置 ServiceLB**（第 9.2 节若 `--disable servicelb` 了）：编辑 `/etc/rancher/k3s/config.yaml`，删掉 `disable: - servicelb` 后重启：
+
+```bash
+sudo systemctl restart k3s
+```
+
+**几点说明**：
+
+- **VIP 自动释放**：DaemonSet 删除后，kube-vip 进程随 Pod 被回收时会自动把网卡上的 `/32` VIP 剥离，无需手动 `ip addr del`。可用 `ip -4 addr show dev <网卡>` 确认 `.200`/`.210` 等已消失。
+- **Traefik 恢复到 ServiceLB**：重启 K3s 后 `svclb-traefik` 自动重建，Traefik 的 `EXTERNAL-IP` 会从 kube-vip 分配的 VIP 变回节点物理 IP（回到第 7 章「不漂移」的形态）。若 Traefik Service 上还残留 `kube-vip.io/loadbalancerIPs` 注解或 `loadBalancerIP` 字段，需手动清掉，否则与 servicelb 争抢。

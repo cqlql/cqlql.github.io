@@ -94,10 +94,12 @@ sudo k3s kubectl get ds -n kube-system -o name | grep svclb | xargs -r sudo k3s 
 
 生成独立的 Service LB DaemonSet（**只传 `--services`，不传 `--controlplane`**）：
 
+> 💡 **关于版本号**：建议先到 [kube-vip Releases](https://github.com/kube-vip/kube-vip/releases) 页面查看最新版本号（最新的 Release 标签即为版本号），然后将下方命令中的 `v1.2.3` 替换为最新版本。
+
 ```bash
 export INTERFACE=enp0s3
 
-docker run --network host --rm ghcr.io/kube-vip/kube-vip:v1.2.2 manifest daemonset \
+docker run --network host --rm ghcr.io/kube-vip/kube-vip:v1.2.3 manifest daemonset \
     --interface $INTERFACE \
     --services \
     --inCluster \
@@ -106,6 +108,10 @@ docker run --network host --rm ghcr.io/kube-vip/kube-vip:v1.2.2 manifest daemons
 
 sudo k3s kubectl apply -f /tmp/kube-vip-services.yaml
 ```
+
+> ⚠️ **若集群里已部署了 controlplane 那套，apply 前必须先改名字**：两套生成的 DaemonSet 默认名相同（都是 `kube-vip-ds`），后 apply 的会**替换**先前那套（不是并存），导致 controlplane 配置丢失。把 DaemonSet 的 `metadata.name`（及 RBAC 中引用的名字）改成不同名，如 `kube-vip-services`，再 apply。详见《Kube-vip 部署》9.3 节。
+
+> ⚠️ **`INTERFACE` 必须与运行该 DaemonSet 的物理机/虚拟机上的实际网卡名称一致**，否则 VIP 无法正确宣告。
 
 > 机器上没有 Docker 时，用 `sudo k3s ctr run --rm --net-host ...` 替代（参考《Kube-vip 部署》中的「机器上没有 Docker 怎么办」）。
 
@@ -187,7 +193,7 @@ spec:
       serviceAccountName: kube-vip
       containers:
         - name: kube-vip
-          image: ghcr.io/kube-vip/kube-vip:v1.2.2
+          image: ghcr.io/kube-vip/kube-vip:v1.2.3
           imagePullPolicy: Always
           args:
             - manager
@@ -466,4 +472,5 @@ sudo k3s kubectl delete -f nginx-demo.yaml
 - **两个开关**：kube-vip 侧 `svc_election: "true"`（选主），Traefik Service 侧 `externalTrafficPolicy: Local`（保源 IP），二者配套。
 - **部署前置**：先禁用 k3s 内置 servicelb（`--disable servicelb`）；若要自动分配，需再装 kube-vip-cloud-provider（CCM）并配地址池（ConfigMap `range-global`）；**不装 CCM 则每个 LB Service 手动写 `loadbalancerIPs`**。
 - **Traefik Service 可改**：它是 K3s 默认生成的，改 `/var/lib/rancher/k3s/server/manifests/traefik-config.yaml` 后自动热加载。
+- **卸载与清理**：删除两套 DaemonSet、RBAC、cloud-provider 与地址池并恢复 servicelb 的完整步骤，见《Kube-vip 部署》「卸载与清理」章节。
 - **关联阅读**：[Kube-vip 部署 (ARP 模式)](./Kube-vip部署.md) · [Ingress与Service与Traefik入口的关系](./Ingress与Service与Traefik入口的关系.md) · [VIP 方案选型](./VIP方案选型.md)
