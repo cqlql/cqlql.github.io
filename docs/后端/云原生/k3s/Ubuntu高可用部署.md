@@ -112,7 +112,7 @@ ufw disable
 大陆环境直接拉取 `get.k3s.io` 和官方二进制包通常很慢，且容易因代理导致本地 IP 被劫持、TLS 证书报错。可改用 Rancher 国内镜像源，通过 `INSTALL_K3S_MIRROR=cn` 环境变量让安装脚本从 `rancher-mirror.rancher.cn` 拉取安装脚本与 K3s 二进制包：
 
 ```bash
-curl -sfL https://rancher-mirror.rancher.cn/k3s/k3s-install.sh | INSTALL_K3S_MIRROR=cn sh -s - server \
+curl -sfL https://rancher-mirror.rancher.cn/k3s/k3s-install.sh | INSTALL_K3S_MIRROR=cn INSTALL_K3S_EXEC="--disable servicelb" sh -s - server \
   --cluster-init \
   --write-kubeconfig-mode=644
 ```
@@ -122,7 +122,7 @@ curl -sfL https://rancher-mirror.rancher.cn/k3s/k3s-install.sh | INSTALL_K3S_MIR
 ### 官方默认安装方式
 
 ```bash
-curl -sfL https://get.k3s.io | sh -s - server \
+curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="--disable servicelb" sh -s - server \
   --cluster-init \
   --write-kubeconfig-mode=644
 ```
@@ -140,6 +140,8 @@ kubectl get nodes
 NAME      STATUS
 k3s-01    Ready
 ```
+
+> ⚠️ **为什么加 `--disable servicelb`：** K3s 内置的 servicelb（Klipper LoadBalancer）会与 kube-vip 抢占 `LoadBalancer` Service 的 `EXTERNAL-IP`。生产高可用要给 Traefik 等入口提供**可漂移的业务 VIP** 时，**[Kube-vip `--services` 部署](./Kube-vip Services部署.md) 一般属于必装方案**，因此必须在安装阶段就禁用 servicelb，给 kube-vip 让位。
 
 ---
 
@@ -162,17 +164,17 @@ K10xxxxx::serverxxxxx
 ## 五、加入第二、第三台 Server（k3s-02 / k3s-03）
 
 ```bash
-curl -sfL https://get.k3s.io | sh -s - server \
-  --server https://10.0.1.101:6443 \
+curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="--disable servicelb" sh -s - server \
+  --server https://172.16.0.203:6443 \
   --token K10xxxxx::serverxxxxx
 ```
 
 > **国内源：** 与三、第一台安装相同，此处也可改用 Rancher 国内镜像源以加速安装：
 >
 > ```bash
-> curl -sfL https://rancher-mirror.rancher.cn/k3s/k3s-install.sh | INSTALL_K3S_MIRROR=cn sh -s - server \
->   --server https://172.16.0.211:6443 \
->   --token <YOUR_SECRET_TOKEN>
+> curl -sfL https://rancher-mirror.rancher.cn/k3s/k3s-install.sh | INSTALL_K3S_MIRROR=cn INSTALL_K3S_EXEC="--disable servicelb" sh -s - server \
+>  --server https://172.16.0.203:6443 \
+>  --token <YOUR_SECRET_TOKEN>
 > ```
 
 回到 k3s-01 验证：
@@ -191,6 +193,12 @@ k3s-03    Ready    control-plane
 ```
 
 此时即完成 3 节点 HA。
+
+> **`--server` 到底指向谁？** 不挑"是不是第一台"：
+> - `--server` 指向的是**集群内任意一个在线、已 ready 的 server（control-plane）节点**，可以是 k3s-01，也可以是后续加入的 k3s-02 / k3s-03，甚至是用 kube-vip 提供的 6443 高可用 VIP。
+> - **token 是全集群统一的**：所有节点共享同一个 bootstrap token，从 k3s-01 读、还是从 k3s-02 读都相同，没有"第一台专属 token"。
+> - **两个前提**：① 指向的必须是 **server 节点**（承载 apiserver/etcd 的 bootstrap 通信），不能指向 agent/worker；② 那台 server 必须**当前在线、6443 可达**。
+> - **实操建议**：命令里的 IP 只是"入口地址"。为了不因某台 server 宕机导致后续加入/访问中断，建议指向一个**固定的 VIP**（见下文第六部分），而不是写死某台物理 IP。
 
 ---
 

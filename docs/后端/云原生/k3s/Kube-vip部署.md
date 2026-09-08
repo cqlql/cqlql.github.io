@@ -686,7 +686,9 @@ kubectl describe svc my-app -n <命名空间>    # Events 里看 kube-vip 分配
 | **kube-vip-cloud-provider** | Deployment（Cloud Controller，可选） | 从 ConfigMap 地址池自动挑空闲 IP，回填到 Service（模拟公有云 CCM 的分配行为） |
 
 - **只装本体**：每个 Service 必须自己写 `spec.loadBalancerIP`（或注解 `kube-vip.io/loadbalancerIPs`）指定 IP，kube-vip 才会广播；
-- **本体 + cloud-provider（推荐）**：Service 不用写 IP，cloud-provider 从地址池自动分配。
+- **本体 + cloud-provider**：Service 不用写 IP，cloud-provider 从地址池自动分配。
+
+> **装不装 cloud-provider？别盲装**：只有「大规模多租户 / PaaS / 需要频繁创建销毁 LoadBalancer」才需要它自动分配；自建私有集群、中小规模、以入口网关/中间件为主时，**只装本体 + 手动 `loadbalancerIPs` 固定 VIP 更省心、故障面更小**。完整选型见《Kube-vip Services部署》「CCM / IPAM 到底要不要装？选型指南」。
 
 > 与第 3 章那套的关系：**两套 DaemonSet 共存、互不干扰**——一套 `cp_enable=true / svc_enable=false` 守 6443，一套 `cp_enable=false / svc_enable=true` 守业务 Service，关键 env 对照见 9.7。
 
@@ -755,7 +757,9 @@ sudo k3s kubectl apply -f /tmp/kube-vip-services.yaml
 sudo k3s kubectl get ds -n kube-system | grep kube-vip
 ```
 
-### 9.4 第三步（推荐）：部署 cloud-provider 并配置地址池
+### 9.4 第三步（可选）：部署 cloud-provider 并配置地址池
+
+> 前提再强调一次：**第三步是可选的**，只有「大规模多租户 / PaaS / 频繁创建销毁 LB」的场景才需要它做 IPAM 自动分配；自建私有集群、中小规模请**跳过本章**，直接走 9.5「方式 B 手动指定 IP」。选型见《Kube-vip Services部署》「CCM / IPAM 到底要不要装？选型指南」。
 
 **1）安装 kube-vip-cloud-provider**
 
