@@ -188,6 +188,6 @@ kubectl get cm kubevip -n kube-system -o yaml
 
 ## 6. 关联阅读
 
-- [Kube-vip Services 部署](./Kube-vip Services部署.md) —— `range-global` 地址池、`vipHost` / `loadbalancerIPs` 注解的正确用法
+- [Kube-vip Services 部署](../原理与选型/Kube-vip Services部署.md) —— `range-global` 地址池、`vipHost` / `loadbalancerIPs` 注解的正确用法
 - [Kube-vip 排障（VIP 不生效）](./Kube-vip排障（VIP不生效）.md) —— 控制面 VIP 的另三类根因（证书 SAN / follower 不可见 / Pod 重启）
-- [Kube-vip 部署](./Kube-vip部署.md) · [VIP 方案选型](./VIP方案选型.md) · [Ubuntu 高可用部署](./Ubuntu高可用部署.md)
+- [Kube-vip 部署](../原理与选型/Kube-vip部署.md) · [VIP 方案选型](../原理与选型/VIP方案选型.md) · [Ubuntu 高可用部署](../原理与选型/Ubuntu高可用部署.md)

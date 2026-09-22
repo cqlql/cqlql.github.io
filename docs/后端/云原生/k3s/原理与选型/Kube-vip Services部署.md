@@ -4,6 +4,10 @@ icon: mdi:lan
 sort: 5
 ---
 
+> **要一键执行？** 业务 VIP 与 Traefik 入口的配置已收敛成脚本，见
+> [K3s HA 一键部署方案（自动化）](../落地/K3s HA 一键部署方案.md)。
+> 本文保留作为**原理与选型参考**（尤其附录的 CCM 选型与 L4 收编）。
+
 > 本文是 [Kube-vip 部署 (ARP 模式)](./Kube-vip部署.md) 的姊妹篇。上一篇讲的是 `--controlplane`（控制面高可用，`cp_enable`），本文讲 **`--services`（Service LoadBalancer，`svc_enable`）**——给 `type: LoadBalancer` 的 Service 分配可漂移的业务 VIP。两者职责不同，官方推荐分开部署。
 
 ## 一、推荐方案概览

@@ -40,7 +40,7 @@ k8s/
 - **base**：写一份通用配置，可被任意环境复用。
 - **overlay**：引用 base，只声明「与 base 的差异」（改副本数、换镜像 tag、加环境变量等），不重复写整份清单。
 
-这正是 `pass-up.backend` 项目 `k8s/` 目录的用法（`base/` + `overlays/prod`），详见 👉 [PassUp 后端 K8s 部署清单](./k3s/PassUp后端部署清单.md)。
+这正是 `pass-up.backend` 项目 `k8s/` 目录的用法（`base/` + `overlays/prod`），详见 👉 [PassUp 后端 K8s 部署清单](./k3s/落地/PassUp后端部署清单.md)。
 
 ## 三、核心概念
 
@@ -221,7 +221,7 @@ kubectl delete -k k8s/base
 - **Kubernetes / K3s**：底层「操作系统/运行平台」——K3s 是由 Rancher 开源（现归 CNCF）的**轻量级 Kubernetes 发行版**。
 - **Kustomize / Helm**：在平台上「安装应用/管理配置」的工具。
 
-虽然维度不同，但 K3s 原生集成了对 YAML、Kustomize、Helm 的自动化支持（见 👉 [K3s 介绍与安装](./k3s/介绍与安装.md)）：
+虽然维度不同，但 K3s 原生集成了对 YAML、Kustomize、Helm 的自动化支持（见 👉 [K3s 介绍与安装](./k3s/原理与选型/介绍与安装.md)）：
 
 - **内置 Auto-Deploy 机制**：默认监听目录 `/var/lib/rancher/k3s/server/manifests/`，把 YAML 或含 `kustomization.yaml` 的目录丢进去，K3s 会自动 `kubectl apply`。
 - **内置 Helm Controller**：默认集成，可编写自定义 `HelmChart` CRD 放进 manifests 目录，K3s 自动下载 Chart 并安装。

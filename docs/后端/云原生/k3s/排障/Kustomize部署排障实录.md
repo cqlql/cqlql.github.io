@@ -80,7 +80,7 @@ stringData:
 
 - `stringData` 里凡是**纯数字**的密码、密钥、端口号，都要加引号，否则 YAML 会按 number 解析。
 - 报错信息 `cannot unmarshal number into ... of type string` 是这类问题的典型特征，直接定位到某个字段值。
-- 关联背景见 👉 [Kubernetes Secret stringData 与 data 选型](../Kubernetes%20Secret%20stringData与data选型.md)。
+- 关联背景见 👉 [Kubernetes Secret stringData 与 data 选型](../../Kubernetes%20Secret%20stringData与data选型.md)。
 
 ## 三、问题三：Pod 调度失败（内存不足 + 污点）
 

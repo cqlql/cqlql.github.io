@@ -6,7 +6,7 @@ sort: 4.5
 
 > ⚠️ **本文记录的是旧部署方式**：用 `manifest pod` 生成一个**裸 Pod**（`kind: Pod`，无控制器管理），丢进 K3s 的 `/var/lib/rancher/k3s/server/manifests/` 自动部署目录。这是 kube-vip **v0.x 时代**教程（及大量早期中文博客）的常见做法。
 >
-> kube-vip 官方现行 [K3s 安装文档](https://kube-vip.io/docs/usage/k3s/) 已改为在该目录放置 **DaemonSet**（官方原话："kube-vip runs as a DaemonSet under K3s and **not a static Pod**"）。**新集群请直接走 DaemonSet 主线**：👉 [Kube-vip 部署 (ARP 模式)](./Kube-vip部署.md)。
+> kube-vip 官方现行 [K3s 安装文档](https://kube-vip.io/docs/usage/k3s/) 已改为在该目录放置 **DaemonSet**（官方原话："kube-vip runs as a DaemonSet under K3s and **not a static Pod**"）。**新集群请直接走 DaemonSet 主线**：👉 [Kube-vip 部署 (ARP 模式)](../原理与选型/Kube-vip部署.md)。
 >
 > 本文保留的意义：看懂老教程、维护按旧方式部署的历史集群。
 
@@ -158,7 +158,7 @@ docker run --network host --rm ghcr.io/kube-vip/kube-vip:v1.2.2 manifest pod \
 sudo k3s kubectl get pods -n kube-system | grep kube-vip
 ```
 
-完整的状态诊断、VIP 绑定检查、连通性测试与常见疑问，见主文档：👉 [Kube-vip 部署 (ARP 模式)](./Kube-vip部署.md)。
+完整的状态诊断、VIP 绑定检查、连通性测试与常见疑问，见主文档：👉 [Kube-vip 部署 (ARP 模式)](../原理与选型/Kube-vip部署.md)。
 
 ## 3. 部署到其他 Control Plane 节点
 
@@ -194,4 +194,4 @@ scp /var/lib/rancher/k3s/server/manifests/kube-vip.yaml root@master3:/var/lib/ra
 2. **多节点要逐台 scp**，新增 Master 时容易漏放文件；
 3. **无法 `kubectl rollout` / `set image` 平滑升级**，只能登服务器改文件。
 
-迁移很简单：生成命令由 `manifest pod` 改为 `manifest daemonset`，并补上 `--inCluster`（必须）与 `--taint`（建议），删掉各节点 manifests 目录下的旧文件后 `kubectl apply` 新清单即可。完整步骤见主文档 👉 [Kube-vip 部署 (ARP 模式)](./Kube-vip部署.md)。
+迁移很简单：生成命令由 `manifest pod` 改为 `manifest daemonset`，并补上 `--inCluster`（必须）与 `--taint`（建议），删掉各节点 manifests 目录下的旧文件后 `kubectl apply` 新清单即可。完整步骤见主文档 👉 [Kube-vip 部署 (ARP 模式)](../原理与选型/Kube-vip部署.md)。

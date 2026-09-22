@@ -4,9 +4,13 @@ icon: mdi:lan
 sort: 4
 ---
 
+> **要一键执行？** 控制面套与业务套的部署已收敛成脚本，见
+> [K3s HA 一键部署方案（自动化）](../落地/K3s HA 一键部署方案.md)。
+> 本文保留作为**原理、选型依据与排障参考**。
+
 在 K3s 中部署 Kube-vip，本文以官方现行推荐的 **DaemonSet** 方式为主线：部署一次自动覆盖所有 Control Plane 节点，具备控制器级别的自愈与滚动升级能力。以下是针对 **ARP 模式（最常用、最简单的局域网 VIP 漂移模式）** 的完整部署流程。
 
-> 旧教程中常见的「`manifest pod` 生成裸 Pod 丢进 `/var/lib/rancher/k3s/server/manifests/`」方式已被官方弃用，完整步骤与迁移说明单独归档在 👉 [Kube-vip 部署：Auto-Manifests 裸 Pod 方式（旧）](./Kube-vip部署-AutoManifests裸Pod（旧方式）.md)。
+> 旧教程中常见的「`manifest pod` 生成裸 Pod 丢进 `/var/lib/rancher/k3s/server/manifests/`」方式已被官方弃用，完整步骤与迁移说明单独归档在 👉 [Kube-vip 部署：Auto-Manifests 裸 Pod 方式（旧）](../归档/Kube-vip部署-AutoManifests裸Pod（旧方式）.md)。
 
 ## 1. 部署方式选型
 
