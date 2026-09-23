@@ -6,26 +6,27 @@ sort: 5.5
 
 # K3s HA 一键部署方案（手工照文档 → 一条命令）
 
-> **文档定位：方案定稿 / 实机待验证。**
+> **文档定位：方案定稿 / 实机已验证（2026-09-23）。**
 > 把「[Ubuntu 高可用部署](../原理与选型/Ubuntu高可用部署.md) → [Kube-vip 部署](../原理与选型/Kube-vip部署.md) → [Kube-vip --services 部署](../原理与选型/Kube-vip Services部署.md)」
 > 这三份手工文档收敛成**一条命令**，解决「每次部署都要重读文档、手工敲、结果不可复现」的问题。
 >
-> **⚠️ 先看清完成度：**
+> **完成度：**
 >
 > | 层面 | 状态 | 含义 |
 > | :--- | :--- | :--- |
 > | 方案设计 | ✅ **定稿** | 阶段划分、清单内容、参数取值——不再变 |
-> | 脚本与清单 | ✅ **已落盘** | `D:\_work\infra\cluster-infra\k3s-ha`；两层离线测试全绿（产物 97 项 + 编排 78 项），见 §9 |
-> | 配置取值 | ✅ **已按本环境填好** | 节点 / VIP / 网卡 / 副本数均取自本仓库既有笔记 |
-> | 拓扑隐含约束 | ✅ **已自动化** | 「Traefik 副本数 vs 可承载节点数」由 `preflight`/`verify` 按实际拓扑算，不再只写在文档里（§2.2） |
+> | 脚本与清单 | ✅ **已落盘** | `D:\_work\infra\cluster-infra\k3s-ha`；两层离线测试全绿（产物 79 项 + 编排 88 项），见 §9 |
+> | 配置取值 | ✅ **已按本环境填好** | 节点 / VIP / 网卡 / 副本数 / 污点均取自本仓库既有笔记与真机实测 |
+> | 拓扑隐含约束 | ✅ **已自动化** | 「Traefik 副本数 vs 可承载节点数」由 `preflight`/`verify` 按实际拓扑算，不再只写在文档里（§2.2）；**节点污点本身也由脚本收敛**（§2.2 ①） |
 > | 镜像加速 | ✅ **已固化** | `registries.yaml` 由模板渲染下发（docker.io / ghcr.io 走 `172.16.0.222` 代理），把「ghcr.io 拉不动」从风险变成前置依赖（§2.3） |
 > | k3s 下载来源 | ✅ **可切换** | 默认 Rancher 国内镜像；不稳时两条配置切官方源 + 代理，`preflight` 会预检代理（§2.4） |
 > | 部署后验收 | ✅ **已升级为链路验收** | `verify` 不再只看配置，而是走 `VIP → /readyz → 证书 SAN → 业务入口逐节点`（§7） |
-> | **实机执行** | ⏳ **未验证** | SSH 远程执行、k3s 安装、VIP 漂移**必须真机跑一次才算数**，见 §9.2 记录表 |
-> | Traefik `affinity` 取值路径 | ⏳ **待确认** | 见 §9 风险 4，chart 不认时会静默忽略（不报错） |
+> | **实机执行** | ✅ **已验证（2026-09-23，k1/k2/k3）** | 逐段执行 + `all` 端到端复跑 + `verify` 全绿 + **VIP 真实漂移**（删 leader 上的 kube-vip Pod，VIP 漂到带污点节点）；事实清单见 §9.2 |
+> | Traefik `affinity` 取值路径 | ✅ **已确认** | 真机上 2 个副本确实摊在 k1 / k2 两个节点（§7 第 10 项），chart 认这个键，不是静默忽略 |
 >
-> **换句话说**：脚本可以跑了，但「跑通了」这句话要等第一次实机执行之后才能说。
-> 实机验证要收集的事实清单见 §9.2。
+> **已知偏差（实机暴露，待处理）：** 真机内存是 **7.7 GiB / 台**（4 核），而本文档与《可观测性栈迁移至集群内-方案》
+> 都按 **16 GiB** 设计。这不影响 K3s HA 本身（脚本没有内存相关取值），但**会影响监控栈的资源 limit 计算**——
+> 见 §9.2 备注。
 
 ## 一、为什么不再手工照文档
 
@@ -68,13 +69,14 @@ sort: 5.5
 
 | 项 | 值 | 出处 |
 | :--- | :--- | :--- |
-| 节点 | `u1` 172.16.0.211、`u2` 172.16.0.212、`u3` 172.16.0.213 | 排障笔记 §环境背景 |
+| 节点 | `k1` 172.16.0.211、`k2` 172.16.0.212、`k3` 172.16.0.213 | 实机（2026-09-23 重装）；IP 沿用历史规划 |
 | 角色 | 三台均 `control-plane` + embedded etcd | 同上 |
-| 内存 | 16 GiB / 台 | 可观测性方案 §1.4 |
-| 网卡 | `enp0s3` | 排障笔记 §环境背景 |
+| 规格 | **7.7 GiB / 台、4 vCPU**（实测） | ⚠️ 旧文档写的是 16 GiB / 台（可观测性方案 §1.4），与真机不符 → 见 §9.2 备注 |
+| 系统 | Ubuntu 24.04.2 LTS（内核 6.8） | 实测 |
+| 网卡 | `enp0s3` | 同上 |
 | **控制面 VIP** | `172.16.0.210` | 同上 |
 | **业务 VIP 池** | `172.16.0.180-185` | 同上 |
-| **Traefik 网关 VIP** | `172.16.0.180` | 排障笔记 §3 方案 A |
+| **Traefik 网关 VIP** | `172.16.0.180` | 同上 |
 | 镜像仓库 | 私有 `172.16.0.222:5000` + docker.io 代理 `:5001` + ghcr.io 代理 `:5002` | 《镜像下载加速实践》、PassUp 部署清单 |
 
 > **两个 VIP 各司其职，不要混。**
@@ -86,14 +88,28 @@ sort: 5.5
 
 这两点会直接改变参数取值，是本方案与「通用教程」的差别所在。
 
-**① 有一台节点带污点，且它也是 control-plane**
+**① 有一台节点带污点，effect 是 `NoSchedule`（硬隔离），且它也是 control-plane**
 
-本集群 3 台都是 server，其中 1 台额外打了污点（留给监控等辅助组件），常态只有 2 台承载业务 Pod。由此推出两条：
+本集群 3 台都是 server，其中 `k3` 额外打了污点（留给监控等辅助组件），**effect 是 `NoSchedule`**——硬隔离，
+调度器直接不肯把 Pod 放上去，所以常态只有 2 台承载业务 Pod。由此推出两条：
 
 - **kube-vip 的 tolerations 必须容忍「所有」污点**（`operator: Exists` 且不写 `key`）。
   因为它必须跑在**每一台** control-plane 节点上，否则那台就无法持有控制面 VIP——白白砍掉 1/3 的可漂移范围。
   只容忍 `node-role.kubernetes.io/control-plane` 是不够的：那个自定义污点不是控制面污点。
+  > 这条已实机验证：删掉当前 leader（`k1`）上的 kube-vip Pod 后，控制面 VIP 确实漂到了**带污点的 `k3`**
+  > （`leaseTransitions` 0 → 1）。若 kube-vip 上不去那台，这次漂移就没有落点。
 - **Traefik 副本数取 2（= 可承载节点数），不是 3**。注意这个「2」是拓扑算出来的，不是规则本身。见下条。
+
+> **污点由脚本收敛，不是「服务器上手工敲过的状态」。**
+> `config.env` 的 `NODE_TAINTS` 声明它，`./deploy.sh taint` 幂等施加（`all` 里排在 `kube-vip` 之前）。
+> 为什么值得为它加一个阶段——因为它**丢了不会报任何错**：
+> 本环境重装三台机器后污点就没了，可承载节点数悄悄从 2 变 3，于是 `./deploy.sh join` 的 `preflight`
+> 直接报「TRAEFIK_REPLICAS=2 < 可承载节点数=3」把部署挡在门外（第一次真机落地就撞上）。
+> 换句话说：**它是 `TRAEFIK_REPLICAS` 的输入**，让「配置幂等」在这里断掉的代价比多一个阶段大得多。
+
+> **「那台不承载 Traefik」到底靠什么？**靠**硬污点 + Traefik 侧不写该污点的 toleration**，两者缺一不可：
+> `NoSchedule` 拦不住写了容忍的 Pod；`PreferNoSchedule` 连没写容忍的 Pod 也拦不住（那时 eligible 变 3、副本数要改 3）。
+> `TRAEFIK_REPLICAS` 只是把这个结论记下来，它本身不产生任何隔离——写死它只是让校验别喊话。
 
 **② `externalTrafficPolicy: Local` 把「副本数」变成了硬约束**
 
@@ -209,6 +225,7 @@ cd D:/_work/infra/cluster-infra/k3s-ha
 | `prepare` | 三台：hostname / hosts / 关 swap / 关 ufw / apt / **registries.yaml（镜像加速）** / 预置清单 | 《Ubuntu高可用部署》二、《镜像下载加速实践》 |
 | `server-first` | 首台写 `config.yaml` 并安装（`cluster-init` + `disable servicelb` + `tls-san`）；来源/代理见 §2.4 | 同上 一~三 |
 | `join` | 读 token，其余 server 加入（与首台共用同一套来源/代理逻辑） | 同上 四~五 |
+| `taint` | 按 `NODE_TAINTS` 幂等收敛节点污点（**拓扑事实**：决定可承载 Traefik 的节点数，进而决定 `TRAEFIK_REPLICAS`） | 《节点污点与容忍》 |
 | `kube-vip` | 确保两套 DaemonSet 就位，清理 servicelb 遗留 | 《Kube-vip部署》3 / 9.2 |
 | `traefik` | 配 Traefik 的 `loadbalancerIPs` + `Local` + 副本数 + 反亲和 | 《Kube-vip Services部署》四 |
 | `kubeconfig` | 拉 kubeconfig 并把 `server` 改成 VIP | 《Ubuntu高可用部署》六 |
@@ -268,7 +285,7 @@ tls-san:
 
 真要迁移时成本很低：本脚本的阶段划分与 Ansible task 是 1:1 的，`manifests/` 可直接当 template。
 
-## 四、比手工文档多固化的七件事
+## 四、比手工文档多固化的八件事
 
 这些事都是「手工敲会漏、漏了不报错、只在特定条件下才炸」的类型，因此写进清单和脚本固化下来。
 其中第 5~7 条不只是「写进清单」，而是**写成了每次执行都会重算的校验**。
@@ -282,6 +299,7 @@ tls-san:
 | 5 | **可承载节点数校验** | 无——文档里连「副本数」都只是口头约定 | 拓扑变了（去污点 / 扩节点）没人改 `TRAEFIK_REPLICAS` → 有节点不通告 VIP，而 `verify` 之外的检查**看起来一切正常**（见 §2.2） |
 | 6 | **VIP 链路验收（`/readyz` + 证书 SAN）** | 文档只验「VIP 端口可达」 | `curl -k` 的「可达」会同时掩盖「链路没通」和「证书缺 SAN」，直到用 `kubectl` 访问 apiserver 才炸出 `x509`（见 §7 第 5、6 项） |
 | 7 | **`registries.yaml`（镜像加速）** | 手工文档让人 `nano` 这个文件，没有任何检查 | 漏配 → `ghcr.io` 上的 kube-vip 拉不动（原本的已知风险 3）；手改后与脚本产物不一致，重装 / 扩容时行为不同（见 §2.3、§7 第 15 项） |
+| 8 | **节点污点（拓扑事实）** | 文档只写了「给弱节点打污点」，没把它和 `TRAEFIK_REPLICAS` 的取值挂起来 | 重装后污点丢失**不报任何错** → 可承载节点数悄悄 +1、`Local` 策略下少一个节点通告 VIP（见 §2.2 ①） |
 
 > 关于第 2 条：本环境的排障命令里用的就是 `app.kubernetes.io/name=kube-vip-services`
 > （见[排障笔记 §5](../排障/Kube-vip排障（Service VIP 与节点 IP 冲突）.md)），说明**当时已经区分过 label**。
@@ -306,25 +324,27 @@ tls-san:
 
 | 变量 | 本环境取值 | 说明 |
 | :--- | :--- | :--- |
-| `NODES` | `172.16.0.211 u1` / `.212 u2` / `.213 u3` | 第一个是 bootstrap 首台 |
+| `NODES` | `172.16.0.211 k1` / `.212 k2` / `.213 k3` | 第一个是 bootstrap 首台 |
+| `NODE_TAINTS` | `"k3 k3s-monitoring:NoSchedule"` | **拓扑事实**，由 `taint` 阶段幂等施加。改它（增删条目 / 改 effect）必须同步改 `TRAEFIK_REPLICAS`；留空则副本数应等于节点总数 |
 | `VIP_CP` | `172.16.0.210` | 控制面 VIP |
 | `VIP_TRAEFIK` | `172.16.0.180` | 业务 VIP（池内、非节点 IP） |
 | `VIP_INTERFACE` | `enp0s3` | 显式写死，避免重启后自动探测选错 |
 | `TRAEFIK_REPLICAS` | `2` | **必须覆盖所有允许承载 Traefik 的节点**（eligible nodes，本环境为 2）——不是「固定等于 2」（见 §2.2） |
-| `TRAEFIK_ELIGIBLE_NODES` | 空（自动探测） | 期望承载 Traefik 的节点数；留空 = `preflight`/`verify` 按实际拓扑探测。集群还没装时只做「副本数 ≤ 节点总数」的静态检查 |
+| `TRAEFIK_ELIGIBLE_NODES` | 空（自动探测） | 期望承载 Traefik 的节点数；留空 = `preflight`/`verify` 按实际拓扑探测。集群未装、或还在部署中途（节点没全部 join）时自动跳过校验。**写死会关掉拓扑漂移检测** |
 | `TRAEFIK_REPLICAS_MISMATCH` | `fail` | 副本数与可承载节点数不一致时：`fail` 报错退出 / `warn` 只提示 / `off` 跳过 |
 | `KUBE_VIP_IMAGE` | `ghcr.io/kube-vip/kube-vip:v1.2.2` | 配了镜像加速后正常走 `:5002` 代理；仍拉不动时换国内镜像或 `172.16.0.222:5000` |
 | `MANAGE_REGISTRY` | `true` | 是否由脚本接管 `/etc/rancher/k3s/registries.yaml`（镜像加速，见 §2.3） |
 | `REGISTRY_HOST` | `172.16.0.222` | 内网 Registry 主机；留空 = 不接管 |
 | `REGISTRY_PRIVATE_PORT` / `REGISTRY_DOCKERIO_PORT` / `REGISTRY_GHCR_PORT` | `5000` / `5001` / `5002` | 私有仓库 / docker.io 代理 / ghcr.io 代理（同一台机器的三个端口） |
 | `REGISTRY_INSECURE` | `true` | 私有仓库走 HTTP 或自签证书时跳过 TLS 校验 |
-| `SSH_USER` | `root` | 非 root 用户需**免密 sudo**（脚本用 `sudo -n`） |
+| `SSH_USER` | `cql` | 非 root 用户需**免密 sudo**（脚本用 `sudo -n`）。本环境已配好，`sudo -n true` 可过 |
+| `SSH_KEY` | `~/.ssh/u1` | 私钥路径（本环境复用既有密钥） |
 | `UFW_MODE` | `disable` | 或改 `allow` 保留 ufw 并放行 k3s 端口 |
 | `K3S_INSTALL_SOURCE` | `cn` | k3s 安装来源：`cn` = Rancher 国内镜像；`official` = 官方 `get.k3s.io`（国内直连多半不通，要配代理）（见 §2.4） |
 | `K3S_DOWNLOAD_PROXY` | 空 | 下载 k3s（安装脚本 + 二进制）走的 HTTP(S) 代理；本环境的代理是 `http://172.16.0.222:7897`。**与容器拉镜像无关** |
 | `K3S_DOWNLOAD_NO_PROXY` | `localhost,127.0.0.1,172.16.0.0/16,10.0.0.0/8` | 代理白名单：内网地址不走代理 |
 | `K3S_INSTALL_URL` / `K3S_MIRROR_CN` | 空（自动推导） | 高级覆盖；留空即按 `K3S_INSTALL_SOURCE` 推导——写死容易自相矛盾 |
-| `K3S_VERSION` | 空（最新 stable） | **首次实机验证成功后必须立刻回填**当前版本号并提交 Git，否则重装版本会漂（见 §6.2） |
+| `K3S_VERSION` | `v1.36.4+k3s1` | **已按首次实机验证结果钉死并提交**，重装得到同一版本（见 §6.2） |
 | `KUBECONFIG_OUT` | `~/.kube/k3s-ha.yaml` | `server` 已改写为 VIP |
 
 需要临时覆盖而不动 Git 里的文件时，新建 `config.local.env`（已在 `.gitignore` 中排除）。
@@ -352,11 +372,11 @@ tls-san:
 - [ ] **k3s 下载路径可用**：默认走国内镜像即可；若要用官方源，先在 `config.env` 里设
       `K3S_INSTALL_SOURCE="official"` + `K3S_DOWNLOAD_PROXY="http://172.16.0.222:7897"`，
       `preflight` 会逐台真下载一次安装脚本来验证（见 §2.4）。
-- [ ] **确认污点节点的 taint key / effect**：`kubectl get nodes -o custom-columns=NAME:.metadata.name,TAINTS:.spec.taints`
-      —— 本方案不依赖它的具体 key（kube-vip 容忍所有污点），但 **Traefik 可承载节点数**依赖它：
-      `NoSchedule` 下那台不算可承载节点（本环境 eligible = 2）；若是 `PreferNoSchedule`，
-      它仍算可承载节点（eligible = 3），此时 `TRAEFIK_REPLICAS` 应为 3，否则 `preflight` 会报错。
-      不用手工算：`preflight` 会按实际拓扑算一遍并比对（`TRAEFIK_ELIGIBLE_NODES` 留空即自动探测）。
+- [ ] **复核污点节点的 taint effect**：`kubectl get nodes -o custom-columns=NAME:.metadata.name,TAINTS:.spec.taints`
+      —— 本方案不依赖它的具体 key（kube-vip 容忍所有污点），但 **Traefik 可承载节点数**依赖 effect：
+      本环境按 `NoSchedule`（硬隔离）落 → 那台不算可承载节点，eligible = 2，`TRAEFIK_REPLICAS` 取 2。
+      ⚠️ 若实际是 `PreferNoSchedule`（软限制，拦不住调度），它仍算可承载节点（eligible = 3），
+      副本数必须同步改成 3，否则 `preflight` 会报错 —— 前提是 `TRAEFIK_ELIGIBLE_NODES` **留空**（写死就不会去查）。
 - [ ] **维护窗口**：`kube-vip` 阶段在「config.yaml 缺 `disable servicelb`」时会**重启 k3s**（短暂中断）。
 
 ### 6.2 场景 A：全新部署（重装 / 新集群）
@@ -364,8 +384,8 @@ tls-san:
 ```bash
 cd D:/_work/infra/cluster-infra/k3s-ha
 
-bash tests/selftest.sh      # 可选：产物与静态检查（秒级，97 项）
-bash tests/integration.sh   # 可选：编排集成测试（Git Bash 约 2.5 分钟，78 项）
+bash tests/selftest.sh      # 可选：产物与静态检查（秒级，79 项）
+bash tests/integration.sh   # 可选：编排集成测试（Git Bash 约 9 分钟，88 项）
 ./deploy.sh all             # 一条命令跑完 8 个阶段
 ```
 
@@ -389,30 +409,42 @@ kubectl get nodes
 #    systemctl status k3s
 #    kubectl get nodes
 ./deploy.sh join
+./deploy.sh taint        # 收敛 NODE_TAINTS 声明的污点（必须在 kube-vip / traefik 之前）
 ./deploy.sh kube-vip
 ./deploy.sh traefik
 ./deploy.sh kubeconfig
 ./deploy.sh verify
 ```
 
-每段单独看结果，出问题就能立刻定位到「prepare / server-first / join / kube-vip / Traefik」中的哪一段。
+每段单独看结果，出问题就能立刻定位到「prepare / server-first / join / taint / kube-vip / Traefik」中的哪一段。
 **第一次全部通过之后**，再用 `./deploy.sh all` 做一次真正的端到端验证。
 
-> 顺序上有两处需要人工停一下：`server-first` 之后要确认首台 `Ready` 且拿到 VIP（或已知会回退到节点 IP），
-> `join` 之后要确认 3 台都是 `Ready`——这两步正常，后面 kube-vip / Traefik 才谈得上验证。
+> 顺序上有三处需要人工停一下：`server-first` 之后要确认首台 `Ready` 且拿到 VIP（或已知会回退到节点 IP），
+> `join` 之后要确认 3 台都是 `Ready`，`taint` 之后要确认「可承载 Traefik 的节点数」从 3 变成 2
+> —— 这三步正常，后面 kube-vip / Traefik 才谈得上验证。
+>
+> `join` 这一步的 `preflight` 有个已知的**正常现象**：此时集群里只有首台，探测出的可承载节点数是 1，
+> 与 `TRAEFIK_REPLICAS=2` 对不上。脚本按「集群里的节点对象数 < `NODES` 声明数 → 仍在部署中」自动跳过这项校验，
+> 不会再把人挡在门外（第一次真机落地时正是被它挡住的，见 §9 的 bug ③）。
 
-#### 成功之后立刻钉住版本（必做）
+#### 成功之后立刻钉住版本（✅ 已完成）
 
 `verify` 的最后一项就是「版本固定」：`K3S_VERSION` 为空时它会打印当前版本并提示回填。
 
-```bash
-# 例：verify 输出
+```text
+# verify 输出（K3S_VERSION 为空时的样子）
 ! K3S_VERSION 为空：本次装的是当时的 latest（v1.30.x+k3s1），下次重装可能拿到别的版本
 !   config.env  →  K3S_VERSION="v1.30.x+k3s1"
 ```
 
-把这一行写进 `config.env` 并提交 Git。**这一步做完，「可复现部署」才成立**——
-在此之前，同一套脚本和配置，今天和三个月后装出来的不是同一个集群。
+**本环境已在 2026-09-23 首次实机验证通过后回填：`K3S_VERSION="v1.36.4+k3s1"`。**
+之后 `verify` 打印的是：
+
+```text
+✓ K3S_VERSION 已固定为 v1.36.4+k3s1（重装可得到同一版本）
+```
+
+**这一步做完，「可复现部署」才成立**——在此之前，同一套脚本和配置，今天和三个月后装出来的不是同一个集群。
 
 ### 6.3 场景 B：现有集群收敛（本环境当前状态）
 
@@ -422,12 +454,13 @@ kubectl get nodes
 ```bash
 cd D:/_work/infra/cluster-infra/k3s-ha
 
-./deploy.sh verify       # ① 先看现状：它按 §7 的 15 项逐条报出（含副本数、registries.yaml 漂移）
+./deploy.sh verify       # ① 先看现状：它按 §7 的 16 项逐条报出（含副本数、节点污点、registries.yaml 漂移）
 ./deploy.sh prepare      # ② 节点级收敛：registries.yaml 等（内容有变化 → 该节点重启 k3s）
-./deploy.sh kube-vip     # ③ 对齐两套 DaemonSet（已存在则只做 selector 一致性检查）
-./deploy.sh traefik      # ④ 对齐 Traefik：VIP + Local + 副本数 + 反亲和
-./deploy.sh kubeconfig   # ⑤ 刷新本地 kubeconfig
-./deploy.sh verify       # ⑥ 复验
+./deploy.sh taint        # ③ 收敛 NODE_TAINTS 声明的节点污点（重装后最容易丢，且丢了不报错）
+./deploy.sh kube-vip     # ④ 对齐两套 DaemonSet（已存在则只做 selector 一致性检查）
+./deploy.sh traefik      # ⑤ 对齐 Traefik：VIP + Local + 副本数 + 反亲和
+./deploy.sh kubeconfig   # ⑥ 刷新本地 kubeconfig
+./deploy.sh verify       # ⑦ 复验
 ```
 
 > 第 ① 步不会被「配置与拓扑不一致」挡住：`verify` 这类诊断/清理命令下，`preflight` 的副本数校验
@@ -441,6 +474,7 @@ cd D:/_work/infra/cluster-infra/k3s-ha
 | :--- | :--- |
 | `verify` | 只读，无影响 |
 | `prepare` | 写 `registries.yaml`（以及 hostname/hosts 等）；**只有内容真的变了才重启 k3s**，内容一致就是 no-op |
+| `taint` | 只改节点对象上的污点；已有同规格污点则跳过。不动 k3s、不动任何 Pod（kube-vip 两套 DS 容忍所有污点，照旧跑在污点节点上） |
 | `kube-vip` | 若 `config.yaml` 已含 `disable servicelb` → 不动 k3s；清理残留 `svclb-*`；两套 DaemonSet 已存在则**只检查不重建** |
 | `traefik` | 会**滚动重启 Traefik**（改 values 触发 helm 重渲染）——入口有秒级抖动 |
 | `kubeconfig` | 只写本地文件 |
@@ -482,7 +516,7 @@ cd D:/_work/infra/cluster-infra/k3s-ha
 
 | # | 检查 | 期望 | 不通过的常见原因 |
 | :--- | :--- | :--- | :--- |
-| 1 | 节点状态 | `u1`/`u2`/`u3` 全 `Ready` | etcd 没组起来 / 网络不通 |
+| 1 | 节点状态 | `k1`/`k2`/`k3` 全 `Ready` | etcd 没组起来 / 网络不通 |
 | 2 | 两套 DaemonSet | `kube-vip-ds`、`kube-vip-services` 各 3/3 ready | 镜像拉不动（看 `describe pod` 的 Events） |
 | 3 | 控制面 VIP 落点 | 某台节点网卡上有 `172.16.0.210/32` | kube-vip 没拿到 leader |
 | 4 | apiserver 链路 · TCP | `https://172.16.0.210:6443` 可达 | 见 #3 与 #5 |
@@ -497,6 +531,7 @@ cd D:/_work/infra/cluster-infra/k3s-ha
 | 13 | 逐节点业务入口 | 每个承载 Traefik 的节点，本机访问 VIP 都通 | 该节点没在通告 VIP（`Local` 策略下的隐蔽故障） |
 | 14 | 版本固定（提示项，不判定） | `K3S_VERSION` 已回填 | 不回填则每次重装版本会漂（见 §5、§6.2） |
 | 15 | 镜像加速配置（提示项，不判定） | 三台上 `/etc/rancher/k3s/registries.yaml` 与脚本渲染产物**逐字节一致** | 手工 `nano` 改过、或压根没有这个文件 → 拉取行为与脚本不一致（见 §2.3） |
+| 16 | **节点污点（拓扑事实）** | `NODE_TAINTS` 声明的污点逐条存在于对应节点上（本环境：`k3` 持有 `k3s-monitoring:NoSchedule`） | 重装后污点丢失——**不会报错**，只会让可承载节点数 +1、`Local` 策略下少一个节点通告 VIP → `./deploy.sh taint` 收敛 |
 
 > #5 和 #6 是这次补上的：`curl -k` 的「可达」会同时掩盖「VIP 链路没通」和「证书缺 SAN」两件事，
 > 而后者正是本环境踩过的坑（用 VIP 访问 apiserver 报 `x509`）。
@@ -558,58 +593,85 @@ kubectl get lease -n kube-system plndr-cp-lock -o jsonpath='{.spec.leaseTransiti
 | 1 | `kube-vip` 阶段可能重启 k3s | 该节点短暂中断 | 仅当 `config.yaml` 缺 `disable servicelb` 才触发；放维护窗口执行 |
 | 2 | `traefik` 阶段滚动重启 Traefik | 入口秒级抖动 | 避开业务高峰 |
 | 3 | ghcr.io / docker.io 拉不动 | kube-vip Pod 起不来，其他镜像同样受影响 | 已由 `registries.yaml` 走内网代理（§2.3）；**代理缓存本身挂了不会自动回退官方源**，先修缓存；临时可把 `KUBE_VIP_IMAGE` 换成 `172.16.0.222:5000/...` 后重跑 `./deploy.sh kube-vip` |
-| 4 | Traefik chart 的 `affinity` 取值路径未在真机确认 | 若 chart 不认该键，helm 会**静默忽略**（不报错），反亲和失效 → 副本可能挤在一台 | 部署后按 §7 第 10 项确认副本分布；若未摊开，改用 chart 支持的其他键或给节点加 label + `nodeSelector` |
+| 4 | Traefik chart 的 `affinity` 取值路径 | 若 chart 不认该键，helm 会**静默忽略**（不报错），反亲和失效 → 副本可能挤在一台 | ✅ **真机已确认生效**：2 个副本摊在 k1 / k2（§7 第 10 项）。换 chart 版本或改 values 路径后需重验 |
 | 5 | 「可承载节点数」的判定依赖一份「Traefik 能容忍的污点」白名单（`CriticalAddonsOnly` / `control-plane` / `master`） | 若以后给 Traefik 加了额外 toleration（比如容忍业务节点的自定义污点），白名单没同步 → eligible nodes 被低估，校验结果偏保守 | 加 toleration 时同步改 `deploy.sh` 的 `TRAEFIK_TOLERATED_TAINTS`；或直接显式写 `TRAEFIK_ELIGIBLE_NODES` |
 | 6 | 仓库 `core.autocrlf=true` 且没有 `.gitattributes` 时，`.sh` 在 Windows 上会被 checkout 成 CRLF | bash 直接报 `syntax error near unexpected token $'do\r'`，脚本一行都跑不起来（第一次实机最容易卡在这，且现象像"语法写错了"） | 已在 `k3s-ha/.gitattributes` 把 `*.sh` / `*.yaml` / `config.env` 钉为 `eol=lf`；本地若已被改坏，`sed -i 's/\r$//' <文件>` 可救回 |
 | 7 | `registries.yaml` 内容非法会让**该节点的 k3s 直接起不来**（k3s 启动时解析它） | 节点 `NotReady`，且错误信息不像"配置"问题 | 文件由模板渲染下发，且离线自测里有「YAML 合法 + 无残留占位符」断言；写入脚本在覆盖前留 `.bak`，源文件缺失时不落盘（宁可报错也不写坏） |
 | 8 | **Rancher 国内镜像偶发不稳 / 官方源直连不通** | 卡在安装阶段：拉不到安装脚本或二进制，节点一直不 `Ready` | 切官方源 + 代理：`K3S_INSTALL_SOURCE=official` + `K3S_DOWNLOAD_PROXY=http://172.16.0.222:7897`（见 §2.4）；`preflight` 会预检代理，安装失败信息里也直接给出这段切换姿势 |
+| 9 | 新装 / 刚重启的 Ubuntu 上 **`unattended-upgrades` 占着 dpkg 锁** | `prepare` 里装 `curl` 那步直接失败退出（整段白挂），且报错信息像"apt 环境有问题" | 已在 `prepare` 的 apt 调用上加 `DPkg::Lock::Timeout=300`（apt 自己等锁，apt ≥ 1.9.11 / Ubuntu 22.04+ 都支持）。真机 k3 上踩到并验证修复 |
+| 10 | **节点污点丢失**（重装后） | 不报错，只是可承载节点数悄悄 +1 → `Local` 策略下少一个节点通告 VIP，且 `preflight` 会在 `join` 阶段误拦 | `NODE_TAINTS` 声明 + `taint` 阶段幂等收敛 + `verify` 逐条核对（§2.2 ①、§7 第 16 项） |
 
-**未验证项（诚实清单）**
+**验证结果（2026-09-23，k1/k2/k3 实机跑通）**
 
-1. **实机端到端未跑过**。已有的验证分两层：
+部署前已有的两层离线验证（每次改脚本 / 清单都会重跑）：
 
    | 层次 | 手段 | 覆盖 | 结果 |
    | :--- | :--- | :--- | :--- |
-   | 产物与静态 | `tests/selftest.sh` | 清单渲染、两套 DaemonSet 的名字/selector/env/容忍策略、Traefik 的 `Local`+副本数+反亲和、**`registries.yaml` 结构与 YAML 合法性**、`config.yaml` 生成、servicelb 归一化 5 种形态、**`registries.yaml` 写入脚本（首次/幂等/变更/备份/缺参 5 种形态）**、**可承载节点数计算（7 种拓扑）+ `pass/low/high` 判定**、**k3s 安装来源推导（cn / official / 覆盖 / 非法值）**、`scripts/`+`manifests/`+`templates/` 接线检查、**远端参数 `%q` 往返转义**（jsonpath / 多行 hosts 块 / token）、**26 段远端脚本体逐段 `bash -n`**（这些 body 本地从不解析，只在真机炸） | 97 项全绿 |
-   | 流程编排 | `tests/integration.sh` | 用桩替换远程执行层，模拟三台节点跑六个场景：**全新部署**（预置时机、`cluster-init` 只给首台、token 传递与顺序、join 指向 VIP、chmod、registries.yaml 下发但**不重启**——因为 k3s 还没装）、**已装集群**（不预置、不重复安装、无需 join 时不读 token、registries.yaml 变了才重启、无变化不重启）、**幂等**（连跑两遍）、**`verify` 正反例**（副本摊开应通过；副本挤在一台应报失败；且确实查了 `/readyz`、证书 SAN、逐节点业务链路、registries.yaml 漂移）、**拓扑变化**（污点去掉后 eligible=3 而副本数=2 → `preflight` 必须报错）、**诊断不被挡**（配置不一致时 `verify` 的 preflight 只警告放行，但 `verify` 仍判未通过）、**下载退路**（cn 走国内镜像带 `INSTALL_K3S_MIRROR=cn`；official 走 `get.k3s.io` 且代理地址确实传到远端；代理不通时 preflight 只警告不退出） | 78 项全绿 |
+   | 产物与静态 | `tests/selftest.sh` | 清单渲染、两套 DaemonSet 的名字/selector/env/容忍策略、Traefik 的 `Local`+副本数+反亲和、**`registries.yaml` 结构与 YAML 合法性**、`config.yaml` 生成、servicelb 归一化 5 种形态、**`registries.yaml` 写入脚本（首次/幂等/变更/备份/缺参 5 种形态）**、**可承载节点数计算（7 种拓扑）+ `pass/low/high` 判定**、**k3s 安装来源推导（cn / official / 覆盖 / 非法值）**、`scripts/`+`manifests/`+`templates/` 接线检查、**远端参数 `%q` 往返转义**（jsonpath / 多行 hosts 块 / token）、**26 段远端脚本体逐段 `bash -n`**（这些 body 本地从不解析，只在真机炸） | **79 项：75 通过 / 4 跳过 / 0 失败** |
+   | 流程编排 | `tests/integration.sh` | 用桩替换远程执行层，模拟三台节点跑九个场景：**全新部署**（预置时机、`cluster-init` 只给首台、token 传递与顺序、join 指向 VIP、chmod、registries.yaml 下发但**不重启**——因为 k3s 还没装）、**已装集群**（不预置、不重复安装、无需 join 时不读 token、registries.yaml 变了才重启、无变化不重启）、**幂等**（连跑两遍）、**`verify` 正反例**（副本摊开应通过；副本挤在一台应报失败；且确实查了 `/readyz`、证书 SAN、逐节点业务链路、registries.yaml 漂移）、**拓扑变化**（污点去掉后 eligible=3 而副本数=2 → `preflight` 必须报错）、**诊断不被挡**（配置不一致时 `verify` 的 preflight 只警告放行，但 `verify` 仍判未通过）、**下载退路**（cn 走国内镜像带 `INSTALL_K3S_MIRROR=cn`；official 走 `get.k3s.io` 且代理地址确实传到远端；代理不通时 preflight 只警告不退出） | **88 项：87 通过 / 1 跳过 / 0 失败** |
 
-   **但 SSH 真实认证、k3s 实际安装、VIP 真实漂移这三件事，只有真机能确认。**
-   集成测试的桩是按「预期行为」写的，它能证明编排自洽，不能证明真机行为与预期一致。
-2. **污点节点的 taint key 未知**（笔记里是 `<taint-key>` 占位符）。本方案不依赖它的 key，但
-   **effect 会影响可承载节点数**（`NoSchedule` → eligible 2，`PreferNoSchedule` → eligible 3），
-   §6.1 建议先查清；`preflight` 会自动算，不一致会直接报出来。
-3. **`TRAEFIK_REPLICAS=2` 依赖「污点节点不跑业务 Pod」**。这个前提现在由 `preflight`/`verify`
+真机端到端（**这才是「跑通了」这句话的依据**）：
+
+| 确认项 | 结果 |
+| :--- | :--- |
+| 逐段执行 | `preflight → prepare → server-first → join → taint → kube-vip → traefik → kubeconfig → verify` 全部通过，每段单独看结果 |
+| `all` 端到端复跑 | 同样全绿（幂等：已完成的步骤被跳过，只有 `traefik` 会滚动重启） |
+| `verify` 判据 | 16 项判据全部通过（唯一未判定项是「本机 kubectl 直连」，属提示项，见 §9.2 备注） |
+| SSH 真实认证 / k3s 实际安装 | 三台装出 `v1.36.4+k3s1`，与 `K3S_VERSION` 钉死值一致 |
+| **VIP 真实漂移** | 删掉 leader（k1）上的 kube-vip Pod → 控制面 VIP 漂到**带污点的 k3**，`leaseTransitions` 0 → 1，漂移后经 VIP 的链路仍可用（§9.2 ④） |
+| 镜像加速真实生效 | kube-vip 镜像经 `172.16.0.222:5002`（ghcr.io 代理）拉取成功；三台 `registries.yaml` 与脚本产物逐字节一致 |
+**剩余未验证 / 待观察**
+
+1. **污点的 key 已定为 `k3s-monitoring`**（值可省），由 `config.env` 的 `NODE_TAINTS` 声明并幂等收敛。
+   方案本身不依赖 key，依赖的是 **effect**：`NoSchedule` → 可承载节点数 2（本环境）；
+   若改成 `PreferNoSchedule`（拦不住调度）就必须把 `TRAEFIK_REPLICAS` 提到 3。
+   「那台不承载 Traefik」由「硬污点拦得住 + Traefik 不写该污点的 toleration」共同保证。
+2. **`TRAEFIK_REPLICAS=2` 依赖「污点节点不跑业务 Pod」**。这个前提现在由 `preflight`/`verify`
    每次执行时按实际拓扑复核（见 §2.2），不再是「写在文档里、靠人记得改」；
    但支撑它的污点白名单仍需与 Traefik 的 tolerations 保持一致（见风险 5）。
-4. **Traefik chart 的 `affinity` 取值路径未在真机确认**（见 §9 风险 4），部署后按 §7 第 10 项验证副本分布。
+3. Traefik chart 的 `affinity` 取值路径**真机已确认生效**（风险 4：2 个副本摊在 k1 / k2），换 chart 版本后需重验。
+4. **内存规格偏差**：真机是 **7.7 GiB / 台**，而本文档与《可观测性栈迁移至集群内-方案》都按 16 GiB 设计。
+   不影响 K3s HA 本身（脚本没有任何内存相关取值），但**监控栈的 limit / 单副本取舍要按真实规格重算**。
 
-> **集成测试抓到过的两个真 bug**（说明这套测试不是摆设）：
+> **三层验证各抓到过真 bug**（说明它们都不是摆设）：
 > ① 抽出去的 `scripts/ensure-servicelb-disabled.sh` **没接进 `deploy.sh`**，成了死代码，
-> 而 `deploy.sh` 里还留着旧的内联版本（带 §四 第 4 条那个 YAML 坑）；
-> ② `phase_join` 在「所有节点都已装」时**仍去读 node-token**，读不到就会白 `die` 一次。
-> 两个都已修，并补了「接线检查」防止第一类问题复发。
+> 而 `deploy.sh` 里还留着旧的内联版本（带 §四 第 4 条那个 YAML 坑）——**集成测试**抓到；
+> ② `phase_join` 在「所有节点都已装」时**仍去读 node-token**，读不到就会白 `die` 一次——**集成测试**抓到；
+> ③ **`check_traefik_replicas` 在部署中途误拦**：首台装完、k2/k3 还没 join 时，集群里只有 1 个节点对象
+> → 探测出的 eligible=1，而 `TRAEFIK_REPLICAS=2` → `preflight` 硬报错，`./deploy.sh join` 被直接挡在门外。
+> **只有真机会撞上**——离线测试的桩里三台节点一开始就都在，这正是「桩证明编排自洽、不能证明真机行为」的实例。
+> 三个都已修，并补了「接线检查」与对应场景断言防止复发。
 
-### 9.2 实机验证要带回来的事实（记录表）
+### 9.2 实机验证事实（记录表）
 
-第一次实机跑完，把下面这些填实。**这份表格填满之前，文档状态就停在「方案定稿 / 实机待验证」。**
+2026-09-23 首次实机跑完，逐项填实。
 
 | # | 事实 | 怎么取 | 结果 |
 | :--- | :--- | :--- | :--- |
-| ① | K3s 实际版本 + 这次用的安装来源 | `k3s --version`，把版本回填 `config.env` 的 `K3S_VERSION`；来源看 `K3S_INSTALL_SOURCE` 与 preflight 的输出（国内镜像 / 官方 + 代理） | ⏳ |
-| ② | 3 节点 join 是否正常 | `kubectl get nodes -o wide`（3 台 `Ready`、版本一致） | ⏳ |
-| ③ | kube-vip 两套 DS 是否 3/3 | `kubectl get ds -n kube-system kube-vip-ds kube-vip-services` | ⏳ |
-| ④ | 控制面 VIP 是否正常漂移 | 删掉当前 leader 上的 kube-vip Pod，看 VIP 换节点；同时看 `plndr-cp-lock` 的 `holderIdentity` / `leaseTransitions` | ⏳ |
-| ⑤ | Traefik 是否确实 2 副本分散 | `kubectl get pods -n kube-system -l app.kubernetes.io/name=traefik -o wide` | ⏳ |
-| ⑥ | `externalTrafficPolicy=Local` 是否生效 | `kubectl get svc -n kube-system traefik -o jsonpath='{.spec.externalTrafficPolicy}'` | ⏳ |
-| ⑦ | 业务 VIP 是否始终为 `172.16.0.180` | `kubectl get svc -n kube-system traefik`（`EXTERNAL-IP`） | ⏳ |
-| ⑧ | 节点故障 / 删 kube-vip Pod 后的 VIP 漂移 | 参照 ④ 与排障笔记 §6；顺带确认漂移后 `curl http://172.16.0.180` 仍通 | ⏳ |
-| ⑨ | 镜像加速是否真的生效 | 三台 `sudo k3s ctr image pull docker.io/library/nginx:alpine` 走 `:5001`；kube-vip 镜像走 `:5002` 拉成功；`verify` 第 15 项报「一致」 | ⏳ |
+| ① | K3s 实际版本 + 这次用的安装来源 | `k3s --version`，把版本回填 `config.env` 的 `K3S_VERSION`；来源看 `K3S_INSTALL_SOURCE` 与 preflight 的输出（国内镜像 / 官方 + 代理） | ✅ **`v1.36.4+k3s1`**（三台一致），已回填 `K3S_VERSION`；来源 `cn`（Rancher 国内镜像，`INSTALL_K3S_MIRROR=cn`），未走代理 |
+| ② | 3 节点 join 是否正常 | `kubectl get nodes -o wide`（3 台 `Ready`、版本一致） | ✅ `k1`/`k2`/`k3` 全 `Ready`，`control-plane,etcd`，版本一致；join 入口用的是 VIP `https://172.16.0.210:6443` |
+| ③ | kube-vip 两套 DS 是否 3/3 | `kubectl get ds -n kube-system kube-vip-ds kube-vip-services` | ✅ 两套均 `3/3`（含带污点的 k3 —— 证明 `operator: Exists` 容忍策略生效） |
+| ④ | 控制面 VIP 是否正常漂移 | 删掉当前 leader 上的 kube-vip Pod，看 VIP 换节点；同时看 `plndr-cp-lock` 的 `holderIdentity` / `leaseTransitions` | ✅ 删掉 k1 上的 kube-vip Pod 后，VIP `172.16.0.210` **从 k1 漂到 k3（带污点的那台）**；`holderIdentity` k1 → k3，`leaseTransitions` **0 → 1**；漂移后经 VIP 请求仍可用 |
+| ⑤ | Traefik 是否确实 2 副本分散 | `kubectl get pods -n kube-system -l app.kubernetes.io/name=traefik -o wide` | ✅ 2 个副本分别落在 `k1` / `k2`（`podAntiAffinity` 生效，chart 认 `affinity` 键） |
+| ⑥ | `externalTrafficPolicy=Local` 是否生效 | `kubectl get svc -n kube-system traefik -o jsonpath='{.spec.externalTrafficPolicy}'` | ✅ `Local` |
+| ⑦ | 业务 VIP 是否始终为 `172.16.0.180` | `kubectl get svc -n kube-system traefik`（`EXTERNAL-IP`） | ✅ `EXTERNAL-IP = 172.16.0.180`；`http://172.16.0.180` 有响应（HTTP 404，未配 Ingress 路由属预期）；k1/k2 各自「本机 → VIP」都通 |
+| ⑧ | 节点故障 / 删 kube-vip Pod 后的 VIP 漂移 | 参照 ④ 与排障笔记 §6；顺带确认漂移后 `curl http://172.16.0.180` 仍通 | ✅ 见 ④：漂移后控制面链路（TCP 6443 + `/readyz` 有响应）与业务入口（404）都仍可用；业务 VIP 由 `kube-vip-services` 独立选举，不受控制面那套影响 |
+| ⑨ | 镜像加速是否真的生效 | 三台 `sudo k3s ctr image pull docker.io/library/nginx:alpine` 走 `:5001`；kube-vip 镜像走 `:5002` 拉成功；`verify` 第 15 项报「一致」 | ✅ kube-vip 镜像经 `172.16.0.222:5002`（ghcr.io 代理）拉取成功，两套 DS 起来即证明；三台 `registries.yaml` 与脚本渲染产物**逐字节一致**（verify 第 15 项） |
+
+**实机暴露的问题（已修，详见 §9.1）**
+
+| 问题 | 现象 | 修法 |
+| :--- | :--- | :--- |
+| `unattended-upgrades` 占 dpkg 锁 | `prepare` 在 k3 上装 `curl` 时失败退出（`Could not get lock /var/lib/dpkg/lock-frontend`） | apt 调用加 `DPkg::Lock::Timeout=300`，让 apt 自己等锁 |
+| 污点丢失 | 三台重装后自定义污点没了，`./deploy.sh join` 的 `preflight` 报「副本数 < 可承载节点数」把部署挡在门外 | 新增 `NODE_TAINTS` 声明 + `taint` 阶段幂等收敛 + `verify` 逐条核对 |
+| 部署中途副本数校验误拦 | 同上（首台装完、其余未 join 时 eligible 天然偏小） | 按「集群里节点对象数 < `NODES` 声明数」判定为部署中，跳过校验；节点到齐后仍严格校验 |
+| 本机 kubectl 报路径错（Windows） | `verify` 的「本机直连」提示项误报失败（`cannot find the path specified`） | 用 `cygpath -m` 把 `/c/...` 转成 `C:/...`；修后该项返回 ok |
 
 > **漂移验证别停节点。** 按[排障笔记 §6](../排障/Kube-vip排障（VIP不生效）.md)的做法：删掉当前 leader 上的
 > kube-vip Pod，观察 VIP 漂到另一台——比关机安全得多。
 >
-> **验收方式：** 先按 §6.2 把 `all` 拆开跑一遍并逐段确认，再跑一次 `./deploy.sh all`（端到端）+
-> `./deploy.sh verify`（15 项判据）。全绿且上表填满后，文档状态可从
+> **验收方式（已完成）：** 先按 §6.2 把 `all` 拆开跑一遍并逐段确认，再跑一次 `./deploy.sh all`（端到端）+
+> `./deploy.sh verify`（16 项判据）。全绿且上表填满 → 文档状态已从
 > **「方案定稿 / 实机待验证」升级为「已验证 / 可重复部署」**。
 
 ## 十、关联阅读
