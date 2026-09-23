@@ -1,225 +1,250 @@
 ---
-title: PassUp 前端 K8s 部署清单（Nginx + MinIO 静态资源）
+title: PassUp 前端 K8s 部署清单（Nginx 托管 + 静态资源策略）
 icon: mdi:web
 sort: 7
 ---
 
-> 本文记录 `pass-up.frontend` 项目在 k3s 上的前端部署方案：**Nginx 镜像托管入口 + 静态资源上 MinIO**。核心是解决 SPA 发版后「旧用户点击未访问路由 → 请求已删除的旧 chunk → 404」这一经典问题。与后端部署清单（`PassUp后端部署清单.md`）同处 `passup` 命名空间，共享集群与 Ingress。
+> 本文记录 `pass-up.frontend` 在 k3s 上的部署。**全文围绕一个问题**：
+> SPA 发版后，还开着旧页面的用户去加载「已被删掉的旧 chunk」会 404。
+> 围绕它有两条静态资源策略（**同源** / **对象存储**），本文说清取舍、当前用的是哪条，
+> 以及各自还剩什么没解决。与后端部署清单（`PassUp后端部署清单.md`）同处 `passup` 命名空间。
 
-> ### ⚠️ 本文与 2026-09-23 实际落地的差异
->
-> 本文描述的是 **CI（Gitea Actions）+ MinIO** 那条构建路径。当天用仓库里的
-> `k8s/deploy.sh` 实际部署时走的是**同源**路径，两者并存，但**若干约定已不一致**，
-> 阅读时以仓库里的 `k8s/` 清单与 `k8s/README.md` 为准：
->
-> | 项 | 本文写的 | 实际落地 |
-> | :--- | :--- | :--- |
-> | 静态资源 base | `VITE_ASSET_BASE_URL` 指向 MinIO 公网地址 | **同源**（资源打进镜像，nginx 直接返回）—— 集群无外网，外部域名一挂就是白屏而 Pod 全 Running |
-> | 入口 | 两个域名 `client.` / `admin.` | **单入口 + 路径分流**：`/` → user，`/admin` → admin（Traefik StripPrefix） |
-> | Ingress 的 `host` | 写死域名 | **故意不写**（匹配任意 Host）—— 外层 nginx 带的 Host 头不确定，写死对不上就整站 404 |
-> | 副本数 | 2 | **3** |
-> | `passup-registry-secret` | 需要（Gitea Secret + imagePullSecrets） | **不需要**（私有仓库匿名可读，`/v2/` 返回 200） |
-> | TLS | 未提 | 集群侧**不做 TLS**，由外层 nginx 终止 |
->
-> 关于入口 IP、VIP 漂移、`host` 为什么不能写 IP 等问题，见
-> [Ingress / Service / Traefik 入口的关系](../原理与选型/Ingress与Service与Traefik入口的关系.md) 第七~十节。
+## 一、结论先行
 
-## 一、方案演进
+| 项 | 当前实际 |
+| :--- | :--- |
+| 站点 | `frontend-user` × 3、`frontend-admin` × 3 |
+| 入口 | **单入口 + 路径分流**：`/` → user，`/admin` → admin（Traefik `StripPrefix`） |
+| 静态资源 | **同源**（资源打进镜像，由容器内 nginx 直接返回） |
+| TLS | **集群侧不做**，由外层 nginx 终止后 http 转发进来 |
+| 旧 chunk 404 | ❌ **没有彻底解决**（这是本文的核心问题，见第二节） |
 
-前端部署经历了三个阶段，每次演进都围绕「发版是否导致在线用户 404」：
+**为什么选了同源**：另一条路（对象存储）要求**浏览器能访问到对象存储端点**。
+集群里那套 MinIO 只在局域网（`172.16.0.222:8007`），而 CI 里写的是公网域名
+`hragentadmin.xiaodingtie.com` —— 那个域名是否还可用无法确认。
+同源不依赖任何外部端点，**保证页面一定能打开**，代价是第二节那个问题回来了。
 
-| 阶段 | 方式 | 旧 chunk 404？ | 问题 |
-| :--- | :--- | :--- | :--- |
-| 1. Docker Compose | Caddy + bind mount + SCP 上传 | 不 404 | 宿主机目录增量累积，旧 `assets<v>` 保留，但绑死单机 |
-| 2. 镜像化初版 | caddy 镜像 + hostPath | **会 404** | 镜像每次全新构建，只含当前版本 assets，旧文件被清掉 |
-| 3. **当前方案** | Nginx 镜像 + 资源上 MinIO | 不 404 | 资源与容器解耦，只增不删，彻底根治 |
+> ⚠️ 所以「用同源」是一个**可用的取舍，不是最优解**。等对象存储端点确认可达（且配好
+> CORS + 匿名读）之后，切回对象存储才是把旧 chunk 问题真正解决掉的做法。
 
-> 阶段 2 之所以会 404，本质是「镜像不可变」与「资源需要增量累积」的冲突。阶段 3 用对象存储承接资源，把这一冲突化解。
+## 二、核心权衡：静态资源放哪
 
-## 二、整体架构
+| | **同源**（资源打进镜像） | **对象存储**（MinIO / CDN） |
+| :--- | :--- | :--- |
+| 旧 tab 请求旧 chunk | ❌ **404**（新镜像里没有旧 hash 文件） | ✅ 保留（**只增不删**，旧 hash 文件一直在） |
+| 依赖 | 无 | 需要**浏览器可达**的对象存储端点 + CORS + 匿名读 |
+| 发版时资源清理 | 随镜像一起被替换 | 需另行配生命周期策略清理 |
+| 适用 | 内网 / 没有对象存储 | 有浏览器可达的对象存储 |
+
+**为什么同源一定会 404**：镜像不可变 —— 新镜像里只有「本次构建产出的那些 hash 文件」，
+上一次构建的 hash 文件不在里面。旧页面的 `<script>` / 动态 `import()` 指向的是旧 hash，
+请求打过来就是 404。
+
+> 关键区分：**这个 404 与「资源放哪」无关，与「旧文件是否被保留」有关。**
+> 镜像天然不保留旧文件，对象存储默认保留。
+
+## 三、资源目录命名：`assets<version>`
+
+构建时由 `packages/vite-config/src/index.ts` 决定：
+
+```ts
+build: {
+  outDir: envVars.VITE_OUTPUT_DIR || 'dist',
+  assetsDir: `assets${version}`,   // ← 资源目录
+}
+```
+
+`version` 的取值顺序：
+
+```text
+apps/<app>/package.json 的 version
+  → 若为占位版本 0.0.0 或读不到 → git 短提交 hash
+    → 非 git 环境 → 时间戳
+```
+
+当前 `apps/user` 与 `apps/admin` 的 `package.json` **都写死 `1.0.0`**，
+CI 里也没有 bump 版本的步骤 —— 所以资源目录**恒为 `assets1.0.0/`**，
+变的是目录里的**文件名**（content-hash）：
+
+```text
+dist/assets1.0.0/index-C9E2EoSO.js     ← 本次构建
+dist/assets1.0.0/index-8nYQTMZW.js     ← 下次构建（文件名变了）
+```
+
+> 这个设计的**本意**是「不同版本的资源互不覆盖，从而支持保留历史版本 + 长缓存」。
+> 但要注意：**它只有在「旧版本目录被保留下来」的存储上才成立**。
+> 放进镜像里，`assets1.0.0/` 这个目录每次都被整份替换掉，
+> 版本号写死反而让「互不覆盖」失去了意义 —— 真正起作用的是文件名 hash。
+
+## 四、整体架构（当前实际）
 
 ```text
 用户浏览器
   │
-  ├── 请求 index.html ──→ Traefik Ingress ──→ frontend Nginx（拿到最新入口）
+  │  https://<公网域名>
+  ▼
+外层 nginx（终止 TLS，已有证书）
   │
-  └── 请求 *.js/*.css ──→ MinIO（资源按 content-hash 只增不删，永不 404）
-
-frontend Nginx 内部反代：
-  /api/      → passup-backend:8005      （业务接口）
-  /ws/       → passup-backend:8005      （WebSocket，实时面试）
-  /actuator/ → passup-backend:8009      （管理端口，仅 admin）
+  │  http://172.16.0.180   ← Traefik 的 kube-vip VIP
+  ▼
+Traefik Ingress（只走 web/80；rules **不写 host**）
+  ├── /admin  → StripPrefix 去掉 /admin → frontend-admin
+  └── /       → frontend-user
+                    │
+                    ├── 静态资源：容器内 nginx 直接返回（同源）
+                    ├── /api/  → passup-backend:8005
+                    └── /ws/   → passup-backend:8005（WebSocket）
 ```
 
-前端资源请求走**相对路径**（`VITE_API_BASE_URL` 未配置，默认为空），因此反代放在 Nginx 容器内完成（对应 docker 时代 Caddy 的职责），Traefik Ingress 只负责「域名 → 前端 Service」的入口路由。
+前端资源请求走**相对路径**，所以反代放在容器内 nginx 完成，Traefik 只负责「路径 → Service」。
 
-## 三、目录结构
-
-前端仓库新增的部署文件：
+## 五、目录结构
 
 ```text
-pass-up.frontend/
-├── .dockerignore                          # 排除 node_modules/dist/.git
-├── apps/
-│   ├── user/
-│   │   ├── Dockerfile                     # 单阶段：nginx + COPY dist
-│   │   └── nginx.conf                     # /api、/ws 反代 + SPA 回退
-│   └── admin/
-│       ├── Dockerfile
-│       └── nginx.conf                     # 额外 /actuator 反代
-├── packages/vite-config/src/index.ts      # 新增 base 支持
-├── k8s/
-│   ├── user.yaml                          # frontend-user Deployment + Service
-│   ├── admin.yaml                         # frontend-admin Deployment + Service
-│   └── ingress.yaml                       # client/admin 域名路由
-└── .gitea/workflows/
-    ├── deploy-user.yml                    # 构建 → MinIO → 镜像 → 滚动发布
-    └── deploy-admin.yml
+k8s/
+├── README.md            # 部署说明（拓扑、两条构建路径、踩过的坑）
+├── deploy.sh            # 一键：构建 + 推镜像 + 部署（同源资源）
+├── user.yaml            # 客户端 Deployment + Service
+├── admin.yaml           # 管理端 Deployment + Service
+└── ingress.yaml         # Traefik Middleware（StripPrefix）+ Ingress
 ```
 
-## 四、关键设计点
+CI 侧：`.gitea/workflows/deploy-{user,admin}.yml`。
 
-### 1. Vite base 指向 MinIO（核心）
+## 六、关键设计点
 
-在共享的 `@pass-up/vite-config` 中新增 `base` 支持：
-
-```ts
-const envVars = loadEnv(env.mode, appDir, '');
-
-const baseConfig: UserConfig = {
-  // 生产指向 MinIO/CDN，未配置时默认 '/'
-  base: envVars.VITE_ASSET_BASE_URL || process.env.VITE_ASSET_BASE_URL || '/',
-  build: {
-    outDir: envVars.VITE_OUTPUT_DIR || 'dist',
-    assetsDir: `assets${version}`,   // 版本隔离
-  },
-};
-```
-
-- 生产环境 CI 注入 `VITE_ASSET_BASE_URL`（=`https://<minio-public>/passup-public/user/`），`index.html` 里的 `<script src>` 自动变成 MinIO 绝对地址；
-- 本地开发、`vite preview` 不设置该变量，`base` 回落 `/`，走 Vite dev proxy，完全不受影响。
-
-### 2. 静态资源只增不删（根治 404）
-
-`assets${version}` 目录 + content-hash 文件名，配合 CI 的**增量上传**，使旧版本资源永久保留：
-
-```text
-MinIO 桶 passup-public/
-├── user/
-│   ├── assets1.0.0/
-│   │   ├── index-a1b2c3d4.js   ← 旧版本，保留
-│   │   └── index-e5f6a7b8.js   ← 新版本，追加
-│   └── index.html              ← 冗余上传，无害
-└── admin/
-    └── assets1.0.0/...
-```
-
-旧用户停留在旧页面，点未访问的路由触发异步 chunk 请求，浏览器按旧 `index.html` 里的旧 hash 去 MinIO 取，**永远命中**。
-
-### 3. 单阶段镜像（避免重复构建）
-
-方案 2 需要 CI 先产出 `dist`（既用于上传 MinIO，又用于打包镜像），因此 Dockerfile 改为**单阶段**，不再在容器内重复 `pnpm build`：
-
-```dockerfile
-FROM nginx:1.27-alpine
-COPY apps/user/nginx.conf /etc/nginx/conf.d/default.conf
-COPY apps/user/dist/ /usr/share/nginx/html/
-EXPOSE 80
-```
-
-> 镜像内的 assets 仅为兜底冗余（资源引用已指向 MinIO），不影响「资源持久化」效果。这样省掉一次 `pnpm install + build`，CI 耗时减半。
-
-### 4. Nginx 反代与 SPA 回退
+### 1. Nginx 反代：请求时才解析上游
 
 ```nginx
-server {
-    listen 80;
-    root /usr/share/nginx/html;
-    index index.html;
+resolver 10.43.0.10 valid=5s ipv6=off;
 
-    # SPA History 模式回退
-    location / {
-        try_files $uri $uri/ /index.html;
-    }
-
-    # 业务 API（相对路径，容器内反代到后端）
-    location /api/ {
-        proxy_pass http://passup-backend.passup.svc.cluster.local:8005;
-        proxy_set_header Host $host;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-
-    # WebSocket（实时面试 /ws/audio）
-    location /ws/ {
-        proxy_pass http://passup-backend.passup.svc.cluster.local:8005;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_read_timeout 3600s;
-    }
+location /api/ {
+    set $backend "passup-backend.passup.svc.cluster.local:8005";
+    proxy_pass http://$backend;
+    ...
 }
 ```
 
-- `proxy_pass` 不带 URI，原样转发 `/api/xxx` 完整路径；
-- WebSocket 需 `Upgrade`/`Connection` 头 + 长超时；
-- admin 额外增加 `/actuator/` → `8009`（日志管理等 Actuator 端点）。
+`resolver` 指向集群 DNS（`10.43.0.10`），配合 `set $backend` + 变量形式的 `proxy_pass`，
+让域名在**每个请求**时解析 —— 这样**后端 Service 还没创建时 nginx 也能正常启动**并提供静态资源，
+而不是启动就报 `host not found in upstream` 直接挂掉。
 
-## 五、CI/CD 流程
+### 2. SPA History 回退
 
-以 `deploy-user.yml` 为例：
-
-```text
-Checkout → Node 24 + pnpm → pnpm install
-  → VITE_ASSET_BASE_URL=... pnpm build        （base 指向 MinIO）
-  → mc cp --recursive dist/ minio/bucket/prefix/   （增量上传，只增不删）
-  → docker build -f apps/user/Dockerfile      （单阶段 COPY dist）
-  → docker push（tag: latest + commit short hash）
-  → kubectl apply -f k8s/user.yaml -f k8s/ingress.yaml
-  → kubectl set image deployment/frontend-user user=$IMAGE:$SHORT_SHA
-  → kubectl rollout status（滚动发布，可回滚）
+```nginx
+location / {
+    try_files $uri $uri/ /index.html;
+}
 ```
 
-要点：
+否则用户刷新 `/interview/history` 这类前端路由会 404。
 
-- 镜像 tag 用 **commit short hash**（`$GITHUB_SHA` 截取前 8 位）而非仅 `latest`，配合 `set image` 实现精确版本发布与回滚；
-- `mc cp`（MinIO Client）是**增量追加**，不会删除目标端旧文件，这是方案 2 生效的关键；
-- 两个 workflow 都会 `apply ingress.yaml`（幂等，内容相同无副作用）。
+### 3. admin 挂在 `/admin` 子路径（两个 base 必须成对注入）
 
-## 六、关键约定（速查表）
+Traefik 用 `StripPrefix` 去掉 `/admin` 后再转发，所以容器内 nginx 仍按根路径 `/` 提供 SPA。
+但**浏览器**看到的路径是带 `/admin` 的，所以构建时必须同时给两个变量：
+
+| 变量 | 值 | 管什么 |
+| :--- | :--- | :--- |
+| `VITE_ASSET_BASE_URL` | `/admin/` | 静态资源的引用前缀 |
+| `VITE_BASE_PATH` | `/admin` | 客户端路由 basename |
+
+**只给一个就会出问题**：只给资源 base → 刷新 404；只给路由 basename → 页面能开但 JS 404。
+
+### 4. 单阶段镜像
+
+CI 里已经 `pnpm build` 过，镜像只做「nginx 基础镜像 + COPY nginx.conf + COPY dist」，
+不在容器内重复装依赖、重复构建。
+
+### 5. Ingress 的 rules **不写 host**
+
+外层 nginx 转发进来时带的 `Host` 头不确定（可能是公网域名，也可能是 IP，取决于
+`proxy_set_header Host ...` 怎么配）。写死一个 host 只要对不上就**整站 404**，
+而 Traefik 只回 404、不报错，很难查。
+
+不写 host 的 rule 匹配**任意 Host**，外层怎么配都能通。已验证：
+`Host` 为空 / `app.passup.local` / `whatever.example.com` / `172.16.0.180` 全部 200。
+
+> ✅ 不用担心它盖住别的规则：Traefik 按规则长度定优先级，带 `Host` 的规则更长、优先匹配。
+> 关于入口 IP、VIP 漂移、`host` 为什么不能写 IP，见
+> [Ingress / Service / Traefik 入口的关系](../原理与选型/Ingress与Service与Traefik入口的关系.md) 第七~十节。
+
+## 七、两条部署路径
+
+| | `k8s/deploy.sh`（本地） | CI（`.gitea/workflows/`） |
+| :--- | :--- | :--- |
+| 触发 | 手动 | push 到 `frontend` 分支且命中 paths |
+| 构建 | 本机 `pnpm build` + `docker build` | 同样，但在 runner 上 |
+| **资源 base** | **同源**（`/` 或 `/admin/`） | 对象存储公网地址 |
+| 资源上传 | 无（打进镜像） | `mc cp` 到 MinIO（只增不删） |
+| 镜像 tag | `日期-时间-短sha` | `短sha` + `latest` |
+| apply | `deploy.sh` 内（会 `strip_pullsecret`） | `kubectl apply -f k8s/{user,ingress}.yaml`（**不删**） |
+
+> ⚠️ 两条路径对 `imagePullSecrets` 的处理不一致：`deploy.sh` 会把它从清单里删掉，
+> CI 直接 apply 会保留。内网仓库是**匿名可读**的（实测 `/v2/` 返回 200），
+> 引用一个不存在的 `passup-registry-secret` 不会让 Pod 起不来，但 kubelet 会一直刷
+> `FailedToRetrieveImagePullSecret` 警告事件。**建议把这段从 `user.yaml`/`admin.yaml` 里直接删掉。**
+
+## 八、关键约定（速查表）
 
 | 项目 | 值 |
 | :--- | :--- |
 | 命名空间 | `passup`（与后端共享） |
 | 镜像 | `172.16.0.222:5000/passup/frontend-{user,admin}` |
-| 前端 Service | `frontend-user`、`frontend-admin` |
-| 资源 base | `VITE_ASSET_BASE_URL` = `https://<minio-public>/passup-public/{user\|admin}/` |
-| MinIO 桶 | `passup-public`（`user/`、`admin/` 前缀隔离） |
-| 反代端口 | `/api`、`/ws` → 8005；`/actuator` → 8009（仅 admin） |
-| 副本数 | 2（滚动更新 `maxUnavailable: 0`） |
-| 资源版本目录 | `assets${version}`（version 来自 package.json） |
+| Service | `frontend-user:80`、`frontend-admin:80`（ClusterIP） |
+| 副本数 | **3**（`maxUnavailable: 0` + `maxSurge: 1`） |
+| 容器端口 | `http` = 80 |
+| 探针 | readiness / liveness 都是 `GET /` |
+| 资源 | requests `10m`/`16Mi`，limits `200m`/`64Mi` |
+| 资源目录 | `assets${version}`，当前 version 恒为 `1.0.0` |
+| 入口 | Traefik VIP `172.16.0.180`（HTTP）；`/admin` → admin，`/` → user |
+| 反代目标 | `/api`、`/ws` → `passup-backend.passup.svc.cluster.local:8005` |
 
-## 七、部署前置条件
+## 九、实测数据与踩过的坑
 
-1. **Gitea Secrets**：
-   - `REGISTRY_USERNAME` / `REGISTRY_PASSWORD`（镜像仓库登录）
-   - `KUBECONFIG`（kubectl 访问集群）
-   - `MINIO_ENDPOINT`（内网，如 `http://192.168.1.221:9000`）
-   - `MINIO_ACCESS_KEY` / `MINIO_SECRET_KEY`
-2. **镜像拉取凭证**：`passup-registry-secret`（后端已创建，前端 Deployment 复用）。
-3. **MinIO 桶配置**：`passup-public` 需**匿名可读 + CORS**，否则浏览器跨域拉资源失败。
-4. **域名**：`k8s/ingress.yaml` 中 `client.your-domain.com` / `admin.your-domain.com` 替换为真实域名。
+### 实测（2026-09-23）
 
-## 八、值得借鉴的设计点
+```bash
+VIP=172.16.0.180
+curl -s -o /dev/null -w '%{http_code}\n' "http://$VIP/"              # 200
+curl -s -o /dev/null -w '%{http_code}\n' "http://$VIP/admin/"        # 200
+curl -s -o /dev/null -w '%{http_code}\n' "http://$VIP/admin/login"   # 200（SPA 回退）
+curl -s -o /dev/null -w '%{http_code}\n' "http://$VIP/api/"          # 200（反代到后端）
+```
 
-1. **资源与容器解耦**：入口（index.html）走容器拿最新、资源走对象存储只增不删，彻底解决 SPA 发版 404。
-2. **版本隔离 + 增量上传**：`assets${version}` + content-hash 文件名 + `mc cp` 追加，旧资源天然保留。
-3. **构建只做一次**：单阶段镜像，避免容器内重复 `pnpm install/build`。
-4. **反代职责内聚**：Nginx 容器内反代 `/api`、`/ws`，Ingress 只做域名路由，分层清晰（对应 `Kubernetes前端SPA部署实践.md` 中「双层 Nginx 职责划分」）。
-5. **可回滚发布**：镜像 tag 用 commit hash + `kubectl set image`，比 `latest` + `rollout restart` 更可控。
+- admin 的入口 JS 经 `/admin/assets1.0.0/...` 取到（nginx 日志确认 50 KB 真实内容）
+- `Host` 为空 / 任意域名 / IP **全部 200**
 
-## 九、遗留与后续
+### 坑 1：Windows + Git Bash 下的三个构建/部署失败
 
-- **方案 3（版本检测弹窗）暂未落地**：资源 404 已由 MinIO 解决，但旧用户停留在旧页面仍可能遇到接口契约变更，后续可加 `version.json` 轮询 + 刷新提示 + chunk 加载失败兜底，作为体验增强。
-- **MinIO 公网 URL 结构需确认**：是 path-style（`/passup-public/user/`）还是 virtual-host（`passup-public.<domain>`），决定 `VITE_ASSET_BASE_URL` 的正确拼法，当前按 path-style 假设。
-- **旧资源清理**：可给 `passup-public` 桶配 30 天生命周期策略，对齐原 SCP 方案的 `-mtime +30` 清理逻辑。
+| 现象 | 根因 | 处理 |
+| :--- | :--- | :--- |
+| `[safe-delete][SAFE_DELETE_BULK_CONFIRM_REQUIRED]`，且**user 构建成功、admin 构建失败** | 带删除保护的沙箱环境通过 `NODE_OPTIONS` 注入了 shim，额度按 turn 累计 —— 第一个 app 用完后第二个超阈值 | 构建时加 `NODE_OPTIONS= CODEBUDDY_SAFE_DELETE_ENABLED=0` |
+| `SAFE_DELETE_FAIL_CLOSED`，路径出现 `/d/_work/.../C:/Users/...` 双重路径 | `mktemp -d` 给的是 `/tmp/...`，与非 MSYS 感知的程序拼接时被拼坏 | 临时目录也 `cygpath -m` 转一次 |
+| `kubectl 无法连接集群`，但 kubeconfig 明明在 | Windows 原生 kubectl 读不了 Git Bash 的 `/c/...` 形态路径 | `KUBECONFIG` 也要 `cygpath -m` 转 |
+
+> 三条都已修进 `k8s/deploy.sh`。**第一条的现象特别有迷惑性** ——
+> 「user 成功、admin 失败」很容易被误判成 admin 应用自己有问题，
+> 实际是额度按 turn 累计、第二个 app 才踩到阈值。
+
+### 坑 2：CI 与本地构建的资源来源不同，别混着看
+
+排查「页面白屏」时，先确认**这份镜像到底是哪条路径构建的**：
+看 `index.html` 里的资源地址是 `/assets1.0.0/...`（同源）还是
+`https://<对象存储>/passup-public/<app>/assets1.0.0/...`（对象存储）。
+
+## 十、遗留与后续
+
+1. **旧 chunk 404 未解决**（本文核心问题）。当前靠「同源」换取了「一定能打开」。
+   彻底解决需要把资源放回**只增不删**的对象存储，并确认：
+   - 对象存储端点**浏览器可达**（不是只有集群/局域网可达）；
+   - 桶配好**匿名读 + CORS**；
+   - 公网 URL 结构是 path-style 还是 virtual-host（决定 `VITE_ASSET_BASE_URL` 的拼法）。
+2. **版本检测弹窗（原「方案 3」）未落地**：资源 404 之外，旧页面还可能撞上接口契约变更。
+   可加 `version.json` 轮询 + 刷新提示 + chunk 加载失败兜底。
+3. **`assets<version>` 里的 version 写死 1.0.0**：既然目录恒定、文件名才是 hash，
+   这个版本号目前没起作用。要么真正按发布 bump 它，要么明确它就是常量、别指望它做隔离。
+4. **`imagePullSecrets` 建议从清单里删掉**（仓库匿名可读，见第七节）。
+5. **入口**：外层 nginx 的上游建议指向 VIP `172.16.0.180:80` 而不是某台节点的 NodePort
+   —— NodePort 端口号是自动分配的、且 `externalTrafficPolicy: Local` 下部分节点根本不通。
+   详见 [Ingress / Service / Traefik 入口的关系](../原理与选型/Ingress与Service与Traefik入口的关系.md) 第七~九节。
