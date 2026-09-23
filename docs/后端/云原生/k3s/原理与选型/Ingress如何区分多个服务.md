@@ -52,6 +52,44 @@ spec:
 
 **缺点**：需要多个域名并配置 DNS 解析（或配泛域名 `*.example.com` + 通配证书）；域名/证书环节没搞好的话反而比路径更麻烦。
 
+### ⚠️ `host` 只能填域名，不能填 IP
+
+`host` **不是「地址」，而是「拿请求的 `Host:` 头去比对的条件」**，所以 Kubernetes 在 API 层就拒绝 IP 字面量：
+
+```text
+spec.rules[0].host: Invalid value: "172.16.0.180": must be a DNS name, not an IP address
+```
+
+想「用一个 IP 当入口」应该走 **Service 的 `loadBalancerIP` / Kube-vip 注解**（L4 直达），
+而不是 Ingress —— 两者的语义差异见
+[Ingress / Service / Traefik 入口的关系](./Ingress与Service与Traefik入口的关系.md) 第十节。
+
+### 不写 `host` 会怎样
+
+`rules` 里的 `host` 是**可选的**。不写时这条 rule 会**匹配任意 Host**：
+
+```yaml
+spec:
+  ingressClassName: traefik
+  rules:
+    # 故意不写 host —— 任意 Host 都命中，包括裸 IP
+    - http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: user-svc
+                port:
+                  number: 80
+```
+
+适用场景：**前面的反向代理（外层 nginx / 网关）带的 Host 头不确定**，写死域名只要对不上就整站 404，
+而 Traefik 只回 404、不报错，很难查。
+
+> ✅ 不用担心它盖住别的规则：Traefik 按规则长度定优先级，带 `Host` 的规则比裸 `PathPrefix` 长，**优先匹配**。
+> 实测：`Host=probe.passup.local` 命中了按域名的规则，`Host=other.example.com` 才走兜底。
+
 ## 三、路径区分（无域名 / 内网最佳替代）
 
 没有域名、或纯内网场景下，用不同路径前缀路由到不同后端是最省事的替代方案：

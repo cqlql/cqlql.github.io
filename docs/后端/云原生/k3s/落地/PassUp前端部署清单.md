@@ -6,6 +6,24 @@ sort: 7
 
 > 本文记录 `pass-up.frontend` 项目在 k3s 上的前端部署方案：**Nginx 镜像托管入口 + 静态资源上 MinIO**。核心是解决 SPA 发版后「旧用户点击未访问路由 → 请求已删除的旧 chunk → 404」这一经典问题。与后端部署清单（`PassUp后端部署清单.md`）同处 `passup` 命名空间，共享集群与 Ingress。
 
+> ### ⚠️ 本文与 2026-09-23 实际落地的差异
+>
+> 本文描述的是 **CI（Gitea Actions）+ MinIO** 那条构建路径。当天用仓库里的
+> `k8s/deploy.sh` 实际部署时走的是**同源**路径，两者并存，但**若干约定已不一致**，
+> 阅读时以仓库里的 `k8s/` 清单与 `k8s/README.md` 为准：
+>
+> | 项 | 本文写的 | 实际落地 |
+> | :--- | :--- | :--- |
+> | 静态资源 base | `VITE_ASSET_BASE_URL` 指向 MinIO 公网地址 | **同源**（资源打进镜像，nginx 直接返回）—— 集群无外网，外部域名一挂就是白屏而 Pod 全 Running |
+> | 入口 | 两个域名 `client.` / `admin.` | **单入口 + 路径分流**：`/` → user，`/admin` → admin（Traefik StripPrefix） |
+> | Ingress 的 `host` | 写死域名 | **故意不写**（匹配任意 Host）—— 外层 nginx 带的 Host 头不确定，写死对不上就整站 404 |
+> | 副本数 | 2 | **3** |
+> | `passup-registry-secret` | 需要（Gitea Secret + imagePullSecrets） | **不需要**（私有仓库匿名可读，`/v2/` 返回 200） |
+> | TLS | 未提 | 集群侧**不做 TLS**，由外层 nginx 终止 |
+>
+> 关于入口 IP、VIP 漂移、`host` 为什么不能写 IP 等问题，见
+> [Ingress / Service / Traefik 入口的关系](../原理与选型/Ingress与Service与Traefik入口的关系.md) 第七~十节。
+
 ## 一、方案演进
 
 前端部署经历了三个阶段，每次演进都围绕「发版是否导致在线用户 404」：
