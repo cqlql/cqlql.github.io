@@ -711,56 +711,64 @@ modules/realtime/analytics/InterviewAnalyticsEventHandler.java # ✅ props 增 i
 | **`AsrStreamRunner` 跨场景复用风险** | `/ws/audio` 已在用它，V2 新增 `/ws/asr` 后它成为**两个消费者共用的公共件** | 已实测核对（见 §4.2.1）：Runner 不依赖 `AudioStreamSession` / `InterviewSessionState` / `CleanupReason` / `SessionRegistry` / 计费，只吃 PCM、只吐 `AsrEvent`。新增消费者时**保持这条边界**，不要为 `/ws/asr` 往 Runner 里加面试会话语义 |
 | 新成本入口 | 识别通道可被脚本刷（豆包按音频时长计费） | ticket 一次性鉴权 + 单用户并发 1 + 单次时长上限 + 指标观测 |
 | 会话起点迁移漏改 | text 模式不启 ASR，若忘迁「起算 / 首问」触发点，会既不扣费也不开场 | §4.1.4 的两处触发点必须与 `input` 参数同一次提交完成 |
-| 计费口径 | 文本模式仍按会话时长计费，用户静默思考照样扣费 | 属产品决策，需与产品确认是否引入「无操作自动暂停」（现有暂停机制可直接复用） |
+| 计费口径 | 文本模式仍按会话时长计费，用户静默思考照样扣费 | ✅ 已定稿（§8 P0-1）：**V2 不引入「无操作自动暂停」**，保持"思考时间计入面试时长"；若将来数据显示长时间空转明显，再单独评估 |
 
 ## 8. 待确认问题
 
-> **分两类，别让后置项阻塞开工**：
->
-> | 类别 | 事项 | 状态 |
-> | :--- | :--- | :--- |
-> | **Step 1 前必须确认** | `input` 参数命名（`input=audio\|text`） | 倾向已定：`input` |
-> | | 超长回答：拒绝 or 截断 | 已定为**拒绝**（截断会让 AI 收到残缺语义） |
-> | | `ASSIST + input=text` 是否拒绝 | 已定为**拒绝**（非法参数当场暴露，不静默降级） |
-> | **可边实施边定** | `source` 是否埋点 / 埋点字段 | 后置（Step 3） |
-> | | `/ws/asr` 单次时长上限 | ✅ 已定：**120 秒**（`realtime.asr.session-max-duration-ms`，前端录音 60 秒） |
-> | | 单用户并发识别连接数 | ✅ 已定：**1**（`realtime.asr.max-connections-per-user`，超限拒绝而非顶号） |
-> | | 是否引入"无操作自动暂停" | 后置（产品决策） |
-> | | **文本模式「失联 = 结束」是否改成「失联 = 暂停」，或给 text 模式更长的失联阈值** | ✅ 已定（2026-09-22）：**保持「失联 = 结束」**，文字作答阈值放宽到 **180 秒**（见 §4.1.6 与 §8-8） |
-> | | **失联结束是否单独记一个 `InterviewEndReason`** | 待产品/数据拍板（见 §8-9）：现状记成 `USER_ENDED`，埋点分不出"失联"与"主动结束" |
-> | | `/ws/asr` 是否给其他页面复用 | 后置（决定 ticket 何时加 `scene/purpose`） |
->
-> 上面标"已定"的三项实际上已是**定稿约束**（见 §4.1.1），保留在此仅为记录决策过程。
+> 后端 V2 的**核心技术方案已定稿**：剩余待确认事项只有产品口径与后续能力边界，**均不阻塞当前实现**。
+> 协议层面的"已经决定的事"统一列在 §8.1，不再重复讨论 —— 改动它们即为行为变更，须走 §12 的实施纪律。
 
-1. **`input` 参数命名**：`input=audio|text` 还是 `answerMode` / `inputMode`？（倾向 `input`，短且与 `mode` 不撞）
-2. ~~**文本作答是否落 `source`（voice / text）**：建议只做埋点，不加列。~~
-   ✅ 已定（Step 3）：**不加列，且后端不做这个口径** —— 作答来源只有前端知道
-   （用户打的字与「点话筒识别后填进输入框」的字，到后端都是同一条 `ANSWER`；后端也刻意不让前端多传字段，
-   见 §4.1.3：多一个未知字段会把整条作答丢成解析失败）。该口径由**前端埋点**承担；
-   后端能提供的是 `input_mode`（这条会话是 V1 语音形态还是 V2 文字形态，已进 `interview_session_started/ended`）。
-3. ~~**单次识别时长上限**、单用户并发识别连接数上限的取值。~~
-   ✅ 已定（Step 2）：120 秒 / 每用户 1 条；两者都在 `RealtimeProperties.Asr` 里，默认值有 `RealtimePropertiesTest` 钉住。
-4. **是否需要「无操作自动暂停」**：文本模式下用户思考/离开都不会断连，按现有规则会一直扣时长；
-   若产品要求，可复用 `PAUSE` 链路由前端在无操作 N 分钟后主动暂停。
-5. **识别通道是否给其他页面复用**（AI 问答输入框、简历诊断）：若是，ticket 与拦截器要按「与面试无关」的通用能力设计，
-   §4.2.3 的拆分就从「最小改法」升级为必做。
-6. **超长回答的处理**：截断还是拒绝（建议拒绝 + 明确提示，避免 AI 收到不完整语义）。
-7. **正式面试（`ASSIST`）是否永久不支持文本作答**：本方案按「拒绝」处理，若产品后续要做
-   「PC 端手动打字提问」，需要同时决定它是否也算面试时长、是否复用同一会话。
-8. ~~**文本模式的「失联」语义**~~
-   ✅ **已定稿（2026-09-22）**：**不改「失联 → 暂停」**，保持"失联 = 结束"；
-   **只把文字作答的失联阈值放宽到 180 秒**（`realtime.text-heartbeat-timeout-ms`；语音仍 60 秒），
-   作用点 `AudioStreamSession#effectiveTimeoutMillis()`，**不新增状态、不做"失联可恢复"**。
-   不变量：**「思考」永远不等于「暂停」**，不做"无操作自动暂停"，「主动暂停」只由显式 `PAUSE` 触发。
-   理由与边界见 §4.1.6。
+| 优先级 | 事项 | 当前方案 | 建议 |
+| :--- | :--- | :--- | :--- |
+| **P0** | 是否引入「无操作自动暂停」 | 文字模式只要心跳正常就保持 `ACTIVE`，**思考时间照常计费**；只有显式 `PAUSE` 才暂停 | **V2 暂不引入**，保持显式 `PAUSE`（理由见下） |
+| **P0** | ~~失联结束是否增加独立 `InterviewEndReason`~~ | 此前失联、余额耗尽、计费异常都与主动结束同记 `USER_ENDED`，数据分不出来 | ✅ **已落地（2026-09-23）**：新增 `DISCONNECTED`；并把 `BILLING_TERMINATED` **拆成** `BILLING_EXHAUSTED` / `BILLING_ERROR` → 各自映射到同名结束原因与 `SYSTEM_ERROR`。**历史数据不回溯** |
+| **P1** | `/ws/asr` 是否扩展为通用语音输入能力 | 只服务 V2 小程序，但通道本身已与面试会话解耦（不碰注册表 / 计费 / `Interview`） | **本期只服务 V2，保留通用边界**；真有复用需求再加 `scene/purpose`，不为"以后可能"提前设计 |
+| **P1** | `ASSIST` 是否支持文本作答 | `ASSIST + input=text` 在建连阶段直接拒绝（`INTERVIEW_PREPARE_FAILED` / 4002），不静默降级 | **本期保持拒绝**；将来 PC 要"手动文字提问"，需同时决定它是否计入面试时长、是否复用同一会话 |
 
-9. **失联结束是否单独记一个 `InterviewEndReason`（新，2026-09-22 联调后提出）**：
-   现状 `toEndReason()` 只把 ASR 故障映射成 `ASR_ERROR`，**其余（心跳超时 / 计费终止 / 顶号…）全记
-   `USER_ENDED`** —— 于是"切后台失联"与"用户主动挂断"在落库与埋点
-   （`interview_session_ended` 的 `end_reason`）里同码，**分不出来**。
-   与"语义干净"的诉求直接冲突，而 V2 会显著放大这类样本（文字模式更容易切后台）。
-   建议新增 `DISCONNECTED`（心跳超时/顶号等连接层原因）并在埋点区分。
-   **代价**：历史数据口径分界（此前 `USER_ENDED` 里混着失联），统计口径需说明；故需数据/产品确认后实施。
+**P0-1 为什么建议不做「无操作自动暂停」**：难点不在实现（复用 `PAUSE` 链路即可），而在**定义** ——
+"多久算无操作"、"什么算操作"（输入？光标？心跳？切后台？）都要逐一裁定；一旦判歪就是
+"面试进行中莫名暂停"，而现有显式 `PAUSE` 已覆盖真正需要暂停的场景。
+> 若将来数据证明存在明显的长时间空转（例：`duration_sec` 高但 `ANSWER` 极少），再单独评估。
+> 注意 **`ANSWER` 不能当活跃度**：那会让"正在思考"与"已掉线"无法区分（见 §4.1.6）。
+
+**P0-2 收口说明（结束原因，2026-09-23 一次做完两件事）**：映射规则与理由写在
+`AudioStreamSession#toEndReason` 与 `InterviewEndReason` 的注释里，单测 `AudioStreamSessionEndReasonTest` 钉住。
+
+| 连接退出原因（`CleanupReason`） | 结束原因（`InterviewEndReason`） | 语义 |
+| :--- | :--- | :--- |
+| `HEARTBEAT_TIMEOUT` / `TAKEOVER` / `TRANSPORT_ERROR` | **`DISCONNECTED`**（新增） | 连接层：系统无法确认用户还在 / 连接被换掉 |
+| `BILLING_EXHAUSTED`（由原 `BILLING_TERMINATED` 拆出） | **`BILLING_EXHAUSTED`** | 余额耗尽：用户把时长用完了 |
+| `BILLING_ERROR`（同上拆出） | **`SYSTEM_ERROR`** | 计费服务自身异常：系统故障，不是用户的锅 |
+| `ASR_UNAVAILABLE` | `ASR_ERROR` | 识别服务挂了 |
+| 其余（`CONNECTION_CLOSED` / `ASR_SESSION_END`…） | `USER_ENDED` | 用户的明确意图 |
+
+> **为什么是"拆"而不是"改名"**：`CleanupReason` 原来只有一个 `BILLING_TERMINATED`
+> （注释写着"余额耗尽 / 计费异常"），而 `InterviewBillingScheduler#terminateSession` 确实有
+> **两个**调用点（结算抛异常 / 余额 ≤ 0）。只改名会让"计费服务抛异常"被记成"余额耗尽"，
+> 埋点反而更失真 —— 所以拆成两个原因，并各映射到上表两个结束原因
+> （正好用上此前从未被赋值的 `BILLING_EXHAUSTED` 与 `SYSTEM_ERROR`）。
+>
+> **历史数据不回溯**：`DISCONNECTED` / `BILLING_EXHAUSTED` / `SYSTEM_ERROR` 都从新版本起才有，
+> 报表 / 看板需在时间轴标注分界；此前的 `USER_ENDED` 里混着失联与余额耗尽，
+> **别直接拿来算"主动结束率"**。
+
+### 8.1 已定稿、不再作为待确认项
+
+| 项目 | 定稿内容 |
+| :--- | :--- |
+| 建连参数 | `input=audio\|text`（缺省 `audio`）；`mode` 仍决定 ASSIST / MOCK |
+| 非法组合 | `ASSIST + input=text` **拒绝**（`INTERVIEW_PREPARE_FAILED` / 关闭码 4002），不静默降级成 audio |
+| 文本作答通道 | 走**面试会话** `/ws/audio` 的上行 `ANSWER`（**不是**流式 HTTP）；下行沿用 `THINKING` / `LLM_REPLY` |
+| 语音输入通道 | 独立 `/ws/asr`（音频进、文本出；不碰计费 / 注册表 / `Interview` / 暂停恢复） |
+| 超长回答 | **拒绝**（`ANSWER_TOO_LONG` / 2000 字上限），不截断 |
+| 回合串行化 | 同一时刻一个在途回合；忙时 `TURN_BUSY`（audio 路径只记日志、不回错误码） |
+| `/ws/asr` 上限 | 单次 **120 秒** / 单用户并发 **1** 条 / 每日 **300** 次（0 = 不限制，按北京时间自然日；Redis 异常放行） |
+| 失联语义 | **失联 = 结束**（≠ 暂停）；只有显式 `PAUSE` 才进 `PAUSED`（保留 15 分钟等 `resume`） |
+| text 失联阈值 | **180 秒**（`realtime.text-heartbeat-timeout-ms`；语音仍 60 秒），**不新增 `DISCONNECTED` 状态、不做"失联可恢复"** |
+| 计费活跃度判据 | **只看心跳**；不做「收到 `ANSWER` 就当心跳」的特例，不做"无操作自动暂停"（本期） |
+| `source`（voice / text） | 后端**不落列、不做这个口径**（只有前端知道），由前端埋点承担；后端提供 `input_mode` |
+| 埋点口径 | 只出 `interview_session_started` / `ended` 两个事件，props：`mode` / `input_mode` / `end_reason` / `duration_sec`（+ `duration_source`） |
+| 结束原因取值 | `USER_ENDED` 主动结束 / `DISCONNECTED` 连接层（失联·顶号·传输错误）/ `BILLING_EXHAUSTED` 余额耗尽 / `SYSTEM_ERROR` 计费异常 / `ASR_ERROR` 识别故障 / `SESSION_EXPIRED` 暂停超时 |
 
 ## 9. 与前端方案笔记的差异（✅ 已于 2026-09-22 同步修订）
 
