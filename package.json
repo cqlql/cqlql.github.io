@@ -10,7 +10,8 @@
     "docs:clean-dev": "vuepress-vite dev docs --clean-cache",
     "docs:dev": "vuepress-vite dev docs",
     "docs:update-package": "pnpm dlx vp-update",
-    "docker": "docker-compose up -d",
+    "docker": "docker-compose -f docker/docker-compose.yml up -d && pnpm run docker:sync",
+    "docker:sync": "pnpm run docs:build && docker run --rm -v cqlql-notes-dist:/dest -v ./docs/.vuepress/dist:/src:ro nginx:1.30.4-trixie sh -c \"find /dest -mindepth 1 -delete && cp -a /src/. /dest/\"",
     "git:auto": "start /b \"\" .\\git-auto-push.bat"
   },
   "devDependencies": {

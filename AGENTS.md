@@ -16,11 +16,15 @@ pnpm run docs:dev      # 本地开发（端口 3008）：vuepress-vite dev docs
 pnpm run docs:build    # 构建产物到 docs/.vuepress/dist
 pnpm run docs:clean-dev# 清缓存后启动开发服务
 pnpm run git:auto      # 后台运行 git-auto-push.bat 自动提交并推送
-pnpm run docker        # docker-compose 启动 nginx 预览构建产物
+pnpm run docker        # 完整发布：确保容器在跑 + 构建 docs + 写入命名卷
+pnpm run docker:sync   # 构建 docs 并把 dist 写入命名卷（不碰 nginx 容器）
 pnpm run docs:update-package  # 升级 vuepress 相关依赖（vp-update）
 ```
 
-> 构建产物目录 `docs/.vuepress/dist` 由 `docker-compose.yml` 挂载进 nginx，对外暴露 `10010:80`。
+> `pnpm run docker:sync` 依次执行：`pnpm run docs:build` → 用一个一次性容器把 `docs/.vuepress/dist` 拷进命名卷 `cqlql-notes-dist`（先清后拷），不重建、不重启 nginx 容器，内容进卷后即时生效。
+> `pnpm run docker` = `docker-compose -f docker/docker-compose.yml up -d` + `pnpm run docker:sync`，仅在容器没跑或容器配置有变时才需要。对外暴露 `10010:80`。
+> nginx 的 `/usr/share/nginx/html` 挂的是**命名卷** `cqlql-notes-dist`（数据位于 WSL2 的 ext4），不经过 Windows 绑定挂载，避免逐请求跨系统读文件的 IO 损耗。
+> 因为内容直接写进卷，**不需要重建 nginx 容器**，拷贝完成后即时生效；同步耗时（约 30s，取决于文件数）期间不中断服务。
 
 ## 目录结构
 

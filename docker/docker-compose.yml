@@ -5,9 +5,14 @@ services:
     # 配置此项便会随docker启动而启动
     restart: always
     volumes:
-    - ../docs/.vuepress/dist:/usr/share/nginx/html
+    # nginx 内容目录直接用命名卷，数据落在 WSL2 的 ext4 上，
+    # 避免 Windows 绑定挂载（virtiofs/9p）在每次请求时跨系统读文件的性能损耗
+    - cqlql-notes-dist:/usr/share/nginx/html
     ports:
     - "10010:80"
     environment:
     - NGINX_HOST=foobar.com
     - NGINX_PORT=80
+volumes:
+  cqlql-notes-dist:
+    name: cqlql-notes-dist
