@@ -1,15 +1,18 @@
 ---
-title: 可观测性栈迁移至集群内（方案）
+title: 可观测性栈 k3s 部署方案
 icon: mdi:monitor-dashboard
 sort: 14
 ---
 
-# 可观测性栈迁移至集群内（宿主机 Docker → k3s）
+# 可观测性栈 k3s 部署方案（替代宿主机 Docker 旁路栈）
 
-> **文档定位：架构定稿 / 集群内部分已落地（2026-09-23）。**
-> 记录 PassUp 项目可观测性栈（Prometheus + Grafana + Alertmanager + Loki + Grafana Alloy + dingtalk-webhook）
-> 从「宿主机 Docker 旁路部署」迁移为「k3s 集群内部署」，以及由此确定的**清单目录归属规则**。
+> **文档定位：架构定稿 / 集群内已落地（2026-09-23）。**
+> 本方案描述 PassUp 项目可观测性栈（Prometheus + Grafana + Alertmanager + Loki + Grafana Alloy + dingtalk-webhook）
+> **在 k3s 集群内的部署形态**：组件落位、清单目录归属、资源与落点、告警模型、部署与验收步骤。
 > 「现状」以当前仓库代码为准；实施结果见文末 §十。
+>
+> 原先跑在宿主机 Docker 上的旁路栈（`pass-up.backend/deploy/monitoring/`）是**被替代对象**：
+> 它只作为背景出现在 §一（为什么不能在宿主机上继续），其退役与归档是可选的收尾步骤（§4.3、§6 阶段 5/6）。
 >
 > **集群现状：3 台 server 节点（**实测 7.7 GiB/台**，非 16 GiB），其中 1 台带污点 → 常态只有 2 台承载业务 Pod。**
 > 这个前提会改写若干结论，见 §1.4。
@@ -20,7 +23,7 @@ sort: 14
 >
 > | 层面 | 状态 | 含义 |
 > | :--- | :--- | :--- |
-> | 架构设计 | ✅ **定稿** | 迁移方向、组件落位、单副本取舍、监控栈放污点节点——不再变 |
+> | 架构设计 | ✅ **定稿** | 部署形态、组件落位、单副本取舍、监控栈放污点节点——不再变 |
 > | 组件选型 | ✅ **定稿** | Alloy 替代 Promtail、原生 Prometheus + Kustomize、不引入 Operator |
 > | 目录规划 | ✅ **定稿** | `cluster-infra/monitoring` 与业务仓的边界（§2、§4） |
 > | 告警模型 | ✅ **定稿** | 三条告警的语义与拆分（§5.1） |
@@ -31,7 +34,8 @@ sort: 14
 > | **故障演练** | 🔶 **部分完成** | 已真跑 4/5/6/7/9 + **2**（真实滚动发布）；1/3 现已具备条件待补，8 被看门狗阻塞（§10.7） |
 > | **业务侧修正** | ✅ **主体完成** | `passup` 已于 2026-09-23 上集群（3 副本）：**多副本采集与 ECS 日志两条验收判据实测通过**；backend `limits` 只收到 2Gi 待负载复测，`topologySpreadConstraints` 未加（§10.9） |
 >
-> **换句话说**：架构与集群内实施都已定稿并落地；剩下的是**业务侧接入**与**看门狗部署**。
+> **换句话说**：架构与集群内实施都已定稿并落地，业务侧接入（多副本采集、ECS 日志）也已验收通过；
+> 剩下的是 **backend `limits` 定稿**、**拓扑分布约束**、**演练 1/3**、**集群外看门狗部署**与**旧栈退役**（§10.4）。
 > 本文正文的 YAML 片段仍是**设计意图说明**，实际清单以 `cluster-infra/monitoring/` 为准
 > ——两者在资源数字上已有偏差，以落地版为准（§10.2 列了全部偏差）。
 >
@@ -63,11 +67,23 @@ sort: 14
 > **修订 v2（评审后）**：Promtail → Grafana Alloy（**必改**，Promtail 已 EOL）、告警拆分、profile 职责边界、资源数字改口径。
 > 各版改动详见文末[附录：修订记录](#附录修订记录)。
 
-## 一、背景：现状与问题
+## 一、部署目标与背景
 
-### 1.1 现状：旁路部署
+> **部署目标**：把整套可观测性栈以 `cluster-infra/monitoring/` 的形式**部署进 k3s 集群**，
+> 使它成为**长期基础设施**——未来接入第二个应用时不复制第二套栈（§2.1）。
+>
+> | 目标 | 验收判据 |
+> | :--- | :--- |
+> | 多副本指标按 Pod 独立采集 | `up{job="passup-backend"}` 的序列数 = 副本数（§5.1、§10.9） |
+> | 日志走 containerd 链路、结构可用 | `{namespace="passup"} \| level = "ERROR"` 能查出结果（§5.2、§6 阶段 4.4） |
+> | 告警端到端可达钉钉，且监控栈自身故障有兜底 | 四类告警钉钉可收 + 集群外看门狗（§5.7） |
+>
+> **为什么落在 k3s、而不是继续用宿主机 Docker**：下面 §1.1 是原栈形态，§1.2 是三个技术问题（本方案的技术理由），
+> §1.3 是触发条件，§1.4 是集群现状（全案资源结论的前提），§1.5 是两条贯穿全案的设计原则。
 
-监控栈当前位于 `pass-up.backend/deploy/monitoring/`，用 `docker-compose.monitoring.yml` 跑在**宿主机 Docker** 上，与被监控对象（k3s 集群）是**旁路关系**：
+### 1.1 背景：此前跑在宿主机 Docker 上（旁路部署）
+
+监控栈原位于 `pass-up.backend/deploy/monitoring/`，用 `docker-compose.monitoring.yml` 跑在**宿主机 Docker** 上，与被监控对象（k3s 集群）是**旁路关系**：
 
 ```text
 备份机（k8s 之外）                    k3s 节点
@@ -88,7 +104,7 @@ sort: 14
 | 后端指标 | 由 entrypoint 生成 `BACKEND_HOST_IP:8009` | 宿主端口映射 |
 | 应用日志 | Promtail 读 `/var/lib/docker/containers` | Docker `json-file` 驱动 |
 
-### 1.2 暴露出的三个问题
+### 1.2 为什么不在宿主机 Docker 上继续：三个问题
 
 #### P1｜多副本与「单采集目标」直接冲突（核心）
 
@@ -115,7 +131,7 @@ replicas:
 1. `/actuator/prometheus` 的指标随 Pod 跳变，看板曲线断裂，JVM/HTTP 指标失去意义；
 2. `BackendDown` 规则 `up{job="passup-backend"} == 0` **只反映被采到的那一个 Pod**——挂掉 1/3 副本不会告警，告警是否准确取决于「恰好采到了谁」。
 
-> 结论：**多副本下的正确采集只能在集群网络内完成**，这是本次迁移最硬的技术理由，不是目录美观问题。
+> 结论：**多副本下的正确采集只能在集群网络内完成**，这是把监控栈放进集群最硬的技术理由，不是目录美观问题。
 
 #### P2｜日志采集与 k8s 运行时错配
 
@@ -143,7 +159,7 @@ k3s 下必须换成 `kubernetes_sd_configs` + `cri: {}`（或 Alloy 的等价组
 最后一个版本停在 `3.6.11`（当前栈用的 `3.6.10` 就在这条冻结线上）。
 Loki 官方文档的采集入口已整体指向 Grafana Alloy，后续功能开发只在 Alloy 中进行。
 
-> 如果这次迁移只是「把宿主机那套原样搬进集群」，沿用 Promtail 尚可接受。
+> 如果只是「把宿主机那套原样搬进集群」，沿用 Promtail 尚可接受。
 > 但本方案的目标是让 `cluster-infra/monitoring` 成为**长期基础设施**（未来接入第二个应用时不复制第二套栈），
 > 那么以一个 EOL 组件作为新栈的日志采集层，等于在第一天就埋下技术债。
 > 因此日志采集层改选 **Grafana Alloy**，理由与配置见 §5.2.1。
@@ -227,7 +243,7 @@ Loki 官方文档的采集入口已整体指向 Grafana Alloy，后续功能开�
 | 日志量突增 | 不能把 Loki 拖垮再连累节点（§5.5.1 的 `limits_config` 限流） |
 | 监控栈全挂 | **业务照常运行**（这正是把监控栈放到污点节点的原因之一，§5.5.5） |
 
-> 这两条也是「迁移策略必须双栈并行」的根据（§6 阶段 4）：
+> 这两条也是「切换必须双栈并行」的根据（§6 阶段 4）：
 > 新栈没验证通过就停旧栈，等于同时失去指标、日志、告警三个观测面。
 
 ## 二、决策：目录归属
@@ -355,7 +371,7 @@ DaemonSet（Alloy / node-exporter）      Deployment/StatefulSet（Prometheus/Lo
 ```text
 cluster-infra/
 └── monitoring/
-    ├── README.md                       # 部署与排障说明（迁移 deploy/monitoring/README.md 主体）
+    ├── README.md                       # 部署与排障说明（主体承接 deploy/monitoring/README.md）
     ├── namespace.yaml                  # namespace: monitoring
     ├── kustomization.yaml
     ├── prometheus/
@@ -420,18 +436,18 @@ spec:
 - 副本分布：3 副本需分散在 3 个节点（`topologySpreadConstraints`，软约束）；
 - 采集契约变更时需同步改 `cluster-infra/monitoring/prometheus/configmap.yaml`。
 
-### 4.3 `deploy/monitoring/` 迁移后保留什么
+### 4.3 宿主机旧栈的处置（可选，后置）
 
 | 文件 | 处置 |
 | :--- | :--- |
-| 备份机 `node_exporter` 安装说明（README 第一节、systemd 单元） | **保留**（集群外，与本次迁移无关） |
+| 备份机 `node_exporter` 安装说明（README 第一节、systemd 单元） | **保留**（集群外，与本方案无关） |
 | `dingtalk/main.go` + `Dockerfile` | 保留为镜像构建源，镜像推仓库后由集群引用 |
 | `backup/minio/backup.env` 等备份脚本相关 | **保留**（与监控无关） |
-| `docker-compose.monitoring.yml`、`promtail.yml`、`prometheus/*`、`grafana/*`、`loki/*`、`alertmanager/*`、`.env.example` | 迁移完成后移到 `deploy/monitoring/legacy/` 或删除，README 标注「已迁至 cluster-infra/monitoring」 |
+| `docker-compose.monitoring.yml`、`promtail.yml`、`prometheus/*`、`grafana/*`、`loki/*`、`alertmanager/*`、`.env.example` | 退役后移到 `deploy/monitoring/legacy/` 或删除，README 标注「已迁至 cluster-infra/monitoring」 |
 
-> 过渡期建议**双栈并行**运行（见 §6 阶段 4），确认新栈数据完整后再下线旧栈，旧栈配置先归档不要立即删。
+> 过渡期建议与旧栈**并行比对**（见 §6 阶段 4.1），确认新栈数据完整后再退役旧栈，旧栈配置先归档不要立即删。
 >
-> **注意**：`promtail.yml` 属于「不迁移」的文件——Alloy 的配置是**重写**而非转换（见 §5.2.1），
+> **注意**：`promtail.yml` 属于「不转换」的文件——Alloy 的配置是**重写**而非转换（见 §5.2.1），
 > 只作为对照参考归档。`promtail` 容器与 `docker-compose.promtail.yml` 在旧栈下线时一并停止。
 
 ## 五、关键设计点
@@ -513,14 +529,14 @@ rules:
 
 **语义变化（告警规则需同步调整）**：
 
-| 项 | 迁移前 | 迁移后 |
+| 项 | 宿主机旧栈 | k3s 集群内 |
 | :--- | :--- | :--- |
 | `up{job="passup-backend"}` 序列数 | 1 | 等于副本数（prod 3） |
 | 原 `BackendDown`（`up == 0`）含义 | 服务不可达 | **某个副本**不可采集 |
 | 整体不可用表达 | 同左 | `count(up{job="passup-backend"} == 1) == 0`（全部失联） |
 | 副本不齐表达 | 无法表达 | `count(up{job="passup-backend"} == 1) < 3`（副本不足） |
 
-**告警命名同步拆分**：迁移后 `BackendDown` 这个名字本身已经不够准确——
+**告警命名同步拆分**：改为按 Pod 发现后，`BackendDown` 这个名字本身已经不够准确——
 它只能表达「某一个副本采不到」，而真正需要区分的是两种故障。因此拆成两条：
 
 ```yaml
@@ -565,7 +581,7 @@ groups:
 > - 此时触发的是 `BackendReplicaDown`（warning）——它从「补充告警」升级为**主告警**；
 > - `BackendAllDown` 退化为「2 台都挂、且 Pod 还没漂移到污点节点」这个窗口期的事件。
 >
-> 也就是说：**迁移前那条 `up == 0` 规则在真实拓扑下几乎永远不会响**，
+> 也就是说：**旧栈那条 `up == 0` 规则在真实拓扑下几乎永远不会响**，
 > 而最常见的故障（一台机器挂了）它完全无感——这正是本方案要修的核心问题之一。
 
 **第三条（本拓扑下建议启用）**：单节点故障**可能一次掉 2 个副本**（只剩 1 个）。
@@ -669,13 +685,13 @@ k3s
 | 配置语法 | YAML（`scrape_configs` + `pipeline_stages`） | Alloy 语法（`组件 "标签" { }` 声明式数据流） |
 | 镜像 | `grafana/promtail:3.6.10`（冻结） | `grafana/alloy:v1.19.2` |
 | 资源占用 | 较低（~80~150Mi） | **略高**（~120~250Mi，OTel 发行版基础开销更大），见 §5.5.1 |
-| 迁移成本 | — | 配置需重写；但本方案是**新建**而非迁移，成本≈0 |
+| 转换成本 | — | 配置需重写；但本方案是在 k3s 上**新建**，不涉及从 Promtail 配置转换，成本≈0 |
 
 > **保留项**：Loki 本体不动（仍为 `grafana/loki:3.6.10`）。Alloy 只替换采集端，
 > Loki 的存储、查询、Grafana 数据源配置全部不变，**看板与 LogQL 查询无需改写**。
 
 **需要注意的副作用**：Alloy 自身暴露的 meta-monitoring 指标名与 Promtail 不同
-（`promtail_*` → `alloy_*`）。当前没有针对采集端的看板/告警，所以迁移无痛；
+（`promtail_*` → `alloy_*`）。当前没有针对采集端的看板/告警，所以这一层无痛；
 若以后新增，需用新指标名。
 
 #### 5.2.2 日志链路
@@ -873,7 +889,7 @@ loki.write "local" {
 
 > `container` 标签在集群里的值不再是 `backend-java`（compose 容器名），
 > 而是 Pod 内的容器名 `backend`（`deployment.yaml` 中 `containers[].name`），查询时注意区分。
-> `host` 标签由 `NODE_HOST` 环境变量提供，迁移后由 `node` 标签（节点名）替代。
+> `host` 标签由 `NODE_HOST` 环境变量提供，在集群内由 `node` 标签（节点名）替代。
 
 #### 5.2.3 前置条件：日志格式契约（当前未满足）
 
@@ -903,7 +919,7 @@ logging:
 | `k8s/overlays/prod/kustomization.yaml` | **否**（`patches` 整段是注释掉的，只覆盖 `images` 与 `replicas`） |
 | `k8s/overlays/local/kustomization.example.yaml` | **否**（只 patch 了 DB / Redis / MinIO 地址） |
 
-**后果**（迁移前后都成立）：
+**后果**（旧栈与本方案都成立）：
 
 1. Pod 实际输出**纯文本日志**，不是 ECS JSON；
 2. Alloy 的 `stage.json` 拿不到 `log.level` / `@timestamp` → `level` 标签为空；
@@ -911,7 +927,7 @@ logging:
    日志时间戳退化为采集时间。
 
 > 也就是说：**当前宿主机栈的「按 level 过滤日志」很可能从一开始就没生效**。
-> 迁移前先验证一次：`{container="backend-java"} | level = "ERROR"` 若能查出结果，说明该判断不成立。
+> 上集群前先验证一次：`{container="backend-java"} | level = "ERROR"` 若能查出结果，说明该判断不成立。
 
 #### 5.2.4 职责边界：谁决定 profile 名
 
@@ -1003,7 +1019,7 @@ spec:
 配套 `traefik.io/v1alpha1` 的 `Middleware` + `Secret`（basicAuth），与现有
 `passup-backend-headers` 中间件同一套 CRD 用法。
 
-> 迁移后 Grafana 端口从「宿主 9092 → 容器 3000」变为「Ingress 80/443 → Service 3000」，
+> 集群内 Grafana 端口为「Ingress 80/443 → Service 3000」（旧栈的宿主 9092 作废），
 > 原 README 的 909x 端口约定作废，需同步更新文档。
 
 #### 5.4.1 上线条件：HTTPS + basicAuth（两者都要，不是二选一）
@@ -1608,9 +1624,9 @@ groups:
 
 ### 5.6 版本与配置管理
 
-沿用现有「版本集中管理」的做法（README「约定」第 2 条），迁移后对应关系：
+沿用现有「版本集中管理」的做法（README「约定」第 2 条），集群内的对应关系：
 
-| 迁移前 | 迁移后 |
+| 宿主机旧栈 | k3s 集群内 |
 | :--- | :--- |
 | `.env` 的 `PROMETHEUS_VERSION` 等 | `kustomization.yaml` 的 `images`（或 overlay `images`） |
 | `.env` 的 `PROMTAIL_VERSION=grafana/promtail:3.6.10` | `images` 中的 `grafana/alloy:v1.19.2`（**选型变更**，见 §5.2.1） |
@@ -1624,7 +1640,7 @@ groups:
 
 ### 5.7 监控栈自身的健康监控（谁来看守看守者）
 
-**这是本方案原稿的缺口**：迁移后如果只看业务指标，会出现这种局面——
+**这是本方案原稿的缺口**：只盯着业务指标会出现这种局面——
 
 ```text
 Alloy 挂了      → 日志断流        → 但你不知道 Alloy 挂了
@@ -1717,7 +1733,7 @@ Prometheus 挂 → 规则不再评估 → 没有任何告警 → 看起来「一
 > 它也顺带覆盖了 §5.5.5 里「污点节点整机故障 → 监控中断」这个场景的**通知**问题：
 > 监控中断本身发不出告警，但看门狗会发现并推钉钉。
 
-## 六、实施步骤
+## 六、部署步骤
 
 > 顺序遵循一条原则：**业务侧修正（阶段 1）先于监控栈部署（阶段 2~3）**。
 > 理由见 §5.5.3——单 Pod 能吃到 8Gi 的风险大于监控栈那 2Gi；
@@ -1877,7 +1893,7 @@ kubectl -n monitoring get pods,pvc,svc -o wide
 
 1. **单实例组件全部落在 `<污点节点>`**（看 `-o wide` 的 NODE 列）；
 2. Prometheus Targets 页面出现 **3 个** `passup-backend` 目标（每个 Pod 一条独立 `up` 序列）
-   + **3 个** node-exporter，且均为 UP —— 这就是本次迁移要解决的核心问题；
+   + **3 个** node-exporter，且均为 UP —— 这就是本方案要解决的核心问题；
 3. 确认 Prometheus 的 PVC 已 `Bound`，且 PV 的 nodeAffinity 与 Pod 所在节点一致；
 4. 把落点节点名写进 `monitoring/README.md`——以后排障不用再猜。
 
@@ -1936,11 +1952,13 @@ kubectl -n kube-system get svc traefik -o yaml | grep -A3 ports
   「内网临时访问、未启用 TLS，basicAuth 凭据为 Base64 明文」。
   **不能默认它已受保护。**
 
-### 阶段 4：双栈并行 + 故障演练
+### 阶段 4：验收与故障演练
 
-**4.1 双栈并行 1~2 周**
+**4.1 与宿主机旧栈并行比对 1~2 周（建议，非必需）**
 
 旧栈继续跑，对比指标、日志、告警是否一致，重点看「副本维度」数据是否补齐。
+**这一步只在旧栈尚未退役时才有意义**——若旧栈已不在（或本次就是从零部署），
+直接做 4.2~4.5 的验收与演练即可。
 
 **4.2 故障演练（本阶段的核心，不能只做「看着正常」的验证）**
 
@@ -1978,7 +1996,7 @@ BackendReplicaDown 可能误报
 所以预期是**不误报**。演练时要确认这一点，并记录实际最长窗口；
 若发现会误报，再调 `for`（或引入 kube-state-metrics，见 §5.1）。
 
-**4.3 日志链路逐层验证（本迁移最容易「Pod 全 Running 但 Grafana 没日志」的地方）**
+**4.3 日志链路逐层验证（本方案最容易「Pod 全 Running 但 Grafana 没日志」的地方）**
 
 §5.2 的 `/var/log/pods` + containerd 软链接是整条链路里最脆的一环。
 **不要只验证「能看到日志」**，要按层拆开，每层都能独立确认：
@@ -1997,7 +2015,7 @@ BackendReplicaDown 可能误报
 
 | 层 | 怎么验 | 失败时的典型现象 |
 | :--- | :--- | :--- |
-| ① 应用输出 | `kubectl -n passup logs deploy/passup-backend --tail=1` | 应用自己没打日志（与迁移无关） |
+| ① 应用输出 | `kubectl -n passup logs deploy/passup-backend --tail=1` | 应用自己没打日志（与本方案无关） |
 | ② **文件存在 + 软链接** | 在**该 Pod 所在节点**上：`ls -l /var/log/pods/<ns>_<pod>_<uid>/<container>/` | **软链接指向的 containerd 路径没挂进 Alloy 容器** → 文件在宿主机上，容器里读不到 |
 | ③ Alloy 侧 | `kubectl -n monitoring port-forward ds/alloy 12345:12345` → 看 `discovery.kubernetes.pods` 是否**只含本节点 Pod**、`loki.source.file.pods` 读取进度是否推进、`loki.write.local` 有无报错 | 节点选择器没生效（会重复采集）；或 positions / 挂载路径不对 |
 | ④ Loki 侧 | `curl` Loki 的 `/ready` + 在 Grafana 里按时间范围查 | Loki 存储/限流问题 |
@@ -2050,21 +2068,22 @@ kubectl -n monitoring exec ds/alloy -- cat /var/log/pods/<ns>_<pod>_<uid>/<conta
 ✓ 磁盘告警闭环有效（压到阈值能触发）
 ```
 
-### 阶段 5：下线宿主机栈
+### 阶段 5（可选）：退役宿主机旧栈
+
+> 这一阶段只在**宿主机旧栈仍在线**时才有意义。**确认阶段 4 的验收与演练全部通过后**再执行。
 
 ```bash
 cd pass-up.backend/deploy/monitoring
 docker compose -f docker-compose.monitoring.yml down   # 保留 volumes 一段时间
 ```
 
-**确认双栈数据一致、且阶段 4 的演练全部通过后**再执行。
 保留：备份机 `node_exporter`（systemd，不动）、`dingtalk/` 源码、备份脚本。
 
-### 阶段 6：归档 legacy
+### 阶段 6（可选）：归档 legacy
 
 - 其余配置移到 `deploy/monitoring/legacy/`（或删除）；
-- `deploy/monitoring/README.md` 顶部加迁移说明 + 指向 `cluster-infra/monitoring/README.md` 的链接；
-- 注意 `promtail.yml` 属于「**不迁移**」的文件（Alloy 配置是重写而非转换，见 §4.3），只作为对照归档。
+- `deploy/monitoring/README.md` 顶部加退役说明 + 指向 `cluster-infra/monitoring/README.md` 的链接；
+- 注意 `promtail.yml` 属于「**不转换**」的文件（Alloy 配置是重写而非转换，见 §4.3），只作为对照归档。
 
 ## 七、风险与回滚
 
@@ -2093,7 +2112,7 @@ docker compose -f docker-compose.monitoring.yml down   # 保留 volumes 一段�
 | 看门狗本身失效（备份机宕机 / 脚本挂了 / 钉钉 token 过期） | 兜底链路断裂，回到「静默」状态 | 看门狗纳入备份机既有巡检；钉钉 token 到期需与 `dingtalk/secret.yaml` 的轮换一起记 |
 | 监控栈自监控规则本身漏配（如 Alloy 未暴露 metrics） | `AlloyDown` 恒为 `up==0` 或恒为无数据，规则失效 | 阶段 3 部署后**主动停一次 Alloy** 验证告警真能响（§6 阶段 4 演练 4） |
 
-**回滚成本低**：旧栈的阶段 5 之前一直在线，回滚只需把 `deployment.yaml` 的注解回退、
+**回滚成本低**：旧栈在阶段 5 退役之前一直在线，回滚只需把 `deployment.yaml` 的注解回退、
 旧栈 `docker compose up -d`，数据面（Prometheus/Grafana volumes）未删除即可恢复。
 
 ## 八、待确认事项
@@ -2155,13 +2174,13 @@ docker compose -f docker-compose.monitoring.yml down   # 保留 volumes 一段�
 
 | 仓库 / 路径 | 作用 |
 | :--- | :--- |
-| `pass-up.backend/deploy/monitoring/` | 迁移源（现状） |
+| `pass-up.backend/deploy/monitoring/` | 被替代的宿主机旧栈（背景） |
 | `pass-up.backend/k8s/base/deployment.yaml` | 业务侧唯一改动点（采集注解 + 拓扑分布约束）；`limits: 8Gi` 需收紧 |
 | `pass-up.backend/src/main/resources/application-prod.yml` | 日志 ECS 契约 |
 | `pass-up.backend/k8s/service.yaml` | 已暴露 `management` 8009（ServiceMonitor 替代方案的基础） |
 | `pass-up.backend/k8s/base/configmap.yaml` | `SPRING_PROFILES_ACTIVE`（日志格式前置条件）、`JAVA_OPTS`（内存相关） |
 | `pass-up.backend/k8s/overlays/{prod,local}/kustomization.yaml` | 需补 profile patch（见 §5.2.4） |
-| `infra/cluster-infra/monitoring/` | 迁移目标（新增） |
+| `infra/cluster-infra/monitoring/` | 本方案的落点（新增） |
 
 ---
 
@@ -2227,7 +2246,7 @@ docker compose -f docker-compose.monitoring.yml down   # 保留 volumes 一段�
 与正文 §5.2.2 的预判一致。这是整条链路里唯一「配错了也不报错」的地方，已固化进 `verify` 阶段。
 
 **关于 `passup-backend` 目标数 = 0**：不是故障，是集群里还没有该命名空间的业务 Pod。
-这条要等阶段 1 才能验证 —— 它正是本次迁移的核心目标（§1.2 P1）。
+这条要等阶段 1 才能验证 —— 它正是本方案的核心目标（§1.2 P1）。
 
 ### 10.4 未完成 / 阻塞
 
@@ -2412,12 +2431,12 @@ inhibit_rules:
 `passup` 后端已部署进 k3s（`passup` 命名空间，3 副本，2 个在 k2、1 个在 k1）。
 **§1.2 P1 与 §6 阶段 4.4 这两条一直被阻塞的验收判据，现在都实测通过了。**
 
-#### 验收判据一：多副本指标采集（§1.2 P1，本次迁移的核心目标）
+#### 验收判据一：多副本指标采集（§1.2 P1，本方案的核心目标）
 
 ```text
-迁移前：采集目标是宿主机固定端口（业务机 IP:8009）
+旧栈：采集目标是宿主机固定端口（业务机 IP:8009）
         → 3 副本时只能命中其中一个，且随滚动更新漂移
-迁移后：kubernetes_sd_configs（role: pod）发现每个 Pod
+集群内：kubernetes_sd_configs（role: pod）发现每个 Pod
         → 每副本一条独立的 up 序列
 ```
 
@@ -2475,6 +2494,30 @@ scrape URL 形如 `http://10.42.1.10:8009/actuator/prometheus` —— 走的是 
 > `cqlql-notes` 的 `PassUp后端部署清单.md`。
 
 ## 附录：修订记录
+
+### v13（文档重定位：迁移方案 → k3s 部署方案）
+
+本文原先以「迁移」为主线组织（标题《可观测性栈迁移至集群内（宿主机 Docker → k3s）》、
+§一「背景：现状与问题」、§六「阶段 5 下线宿主机栈 / 阶段 6 归档 legacy」），
+读起来像一份**一次性的搬迁记录**，与同级《K3s HA 一键部署方案》这类**长期部署方案**的定位不一致；
+而它真正的主体（§三 目标架构、§四 目录规划、§五 关键设计点、§十 实施结果）本来就是集群内的部署内容。
+本版**只做定位与措辞，不动任何技术内容**：
+
+| # | 调整项 | 位置 | 性质 |
+| :--- | :--- | :--- | :--- |
+| 1 | 标题 `可观测性栈迁移至集群内（宿主机 Docker → k3s）` → **`可观测性栈 k3s 部署方案（替代宿主机 Docker 旁路栈）`**；文件名同步改为 `可观测性栈 k3s 部署方案.md` | 文首、文件名 | **重定位** |
+| 2 | 「文档定位」改为「描述…**在 k3s 集群内的部署形态**」，并明确宿主机旧栈是**被替代对象**、只作为背景 | 文首 | **重定位** |
+| 3 | §一 由「背景：现状与问题」改为「**部署目标与背景**」，新增**部署目标表**（三条验收判据）；1.1 / 1.2 标题改为背景与技术理由的表述 | §一 | **重构（编号不变）** |
+| 4 | §六 由「实施步骤」改为「**部署步骤**」；阶段 4 由「双栈并行 + 故障演练」改为「**验收与故障演练**」；阶段 5 / 6 标为**可选**的后置退役 / 归档步骤 | §六 | **重构** |
+| 5 | 「迁移前 / 迁移后」改为「**宿主机旧栈 / k3s 集群内**」，「本次迁移」改为「本方案」等 | §5.1、§5.2、§5.4、§5.6、§5.7、§4.3、§七 | **措辞** |
+| 6 | §4.3 由「`deploy/monitoring/` 迁移后保留什么」改为「**宿主机旧栈的处置（可选，后置）**」 | §4.3 | **重定位** |
+
+> **刻意没做的两件事**（避免破坏既有约定）：
+> ① **§1.1~§1.5 的编号保持不变** —— 正文对 `§1.x` 的交叉引用有 24 处，
+> 重编号的收益（多一个「1.1 部署目标」小节）远小于改错引用的风险，因此部署目标写成 §一 的章首段；
+> ② **v1~v12 历史条目一字未动**，§三~§五 的设计与 §十 的实施结果也原样保留。
+>
+> 配套：同步更新《K3s HA 一键部署方案》《K3s 方案控制台-方案》里指向本文的 2 处链接与 2 处正文提及。
 
 ### v12（业务侧接入回填 —— 本次迁移的核心目标达成）
 

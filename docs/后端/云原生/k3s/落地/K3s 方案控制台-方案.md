@@ -11,7 +11,7 @@ sort: 15
 > v8 的 P4 只有决策、未实施。
 > 上游两份方案都已实机验证：
 > - [K3s HA 一键部署方案](./K3s HA 一键部署方案.md) —— `cluster-infra/k3s-ha/`，`verify` 全绿、VIP 真实漂移
-> - [可观测性栈迁移至集群内（方案）](./可观测性栈迁移至集群内-方案.md) —— `cluster-infra/monitoring/`，17 条规则 + 端到端钉钉链路
+> - [可观测性栈 k3s 部署方案](./可观测性栈 k3s 部署方案.md) —— `cluster-infra/monitoring/`，17 条规则 + 端到端钉钉链路
 >
 > 本文回答的是**下一个问题**：脚本已经跑通了，为什么还需要一个控制台、以及它到底该做什么。
 >
@@ -1387,7 +1387,7 @@ Headlamp            →  管理「任意 Kubernetes」
 ## 十一、关联阅读
 
 - [K3s HA 一键部署方案（自动化）](./K3s HA 一键部署方案.md) —— §四「多固化的八件事」、§七「16 项验收判据」
-- [可观测性栈迁移至集群内（方案）](./可观测性栈迁移至集群内-方案.md) —— §十「实施结果」
+- [可观测性栈 k3s 部署方案](./可观测性栈 k3s 部署方案.md) —— §十「实施结果」
 - 代码：`cluster-infra/k3s-ha/`（`deploy.sh` + `config.env` + `manifests/` + `tests/`）
 - 代码：`cluster-infra/monitoring/`（`deploy.sh` + `config.env` + 各组件清单）
 - **前端基线**：`pass-up.frontend` —— §5.1 的技术栈与工程结构直接取自该仓
