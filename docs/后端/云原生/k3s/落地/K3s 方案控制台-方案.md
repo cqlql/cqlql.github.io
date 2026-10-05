@@ -765,8 +765,8 @@ deploy.sh
 }
 ```
 
-- `system`：`k3s` / `passup`（§8.7）。它是**路由信息**，不参与判定 ——
-  决定一条命令在哪个脚本上跑、结果算到哪一栏。
+- `system`：`k3s` / `passup` / `passup-fe` / `passup-ai` / `monitoring`（§8.7）。
+  它是**路由信息**，不参与判定 —— 决定一条命令在哪个脚本上跑、结果算到哪一栏。
 - `data`：只有三个只读命令（`show-config` / `topology` / `consistency`）会带。
   `items` 回答「符不符合要求」，`data` 只是「读到了什么」——两者刻意分开。
 
@@ -931,7 +931,7 @@ P1 前端需要三份数据：「当前方案配置」「拓扑事实」「跨�
 另外把「命令存在」与「命令被允许」分成两个错误码：未知命令是 `400 unknown_command`，
 存在但不放行是 `403 command_not_allowed`。两者的排错方向完全不同。
 
-#### 命令表（17 条）
+#### 命令表
 
 | system | 命令 | read_only | risk | requires_ack |
 | :--- | :--- | :--- | :--- | :--- |
@@ -940,18 +940,46 @@ P1 前端需要三份数据：「当前方案配置」「拓扑事实」「跨�
 | `k3s` | `show-config` | ✅ | low | — |
 | `k3s` | `topology` | ✅ | low | — |
 | `k3s` | `consistency` | ✅ | low | — |
+| `k3s` | `sudo-check` | ✅ | low | — |
 | `k3s` | `kubeconfig` | ❌ | low | — |
 | `k3s` | `prepare` | ❌ | medium | — |
+| `k3s` | `apt-mirror` | ❌ | medium | — |
 | `k3s` | `taint` | ❌ | medium | — |
 | `k3s` | `server-first` | ❌ | high | — |
 | `k3s` | `join` | ❌ | high | — |
 | `k3s` | `kube-vip` | ❌ | high | — |
 | `k3s` | `traefik` | ❌ | high | — |
+| `k3s` | `rebalance-traefik` | ❌ | medium | — |
 | `k3s` | `all` | ❌ | high | — |
 | `k3s` | `uninstall` | ❌ | destructive | ✅ |
+| `k3s` | `purge` | ❌ | destructive | ✅ |
+| `k3s` | `restore-defaults` | ❌ | high | — |
 | `passup` | `status` | ✅ | low | — |
 | `passup` | `convergence` | ✅ | low | — |
 | `passup` | `release` | ❌ | high | ✅ |
+| `passup` | `uninstall` | ❌ | destructive | ✅ |
+| `passup` | `purge` | ❌ | destructive | ✅ |
+| `passup-fe` | `status` | ✅ | low | — |
+| `passup-fe` | `verify` | ✅ | low | — |
+| `passup-fe` | `release` | ❌ | high | ✅ |
+| `passup-fe` | `uninstall` | ❌ | destructive | ✅ |
+| `passup-ai` | `status` | ✅ | low | — |
+| `passup-ai` | `verify` | ✅ | low | — |
+| `passup-ai` | `release` | ❌ | high | ✅ |
+| `passup-ai` | `uninstall` | ❌ | destructive | ✅ |
+| `monitoring` | `preflight` | ✅ | low | — |
+| `monitoring` | `render` | ✅ | low | — |
+| `monitoring` | `verify` | ✅ | low | — |
+| `monitoring` | `build-image` | ❌ | medium | — |
+| `monitoring` | `label-node` | ❌ | medium | — |
+| `monitoring` | `secrets` | ❌ | medium | — |
+| `monitoring` | `tls` | ❌ | medium | — |
+| `monitoring` | `apply` | ❌ | high | — |
+| `monitoring` | `reload` | ❌ | medium | — |
+| `monitoring` | `test-alert` | ❌ | medium | — |
+| `monitoring` | `deploy` | ❌ | high | — |
+| `monitoring` | `all` | ❌ | high | — |
+| `monitoring` | `uninstall` | ❌ | destructive | ✅ |
 
 `config-edit` **刻意不进这张表** —— 这张表的语义是「`deploy.sh` 的子命令」，
 混进别的东西会让它不再可信，而「控制台认识哪些命令」这件事的全部依据就是它。
@@ -971,10 +999,18 @@ P1 前端需要三份数据：「当前方案配置」「拓扑事实」「跨�
 - 裸名有歧义时**显式拒绝**并提示写成限定名（`400 ambiguous_command`），而不是随手挑一个 ——
   挑错了会让用户以为在看 A 的判定，实际拿到的是 B 的。
 
-> 当前 17 个命令名**两两不同**（k3s 有 `show-config`，passup 没有）。
-> 但这是**巧合，不是约束** —— 加第三个受管对象时随时可能撞上。
-> 所以限定名 / 指纹含 `system` / 歧义拒绝这套机制该留着，
-> 并有一条测试在真出现重名时报警。
+> ⚠️ **重名已经发生了**：命令名与脚本阶段名一一对应（硬约束，不能靠改名绕开），
+> 所以 k3s 与 monitoring 都有 `preflight` / `verify` / `all` / `uninstall`；
+> k3s 与 passup 都有 `purge`；
+> passup / passup-fe / passup-ai 都有 `status` / `verify` / `release` / `uninstall`
+> （应用侧三个对象各一套「状态 / 验收 / 发布 / 卸载」）。
+> 于是限定名 / 指纹含 `system` / 歧义拒绝这套机制不再只是「提前留着」——
+> 它是当下每一条调用路径（前端、白名单、测试）都必须绕开的东西。
+> `TestCommandNamesAreCurrentlyUnique` 守的也变成了「重名必须是**已知的那几个**」。
+>
+> ⚠️ **这张表刻意不写「一共几条」**：条数在这个项目里漂移过四次，而每次错都是
+> 「文档看起来对、代码是另一个数」。条数以 `console/internal/api/commands.go` 为准 ——
+> 改这张表之前先对一遍它（AGENTS.md §11 已有这条要求）。
 
 ### 8.3 P2：动作编排
 
@@ -1001,8 +1037,8 @@ P1 前端需要三份数据：「当前方案配置」「拓扑事实」「跨�
 
 | 档 | 命令 | 界面要求 |
 | :--- | :--- | :--- |
-| **确认影响面** | 全部写操作（`kubeconfig` / `prepare` / `server-first` / `join` / `taint` / `kube-vip` / `traefik` / `all` / `uninstall` / `release`） | 摊开影响面原文，点确认 |
-| **确认 + 手抄命令名** | `uninstall` / `release` | 还要输入框里**原样敲一遍命令名** |
+| **确认影响面** | 全部写操作（`kubeconfig` / `prepare` / `apt-mirror` / `server-first` / `join` / `taint` / `kube-vip` / `traefik` / `rebalance-traefik` / `all` / `uninstall` / `purge` / `restore-defaults` / `release`） | 摊开影响面原文，点确认 |
+| **确认 + 手抄命令名** | `uninstall` / `purge` / `release` | 还要输入框里**原样敲一遍命令名** |
 
 **为什么不统一成「确定吗？」**：如果 `all` 和 `verify` 弹的是同一个框，用户会养成
 闭眼点确定的习惯 —— 而那个习惯恰好会在 `uninstall` 上出事。分级的目的是让确认**携带信息量**。
@@ -1055,10 +1091,15 @@ POST /api/run  {"command":"uninstall","confirm":"…"}         → 400 ack_misma
 
 `CONFIRM_UNINSTALL=yes` 由 Go 在放行之后注入，并且**刻意不下发到前端**：
 前端不该也不需要知道这个开关。脚本的闸门仍然有效，而不是被控制台绕过去 ——
-`TestUninstallSatisfiesScriptGate` 用一个会回显该环境变量的桩脚本把这条固定住。
+`TestGatedCommandsInjectTheirScriptGate` 把这条固定住：它把执行器换成一个会**记下收到的
+Request** 的假执行器，逐个跑过 `uninstall` / `purge` / `release`，断言那个 `CONFIRM_*`
+确实出现在子进程的环境里（本仓的测试脚手架是 Go 侧的 fakeExec，所以做法是记 Request，
+而不是原文说的「回显环境变量的桩脚本」——语义等价）。
 `release` 同理（`PASSUP_RELEASE_CONFIRM=yes`）。
 
-> ⚠️ 这张环境变量表的键**必须用限定名**（`k3s/uninstall` / `passup/release`），
+> ⚠️ 这张环境变量表的键**必须用限定名**（`k3s/uninstall` / `k3s/purge` / `passup/release` /
+> `passup/uninstall` / `passup/purge` / `passup-fe/release` / `passup-fe/uninstall` /
+> `passup-ai/release` / `passup-ai/uninstall`），
 > 与 `AllowedWrites()` / `Token()` 的口径一致。用裸名会让同名命令静默串味。
 > `TestWriteEnvKeysAreQualified` 守着这一条。
 
@@ -1286,12 +1327,53 @@ repository/  kubernetes/  cluster/  deployment/  ...
 控制台
 ├── 受管对象：K3s 基础设施方案
 │     k3s-ha/deploy.sh  →  verify --json
-└── 受管对象：PassUp 应用
-      passup/deploy.sh  →  status / convergence --json
+├── 受管对象：PassUp 后端
+│     passup/deploy.sh  →  status / convergence --json
+├── 受管对象：PassUp 前端（2026-10-05 接入，与后端平级）
+│     passup-fe/deploy.sh  →  status / verify --json
+│     （只读 status 看集群侧；verify 加端到端：对象存储匿名读 / 入口 / chunk 可达）
+├── 受管对象：PassUp AI 服务（2026-10-05 接入，与后端/前端平级）
+│     passup-ai/deploy.sh  →  status / verify --json
+│     （status 看集群侧；verify 加端到端：经 API server 的 Service 代理打 /resume/health。
+│       ⚠️ 探针只证明进程活着，**不**证明 LLM 配得对 —— 密钥/模型名要真正调用才暴露）
+└── 受管对象：监控栈（第三类，2026-10-04 接入）
+      monitoring/deploy.sh  →  preflight / verify --json
+      （其余阶段是「动作」：只有实时日志，items 为空）
 ```
 
-控制台只负责统一消费这两份协议。**第一版不改名、不扩范围** ——
+> **为什么前端要单开一个对象，而不是并进 `passup`**：事实来源在另一个仓库
+> （`pass-up.frontend`）、工具链不同（前端还要 `node/pnpm` 构建 + `mc` 传对象存储 +
+> `docker` 推镜像）、失败模式也不同 —— 后端最典型是「Pod 没 Ready」，
+> 前端最典型是**页面 200 但 JS 取不到 → 白屏**（`index.html` 在镜像里、chunk 在对象存储里，
+> 两者可以一个通一个不通）。合并会让 `passup/deploy.sh` 那条「只有 release 允许写」的
+> 边界变模糊。
+>
+> 它也是 §8.7「接新对象的前提是脚本认得 `--json`」的第二次实践：`passup-fe/deploy.sh`
+> 一开始就带协议层，所以接入本身没有额外前置工序。代价是**命令名与后端重名**
+> （`status` / `verify` / `release` 各一套），于是前端、白名单、测试必须全程用限定名
+> （`passup-fe/status`）—— 这与 k3s / monitoring 之间 `preflight` / `verify` / `all` /
+> `uninstall` 重名是同一类问题，处理方式也相同。
+
+> **AI 服务为什么也要单开**（与前端同构，第三次实践）：事实来源在另一个仓库
+> （`pass-up.ai`）、工具链不同（发布还要 `docker` 构建 Python 镜像）、失败模式也不同 ——
+> 它最典型的是**Pod 起来了、探针也过了，但密钥/模型名配错，一调 `/resume/parse` 就 500**。
+> 它同时把「探针的边界」这件事摆到了台面上：`/resume/health` 只证明「uvicorn 活着、能应答」，
+> 证明不了密钥 / 模型名 / LLM 基址 / 配额 —— 所以控制台那一页必须把这句话写出来，
+> 而不是让一条绿线看起来像「AI 功能可用」。
+> 它**刻意没有 `purge`**（与前端「没有对象可删」不同，这边是「删了也不改变风险面」：
+> Secret 里只有一个 LLM key）—— 名不副实的命令比没有它更坏。
+
+控制台只负责统一消费这些协议。**第一版不改名、不扩范围** ——
 「K3s 方案控制台」这个名字先留着。
+
+> ⚠️ **接第三类受管对象暴露出一道前置条件**：脚本必须认得控制台传的 `--json`
+> （executor 无条件追加它）。`monitoring/deploy.sh` 原本会把 `--json` 当成未知阶段
+> 直接 `exit 2` —— 所以先给它补了协议层（`preflight` / `verify` 产出判定项，
+> `build-image` / `apply` / `reload` 这些动作阶段 items 为空），才谈得上接命令表。
+> 这也解释了它为什么拖到现在才被接进来。
+>
+> 顺带定下一条命令命名约定：`all` = **含构建镜像**的完整流程，`deploy` = 只部署不碰镜像。
+> 两者共用一个阶段组合定义（`phase_deploy`），避免「往部署链里加一步、另一条命令静默少跑」。
 
 #### 为什么不能塞进 `deploy.sh`
 
@@ -1335,8 +1417,10 @@ if passupBackendReady && redisReady && minioReady && flywayVersion == xxx { ... 
 | :--- | :--- |
 | `cluster-infra/passup/` | `config.env`（模板，含【环境相关】标记）/ `config.local.env.example`（清单）/ `deploy.sh`（事实来源）/ `tests/selftest.sh`。目录结构与 `k3s-ha/` 同构，配置分层约定照搬 |
 | `passup/deploy.sh` 只读命令 | `status` / `convergence` / `show-config` / `verify`，协议形状与 `k3s-ha/deploy.sh` 逐字段一致，直接复用同一个消费端 |
-| `passup/deploy.sh` 写命令 | `release`（见下） |
-| 控制台页面 | `/apps/passup`，左侧导航改成两级：**集群**（状态/拓扑/配置/配置一致性/操作）+ **应用**（PassUp） |
+| `passup/deploy.sh` 写命令 | `release`（见下）/ `uninstall`（删 Deployment + Service，保留 Secret/ConfigMap 与命名空间）/ `purge`（再连 Secret/ConfigMap 一起删，⚠️ 凭据会丢） |
+| `passup-fe/deploy.sh` 写命令 | `release` / `uninstall`（删两个站点的 Deployment + Service、Ingress 与它引用的 Middleware）。**刻意没有 `purge`** —— 前端在集群里没有自己的 Secret/ConfigMap，对象存储那份资源又不删，那条命令会是空壳 |
+| `passup-ai/deploy.sh` 写命令 | `release`（构建双 tag → 推仓库 → 写 Secret/ConfigMap → apply + `set image` → 等 rollout → 收尾探测）/ `uninstall`（删 Deployment `resume-ai` + 同名 Service，保留 ConfigMap/Secret 与命名空间）。**刻意没有 `purge`** —— 与前端「没有对象可删」不同，这边是「删了也不改变风险面」（Secret 里只有一个 LLM key） |
+| 控制台页面 | `/apps/passup` / `/apps/passup-fe` / `/apps/passup-ai`，左侧导航改成两级：**集群**（状态/拓扑/配置/配置一致性/操作）+ **应用**（PassUp 后端 / 前端 / AI 服务） |
 
 `status` 的 `data`（读到了什么）：副本期望/实际四元组、image + tag + **digest**、
 三条探针路径、Secret/ConfigMap 存在性、Pod 列表（name/phase/node/ready/restartCount）、
@@ -1394,7 +1478,8 @@ K3s 的 `taint` / `all` 也要动同一个集群 —— 这两个**应该互斥*
 
 **② PassUp 的「状态」里，PostgreSQL / Redis / MinIO 根本不在集群里。**
 它们跑在宿主机 Docker 上，`pass-up.backend` 仓库里**没有**被引用的
-postgres / redis / minio 清单（`k8s/deps/` 那份是备用路线，overlay 不引用）。
+postgres / redis / minio 清单（曾经留在 `k8s/deps/` 的那份已于 2026-10-05 删除，
+它引用的三个清单文件早已不存在、从未跑通过，见 [PassUp 后端 K8s 部署清单](./PassUp后端部署清单.md) 第五节）。
 所以状态视图里这几项的正确来源是**宿主机 Docker**，不是 k8s 对象 ——
 照搬 `kubectl get pods` 会得到「查不到」，而「查不到」和「不健康」是两回事。
 

@@ -40,7 +40,7 @@ k8s/
 - **base**：写一份通用配置，可被任意环境复用。
 - **overlay**：引用 base，只声明「与 base 的差异」（改副本数、换镜像 tag、加环境变量等），不重复写整份清单。
 
-这正是 `pass-up.backend` 项目 `k8s/` 目录的用法（`base/` + `overlays/prod`），详见 👉 [PassUp 后端 K8s 部署清单](./k3s/落地/PassUp后端部署清单.md)。
+这正是 `pass-up.backend` 项目 `k8s/` 目录的用法（`base/` + `overlays/k3s`），详见 👉 [PassUp 后端 K8s 部署清单](./k3s/落地/PassUp后端部署清单.md)。
 
 ## 三、核心概念
 
@@ -125,7 +125,7 @@ replicas:
 用于**精确修改**资源里的一小块内容，而不是整个文件重写：
 
 ```yaml
-# overlays/prod/kustomization.yaml
+# overlays/<环境>/kustomization.yaml
 resources:
   - ../../base
 replicas:
@@ -208,7 +208,7 @@ kustomize build k8s/base
 
 # 部署
 kubectl apply -k k8s/base
-kubectl apply -k k8s/overlays/prod
+kubectl apply -k k8s/overlays/k3s
 
 # 删除
 kubectl delete -k k8s/base

@@ -10,6 +10,17 @@ sort: 7
 > **当前用的是对象存储**、以及为此必须先配好的三个服务端条件。
 > 与后端部署清单（`PassUp后端部署清单.md`）同处 `passup` 命名空间。
 
+> **2026-10-05 起，前端也是控制台的一个受管对象（`passup-fe`）。**
+> `cluster-infra/passup-fe/deploy.sh` 把这里的部署流程固化成带 `--json` 协议的命令
+> （`status` / `verify` / `release`），控制台「应用 → PassUp 前端」那一页消费它。
+> 本文仍然是**发布流程与取舍的事实来源**；那边不复制任何一行判定。
+>
+> ⚠️ **本文与仓库里 `k8s/*.yaml` 的默认地址是上一套环境（`172.16.0.x`）的**，
+> 2026-10-02 换过网段之后已经全废。当前取值以 `cluster-infra/passup-fe/config.local.env`
+> 为准（Registry / 对象存储端点 / 入口 VIP 都在那里）。`passup-fe/deploy.sh` 在 `apply`
+> 之前会把清单里的镜像整行改写成当前环境的 registry + 本次 tag，所以旧地址不会真的生效 ——
+> 但**手工 `kubectl apply -k` 会踩到**。
+
 ## 一、结论先行
 
 | 项 | 当前实际 |

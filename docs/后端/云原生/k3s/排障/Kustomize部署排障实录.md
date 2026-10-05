@@ -5,6 +5,17 @@ sort: 6.5
 ---
 
 > 本文记录 `pass-up.backend` 项目在 k3s 环境用 `kubectl apply -k k8s/overlays/prod` 部署时，从「apiVersion 报错」到「Pod 反复重启」一路排查的完整过程与根因，可作为同类 Kustomize 部署排障的实战参考。按报错出现的先后顺序梳理，每个问题给出「现象 → 根因 → 修复 → 排查命令」。
+>
+> ⚠️ **2026-10-05 补注（正文保持原样）**：本文是**当时的排查记录**，正文里的命令与文件路径
+> 都是**当时真实执行过的**，因此不改写。但要清楚两件事：
+> 1. `k8s/overlays/prod` **已于 2026-10-05 删除**（它只覆盖 `images` 与 `replicas`、
+>    ConfigMap 的 `patches` 整段是注释，跑不起来；`overlays/local` 同样已删）。
+>    现在**唯一的部署入口是 `k8s/overlays/k3s`** —— 想把本文的命令用在今天，
+>    请把 `overlays/prod` 换成 `overlays/k3s`。
+> 2. 文中「**降低副本数**」那条修复建议（改 `overlays/prod` 的 `count`）现在**不是正确做法**：
+>    副本数的唯一权威是 `cluster-infra/passup/config.local.env` 的 `PASSUP_BACKEND_REPLICAS`，
+>    清单里已不再表达副本数。但那条的**根因分析**（多副本 × 2Gi 请求把节点内存吃满）
+>    依然成立，只是改的地方换了。
 
 ## 一、问题一：Kustomization apiVersion 报错
 

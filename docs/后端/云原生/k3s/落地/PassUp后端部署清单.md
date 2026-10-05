@@ -12,9 +12,12 @@ sort: 6
 >
 > ⚠️ **2026-09-26 再次按实际部署结果修订。** 上一版把「依赖跑在宿主机 Docker」写成了过渡态并规划了
 > 「依赖上集群」，实际这次的结论是**反过来**：k3s 内做 PG / Redis / MinIO 高可用复杂度太高，
-> **依赖继续留在开发机的 Docker 上**，集群内那份依赖清单（`k8s/deps/`）保留但**不引用**。
-> 另外，上一版缺失的 `deps/` 目录、`gen-secret.sh` 脚本这次补齐了说明。
-> 本次实测的启动耗时、内存、依赖连通性见[第八节](#八本次落地实测数据与踩到的坑)。
+> **依赖继续留在开发机的 Docker 上**。本次实测的启动耗时、内存、依赖连通性见[第八节](#八本次落地实测数据与踩到的坑)。
+>
+> ⚠️ **2026-10-05 清理未使用资源。** `k8s/overlays/prod` 与 `k8s/overlays/local` 已删除
+> （原因见[第五节](#五overlays)），`k8s/deps/` 也已删除。**本集群唯一的部署入口是
+> `k8s/overlays/k3s`**，`gen-secret.sh` 现在只生成一份 `base/secret.yaml`。
+> 本文档已按清理后的状态同步；`k8s/deps/` 那条路线**从未真正可运行**，见第五节。
 
 ## 一、当前真实形态（先看这个）
 
@@ -45,10 +48,10 @@ sort: 6
 > MinIO 做纠删码，投入产出比远低于收益，而它们本来就在一台能直连的机器上。
 >
 > 所以本清单的形态是：**无状态的后端上集群，有状态依赖留在 Docker。**
-> 集群内的那份依赖清单保留在 `k8s/deps/`（postgres / redis / minio 三个
-> StatefulSet + headless Service + local-path PVC），作为「哪天要迁」的事先准备，
-> **`overlays/k3s` 不引用它**。本次还清掉了集群里上一轮试验遗留的
-> postgres-0 / redis-0 / minio-0 与它们的 PVC，避免集群内出现第二套库。
+> 集群内那份依赖清单 `k8s/deps/` **已于 2026-10-05 删除** —— 它本来就是一条没走通、
+> 也没在用的路线（详见[第五节](#五overlays)），留着只会让人以为集群里还有第二套库。
+> 本次还清掉了集群里上一轮试验遗留的 postgres-0 / redis-0 / minio-0 与它们的 PVC，
+> 避免集群内出现第二套库。
 >
 > 集群节点到开发机各端口的连通性是**实测过的**（5432 / 6379 / 8007 / 5000 全通），
 > 不是靠推断。IP 随环境变动，本文一律用 `${DOCKER_HOST_IP}` 指代。
@@ -57,7 +60,7 @@ sort: 6
 
 ```text
 k8s/
-├── gen-secret.sh                    # 从 docker/.env 生成两份 secret.yaml
+├── gen-secret.sh                    # 从 docker/.env 生成 base/secret.yaml
 ├── base/                            # 基础清单（所有环境共用）
 │   ├── namespace.yaml               # passup 命名空间
 │   ├── configmap.yaml               # 非敏感配置（Spring 环境变量，地址是占位值）
@@ -67,29 +70,19 @@ k8s/
 │   ├── service.yaml                 # 后端 ClusterIP Service
 │   ├── ingress.yaml                 # Traefik Ingress + 中间件（**占位域名，未启用**）
 │   └── kustomization.yaml           # Kustomize 入口
-├── deps/                            # 集群内有状态依赖（**当前未被任何 overlay 引用**）
-│   ├── postgres.yaml                # StatefulSet + headless Service + 20Gi PVC
-│   ├── redis.yaml                   # StatefulSet + headless Service + 5Gi PVC
-│   ├── minio.yaml                   # StatefulSet + headless Service + 20Gi PVC
-│   ├── secret.example.yaml          # passup-deps-secret 模板
-│   ├── secret.yaml                  # ← gen-secret.sh 生成，已被 .gitignore 排除
-│   └── kustomization.yaml
 └── overlays/
-    ├── k3s/                         # 本集群覆盖：依赖外置 + 探针/内存调整（**当前实际使用**）
-    │   └── kustomization.yaml
-    ├── prod/                        # 生产覆盖：镜像仓库地址 + 3 副本
-    │   └── kustomization.yaml
-    └── local/                       # 本地/测试覆盖（kustomization.yaml 被 gitignore）
-        └── kustomization.example.yaml
+    └── k3s/                         # 本集群覆盖：依赖外置 + 探针/内存调整（**唯一实际使用**）
+        └── kustomization.yaml
 ```
 
-> ⚠️ 上一版说 `deps/` 里的三个文件「从来就不在仓库里」—— **这个说法已经过期**。
-> 本次确实新增了 `deps/` 目录（postgres / redis / minio 三个 StatefulSet），
-> 只是它代表的是「依赖上集群」那条路线，而本集群**没有走那条路线**。
-> 文档与实际不一致的两种形态都要说清：文件**存在**，但**没有被引用**。
+> ⚠️ **2026-10-05 更正**：上一版写「本次确实新增了 `deps/` 目录（postgres / redis / minio
+> 三个 StatefulSet）」—— **这句话是错的**。那三个 StatefulSet 清单从来只在 `k8s/base/` 下，
+> 并且在 2026-09-01 的提交里就被删掉了。`k8s/deps/` 里剩下的只是一份 `kustomization.yaml`
+> （`resources` 指向那三个**已不存在**的文件）和零散文件 —— 也就是说这条路线
+> **在任何分支上都跑不起来**。现在连这些残留也一并删掉了。
 >
-> 注意：`overlays/` 下**没有 `dev/`**（旧文档写的 `dev/` 不存在）。
-> 面向开发环境的是 `local/`，且它的 `kustomization.yaml` 被 `.gitignore` 排除（环境地址随环境变动）。
+> ⚠️ `overlays/prod/` 与 `overlays/local/` 也已于 2026-10-05 删除，原因见[第五节](#五overlays)。
+> 注意 `overlays/` 下**没有 `dev/`**（旧文档写的 `dev/` 不存在）。
 
 ## 三、关键约定（速查表）
 
@@ -104,7 +97,7 @@ k8s/
 | 镜像仓库 | `${DOCKER_HOST_IP}:5000`（匿名可读，节点已配 insecure） |
 | 存储类 | `local-path`（本清单**未使用** —— 无状态应用，依赖全外置） |
 | 运行用户 | 非 root，uid/gid `1001` |
-| 副本数 | base 2 副本；`prod` / `k3s` overlay 均为 3 副本 |
+| 副本数 | 唯一权威 = `PASSUP_BACKEND_REPLICAS`（当前 3）。base 里写 3 作为首次 apply 初值，overlay **不写** replicas |
 | 运行时 | Java 25（`JAVA_OPTS` 用 `MaxRAMPercentage=70.0` + G1GC） |
 | 冷启动 | **22 ~ 43 秒**（2026-09-26 实测，见第八节；2026-09-23 曾测得 145~256 秒） |
 
@@ -157,7 +150,7 @@ k8s/
 
 | 项 | 值 |
 | :--- | :--- |
-| 副本数 | 2（`prod` / `k3s` overlay 覆盖为 3） |
+| 副本数 | 3（base 里写 3，作为首次 `apply -k` 的初值；overlay 不写 replicas） |
 | 滚动更新 | `maxUnavailable: 0` + `maxSurge: 1`（更新期间始终有可用副本） |
 | 安全上下文 | `runAsNonRoot: true`，uid/gid 1001；容器侧 `allowPrivilegeEscalation: false` + `capabilities.drop: ["ALL"]` |
 | 终止宽限 | `terminationGracePeriodSeconds: 30`（等 WebSocket / 音频会话收尾） |
@@ -191,45 +184,29 @@ k8s/
 
 - `namespace: passup` 统一注入；
 - `resources` 列出所有资源文件；
-- **`images` 段不在 base** —— 镜像仓库地址由各 overlay 覆盖（base 不写死环境相关地址）；
+- **`images` 段不在 base** —— 镜像仓库地址由 `overlays/k3s` 覆盖（base 不写死环境相关地址）；
 - 标签用 kustomize v5 的 `labels: - pairs:` + `includeTemplates: true`
   （旧文档写的 `commonLabels` 是已废弃语法）。
 
 ## 五、overlays
 
-### local（本地/测试）
+> ⚠️ **2026-10-05：`prod/` 与 `local/` 已删除，`overlays/` 下只剩 `k3s/`。**
+>
+> 两者都**没有任何消费者** —— 唯一真正被 apply 的是 `k3s/`（由 `cluster-infra/passup/deploy.sh`
+> 的 `PASSUP_MANIFEST_DIR` 指向），本仓也没有 CI 会去跑它们。
+>
+> - **`prod/`** 跑不起来：只覆盖了 `images` 与 `replicas: 3`，ConfigMap 的 `patches` 整段是
+>   注释 → `apply -k` 会拿 base 的 `CHANGE_ME` 去连库。它假定的「PG / Redis / MinIO 都在
+>   集群里」也从未落地。另外镜像地址是旧网段，`replicas: 3` 还与「副本数唯一权威 =
+>   `PASSUP_BACKEND_REPLICAS`」的约定冲突。
+> - **`local/`** 里只有一个 `kustomization.example.yaml` 模板，真正的 `kustomization.yaml`
+>   被 `.gitignore` 忽略且**从未创建过**。
+>
+> 等依赖真上集群、需要多环境时，按**那时**的实际地址重建，而不是留着两份跑不通的。
 
-`kustomization.example.yaml` 是模板，演示用 `patches` 覆盖数据源地址：
+### k3s（本集群，**唯一实际使用的就是这个**）
 
-```yaml
-patches:
-  - target: { kind: ConfigMap, name: passup-backend-config }
-    patch: |-
-      - op: replace
-        path: /data/SPRING_DATASOURCE_URL
-        value: jdbc:postgresql://192.168.1.221:5432/pass_up
-```
-
-使用前要 `cp kustomization.example.yaml kustomization.yaml`（后者被 `.gitignore` 排除）。
-
-### prod（生产）
-
-引入 `../../base`，覆盖镜像仓库地址，并把副本数提到 3：
-
-```yaml
-images:
-  - name: passup/backend-java
-    newName: 172.16.0.222:5000/passup/backend-java
-    newTag: latest
-replicas:
-  - name: passup-backend
-    count: 3
-```
-
-### k3s（本集群，**当前实际使用的就是这个**）
-
-`resources` 只引 `../../base` —— **不引 `../../deps`**，因为依赖留在开发机的 Docker 上。
-在 `prod` 的基础上再改四件事：
+`resources` 只引 `../../base`（现在 `overlays/` 下也只剩它一个）。它在 base 之上改了这些：
 
 | 改动 | 为什么 |
 | :--- | :--- |
@@ -242,6 +219,7 @@ replicas:
 | 删掉 Ingress 与 Middleware | 占位域名 + 只有 HTTP，直接 apply 会生成匹配不到请求的死对象 |
 | `images` 去掉 `newTag: latest`（2026-09-27） | 留着它会与发布脚本的 `set image` 打架（`apply` 会把 tag 拉回 latest）。tag 由发布决定，清单不表达「现在跑哪一版」 |
 | Pod 模板加 `passup.io/version` / `passup.io/commit`（2026-09-27） | 版本标识的载体，供 `convergence` 比对。初值 `unreleased` / 空串，由发布脚本改写 |
+| **不写 `replicas`**（2026-10-05） | 历史上写过 `count: 3`，于是副本数有了两个说法，而真正生效的那个藏在「看起来只是环境覆盖」的文件里。副本数唯一权威是 `PASSUP_BACKEND_REPLICAS` |
 
 > ⚠️ **地址用 IP 而不是主机名**：集群节点没有解析开发机主机名的 DNS，
 > 一旦解析不了，表现是启动期连不上库、Pod 反复重启，很难反查。
@@ -250,19 +228,27 @@ replicas:
 > `9000` 是容器内端口，宿主机上并不监听 —— 照抄 `docker-compose.base.yml` 里的
 > `8007:9000` 右边那一半会得到一个连不上的地址。
 
-#### 与 `deps/` 的关系
+#### 曾经的 `deps/` 路线（已废弃）
 
-`deps/` 是「依赖也上集群」那条路线的清单，**本次没有走**。要切换时：
+`k8s/deps/` 是「PG / Redis / MinIO 也上集群」那条路线的目录，**已于 2026-10-05 删除**。
+需要说清的是它**从来就没跑通过**：
 
-1. `resources` 加上 `../../deps`；
-2. ConfigMap 里的四个地址改回 `postgres.passup.svc.cluster.local` 等 FQDN；
-3. 先 `kubectl apply -k deps` 再 apply overlay —— 否则后端启动时连不上库会反复重启。
+- `deps/kustomization.yaml` 的 `resources` 指向 `postgres.yaml` / `redis.yaml` / `minio.yaml`，
+  但这三个文件**从来只在 `k8s/base/` 下**，并且在 2026-09-01 的提交里就被删掉了；
+- 也就是说 `deps/` 的 kustomization 引用的是三个**已不存在**的文件，`kubectl apply -k deps`
+  必然报错；
+- 本分支上更是只剩一个孤立的 `secret.yaml`（还是被误提交进来的，含明文凭据），
+  且 `gen-secret.sh` 也不再生成它。
 
 > ⚠️ 2026-09-26 之前集群里确实残留过一轮 `deps/` 的试验对象
 > （postgres-0 / redis-0 Running、minio-0 `ImagePullBackOff`）。
 > minio 拉不起来的原因是 **quay.io 返回 401**，而 k3s 的 `registries.yaml` 里
 > 只给 `docker.io` / `ghcr.io` 配了代理，quay.io 走的是直连。
 > 这批对象已连同 PVC 一起清理。
+
+真要走「依赖上集群」时，是**重新设计并写清单**，而不是把 `deps/` 找回来：
+ConfigMap 里的四个地址改回 `postgres.passup.svc.cluster.local` 等 FQDN，
+先 apply 依赖再 apply 应用 —— 否则后端启动时连不上库会反复重启。
 
 ## 六、部署流程（已验证）
 
@@ -322,9 +308,13 @@ cd k8s
 
 脚本从 `../docker/.env` 与 `../docker/secrets/` 取值，**只搬白名单里的敏感键**，
 并让 kubectl 自己做 base64 与 YAML 转义（避免手工编码出错）。
-一次生成**两份**：`base/secret.yaml`（应用侧，Secret 名 `passup-backend-secret`）
-与 `deps/secret.yaml`（依赖侧，`passup-deps-secret`）—— 后者的 PG / MinIO 凭据由
-脚本从应用侧**派生**，保证两边同源，不会出现「MinIO 起来了、后端却报 Access Denied」。
+生成**一份**：`base/secret.yaml`（应用侧，Secret 名 `passup-backend-secret`）。
+
+> ⚠️ 2026-10-05：脚本曾一度**同时生成两份** —— 还有一份 `deps/secret.yaml`（依赖侧，
+> `passup-deps-secret`，PG / MinIO 凭据由脚本从应用侧派生以保证同源，避免「MinIO 起来了、
+> 后端却报 Access Denied」）。那份随 `deps/` 路线一起删掉了，现在只生成一份。
+> `docker/.env` 头部注释若还写着「这个文件是两份 Secret 的唯一来源」，那是**过时的**。
+
 PEM 文件的映射：`apiclient_key.pem` → `wechat-pay-private-key.pem`，
 `pub_key.pem` → `wechat-pay-public-key.pem`。
 
@@ -394,7 +384,7 @@ Prometheus 的 `passup-backend` job 用 `kubernetes_sd_configs`（role: pod）�
 
 | 条件 | 在哪 |
 | :--- | :--- |
-| Pod 注解 `prometheus.io/scrape: "true"` | 各 overlay 的 Deployment patch |
+| Pod 注解 `prometheus.io/scrape: "true"` | `overlays/k3s` 的 Deployment patch |
 | 容器有名为 `management` 的端口 | base 的 deployment.yaml |
 
 **缺注解 → 目标数恒为 0**，看起来像「后端没上集群」，其实只是没声明采集契约。
@@ -521,8 +511,8 @@ CPU 宽裕的环境应该调回去 —— 探针窗口越长，真故障时发�
 | # | 旧文档写的 | 实际 |
 | :--- | :--- | :--- |
 | 1 | `base/postgres.yaml`（StatefulSet + 20Gi）、`base/redis.yaml`（5Gi）、`base/minio.yaml`（20Gi） | **这三个文件不存在**。依赖跑在宿主机 Docker 上 |
-| 2 | `overlays/dev/` | 不存在，实际是 `overlays/local/` |
-| 3 | base `kustomization.yaml` 有 `images` 段把 tag 固定为 `latest` | base **没有** `images` 段，镜像由各 overlay 覆盖 |
+| 2 | `overlays/dev/` | 不存在。当时实际是 `overlays/local/`，该目录也**已于 2026-10-05 删除** |
+| 3 | base `kustomization.yaml` 有 `images` 段把 tag 固定为 `latest` | base **没有** `images` 段，镜像由 `overlays/k3s` 覆盖 |
 | 4 | 用 `commonLabels` 打标签 | 实际是 kustomize v5 的 `labels: - pairs:` + `includeTemplates: true` |
 | 5 | Redis 启动参数含 `--save 60 1000` | 实际只有 `--appendonly yes` |
 | 6 | `SPRING_PROFILES_ACTIVE=prod` | base 里是 `dev,local`（占位），由 overlay 覆盖 |
@@ -534,11 +524,12 @@ CPU 宽裕的环境应该调回去 —— 探针窗口越长，真故障时发�
 | 10c | 未提及 | `.env` 里**没有** `WECHAT_PAY_API_V3_KEY`，而代码读 `wechat.pay.api-v3-key` —— 也就是说微信支付 v3 接口会用代码里的占位值，实际不可用。已在 `gen-secret.sh` 白名单里加上该键，让它以「缺失」的形式暴露出来 |
 | 11 | 未提及 | 缺 **Prometheus 采集注解**与 **ECS 日志 profile** 两条契约 —— 这是本次迁移的核心依赖 |
 | 12 | 未提及 | `local` profile 会把 management 端口改成 **7009**，与探针写的 8009 不符 |
-| 13 | 说 `deps/` 里的三个文件「从来就不在仓库里」 | 2026-09-26 已**新增** `deps/`（postgres / redis / minio 三个 StatefulSet）。文件存在，但 `overlays/k3s` 不引用 |
-| 14 | 把「依赖上集群」写成了既定路线、`overlays/k3s` 是「过渡态」 | 结论反转：依赖**留在开发机 Docker**，不上集群。`deps/` 是备用路线而非过渡态 |
+| 13 | 说 `deps/` 里的三个文件「从来就不在仓库里」 | **原来说得对**。那三个 StatefulSet 清单从来只在 `k8s/base/` 下，且在 2026-09-01 就被删了。`k8s/deps/` 里只有一份 `resources` 指向它们的 `kustomization.yaml`，**从未跑通**，已于 2026-10-05 删除 |
+| 14 | 把「依赖上集群」写成了既定路线、`overlays/k3s` 是「过渡态」 | 结论反转：依赖**留在开发机 Docker**，不上集群 —— 这是**长期形态**而非过渡态。原先留作备用路线的 `deps/` 已于 2026-10-05 删除 |
 | 15 | 说 `kubectl apply -k base` 会失败（对的），但没给正确命令 | 正确命令是 `kubectl apply -f base/namespace.yaml` + `kubectl apply -k overlays/k3s` |
 | 16 | 把「Pod 能访问宿主机」当成迁移的中间态证据 | 实测过，但这与迁不迁移无关 —— 依赖不迁，这个访问关系就是**长期形态** |
 | 17 | 未提及 | `/actuator/health` **不在安全白名单**里，返回 HTTP 200 + `{"code":401}`。探针因此**空转**：DB 挂了 Pod 照样 Ready |
+| 18 | 2026-09-26 版称「本次确实新增了 `deps/` 目录（postgres / redis / minio 三个 StatefulSet）」 | **错**。那三个文件从来不在 `deps/` 下，且早已删除；`deps/` 从未可运行。该目录与两个没有消费者的 overlay（`prod/`、`local/`）已于 2026-10-05 一并删除 |
 
 ## 十、未完成项
 
@@ -548,7 +539,8 @@ CPU 宽裕的环境应该调回去 —— 探针窗口越长，真故障时发�
 2. **监控栈还没部署到本集群** —— 第七节那两条契约只验证了后端侧，
    端到端（`up{job="passup-backend"}` 3 条序列、Loki 按 `level` 过滤）待补。
 3. **依赖上集群** —— PostgreSQL / Redis / MinIO 留在开发机 Docker（**本次的结论，不是过渡态**）。
-   `deps/` 是备用路线；真要走时注意 quay.io 拉不动 MinIO 的问题（见第五节）。
+   原先留的备用路线 `deps/` 已于 2026-10-05 删除（它从未跑通，见第五节）；
+   真要走这条路是**重新设计并写清单**，届时注意 quay.io 拉不动 MinIO 的问题（见第五节）。
 4. **MinIO 的「可用」未端到端验证** —— 凭据通了，但 bucket 是懒加载创建的，
    要真上传一次文件才算数（见第八节）。
 5. **对外入口** —— Ingress 用的是占位域名且只有 HTTP，目前未启用。

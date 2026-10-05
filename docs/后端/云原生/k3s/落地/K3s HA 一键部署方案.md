@@ -228,9 +228,12 @@ cd D:/_work/infra/cluster-infra/k3s-ha
 | `taint` | 按 `NODE_TAINTS` 幂等收敛节点污点（**拓扑事实**：决定可承载 Traefik 的节点数，进而决定 `TRAEFIK_REPLICAS`） | 《节点污点与容忍》 |
 | `kube-vip` | 确保两套 DaemonSet 就位，清理 servicelb 遗留 | 《Kube-vip部署》3 / 9.2 |
 | `traefik` | 配 Traefik 的 `loadbalancerIPs` + `Local` + 副本数 + 反亲和 | 《Kube-vip Services部署》四 |
+| `rebalance-traefik` | 把挤在一起的 Traefik 副本**重新摊开**：删掉最挤那台上的一个副本让它重新调度（同台剩下的继续服务，`Local` 下 VIP 全程有人通告）。**幂等**；目标摊开数 = `min(TRAEFIK_REPLICAS, 可承载节点数)`，节点故障时自动什么都不做。⚠️ 它是**运行期干预**不是配置收敛 —— 反亲和是 `preferred`，只在**调度那一刻**起作用；`traefik` 阶段配置幂等（配置没变 → 不重渲染 → 不重新调度），改不了已经落定的落点 | — |
 | `kubeconfig` | 拉 kubeconfig 并把 `server` 改成 VIP | 《Ubuntu高可用部署》六 |
 | `verify` | **只读**验收：节点 / 两套 DS / VIP 落点 / apiserver **完整链路** / 业务入口（含逐节点）/ 版本固定提醒（见 §7） | 两篇的「验证」章 |
 | `uninstall` | 清本方案管理的 kube-vip / Traefik 定制资源（含 auto-manifests 里的清单）。**≠ 恢复到部署前**：k3s 本身与 `servicelb` 的禁用状态都不会自动恢复（见 §8） | 《Kube-vip部署》10 |
+| `purge` | **全量清除**：三台执行官方 `k3s-uninstall.sh` + 撤 `/etc/hosts` 托管块。**不可逆**，集群彻底不存在；主机层（hostname / swap / ufw / apt）不回滚（见 §8） | — |
+| `restore-defaults` | 把 K3s 内置 `servicelb` 还回来（k3s 保留）：三台删 `config.yaml` 的 servicelb 条目 → 重启 k3s → 验收 `EXTERNAL-IP` 回到节点 IP。**前提是先跑 `uninstall`**，不满足直接报错停下（见 §8） | 《Kube-vip部署》10 |
 
 ### 3.3 四个关键设计
 
@@ -555,9 +558,9 @@ kubectl get lease -n kube-system plndr-cp-lock -o jsonpath='{.spec.leaseTransiti
 | 想撤销 | 命令 |
 | :--- | :--- |
 | 清本方案管理的 kube-vip / Traefik 定制资源 | `CONFIRM_UNINSTALL=yes ./deploy.sh uninstall`（移除 auto-manifests 里的清单 + 删 DS/RBAC/HelmChartConfig） |
-| 恢复 K3s 内置 servicelb | 删 `/etc/rancher/k3s/config.yaml` 里的 `disable:` 段 → `systemctl restart k3s` → 清残留 `svclb-*` |
+| 恢复 K3s 内置 servicelb | `./deploy.sh restore-defaults`（三台删 `config.yaml` 的 `disable:` 条目 → 重启 k3s → 验收 `EXTERNAL-IP` 回到节点 IP）。⚠️ **前提是先跑 `uninstall`** |
 | Traefik 回默认 | `kubectl delete helmchartconfig traefik -n kube-system`（回到 K3s 内置默认值） |
-| 整个集群重装 | 三台执行 `k3s-uninstall.sh`，然后 `./deploy.sh all` |
+| 整个集群重装 | `CONFIRM_PURGE=yes ./deploy.sh purge`（三台跑官方 `k3s-uninstall.sh` + 撤 `/etc/hosts` 托管块），然后 `./deploy.sh all` |
 
 > ### `uninstall` ≠ 恢复到部署前的完整状态
 >
@@ -576,8 +579,19 @@ kubectl get lease -n kube-system plndr-cp-lock -o jsonpath='{.spec.leaseTransiti
 > K3s 本身及 `servicelb` 的禁用状态不自动恢复。**
 > 想回到 K3s 默认，得按上表第 2 行手工做一遍（删 `disable:` 段 + 重启 + 清残留）。
 >
-> 后续可以考虑单独提供 `restore-defaults` 把它做成一条命令；当前先不做（属于 P2，
-> 第一次实机验证前不引入新的自动化面）。
+> `restore-defaults` **已落地**（**k3s 保留**，只把 `disable:` 段与 servicelb 还原回去）。
+> 它**不是** `purge`：`purge` 会把 k3s 一起删掉，「k3s 还要留着干别的」这个场景不适用 ——
+> 这也是两者必须分开命名的原因。
+>
+> ⚠️ 它的前提是 `uninstall` 已经跑过：本方案的资源还在位时，servicelb 与 kube-vip 会争抢
+> 同一个 Traefik Service（见《Kube-vip部署》§10），所以前提检查不通过就直接报 error 停下，
+> **不会**替你删 kube-vip。正因为有这道检查，它不需要 `CONFIRM_*` 环境变量 ——
+> 健康集群上 kube-vip 必然在位，误敲一下只会停在 error 上。
+>
+> 另：upstream §10 里那步「清残留 `svclb-*`」在这里是**反的**——那是「禁用 servicelb」方向的
+> 操作（禁用不回收已建的 DaemonSet）；这里是**启用**方向，servicelb 控制器会把
+> `svclb-traefik` 重新建出来。所以那一步改成了**验收**：看 `svclb-traefik` 在不在、
+> `EXTERNAL-IP` 是否已回到节点 IP。
 
 > **删 DaemonSet 不会残留 VIP**：kube-vip 进程随 Pod 回收时会自动把网卡上的 `/32` 剥离。
 > 可用 `ip -4 addr show` 确认 `.210` / `.220` 已消失。
@@ -593,7 +607,7 @@ kubectl get lease -n kube-system plndr-cp-lock -o jsonpath='{.spec.leaseTransiti
 | 1 | `kube-vip` 阶段可能重启 k3s | 该节点短暂中断 | 仅当 `config.yaml` 缺 `disable servicelb` 才触发；放维护窗口执行 |
 | 2 | `traefik` 阶段滚动重启 Traefik | 入口秒级抖动 | 避开业务高峰 |
 | 3 | ghcr.io / docker.io 拉不动 | kube-vip Pod 起不来，其他镜像同样受影响 | 已由 `registries.yaml` 走内网代理（§2.3）；**代理缓存本身挂了不会自动回退官方源**，先修缓存；临时可把 `KUBE_VIP_IMAGE` 换成 `192.168.1.221:5000/...` 后重跑 `./deploy.sh kube-vip` |
-| 4 | Traefik chart 的 `affinity` 取值路径 | 若 chart 不认该键，helm 会**静默忽略**（不报错），反亲和失效 → 副本可能挤在一台 | ✅ **真机已确认生效**：2 个副本摊在 k1 / k2（§7 第 10 项）。换 chart 版本或改 values 路径后需重验 |
+| 4 | Traefik chart 的 `affinity` 取值路径 | 若 chart 不认该键，helm 会**静默忽略**（不报错），反亲和失效 → 副本可能挤在一台 | ✅ **真机已确认键生效**（换 chart 版本或改 values 路径后需重验）。⚠️ 但它是 `preferred`（刻意如此 —— `required` 会让滚动更新时第 3 个副本永远卡在 Pending），只在**调度那一刻**起作用：**真机 2026-10-05 就发生过两个副本都落在同一台**（副本重建的那两个时刻，另一台节点不可调度）—— 一旦落定就不会自己挪。`verify` 会把它判为 error；修法是 `./deploy.sh rebalance-traefik`（不是 `traefik` 阶段：那个阶段配置幂等，配置没变就不会重新调度） |
 | 5 | 「可承载节点数」的判定依赖一份「Traefik 能容忍的污点」白名单（`CriticalAddonsOnly` / `control-plane` / `master`） | 若以后给 Traefik 加了额外 toleration（比如容忍业务节点的自定义污点），白名单没同步 → eligible nodes 被低估，校验结果偏保守 | 加 toleration 时同步改 `deploy.sh` 的 `TRAEFIK_TOLERATED_TAINTS`；或直接显式写 `TRAEFIK_ELIGIBLE_NODES` |
 | 6 | 仓库 `core.autocrlf=true` 且没有 `.gitattributes` 时，`.sh` 在 Windows 上会被 checkout 成 CRLF | bash 直接报 `syntax error near unexpected token $'do\r'`，脚本一行都跑不起来（第一次实机最容易卡在这，且现象像"语法写错了"） | 已在 `k3s-ha/.gitattributes` 把 `*.sh` / `*.yaml` / `config.env` 钉为 `eol=lf`；本地若已被改坏，`sed -i 's/\r$//' <文件>` 可救回 |
 | 7 | `registries.yaml` 内容非法会让**该节点的 k3s 直接起不来**（k3s 启动时解析它） | 节点 `NotReady`，且错误信息不像"配置"问题 | 文件由模板渲染下发，且离线自测里有「YAML 合法 + 无残留占位符」断言；写入脚本在覆盖前留 `.bak`，源文件缺失时不落盘（宁可报错也不写坏） |
@@ -607,8 +621,8 @@ kubectl get lease -n kube-system plndr-cp-lock -o jsonpath='{.spec.leaseTransiti
 
    | 层次 | 手段 | 覆盖 | 结果 |
    | :--- | :--- | :--- | :--- |
-   | 产物与静态 | `tests/selftest.sh` | 清单渲染、两套 DaemonSet 的名字/selector/env/容忍策略、Traefik 的 `Local`+副本数+反亲和、**`registries.yaml` 结构与 YAML 合法性**、`config.yaml` 生成、servicelb 归一化 5 种形态、**`registries.yaml` 写入脚本（首次/幂等/变更/备份/缺参 5 种形态）**、**可承载节点数计算（7 种拓扑）+ `pass/low/high` 判定**、**k3s 安装来源推导（cn / official / 覆盖 / 非法值）**、`scripts/`+`manifests/`+`templates/` 接线检查、**远端参数 `%q` 往返转义**（jsonpath / 多行 hosts 块 / token）、**26 段远端脚本体逐段 `bash -n`**（这些 body 本地从不解析，只在真机炸） | **112 项：108 通过 / 4 跳过 / 0 失败** |
-   | 流程编排 | `tests/integration.sh` | 用桩替换远程执行层，模拟三台节点跑九个场景：**全新部署**（预置时机、`cluster-init` 只给首台、token 传递与顺序、join 指向 VIP、chmod、registries.yaml 下发但**不重启**——因为 k3s 还没装）、**已装集群**（不预置、不重复安装、无需 join 时不读 token、registries.yaml 变了才重启、无变化不重启）、**幂等**（连跑两遍）、**`verify` 正反例**（副本摊开应通过；副本挤在一台应报失败；且确实查了 `/readyz`、证书 SAN、逐节点业务链路、registries.yaml 漂移）、**拓扑变化**（污点去掉后 eligible=3 而副本数=2 → `preflight` 必须报错）、**诊断不被挡**（配置不一致时 `verify` 的 preflight 只警告放行，但 `verify` 仍判未通过）、**下载退路**（cn 走国内镜像带 `INSTALL_K3S_MIRROR=cn`；official 走 `get.k3s.io` 且代理地址确实传到远端；代理不通时 preflight 只警告不退出） | **88 项：87 通过 / 1 跳过 / 0 失败** |
+   | 产物与静态 | `tests/selftest.sh` | 清单渲染、两套 DaemonSet 的名字/selector/env/容忍策略、Traefik 的 `Local`+副本数+反亲和、**`registries.yaml` 结构与 YAML 合法性**、`config.yaml` 生成、servicelb 归一化 5 种形态、**`registries.yaml` 写入脚本（首次/幂等/变更/备份/缺参 5 种形态）**、**可承载节点数计算（7 种拓扑）+ `pass/low/high` 判定**、**副本落点统计（Terminating / 未调度的副本都不算）+ 正在服务的副本数**、**k3s 安装来源推导（cn / official / 覆盖 / 非法值）**、`scripts/`+`manifests/`+`templates/` 接线检查、**远端参数 `%q` 往返转义**（jsonpath / 多行 hosts 块 / token）、**26 段远端脚本体逐段 `bash -n`**（这些 body 本地从不解析，只在真机炸） | **237 项：237 通过 / 0 跳过 / 0 失败**（2026-10-05 在 WSL 实测） |
+   | 流程编排 | `tests/integration.sh` | 用桩替换远程执行层，模拟三台节点逐个场景跑：**全新部署**（预置时机、`cluster-init` 只给首台、token 传递与顺序、join 指向 VIP、chmod、registries.yaml 下发但**不重启**——因为 k3s 还没装）、**已装集群**（不预置、不重复安装、无需 join 时不读 token、registries.yaml 变了才重启、无变化不重启）、**幂等**（连跑两遍）、**`verify` 正反例**（副本摊开应通过；副本挤在一台应报失败；且确实查了 `/readyz`、证书 SAN、逐节点业务链路、registries.yaml 漂移）、**拓扑变化**（污点去掉后 eligible=3 而副本数=2 → `preflight` 必须报错）、**诊断不被挡**（`verify` 不跑整段 preflight，所以配置不一致挡不住它；副本数不一致由 `verify` 自己判未通过）、**下载退路**（cn 走国内镜像带 `INSTALL_K3S_MIRROR=cn`；official 走 `get.k3s.io` 且代理地址确实传到远端；代理不通时 preflight 只警告不退出）、**落点重排**（已摊开时**一次都不删**；挤在一起只删最挤那台上的一个副本；节点故障时目标摊开数跟着掉 → **不动手**） | **103 项：103 通过 / 0 跳过 / 0 失败**（2026-10-05 在 WSL 实测） |
 
 真机端到端（**这才是「跑通了」这句话的依据**）：
 

@@ -17,6 +17,11 @@ sort: 14
 > **集群现状：3 台 server 节点（8 vCPU；内存 11 / 15 / 11 GiB），其中 1 台带污点 → 常态只有 2 台承载业务 Pod。**
 > 这个前提会改写若干结论，见 §1.4。
 >
+> ⚠️ **2026-10-05 修订**：业务仓 `pass-up.backend` 清理了未使用的部署资源 ——
+> `k8s/overlays/prod` 与 `k8s/overlays/local` 已删除，**唯一的部署入口是 `k8s/overlays/k3s`**。
+> 本文中 `kubectl apply -k k8s/overlays/prod` 之类的命令与 `overlays/{prod,local}` 的表述
+> 已同步为 `overlays/k3s`；副本数的权威也从 overlay 改成了 `PASSUP_BACKEND_REPLICAS`。
+>
 > **完成度**（架构定稿 ≠ 配置定稿 ≠ 实施验证完成，三者不要混为一谈）：
 >
 > | 层面 | 状态 | 含义 |
@@ -78,13 +83,18 @@ sort: 14
 
 #### P1｜多副本与「单采集目标」直接冲突（核心）
 
-`k8s/overlays/prod/kustomization.yaml` 把副本数提到 **3**：
+后端跑 **3 副本**（权威取值是 `cluster-infra/passup/config.local.env` 的
+`PASSUP_BACKEND_REPLICAS`，发布时由 `deploy.sh release` patch 进 Deployment）：
 
-```yaml
-replicas:
-  - name: passup-backend
-    count: 3
+```bash
+# cluster-infra/passup/config.local.env
+PASSUP_BACKEND_REPLICAS=3
 ```
+
+> ⚠️ 2026-10-05 起，副本数**不再写在任何 overlay 里**。早期它写在
+> `k8s/overlays/prod/kustomization.yaml` 的 `replicas: count: 3` 中，于是同一个数字有了
+> 两个说法，而真正生效的那个藏在「看起来只是环境覆盖」的文件里。那个 overlay 已删除，
+> 清单也不再表达副本数。
 
 而采集目标是**宿主机的固定端口**：
 
@@ -600,7 +610,7 @@ groups:
 
 | # | 位置 | 要改什么 |
 | :--- | :--- | :--- |
-| 1 | `k8s/overlays/prod/kustomization.yaml` | `replicas: count: N` |
+| 1 | `cluster-infra/passup/config.local.env` | `PASSUP_BACKEND_REPLICAS=N`（发布时 patch 进 Deployment）。⚠️ 2026-10-05 前是写在 `k8s/overlays/prod/kustomization.yaml` 的 `replicas: count: N` 里，该 overlay 已删除 |
 | 2 | `cluster-infra/monitoring/prometheus/rules/backend.yml` | `BackendReplicaDown` 的 `< 3` → `< N` |
 | 3 | 同上 | `BackendRedundancyLost` 的 `<= 1` → 按新副本数重定（见下表） |
 
@@ -608,7 +618,7 @@ groups:
 
 | `replicas` | `BackendReplicaDown` | `BackendRedundancyLost` | 说明 |
 | :--- | :--- | :--- | :--- |
-| 2（base / local） | `< 2` | 不启用 | 只剩 1 个即为最小可用，谈不上「冗余丢失」 |
+| 2 | `< 2` | 不启用 | 只剩 1 个即为最小可用，谈不上「冗余丢失」 |
 | 3（当前 prod） | `< 3` | `<= 1` | 2:1 分布；掉 1 个告警，掉 2 个报 critical |
 | **4**（建议评估） | `< 4` | `<= 2` | 2:2 分布；掉 1 个告警，掉 2 个报 critical |
 
@@ -882,21 +892,26 @@ logging:
 `application-dev.yml` / `application-local.yml` **都没有** `structured` 配置，
 且 `dev` 还额外配了 `logging.file.name: logs/app-dev.log`（往容器内文件写，采集端读不到）。
 
-两个 overlay 也都没有纠正这一点：
+**当时**两个 overlay 也都没有纠正这一点：
 
-| overlay | 是否覆盖 `SPRING_PROFILES_ACTIVE` |
-| :--- | :--- |
-| `k8s/overlays/prod/kustomization.yaml` | **否**（`patches` 整段是注释掉的，只覆盖 `images` 与 `replicas`） |
-| `k8s/overlays/local/kustomization.example.yaml` | **否**（只 patch 了 DB / Redis / MinIO 地址） |
+| overlay | 是否覆盖 `SPRING_PROFILES_ACTIVE` | 现状 |
+| :--- | :--- | :--- |
+| `k8s/overlays/prod/kustomization.yaml` | **否**（`patches` 整段是注释掉的，只覆盖 `images` 与 `replicas`） | 已于 2026-10-05 删除 |
+| `k8s/overlays/local/kustomization.example.yaml` | **否**（只 patch 了 DB / Redis / MinIO 地址） | 已于 2026-10-05 删除 |
+| `k8s/overlays/k3s/kustomization.yaml` | **是** —— 已覆盖为 `prod`（2026-09-27 起） | **唯一在用的 overlay，这个问题已解决** |
 
-**后果**（旧栈与本方案都成立）：
+> ✅ **这条已经修掉了**：集群实际使用的 `overlays/k3s` 现在把 `SPRING_PROFILES_ACTIVE`
+> 显式 patch 成 `prod`，Pod 输出的是 ECS JSON。下面这段「后果」描述的是**旧栈**
+> （宿主机 Docker 旁路栈，profile 是 `dev,local`）—— 在集群里已不成立，作为排障线索保留。
+
+**后果**（**旧栈**成立；集群内已修）：
 
 1. Pod 实际输出**纯文本日志**，不是 ECS JSON；
 2. Alloy 的 `stage.json` 拿不到 `log.level` / `@timestamp` → `level` 标签为空；
 3. `{...} | level = "ERROR"` 这类按级别过滤的查询**静默失效**（查不出结果且不报错），
    日志时间戳退化为采集时间。
 
-> 也就是说：**当前宿主机栈的「按 level 过滤日志」很可能从一开始就没生效**。
+> 也就是说：**旧宿主机栈的「按 level 过滤日志」很可能从一开始就没生效**。
 > 上集群前先验证一次：`{container="backend-java"} | level = "ERROR"` 若能查出结果，说明该判断不成立。
 
 #### 5.2.4 职责边界：谁决定 profile 名
@@ -918,7 +933,11 @@ logging:
 
 **修复方式**（由业务侧决定 profile 名后落进清单，二选一）：
 
-- **方案 A（推荐，最小改动）**：在 `overlays/prod` 与 `overlays/local` 各加一段 patch，显式指定生产 profile：
+> ✅ **2026-09-27 已按方案 A 落地**：`k8s/overlays/k3s/kustomization.yaml` 里已有下面这段
+> patch，值取 `prod`。两种方案保留作为**方法说明** —— 注意原文写的 `overlays/prod` 与
+> `overlays/local` 已于 2026-10-05 删除，现在要加就加进唯一的 `overlays/k3s`。
+
+- **方案 A（已采用，最小改动）**：在 overlay 里加一段 patch，显式指定生产 profile：
 
 ```yaml
 patches:
@@ -928,10 +947,10 @@ patches:
     patch: |-
       - op: replace
         path: /data/SPRING_PROFILES_ACTIVE
-        value: <生产 profile 名>     # 例如 prod
+        value: <生产 profile 名>     # 本集群取 prod
 ```
 
-- **方案 B**：把 `base/configmap.yaml` 的默认值改为生产 profile
+- **方案 B（未采用）**：把 `base/configmap.yaml` 的默认值改为生产 profile
   （base 面向集群部署，`dev,local` 本就不该作为默认值）。
 
 > **附带发现（同一根因）**：`dev` profile 里 `app.cookie.secure: false`。
@@ -954,7 +973,7 @@ data:
     [{"targets":["192.168.1.30:9100"],"labels":{"job":"backup-node-exporter"}}]
 ```
 
-挂载到 `/etc/prometheus/external/`，IP 随环境在 overlay 里替换（延续现有 `overlays/local` 的
+挂载到 `/etc/prometheus/external/`，IP 随环境在 overlay 里替换（延续 `overlays/k3s` 的
 「base 占位 + overlay 覆盖」模式）。
 
 **前提**：集群节点能出站访问备份机的 `9100`（分布式是 Prometheus 主动拉取，只要网络可达即可，无需反向放行）。
@@ -1800,11 +1819,12 @@ kubectl top pods -A --sort-by=memory | grep passup-backend
 - 按 §5.5.3 的判据定档：**`2Gi` 是首选起点，不是结论**；
 - 同时看 `container_memory_working_set_bytes` / `jvm_memory_used_bytes` / `jvm_memory_max_bytes`，
   **不要只看 heap**——Java 容器最常见的误判就是「heap 没满但容器 OOM」；
-- 改完 `kubectl apply -k k8s/overlays/prod`，观察一个发布周期确认无 OOMKill（`kubectl describe pod` 看 `Last State`）。
+- 改完 `kubectl apply -k k8s/overlays/k3s`，观察一个发布周期确认无 OOMKill（`kubectl describe pod` 看 `Last State`）。
 
 #### 1.2 修生产日志 ECS 契约
 
-按 §5.2.4 在 `overlays/{prod,local}` 补 profile patch（或改 `base/configmap.yaml` 默认值）。
+按 §5.2.4 确认 `overlays/k3s` 里的 profile patch **在位**（2026-09-27 起已落地，值 `prod`；
+或改 `base/configmap.yaml` 默认值）。
 要求见 §5.2.3：**生产必须输出 ECS JSON，且不能同时开 `logging.file.name`**。
 
 验证（不能省，否则阶段 3 会全线失败）：
@@ -1836,7 +1856,7 @@ spec:
 ```
 
 ```bash
-kubectl apply -k k8s/overlays/prod
+kubectl apply -k k8s/overlays/k3s
 kubectl -n passup get pods -l app=passup-backend -o wide
 # 期望：NODE 列是 2 个不同的业务节点，计数 2:1；若出现 3:0 → 约束没生效
 ```
@@ -2149,14 +2169,15 @@ docker compose -f docker-compose.monitoring.yml down   # 保留 volumes 一段�
 | `pass-up.backend/src/main/resources/application-prod.yml` | 日志 ECS 契约 |
 | `pass-up.backend/k8s/service.yaml` | 已暴露 `management` 8009（ServiceMonitor 替代方案的基础） |
 | `pass-up.backend/k8s/base/configmap.yaml` | `SPRING_PROFILES_ACTIVE`（日志格式前置条件）、`JAVA_OPTS`（内存相关） |
-| `pass-up.backend/k8s/overlays/{prod,local}/kustomization.yaml` | 需补 profile patch（见 §5.2.4） |
+| `pass-up.backend/k8s/overlays/k3s/kustomization.yaml` | profile patch（见 §5.2.4）**已落地**；⚠️ 原写的 `overlays/{prod,local}` 已于 2026-10-05 删除 |
 | `infra/cluster-infra/monitoring/` | 本方案的落点（新增） |
 
 ---
 
 ## 十、实施结果
 
-集群内部分已落地：`infra` 仓库的 `cluster-infra/monitoring/`，一条 `./deploy.sh all`。
+集群内部分已落地：`infra` 仓库的 `cluster-infra/monitoring/`，一条 `./deploy.sh all`
+（首次部署，含构建 `dingtalk-webhook` 镜像；之后改了清单再部署用 `./deploy.sh deploy`，它不碰镜像）。
 本节记录**实际落地与本文正文的差异**，正文里对不上的数字以本节为准。
 
 ### 10.1 落地形态
