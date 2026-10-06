@@ -947,6 +947,7 @@ P1 前端需要三份数据：「当前方案配置」「拓扑事实」「跨�
 | `k3s` | `taint` | ❌ | medium | — |
 | `k3s` | `server-first` | ❌ | high | — |
 | `k3s` | `join` | ❌ | high | — |
+| `k3s` | `node-ip` | ❌ | high | — |
 | `k3s` | `kube-vip` | ❌ | high | — |
 | `k3s` | `traefik` | ❌ | high | — |
 | `k3s` | `rebalance-traefik` | ❌ | medium | — |
@@ -1037,7 +1038,7 @@ P1 前端需要三份数据：「当前方案配置」「拓扑事实」「跨�
 
 | 档 | 命令 | 界面要求 |
 | :--- | :--- | :--- |
-| **确认影响面** | 全部写操作（`kubeconfig` / `prepare` / `apt-mirror` / `server-first` / `join` / `taint` / `kube-vip` / `traefik` / `rebalance-traefik` / `all` / `uninstall` / `purge` / `restore-defaults` / `release`） | 摊开影响面原文，点确认 |
+| **确认影响面** | 全部写操作（`kubeconfig` / `prepare` / `apt-mirror` / `server-first` / `join` / `node-ip` / `taint` / `kube-vip` / `traefik` / `rebalance-traefik` / `all` / `uninstall` / `purge` / `restore-defaults` / `release`） | 摊开影响面原文，点确认 |
 | **确认 + 手抄命令名** | `uninstall` / `purge` / `release` | 还要输入框里**原样敲一遍命令名** |
 
 **为什么不统一成「确定吗？」**：如果 `all` 和 `verify` 弹的是同一个框，用户会养成
@@ -1476,16 +1477,24 @@ if passupBackendReady && redisReady && minioReady && flywayVersion == xxx { ... 
 K3s 的 `taint` / `all` 也要动同一个集群 —— 这两个**应该互斥**。
 第一版保持全局锁（简单、保守），等真的被挡住再按对象细分。
 
-**② PassUp 的「状态」里，PostgreSQL / Redis / MinIO 根本不在集群里。**
-它们跑在宿主机 Docker 上，`pass-up.backend` 仓库里**没有**被引用的
-postgres / redis / minio 清单（曾经留在 `k8s/deps/` 的那份已于 2026-10-05 删除，
-它引用的三个清单文件早已不存在、从未跑通过，见 [PassUp 后端 K8s 部署清单](./PassUp后端部署清单.md) 第五节）。
-所以状态视图里这几项的正确来源是**宿主机 Docker**，不是 k8s 对象 ——
-照搬 `kubectl get pods` 会得到「查不到」，而「查不到」和「不健康」是两回事。
+**② PassUp 的「状态」里，依赖的健康来源分两类 —— 而且它们**混在一起**。**
 
-→ 实现上 `passup.dep.{postgres,redis,minio}` 只做 **TCP 可达性**，地址为配置键
-（`PASSUP_DEP_*`），**地址为空时整项 `skip`**，并在文案里写明
-「依赖跑在宿主机 Docker 上，是长期形态不是过渡态」。
+- **Redis / MinIO 仍在宿主机 Docker 上**（`pass-up.backend` 仓库里没有被引用的 redis / minio 清单；
+  曾经留在 `k8s/deps/` 的那份已于 2026-10-05 删除，它引用的文件早已不存在、从未跑通过，
+  见 [PassUp 后端 K8s 部署清单](./PassUp后端部署清单.md) 第五节）。
+  它们的健康来源**不是** k8s 对象 —— 照搬 `kubectl get pods` 会得到「查不到」，
+  而「查不到」和「不健康」是两回事。
+- ⚠️ **PostgreSQL 已于 2026-10-06 迁进集群**，由 cluster-infra 的 `postgres` 对象管
+  （`postgres.postgres.svc.cluster.local:5432/pass_up`）。所以它是**真正的 k8s 对象**了，
+  库健康的权威判定在 `postgres` 对象的 `status`（那里会**真连一次库**）。
+
+→ 实现上 `passup.dep.{postgres,redis,minio}` 三项**仍然只做 TCP 可达性**，地址为配置键
+（`PASSUP_DEP_*`），地址为空时整项 `skip`。
+> ⚠️ PG 那一项的地址**不能**写集群内 DNS 名：`PASSUP_DEP_*` 的探活是**从开发机**发一条 TCP，
+> 而 `postgres.postgres.svc.cluster.local` 在开发机上会解析出一个**假的 IPv6** 且「连得上」 ——
+> 写它的结果是这一项**永远报可达**，DB 真挂了也看不出来（2026-10-06 实测）。
+> 现在写的是 `控制面 VIP:30432`（NodePort 可漂移，单节点故障不误报），
+> 但它只证明「端口开着」；库本身好不好要看 `postgres` 对象的状态页。
 能不能真用（密码对不对、库在不在）由应用自己回答 —— 集群外面判不了。
 
 #### 两条必须如实显示的「读不到」

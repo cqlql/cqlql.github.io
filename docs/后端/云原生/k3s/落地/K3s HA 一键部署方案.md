@@ -204,6 +204,43 @@ K3S_DOWNLOAD_PROXY="http://192.168.1.221:7897"   # 官方源直连多半不通�
   + 填 `K3S_DOWNLOAD_PROXY`」，而不是让你去猜。远端命令带 `pipefail`：
   拉不到脚本会**明确失败**，不会让 `sh` 读到空输入而「假成功」，然后卡在等节点 Ready。
 
+### 2.5 `node-ip` 必须显式钉死（这条是实机挂过一台节点才补的）
+
+k3s 不写 `node-ip` 时会**自动探测**自己的地址。而本方案的网卡上**必然**会出现不属于节点的地址：
+
+- kube-vip 会把 VIP 以 `<vip>/32` 的形式**加到节点的网卡上**（带 `deprecated` 标志、`valid_lft forever`）。
+  控制面 VIP 在 leader 上、业务 VIP 在「有 Traefik 副本」的节点上、Grafana 的 LB VIP（`monitoring` 对象的
+  `GRAFANA_LB_IP`）在它选中的节点上 —— **这都是正常行为，不是残留**。
+  2026-10-05 本环境实测：k1 网卡上同时有 Grafana 的 LB VIP 与业务 VIP，而 k3s 的自动探测**挑中了前者**。
+- 环境迁移 / 重装还可能在网卡上留下真正没人认领的地址。
+
+一旦 k3s 在这些地址里挑中不属于本节点的那一个，etcd 立刻报：
+
+```text
+Failed to test etcd connection: this server is not a member of the etcd cluster.
+  Found [k1-xxxx=https://<节点IP>:2380 …], expect: k1-xxxx=https://<另一个地址>:2380
+```
+
+于是 k3s **起不来 → 重启 → 再失败**，`systemctl is-active k3s` 停在 `activating`，
+kubelet 早已停止上报节点状态 —— 界面上只看到一台节点凭空变成 `NotReady`，而节点本身 SSH 得进去、网络也通。
+**2026-10-05 本环境就是这样挂掉 k1 的（NotReady 2 小时 43 分）**；更早（10-03）的日志里它还有几次把
+`node-ip` 探成了 IPv6 地址。
+
+所以方案做两件事：
+
+| 层 | 做什么 |
+| :--- | :--- |
+| 治本 | `gen_config_yaml` 在 `server-first` / `join` 写 `config.yaml` 时就带上 `node-ip: "<该节点 IP>"`；**已装集群**用 `./deploy.sh node-ip` 收敛（只改这一个键，其它键原样保留） |
+| 验收 | `preflight` 逐台核对 `config.yaml` 的 `node-ip` 是否等于该节点的声明 IP（判定项 `node.node_ip@<节点名>`）：对 → `ok`；**没钉** → `warn`（fix = `./deploy.sh node-ip`）；**钉成了别人的地址** → `error`（那时 k3s 正在用错地址，节点多半已经挂了） |
+
+> ⚠️ **判定的是「k3s 用的地址对不对」，不是「网卡上有没有多余地址」。**
+> 后者看着更直接，但它是错的：kube-vip 把 VIP 以 `<vip>/32` 加在节点网卡上**本来就是正常行为**
+> （控制面 VIP 在 leader 上、业务 VIP 在「有 Traefik 副本」的节点上、Grafana 的 LB VIP 在它选中的
+> 节点上），所以「网卡上多一个地址」既不异常、也不能删。
+> 2026-10-05 第一版就按「多余地址」判过，而 k1 网卡上那个地址其实是
+> **`monitoring` 的 `GRAFANA_LB_IP`** —— 照那版的 fix 执行会把 Grafana 的 VIP 删掉。
+> 这正是本方案最忌讳的一类错误：**报告一个不存在的故障，并给出一个会改坏东西的修复命令**。
+
 ## 三、方案总览
 
 ### 3.1 一条命令
@@ -225,6 +262,7 @@ cd D:/_work/infra/cluster-infra/k3s-ha
 | `prepare` | 三台：hostname / hosts / 关 swap / 关 ufw / apt / **registries.yaml（镜像加速）** / 预置清单 | 《Ubuntu高可用部署》二、《镜像下载加速实践》 |
 | `server-first` | 首台写 `config.yaml` 并安装（`cluster-init` + `disable servicelb` + `tls-san`）；来源/代理见 §2.4 | 同上 一~三 |
 | `join` | 读 token，其余 server 加入（与首台共用同一套来源/代理逻辑） | 同上 四~五 |
+| `node-ip` | 逐台把 `config.yaml` 的 `node-ip` 钉死成该节点的物理 IP（**已装集群的收敛路径**；新装时 `server-first` / `join` 直接写对，那时恒为「未执行」）。只有真的改了才重启 k3s，**逐台滚动**（每台等回 Ready 再动下一台 —— 三台 control-plane 用内嵌 etcd，同时重启两台会丢 quorum）。⚠️ 为什么必须钉死见 §2.5 的说明 | — |
 | `taint` | 按 `NODE_TAINTS` 幂等收敛节点污点（**拓扑事实**：决定可承载 Traefik 的节点数，进而决定 `TRAEFIK_REPLICAS`） | 《节点污点与容忍》 |
 | `kube-vip` | 确保两套 DaemonSet 就位，清理 servicelb 遗留 | 《Kube-vip部署》3 / 9.2 |
 | `traefik` | 配 Traefik 的 `loadbalancerIPs` + `Local` + 副本数 + 反亲和 | 《Kube-vip Services部署》四 |
@@ -559,6 +597,7 @@ kubectl get lease -n kube-system plndr-cp-lock -o jsonpath='{.spec.leaseTransiti
 | :--- | :--- |
 | 清本方案管理的 kube-vip / Traefik 定制资源 | `CONFIRM_UNINSTALL=yes ./deploy.sh uninstall`（移除 auto-manifests 里的清单 + 删 DS/RBAC/HelmChartConfig） |
 | 恢复 K3s 内置 servicelb | `./deploy.sh restore-defaults`（三台删 `config.yaml` 的 `disable:` 条目 → 重启 k3s → 验收 `EXTERNAL-IP` 回到节点 IP）。⚠️ **前提是先跑 `uninstall`** |
+| 撤掉 `config.yaml` 的 `node-ip` | `ssh <节点> "sudo sed -i '/^node-ip:/d' /etc/rancher/k3s/config.yaml"` → 重启 k3s。⚠️ **不建议**：不钉 `node-ip` 正是 2026-10-05 挂掉一台节点的原因（见 §2.5）。要重装的话 `./deploy.sh all` 会自动写回来 |
 | Traefik 回默认 | `kubectl delete helmchartconfig traefik -n kube-system`（回到 K3s 内置默认值） |
 | 整个集群重装 | `CONFIRM_PURGE=yes ./deploy.sh purge`（三台跑官方 `k3s-uninstall.sh` + 撤 `/etc/hosts` 托管块），然后 `./deploy.sh all` |
 
@@ -621,14 +660,14 @@ kubectl get lease -n kube-system plndr-cp-lock -o jsonpath='{.spec.leaseTransiti
 
    | 层次 | 手段 | 覆盖 | 结果 |
    | :--- | :--- | :--- | :--- |
-   | 产物与静态 | `tests/selftest.sh` | 清单渲染、两套 DaemonSet 的名字/selector/env/容忍策略、Traefik 的 `Local`+副本数+反亲和、**`registries.yaml` 结构与 YAML 合法性**、`config.yaml` 生成、servicelb 归一化 5 种形态、**`registries.yaml` 写入脚本（首次/幂等/变更/备份/缺参 5 种形态）**、**可承载节点数计算（7 种拓扑）+ `pass/low/high` 判定**、**副本落点统计（Terminating / 未调度的副本都不算）+ 正在服务的副本数**、**k3s 安装来源推导（cn / official / 覆盖 / 非法值）**、`scripts/`+`manifests/`+`templates/` 接线检查、**远端参数 `%q` 往返转义**（jsonpath / 多行 hosts 块 / token）、**26 段远端脚本体逐段 `bash -n`**（这些 body 本地从不解析，只在真机炸） | **237 项：237 通过 / 0 跳过 / 0 失败**（2026-10-05 在 WSL 实测） |
+   | 产物与静态 | `tests/selftest.sh` | 清单渲染、两套 DaemonSet 的名字/selector/env/容忍策略、Traefik 的 `Local`+副本数+反亲和、**`registries.yaml` 结构与 YAML 合法性**、`config.yaml` 生成（**含每台各写各的 `node-ip`**）、servicelb 归一化 5 种形态、**`node-ip` 收敛脚本 `ensure-node-ip.sh`（缺键 / 值不对 / 裸值 / 文件不存在 / 幂等 / 缺参 6 种形态 + 「在已 join 的节点上跑不许带掉 token / server」+ 不许放宽 600 权限）**、**`registries.yaml` 写入脚本（首次/幂等/变更/备份/缺参 5 种形态）**、**可承载节点数计算（7 种拓扑）+ `pass/low/high` 判定**、**副本落点统计（Terminating / 未调度的副本都不算）+ 正在服务的副本数**、**`node-ip` 判定（pinned / missing / mismatch，含「探测不到 ≠ 通过」）**、**k3s 安装来源推导（cn / official / 覆盖 / 非法值）**、`scripts/`+`manifests/`+`templates/` 接线检查、**远端参数 `%q` 往返转义**（jsonpath / 多行 hosts 块 / token）、**26 段远端脚本体逐段 `bash -n`**（这些 body 本地从不解析，只在真机炸） | **274 项：274 通过 / 0 跳过 / 0 失败**（2026-10-06 在 WSL 实测） |
    | 流程编排 | `tests/integration.sh` | 用桩替换远程执行层，模拟三台节点逐个场景跑：**全新部署**（预置时机、`cluster-init` 只给首台、token 传递与顺序、join 指向 VIP、chmod、registries.yaml 下发但**不重启**——因为 k3s 还没装）、**已装集群**（不预置、不重复安装、无需 join 时不读 token、registries.yaml 变了才重启、无变化不重启）、**幂等**（连跑两遍）、**`verify` 正反例**（副本摊开应通过；副本挤在一台应报失败；且确实查了 `/readyz`、证书 SAN、逐节点业务链路、registries.yaml 漂移）、**拓扑变化**（污点去掉后 eligible=3 而副本数=2 → `preflight` 必须报错）、**诊断不被挡**（`verify` 不跑整段 preflight，所以配置不一致挡不住它；副本数不一致由 `verify` 自己判未通过）、**下载退路**（cn 走国内镜像带 `INSTALL_K3S_MIRROR=cn`；official 走 `get.k3s.io` 且代理地址确实传到远端；代理不通时 preflight 只警告不退出）、**落点重排**（已摊开时**一次都不删**；挤在一起只删最挤那台上的一个副本；节点故障时目标摊开数跟着掉 → **不动手**） | **103 项：103 通过 / 0 跳过 / 0 失败**（2026-10-05 在 WSL 实测） |
 
 真机端到端（**这才是「跑通了」这句话的依据**）：
 
 | 确认项 | 结果 |
 | :--- | :--- |
-| 逐段执行 | `preflight → prepare → server-first → join → taint → kube-vip → traefik → kubeconfig → verify` 全部通过，每段单独看结果 |
+| 逐段执行 | `preflight → prepare → server-first → join → node-ip → taint → kube-vip → traefik → kubeconfig → verify` 全部通过，每段单独看结果（`node-ip` 于 2026-10-06 加入；详见 §2.5） |
 | `all` 端到端复跑 | 同样全绿（幂等：已完成的步骤被跳过，只有 `traefik` 会滚动重启） |
 | `verify` 判据 | 16 项判据全部通过（唯一未判定项是「本机 kubectl 直连」，属提示项，见 §9.2 备注） |
 | SSH 真实认证 / k3s 实际安装 | 三台装出 `v1.36.4+k3s1`，与 `K3S_VERSION` 钉死值一致 |

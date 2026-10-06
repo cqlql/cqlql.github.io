@@ -16,8 +16,12 @@ sort: 6
 >
 > ⚠️ **2026-10-05 清理未使用资源。** `k8s/overlays/prod` 与 `k8s/overlays/local` 已删除
 > （原因见[第五节](#五overlays)），`k8s/deps/` 也已删除。**本集群唯一的部署入口是
-> `k8s/overlays/k3s`**，`gen-secret.sh` 现在只生成一份 `base/secret.yaml`。
+> `k8s/overlays/k3s`**。
 > 本文档已按清理后的状态同步；`k8s/deps/` 那条路线**从未真正可运行**，见第五节。
+>
+> ⚠️ **同日稍晚：`gen-secret.sh` 已删除，`base/secret.yaml` 改为手工维护。**
+> 它唯一的数据源 `docker/.env` 是**开发环境**取值，而 `base/secret.yaml` 是**正式环境**的
+> Secret —— 两者同源会把开发口令带进正式环境。见第六节 1。
 
 ## 一、当前真实形态（先看这个）
 
@@ -60,12 +64,11 @@ sort: 6
 
 ```text
 k8s/
-├── gen-secret.sh                    # 从 docker/.env 生成 base/secret.yaml
 ├── base/                            # 基础清单（所有环境共用）
 │   ├── namespace.yaml               # passup 命名空间
 │   ├── configmap.yaml               # 非敏感配置（Spring 环境变量，地址是占位值）
 │   ├── secret.example.yaml          # 敏感配置模板（勿提交真实值）
-│   ├── secret.yaml                  # ← gen-secret.sh 生成，已被 .gitignore 排除
+│   ├── secret.yaml                  # ← 正式环境 Secret，**手工维护**，已被 .gitignore 排除
 │   ├── deployment.yaml              # 后端应用 Deployment
 │   ├── service.yaml                 # 后端 ClusterIP Service
 │   ├── ingress.yaml                 # Traefik Ingress + 中间件（**占位域名，未启用**）
@@ -91,9 +94,9 @@ k8s/
 | 命名空间 | `passup` |
 | 业务端口 | `8005`（HTTP + WebSocket） |
 | 管理端口 | `8009`（Actuator：health / prometheus / loggers） |
-| 数据库 | `${DOCKER_HOST_IP}:5432/pass_up_dev`（开发机 Docker，PostgreSQL 18） |
-| Redis | `${DOCKER_HOST_IP}:6379`，无密码 |
-| MinIO | `${DOCKER_HOST_IP}:8007`（API）/ `8008`（Console） |
+| 数据库 | **已迁进集群（2026-10-06）**：`postgres.postgres.svc.cluster.local:5432/pass_up`，业务角色 `passup`（非超管）。⚠️ 集群内是 **PostgreSQL 16.4**，开发机上是 **18.6**，数据是用「一次性 PG18 客户端 dump + 剥掉 18 专有语句」搬过来的 |
+| Redis | `${DOCKER_HOST_IP}:6379`，无密码（**仍在开发机**） |
+| MinIO | `${DOCKER_HOST_IP}:8007`（API）/ `8008`（Console）（**仍在开发机**） |
 | 镜像仓库 | `${DOCKER_HOST_IP}:5000`（匿名可读，节点已配 insecure） |
 | 存储类 | `local-path`（本清单**未使用** —— 无状态应用，依赖全外置） |
 | 运行用户 | 非 root，uid/gid `1001` |
@@ -129,22 +132,26 @@ k8s/
 > ECS 结构化输出（见第七节）。base 的 `dev,local` 会让日志变成纯文本，
 > `| level = "ERROR"` 恒为空 —— 不报错，只是永远查不到。
 
-### 3. secret.example.yaml（敏感配置模板）
+### 3. secret.example.yaml（正式环境 Secret 的模板）
 
-类型 `Opaque`。模板用 `stringData` 填明文（K8s 自动转码）；
-`gen-secret.sh` 生成的那份用 `data`（kubectl 已经 base64 过）。两种都合法。
+类型 `Opaque`，用 `stringData` 填明文（K8s 自动转码）—— 手工填即可，**不需要 base64**。
+`base/secret.yaml`（正式环境实际生效的那份）以它为模板手工维护，两者写法一致。
 
 涵盖：数据库账号密码、Redis 密码、JWT/刷新密钥、管理员默认密码、豆包 ASR/LLM 密钥、
 微信小程序 / 开放平台 / 支付密钥、MinIO 访问密钥，以及两个 PEM 文件
 （`wechat-pay-private-key.pem` / `wechat-pay-public-key.pem`）。
 
-> ⚠️ 不要手工 `cp` 再逐条 base64 —— 20+ 个键，错一个字符就变成「密码不对」，
-> 而现象是连不上库或鉴权失败，很难反查到 Secret 上。用 `k8s/gen-secret.sh`（见第六节）。
->
-> ⚠️ 模板里的键必须与 `gen-secret.sh` 的 `SENSITIVE_KEYS` 白名单、以及代码里的
-> `@ConfigurationProperties` 保持一致。本次重写就发现了两处不一致：
+> ⚠️ 模板里的键必须与 `base/secret.yaml`、以及代码里的 `@ConfigurationProperties` /
+> `application.yml` 保持一致。本次重写就发现了两处不一致：
 > 模板里有 3 个代码根本不读的 `DOUBAO_REALTIME_API_*`，却漏了微信开放平台的
 > `WECHAT_OPEN_PLATFORM_APP_ID/APP_SECRET`。
+>
+> ⚠️ **2026-10-05 补充：这两份文件目前仍有漂移，而且两边都不全** ——
+> `base/secret.yaml` **缺** `DOUBAO_VOICEPRINT_API_KEY/_APP_ID/_ACCESS_KEY`
+> （模板有、代码在读 → 缺了会静默降级为「面试不过滤说话人」）；
+> **多** `WECHAT_PAY_NOTIFY_URL` / `WECHAT_OPEN_PLATFORM_REDIRECT_URI` /
+> `WECHAT_OPEN_PLATFORM_FRONTEND_BASE_URL`（代码经松弛绑定读 `application.yml` 的同名项，
+> 模板反而缺）。收敛要**两份一起补**，不能只照抄某一边。
 
 ### 4. deployment.yaml（后端应用）
 
@@ -238,7 +245,7 @@ k8s/
 - 也就是说 `deps/` 的 kustomization 引用的是三个**已不存在**的文件，`kubectl apply -k deps`
   必然报错；
 - 本分支上更是只剩一个孤立的 `secret.yaml`（还是被误提交进来的，含明文凭据），
-  且 `gen-secret.sh` 也不再生成它。
+  且当时的 `gen-secret.sh` 也不再生成它（该脚本已于 2026-10-05 删除，见第六节 1）。
 
 > ⚠️ 2026-09-26 之前集群里确实残留过一轮 `deps/` 的试验对象
 > （postgres-0 / redis-0 Running、minio-0 `ImagePullBackOff`）。
@@ -298,28 +305,35 @@ docker exec <postgres> psql -U postgres -d pass_up_dev \
 ⚠️ 手工 `apply -k overlays/k3s`（下面第 2 步）仍可用，但它**不写版本注解**，
 也不会改镜像 tag（overlay 已去掉写死的 `newTag`）—— 所以它会与收敛页的期望版本不一致。
 
-### 1. 生成 Secret
+### 1. 准备 Secret（**手工维护**，已无生成脚本）
+
+`base/secret.yaml` 是**正式环境**的 Secret，**手工维护**、已被 `.gitignore` 排除：
 
 ```bash
-cd k8s
-./gen-secret.sh              # 生成 base/secret.yaml
-./gen-secret.sh --apply      # 生成并直接 apply
+cp k8s/base/secret.example.yaml k8s/base/secret.yaml   # 首次：以模板起头
+$EDITOR k8s/base/secret.yaml                            # 逐项替换为正式环境取值
+kubectl --kubeconfig=~/.kube/k3s-ha.yaml apply -f k8s/base/secret.yaml   # 需要时单独 apply
 ```
 
-脚本从 `../docker/.env` 与 `../docker/secrets/` 取值，**只搬白名单里的敏感键**，
-并让 kubectl 自己做 base64 与 YAML 转义（避免手工编码出错）。
-生成**一份**：`base/secret.yaml`（应用侧，Secret 名 `passup-backend-secret`）。
+键清单以 `secret.example.yaml` 为准（它带逐项注释）。它是 `base/kustomization.yaml`
+`resources` 里的一员，所以走 `apply -k overlays/k3s` 时会一起进集群 ——
+**改它就等于改集群里那份 Secret**。
 
-> ⚠️ 2026-10-05：脚本曾一度**同时生成两份** —— 还有一份 `deps/secret.yaml`（依赖侧，
-> `passup-deps-secret`，PG / MinIO 凭据由脚本从应用侧派生以保证同源，避免「MinIO 起来了、
-> 后端却报 Access Denied」）。那份随 `deps/` 路线一起删掉了，现在只生成一份。
+PEM 文件直接粘 PEM 明文，键名 `wechat-pay-private-key.pem` / `wechat-pay-public-key.pem`
+（`deployment.yaml` 会把它们挂到 `/app/secrets/`）。
+
+> ⚠️ **2026-10-05：`gen-secret.sh` 已删除。** 它唯一的职责是「读 `../docker/.env` +
+> `../docker/secrets/` → 生成 `base/secret.yaml`」，而这个职责本身不成立：
+> `docker/.env` 是**开发环境**取值（本地 compose 直接读它），`base/secret.yaml` 要进
+> **正式环境** —— 同源会把开发库口令 / MinIO 凭据静默带进正式环境，现象是
+> 「Pod 正常起来、探针也过，但连的是错的库」。
+>
+> 它也没有消费者：dev 侧根本不经过 k8s Secret；而 `stringData` 写法手工填明文即可，
+> 不需要脚本做 base64。要取回：`git show <commit>:k8s/gen-secret.sh`。
+>
+> ⚠️ 历史上它曾**同时生成两份** —— 还有一份 `deps/secret.yaml`（依赖侧
+> `passup-deps-secret`）。那份随 `deps/` 路线一起删掉了（见第五节）。
 > `docker/.env` 头部注释若还写着「这个文件是两份 Secret 的唯一来源」，那是**过时的**。
-
-PEM 文件的映射：`apiclient_key.pem` → `wechat-pay-private-key.pem`，
-`pub_key.pem` → `wechat-pay-public-key.pem`。
-
-脚本会先体检再决定是否生成：必填键缺失**直接拒绝生成**（而不是写个 `CHANGE_ME` 进去），
-可选键未填则列出来，标明「不影响启动，相关功能不可用」。
 
 ### 2. 部署
 
@@ -329,7 +343,8 @@ kubectl --kubeconfig=~/.kube/k3s-ha.yaml apply -k overlays/k3s
 ```
 
 > ⚠️ 旧文档写的 `kubectl apply -k k8s/base` **会失败** ——
-> base 的 `resources` 里列了 `secret.yaml`，而它只在跑过 `gen-secret.sh` 之后才存在。
+> base 的 `resources` 里列了 `secret.yaml`，而它**只在你手工准备好之后才存在**
+> （`.gitignore` 排除了它，克隆下来是没有的）。
 > 而且 base 里的地址全是 `CHANGE_ME`，本来就不该直接 apply。
 
 ### 3. 等待就绪
@@ -521,7 +536,7 @@ CPU 宽裕的环境应该调回去 —— 探针窗口越长，真故障时发�
 | 9 | 部署命令 `kubectl apply -k k8s/base` | 会失败（缺 `secret.yaml`，且地址全是 `CHANGE_ME`） |
 | 10 | `secret.example.yaml` 里的 `DOUBAO_REALTIME_API_APP_ID` / `_ACCESS_KEY` / `_APP_KEY` | **代码里根本没有这三个配置项**（`DoubaoAsrProperties` 只读 `doubao.realtime.api-key`）。属于模板里的过期残留，已删除 |
 | 10b | `secret.example.yaml` 漏了微信开放平台 | 代码有 `WechatOpenPlatformProperties`（读 `wechat.open-platform.app-id/app-secret`），模板里没有。缺了不会启动失败，只是扫码登录不可用。已补上 |
-| 10c | 未提及 | `.env` 里**没有** `WECHAT_PAY_API_V3_KEY`，而代码读 `wechat.pay.api-v3-key` —— 也就是说微信支付 v3 接口会用代码里的占位值，实际不可用。已在 `gen-secret.sh` 白名单里加上该键，让它以「缺失」的形式暴露出来 |
+| 10c | 未提及 | `.env` 里**没有** `WECHAT_PAY_API_V3_KEY`，而代码读 `wechat.pay.api-v3-key` —— 也就是说微信支付 v3 接口会用代码里的占位值，实际不可用。当时把它加进了 `gen-secret.sh` 的白名单让它以「缺失」暴露；该脚本已于 2026-10-05 删除，现在这条只能靠**手工比对** `base/secret.yaml` 与代码来保证 |
 | 11 | 未提及 | 缺 **Prometheus 采集注解**与 **ECS 日志 profile** 两条契约 —— 这是本次迁移的核心依赖 |
 | 12 | 未提及 | `local` profile 会把 management 端口改成 **7009**，与探针写的 8009 不符 |
 | 13 | 说 `deps/` 里的三个文件「从来就不在仓库里」 | **原来说得对**。那三个 StatefulSet 清单从来只在 `k8s/base/` 下，且在 2026-09-01 就被删了。`k8s/deps/` 里只有一份 `resources` 指向它们的 `kustomization.yaml`，**从未跑通**，已于 2026-10-05 删除 |
@@ -550,8 +565,9 @@ CPU 宽裕的环境应该调回去 —— 探针窗口越长，真故障时发�
    建议改回 30 或 45（见第八节）。
 8. **`topologySpreadConstraints`** —— 目前 3 副本靠调度器自然分布成 2:1；
    业务节点只有 2 台，加约束要确认不会导致 Pod Pending。
-9. **`secret.example.yaml` 与 `gen-secret.sh` 的白名单要保持同步** ——
+9. **`secret.example.yaml` 与 `base/secret.yaml` 要保持同步**（⚠️ **目前两份都不全**）——
    两边不一致会出现「example 里有、实际没注入」这类静默缺配置。
+   现在没有脚本帮你比对，只能手工核；已发现的双向漂移见第三节 3。
 10. **MinIO 凭据强度** —— 当前是 `admin` / 8 位弱口令，且 MinIO 端口直接暴露在开发机 `0.0.0.0:8007`。
     数据库同理（`0.0.0.0:5432`）。建议收敛。
 11. **开发机 IP 变化会打断整个链路** —— 依赖地址、镜像仓库地址都是**硬编码在 overlay 里**的 IP。

@@ -206,8 +206,11 @@ curl -s -i -X OPTIONS -H "Origin: http://172.16.0.180" \
 
 ### 凭据与 mc 客户端的两个坑
 
-- **凭据来源**：`deploy.sh` 默认从 `../pass-up.backend/docker/.env` 读
-  （`MINIO_ACCESS_KEY` / `MINIO_SECRET_KEY`），也可用同名环境变量覆盖。
+- **凭据来源**：`deploy.sh` 默认从 **`<前端仓库>/k8s/minio.env`** 读
+  （`MINIO_ACCESS_KEY` / `MINIO_SECRET_KEY`；该文件手工维护、不进 Git），
+  也可用同名环境变量覆盖。
+  ⚠️ 2026-10-06 起**不再**从 `../pass-up.backend/docker/.env` 读 ——
+  那是后端开发环境的 compose env，前端发布不该依赖它。
 - **`mc` 必须从 GitHub Release 下**：`dl.min.io` 在 MinIO 开源版归档后
   **所有路径都返回 410 Gone**（连 `archive/` 目录也是）。
   资产名格式也变了：`mc.<os>-<arch>.<tag>.exe`
