@@ -270,7 +270,7 @@ cd cluster-infra/passup
 ./deploy.sh release --yes         # 真发布（--yes 是必需的确认词）
 ```
 
-流程见 `K3s 方案控制台-方案.md` §8.7「v11 落地：发布策略」。要点：
+流程见 `基础设施控制台-方案.md` §8.7「v11 落地：发布策略」。要点：
 
 - **双 tag**：推 `:<短SHA>` 与 `:latest`，**部署用短 SHA**（否则「发布成功」与「代码没生效」无法分辨）。
 - **版本注解**：`passup.io/version` / `passup.io/commit` / `passup.io/built-at` 写进 **Pod 模板**
