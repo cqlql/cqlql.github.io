@@ -8,3 +8,4 @@ docs/.vuepress/logs/
 docs/.vuepress/server/out.log
 docs/.vuepress/server/process.log
 .workbuddy/
+.workbuddy-ai/memory/2026-10-12.md
