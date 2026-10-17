@@ -16,6 +16,6 @@ icon: mdi:linux
 | [磁盘存储](./磁盘存储/磁盘挂载与自动挂载.md) | 挂载与自动挂载、空间查看与清理、测速、LVM 分区 |
 | [网络](./网络/Ubuntu%20静态IP配置.md) | 静态 IP、网络诊断、wget 抓取、防火墙与端口 |
 | [代理与翻墙](./代理与翻墙/代理配置.md) | 代理配置、Shadowsocks / clash / v2ray |
-| [部署](./部署/nginx.md) | nginx、nodejs 部署、WSL 子系统 |
+| [部署](./部署/nginx.md) | nginx、nodejs 部署、WSL 子系统、WSLg 输入法、OpenCode 桌面端与剪贴板 |
 | [系统管理](./系统管理/用户与SSH.md) | 用户切换、SSH 登录 |
 | [工具与其他](./工具/工具与杂项.md) | 下载/编译工具、内网穿透、杂项问题 |
