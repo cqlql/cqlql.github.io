@@ -13,7 +13,8 @@ sort: 4
 >
 > 配套文档：
 > - 《WSL 安装 Linux 子系统》（同目录）—— 子系统的安装，本文假设已装好
-> - 《OpenCode WSL 安装与踩坑记录》（同目录）—— 复用本文的 `.desktop` 注入、systemd 用户服务与强制 X11 思路
+> - 《OpenCode WSL 安装与踩坑记录》（同目录）—— 复用本文的 `.desktop` 注入与强制 X11 思路
+> - 《WSLg 剪贴板互通与图片同步》（同目录）—— 复用本文的 `wslg-wait-x.sh` 与 systemd 用户服务写法
 > - 《WSL2 局域网 SSH 访问》（`网络/`）—— 网络侧配置，与本文无关
 > - 《systemctl》《journalctl》（`进程与服务/`）—— systemd 用户服务的通用写法，本文不重复
 >
