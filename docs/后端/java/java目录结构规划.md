@@ -1,9 +1,66 @@
 ---
-title: Java 项目目录结构规划
-icon: mdi:file-tree
+title: Java 项目目录结构规范（按领域切包）
+icon: devicon:java
 ---
 
-# Java 项目目录结构规划
+# Java 项目目录结构规范（按领域切包）
+
+> 状态：**母本 · 现行**（2026-10-30 起草；同日补齐三档判据、`resources` 双根、ArchUnit 约束）
+>
+> 跨栈通用判据、阈值、各栈指针表在 `docs/工程/目录结构规范.md`，**本文只写 Java 这一栈**。
+> 两处冲突时以母本判据为准，本文负责回答「Java 具体怎么落」。
+
+**先说结论：Java 不能照搬前端 `features/` 那套文件清单。**
+`pages/ store.ts hooks/ nav.ts` 在 Java 里没有对应物，硬套就是造空壳目录。
+能借的只有两条原则——**按能力切**、**目录是长出来的**。差异和落法见下文。
+
+---
+
+## 一、先定档，不是二选一
+
+| 档 | 结构 | 触发条件 | 典型场景 |
+| :--- | :--- | :--- | :--- |
+| **档 0** 单模块横切 | `controller/ service/ mapper/ entity/ dto/` + `common/` `infrastructure/` | 默认起点 | 领域 <10、接口 <30、单人 |
+| **档 1** 包内竖切 | `modules/<domain>/{controller,service,repository,entity,dto}` | 领域 ≥10 或接口 ≥30，**且** ≥2 人 | 中型单体 |
+| **档 2** 多模块 | 每领域一个 subproject，或 `api`/`domain`/`app` 三件套 | 要拆服务、聚合边界真实存在、多人并行 | 大型单体 / 微服务前夜 |
+
+阈值和升级触发条件**不在本文重复**，见母本第六节「但先看阈值」。
+
+为什么要有档 0：竖切的成本是**每个业务多建 3–4 个包**，收益是「删一个业务只清一个包」。
+收益随领域数线性增长，成本固定 → 领域少时横切反而更好找、更好改。
+
+---
+
+## 二、档 0：单模块横切（默认）
+
+```text
+com/example/app
+├─ AppApplication.java
+├─ common/                 # 无业务耦合，可整包拷到别的项目
+│  ├─ api/                 # Result / ResultCode
+│  ├─ exception/
+│  ├─ util/
+│  └─ base/                # BaseEntity
+├─ infrastructure/         # 系统能力：安全、缓存、外部集成、Web 配置
+│  ├─ security/
+│  ├─ redis/
+│  ├─ web/
+│  └─ integration/
+├─ controller/             # ↓ 以下按技术类型横切
+├─ service/
+├─ mapper/
+├─ entity/
+└─ dto/
+```
+
+**这一档不是「错的起点」，是多数项目该停的地方。** 6 张表的单人项目切四层 DDD，
+结果是加一个字段改 5 个文件，而它从来没有过跨聚合事务。
+
+---
+
+## 三、档 1：包内竖切（本仓当前形态）
+
+判据：**「删掉一个业务，能不能只删一个包」**。能，就说明切对了。
 
 ```
 javademo
@@ -101,7 +158,196 @@ modules
 
 ```
 
-## Domain vs BO
+---
+
+## 四、档 2：多模块（编译期强制）
+
+**为什么档 1 之后还需要档 2**：Java 的包**没有**编译期依赖约束。
+`modules.user.service` 直接 `import modules.order.repository.OrderMapper`，`javac` 一句话不说。
+包级竖切只能靠 ArchUnit 事后检查，而 artifact 依赖是**显式声明**的——不写 `pom` 里的
+`<dependency>` 就编译不过，这才是真正的边界。
+
+两种拆法，选一个：
+
+```text
+# A. 按技术层拆（单体内部治理）
+parent/
+├─ pom.xml            # packaging=pom，只管 dependencyManagement
+├─ app-web/           # 启动类 + controller + 全局异常/拦截器
+├─ app-domain/        # 领域模型 + service，不许出现 spring-boot-starter-web
+└─ app-infra/         # mapper / 外部集成实现，实现 domain 定义的端口
+
+依赖方向：app-web → app-domain ← app-infra（domain 最干净，谁也不依赖）
+```
+
+```text
+# B. 按领域拆（准备拆服务时）
+parent/
+├─ common/            # 无业务耦合
+├─ order-service/
+├─ user-service/
+└─ payment-service/
+
+判据：拆完 `mvn -pl order-service dependency:tree` 里看不到别的业务模块。
+```
+
+> ⚠️ 别做「按领域拆 + 每个领域再分 api/domain/app」的四层套娃，除非真的在拆服务。
+> 一个 12 个领域的中台照抄这套，`mvn install` 会跑 40 个模块，改一行 DTO 要重新构建半个仓。
+
+---
+
+## 五、`resources` 双根：包切了，资源没跟着切
+
+这是 Java 竖切**最容易漏的一环**。前端竖切到 `features/order/` 后，样式、请求、组件都在同一目录，
+删一个目录就干净了。Java 不行：`src/main/java` 和 `src/main/resources` 是**两棵独立的树**，
+包竖切只切了 java 那棵，`resources/` 下仍然按类型横放。
+
+| 资源 | 能不能跟着领域切 | 做法 |
+| :--- | :--- | :--- |
+| MyBatis mapper XML | ✅ 能 | 镜像 java 包：`resources/modules/<domain>/mapper/*.xml`，配 `classpath*:modules/**/mapper/*.xml` |
+| Flyway / Liquibase 迁移 | 🔴 **不能** | 单一 `db/migration`，全局版本号单调递增 |
+| `application-*.yml` | 🔴 **不能** | 按 profile 切（dev/prod），不按领域切 |
+
+**Flyway 这条是硬约束**：版本号全局唯一且递增。按领域各放一份 `V1__init.sql`，
+启动时直接 `Found more than one migration with version 1`。见过不止一次。
+
+如果 mapper XML 想和接口同包，需要在 `pom.xml` 里把 java 目录的 xml 一起打包：
+
+```xml
+<resources>
+  <resource>
+    <directory>src/main/java</directory>
+    <includes><include>**/*.xml</include></includes>
+  </resource>
+  <resource><directory>src/main/resources</directory></resource>
+</resources>
+```
+
+### 包与 XML 的镜像树（完整示例）
+
+「镜像」很字面：`resources/` 下的相对路径 = `java/` 下包路径去掉 `com/example/app/` 前缀。
+
+```text
+src/main/
+├─ java/com/example/app/
+│  ├─ AppApplication.java
+│  ├─ common/
+│  │  └─ util/DateUtils.java
+│  ├─ infrastructure/
+│  │  └─ security/JwtUtils.java
+│  └─ modules/
+│     ├─ order/                              # ← 领域包
+│     │  ├─ controller/OrderController.java
+│     │  ├─ service/OrderService.java
+│     │  ├─ repository/OrderMapper.java      # ← 接口
+│     │  ├─ entity/Order.java
+│     │  └─ dto/OrderCreateRequest.java
+│     └─ user/
+│        ├─ controller/UserController.java
+│        ├─ service/UserService.java
+│        ├─ repository/UserMapper.java
+│        ├─ entity/User.java
+│        └─ dto/UserProfileResponse.java
+└─ resources/
+   ├─ application.yml                     # 全局：只放共用配置
+   ├─ application-dev.yml                 # 全局：按 profile 切
+   ├─ db/migration/                       # 全局：不按领域切
+   │  ├─ V1__init.sql
+   │  ├─ V2__order_add_index.sql
+   │  └─ V3__user_add_phone.sql
+   └─ modules/                            # ← 镜像 java 的 modules/
+      ├─ order/mapper/OrderMapper.xml     # namespace 写全限定接口名
+      └─ user/mapper/UserMapper.xml
+```
+
+```yaml
+# application.yml
+mybatis-plus:
+  mapper-locations: classpath*:modules/**/mapper/*.xml
+```
+
+`namespace` 必须与接口全限定名严格一致，写错了同样是运行期才炸：
+
+```xml
+<mapper namespace="com.example.app.modules.order.repository.OrderMapper">
+```
+
+### `mapper-locations` 写错的表现：启动正常，调用才炸
+
+这是竖切后**最高频**的坑。MyBatis-Plus 默认是 `classpath*:/mapper/**/*.xml`，
+包搬进 `modules/` 之后没同步改配置，**应用照常启动、接口照常注册**，第一次调 SQL 才抛：
+
+```text
+org.apache.ibatis.binding.BindingException:
+Invalid bound statement (not found): com.example.app.modules.order.repository.OrderMapper.selectById
+```
+
+两个容易写错的点：
+
+| 写法 | 结果 |
+| :--- | :--- |
+| `classpath:modules/**/mapper/*.xml` | `classpath:` 只匹配**第一个**命中的 classpath 根，打成 jar 后大概率扫不到 → 必须 `classpath*:` |
+| `classpath*:modules/*/mapper/*.xml` | `*` 只匹配一层，`modules/order/mapper` 恰好能中，一旦嵌套成 `modules/trade/order/mapper` 就失效 → 用 `**` |
+
+> 排查手段：开 `logging.level.com.example.app=debug`，看日志里有没有 `Parsed mapper file:` 那一行。
+> 没有就是文件根本没被扫到，不是 SQL 写错。
+
+### 三种放法怎么选
+
+| 放法 | 适用 | 代价 |
+| :--- | :--- | :--- |
+| XML 镜像到 `resources/modules/`（推荐） | 有手写动态 SQL、`<foreach>` 拼接 | 同一业务跨两棵树，改 SQL 要切目录 |
+| XML 与接口同包放 `java/` 下 | 想让「删一个包」真的删干净 | 要改 `pom.xml` 的 `<resources>`，Maven 默认不拷贝 `src/main/java` 下的 xml，团队得统一约定 |
+| 不用 XML，注解 / `BaseMapper` | 单表 CRUD 占绝大多数 | 复杂动态 SQL 会变得难读，最后还是会回到 XML |
+
+---
+
+## 六、用 ArchUnit 把「依赖方向」变成构建失败
+
+包级竖切的边界是**口头约定**，不写测试就等于没有——半年后一定有人从 `common` 反向 import 业务类。
+`common` 一旦反向依赖 `modules`，就变成杂物间，删 feature 永远删不干净。
+
+```java
+@AnalyzeClasses(packages = "com.example.app", importOptions = ImportOption.DoNotIncludeTests.class)
+class ArchitectureTest {
+
+    // 1. common 必须是最底层，不许碰业务
+    @ArchTest
+    static final ArchRule common_不得依赖业务 =
+        noClasses().that().resideInAPackage("..common..")
+            .should().dependOnClassesThat().resideInAnyPackage("..modules..");
+
+    // 2. infrastructure 是系统能力，同样不许反向依赖业务
+    @ArchTest
+    static final ArchRule infra_不得依赖业务 =
+        noClasses().that().resideInAPackage("..infrastructure..")
+            .should().dependOnClassesThat().resideInAPackage("..modules..");
+
+    // 3. 跨领域只走对方暴露的接口包，不许直接读 internal
+    @ArchTest
+    static final ArchRule 跨领域只走出口 =
+        noClasses().that().resideOutsideOfPackage("..modules.order..")
+            .should().dependOnClassesThat().resideInAPackage("..modules.order.internal..");
+}
+```
+
+`pom.xml` 加测试依赖即可，`mvn test` 阶段就会挡：
+
+```xml
+<dependency>
+  <groupId>com.tngtech.archunit</groupId>
+  <artifactId>archunit-junit5</artifactId>
+  <version>1.3.0</version>
+  <scope>test</scope>
+</dependency>
+```
+
+> 更省事的替代：Spring Modulith，`ApplicationModules.of(App.class).verify()` 一行就能校验
+> 模块间是否只通过 API 包交互，还顺带生成模块依赖图。代价是引入一个额外抽象。
+
+---
+
+## 七、Domain vs BO
 
 ### 1. 传统 BO 模式（贫血模型）
 
@@ -212,7 +458,9 @@ public class Order {
 - **Domain** 是“**我能做什么，我该怎么做**”（自我约束）。
 
 
-## 一个很重要的架构判断标准
+## 八、判据速查
+
+### 8.1 这个职责属于哪一层？
 
 | 问题               | 放哪                     |
 | ------------------ | ------------------------ |
@@ -221,7 +469,7 @@ public class Order {
 | 是具体业务？       | modules                  |
 | 是启动初始化逻辑？ | infrastructure/bootstrap |
 
-## 一个架构层级总结（形成长期判断能力）
+### 8.2 按类型速查（形成长期判断能力）
 
 | 类型     | 放哪里                   |
 | -------- | ------------------------ |
@@ -231,7 +479,7 @@ public class Order {
 | 启动任务 | infrastructure/bootstrap |
 | Web 配置 | infrastructure/web       |
 | 安全相关 | infrastructure/security  |
-## 🎁 一句话原则
+### 8.3 一句话原则
 
 | 类型               | 放哪里                  |
 | ------------------ | ----------------------- |
@@ -240,7 +488,12 @@ public class Order {
 | 纯 Java 无依赖工具 | common.util             |
 | 全局返回模型       | common.api              |
 
-## RedisTokenManager.java 位置讨论
+## 九、实例：这三个类该放哪
+
+> 三个真实争论，用来检验第八节的判据能不能落地。判据本身不产生分歧，
+> 分歧都出在「这个类的边界到底在哪」——所以看这三例比背表有用。
+
+### 9.1 RedisTokenManager
 
 ### 它本质是什么？
 
@@ -303,7 +556,7 @@ import com.cql.javademo.modules.user.entity.User;
 👉 它会跟着 security/auth 走
  👉 而不是跟着 user 业务走
 
-## SessionUserDetails.java位置推荐
+### 9.2 SessionUserDetails
 
 ### SessionUserDetails 本质是什么？
 
@@ -367,7 +620,7 @@ model
 
 
 
-## PasswordUtil.java 位置讨论
+### 9.3 PasswordUtil → 建议改名 PasswordService
 
 ### 放到 `password` 目录
 
