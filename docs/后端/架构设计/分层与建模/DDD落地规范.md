@@ -1,16 +1,19 @@
 ---
-title: DDD 分层与数据模型规范
+title: DDD 落地规范
 icon: mdi:layers-triple-outline
 sort: 2
 category: 架构设计
 tag: [DDD, 分层架构, 数据模型, CQRS]
 ---
 
-# DDD 分层与数据模型规范
+# DDD 落地规范
 
+> 状态：**现行 · 规范**
+>
 > **实用主义 DDD = 用 DDD 的思想解决复杂度，而不是照搬 DDD 的全部理论。**
 >
-> 本文融合正统 DDD 四层架构与实践中的实用主义落地经验，兼顾理论完整性和工程可操作性。
+> 本文负责「DDD 的四层各放什么、数据在跨层时怎么转换、读写流程怎么走」。
+> 不负责「代码目录怎么建」——那属于目录结构议题，见 [目录结构规范](../../../工程/目录结构规范.md)（母本）。
 
 ## 一、核心架构层级职责（四层架构体系）
 
@@ -23,13 +26,7 @@ DDD 将传统"三层"演进为"四层"，核心思想是**依赖倒置**：领�
 | **领域层 (Domain)**             | `Aggregate`, `Entity`, `Domain Service` | **业务大脑**：表达最纯粹的业务规则与状态流转         | 处理 `Domain Entity`、`Value Object`。                       | 纯净对象，**无视任何数据库与外部框架技术**。这是 DDD 的绝对核心。 |
 | **基础设施层 (Infrastructure)** | `RepositoryImpl`, `RPC Client`          | **技术落地**：持久化、外部调用、消息发送             | 操作 `PO (Persistent Object)`、调用外部 `DTO`。              | 提供底层技术实现。实现领域层定义的接口（依赖倒置），只关心技术细节。 |
 
-### 传统三层对比
-
-| **组件**       | **所在层级**       | **核心作用**                             | **处理的数据模型**                                           | **核心原则**                                                 |
-| -------------- | ------------------ | ---------------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
-| **Controller** | 接口层 (Web 层)    | **交通警察**：路由转发与输入输出控制     | 接收外部 `Request`，转换为 `Command` 传给底层；接收底层 `DTO`，封装为 `Response/VO` 返回。 | 处理 HTTP 请求、参数基础校验、身份解析。**绝对不包含业务逻辑**。 |
-| **Service**    | 业务层 (Domain 层) | **业务大脑**：执行核心业务逻辑与规则     | 处理领域模型，调用 `Repository` 或其他 Service               | 负责事务控制、业务规则校验、状态流转。**不关心外部协议**（无视 HTTP/JSON），是系统最核心的层级。 |
-| **Repository** | 持久层 (Data 层)   | **数据搬运工**：与数据库进行交互         | 操作 `PO`，查询返回 `Projection`                             | 只负责数据的 CRUD 和 SQL 组装。**不包含业务逻辑**。          |
+> 传统三层的 Controller / Service / Repository 职责对照，见 [分层模式选型](./分层模式选型.md) 第三节。两者是演进关系，不是两套东西。
 
 ## 二、核心领域层（系统的业务基石）
 
@@ -44,6 +41,8 @@ DDD 将传统"三层"演进为"四层"，核心思想是**依赖倒置**：领�
 | **领域服务 (Domain Service)**         | **协调跨实体的业务逻辑**。                               | 当一个业务规则不适合放在单一实体/聚合根中时（例如转账），才放入领域服务。它是无状态的。 | `TransferService`                     |
 
 > **Model 层的核心价值**：核心业务逻辑只依赖纯净的 Model，不依赖底层的数据库结构（PO），实现了真正的**"业务与技术解耦"**。
+>
+> 领域模型要不要真上（贫血 BO vs 充血 Domain）、上到什么程度，见 [Java 目录结构规范](../../java/java目录结构规划.md) 第七节「Domain vs BO」。
 
 ## 三、数据模型职责说明
 
@@ -58,6 +57,8 @@ DDD 将传统"三层"演进为"四层"，核心思想是**依赖倒置**：领�
 | **领域对象**   | **Entity / Aggregate**     | 领域层             | **真正的业务核心**。充血模型，包含状态和行为。无任何框架注解。 | `Order` (包含 `pay()` 等业务方法)      |
 | **持久化对象** | **PO (Persistent Object)** | 基础设施层         | 数据库表结构的一一映射。与 ORM 强绑定。**贫血模型，只有 getter/setter**。 | `OrderPO` (映射 `t_order` 表)          |
 | **读模型**     | **Projection**             | 基础设施/应用层    | 查询结果的精简或聚合视图。绝对只读、字段子集、与 SQL 强绑定。 | `UserPermissionProjection`             |
+
+> 主键与对外标识怎么设计（`id` BIGINT + `uid` ULID 双 ID），见 [双 ID 设计规范](./双ID设计规范.md)。
 
 ### 命名风格约定
 
@@ -163,58 +164,19 @@ Request → Command → Service
 2. **幂等与溯源**：Command 是可以被记录和重放的。你可以记录"用户在 A 时间点发出了一个 LoginCommand"。
 3. **多来源支持**：Service 方法只依赖 `Command`。如果明天要加一个 MQ 消费者来触发登录，它只需构建 `Command` 即可，完全不需要碰 `Request`。
 
-## 五、推荐工程目录结构
+## 五、模块划分：`modules/` 是什么
 
-### 标准 DDD 四层目录
+代码落地时常见两种组织方式，**它们不是一回事**：
 
-```
-├── interfaces/                   // 1. 用户接口层 (防腐、路由)
-│   ├── controller/
-│   ├── mq/consumer/
-│   └── assembler/                // DTO <-> VO 转换
-├── application/                  // 2. 应用层 (编排、事务、CQRS)
-│   ├── command/                  // 写操作入参
-│   ├── query/                    // 读操作入参
-│   ├── dto/                      // 应用层输出载体
-│   └── service/
-│       ├── OrderAppService.java  // 处理 Command
-│       └── OrderQueryService.java // 处理 Query (可选直连 DAO)
-├── domain/                       // 3. 核心领域层 (纯业务、无依赖)
-│   ├── model/                    // 聚合根、实体、值对象
-│   ├── event/                    // 领域事件定义
-│   ├── service/                  // 领域服务
-│   └── repository/               // 仓储接口定义 (依赖倒置)
-└── infrastructure/               // 4. 基础设施层 (底层实现)
-    ├── persistence/
-    │   ├── po/                   // 贫血持久化对象 (OrderPO)
-    │   ├── mapper/               // MyBatis Mapper / JPA DAO
-    │   └── repository_impl/      // 实现领域层的仓储接口
-    ├── rpc/                      // 第三方 API 调用实现
-    └── config/                   // 技术框架配置
-```
+- **标准四层**：按技术职责横切（`interfaces/` `application/` `domain/` `infrastructure/`），层与层依赖单向。
+- **按模块**：按业务域竖切（`modules/user/` `modules/order/`），每个模块内部再按需分层。
 
-### 实用主义按模块目录（适合中小项目）
+> **`modules/user` ≠ `domain` 层**。`modules/user` 是 domain + application + interfaces 的混合体，是一种实用主义折中，适合不想过早拆分的项目。
 
-```
-modules/
-├── user/                         // 用户域
-│   ├── controller/
-│   ├── request/                  // 明确的输入模型
-│   ├── response/                 // 明确的输出模型
-│   ├── service/                  // 应用服务（用例编排）
-│   ├── domain/                   // 领域核心
-│   │   ├── model/                // 实体 / 值对象（有行为）
-│   │   ├── service/              // 领域服务（可选）
-│   │   └── event/                // 领域事件（复杂时再加）
-│   ├── repository/               // 数据操作
-│   ├── entity/                   // 持久化模型 (PO)
-│   ├── projection/               // 只读查询结果切面
-│   └── dto/                      // RPC/第三方调用载体
-└── permission/                   // 权限域
-    └── ...
-```
+两种方式各自的完整目录树、选哪一档（档 0 横切 / 档 1 包内竖切 / 档 2 多模块）、阈值怎么定：
 
-> **modules ≠ domain 层**：`modules/user` = domain + application + interfaces 的混合体。这是一种实用主义折中，适合不想过早拆分的项目。
+- 跨栈判据 → [目录结构规范](../../../工程/目录结构规范.md)（母本）第六节「后端怎么落」
+- Java 具体落法 → [Java 目录结构规范](../../java/java目录结构规划.md) 第一至四节
 
 ## 六、一句话总纲
 
