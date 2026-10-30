@@ -185,7 +185,7 @@ k3s 用 containerd，镜像源由节点上的 `/etc/rancher/k3s/registries.yaml`
 默认走 Rancher 国内镜像（`rancher-mirror.rancher.cn` + `INSTALL_K3S_MIRROR=cn`）。
 但国内镜像**偶有不稳**，这时切官方源 + 代理：
 
-```env
+```dotenv
 K3S_INSTALL_SOURCE="official"
 K3S_DOWNLOAD_PROXY="http://192.168.1.221:7897"   # 官方源直连多半不通，必须配代理
 ```

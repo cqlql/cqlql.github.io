@@ -761,7 +761,7 @@ spec:
 采集配置从 Promtail 的 `docker_sd_configs` + `docker: {}` 改写为 Alloy 组件流
 （`cri` 阶段对应 `stage.cri`，`json` 阶段对应 `stage.json`）：
 
-```alloy
+```hcl
 // cluster-infra/monitoring/alloy/configmap.yaml → config.alloy
 logging {
   level  = "info"
@@ -861,7 +861,7 @@ loki.write "local" {
 
 **LogQL 查询示例同步调整**（README 里的旧写法要改）：
 
-```logql
+```sql
 {namespace="passup", app="passup-backend"} |= "ERROR"
 {namespace="passup", app="passup-backend"} | level = "ERROR"
 {namespace="passup"}                          # 该命名空间全部日志
@@ -2028,7 +2028,7 @@ kubectl -n monitoring exec ds/alloy -- cat /var/log/pods/<ns>_<pod>_<uid>/<conta
 
 **4.4 日志验收判据：必须用 `level` 过滤，不能只确认「有日志」**
 
-```logql
+```sql
 # ① 能看到日志（基础）
 {namespace="passup", app="passup-backend"}
 
@@ -2147,10 +2147,10 @@ docker compose -f docker-compose.monitoring.yml down   # 保留 volumes 一段�
 - [PassUp 后端 K8s 部署清单（Kustomize）](PassUp后端部署清单.md)
 - [PassUp 前端 K8s 部署清单（Nginx + MinIO 静态资源）](PassUp前端部署清单.md)
 - [Kustomize 介绍](../../Kustomize介绍.md)
-- [K3s 介绍与安装](介绍与安装.md)
-- [Ubuntu 高可用部署](Ubuntu高可用部署.md)（3 台 server + embedded etcd 的集群规划）
-- [K3s Service 流量分配机制与异构集群](Service流量分配机制.md)（**污点节点定位为「只跑监控/日志」的依据**）
-- [节点污点（Taint）与容忍（Toleration）](节点污点与容忍.md)（`NoSchedule` vs `PreferNoSchedule`、故障兜底语义）
+- [K3s 介绍与安装](../原理与选型/介绍与安装.md)
+- [Ubuntu 高可用部署](../原理与选型/Ubuntu高可用部署.md)（3 台 server + embedded etcd 的集群规划）
+- [K3s Service 流量分配机制与异构集群](../原理与选型/Service流量分配机制.md)（**污点节点定位为「只跑监控/日志」的依据**）
+- [节点污点（Taint）与容忍（Toleration）](../原理与选型/节点污点与容忍.md)（`NoSchedule` vs `PreferNoSchedule`、故障兜底语义）
 - [可观测性概述](../../../devops/observability/概述.md)
 - [指标监控 - Prometheus](../../../devops/observability/指标监控-prometheus.md)
 - [日志方案 - Loki](../../../devops/observability/日志方案-loki.md)
