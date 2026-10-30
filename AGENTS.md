@@ -15,7 +15,6 @@ pnpm i                 # 安装依赖
 pnpm run docs:dev      # 本地开发（端口 3008）：vuepress-vite dev docs
 pnpm run docs:build    # 构建产物到 docs/.vuepress/dist
 pnpm run docs:clean-dev# 清缓存后启动开发服务
-pnpm run git:auto      # 后台运行 git-auto-push.bat 自动提交并推送
 pnpm run docker        # 完整发布：确保容器在跑 + 构建 docs + 写入命名卷
 pnpm run docker:sync   # 构建 docs 并把 dist 写入命名卷（不碰 nginx 容器）
 pnpm run docs:update-package  # 升级 vuepress 相关依赖（vp-update）
@@ -37,11 +36,11 @@ docs/                      # 主内容目录（被 config.ts 加载）
   后端/                     # 后端技术栈笔记（约 225 篇）
   linux/                    # Linux 运维笔记
   ai/                       # AI 相关笔记
+  工程/                     # 跨项目工程约定（文档约定 / AGENTS 模板 / 目录结构规范）
   项目/                     # 具体项目沉淀
   其他/                     # 杂项（终端、vscode、数学、调试、git 等）
 docs-other/                # 另一内容源（theme.ts 中 docsDir 指向此处）
 docker-compose.yml
-git-auto-push.bat          # 检测变更后自动 git add/commit/push
 ```
 
 ## 笔记目录结构（docs/）
@@ -74,6 +73,13 @@ git-auto-push.bat          # 检测变更后自动 git add/commit/push
 
 ### `项目/`
 `面试助手/` 等具体项目沉淀。
+
+### `工程/`
+跨项目的工程约定，新开仓时先读这里：
+
+- `文档约定.md`：新加文档前过的 4 问（**母本**，各仓 `docs/doc-conventions.md` 是它的实例）。
+- `AGENTS模板.md`：`AGENTS.md` 的骨架、三问过滤与 220 行 / 16.5KB 硬指标。
+- `目录结构规范.md`：按能力切、依赖方向、feature 内部职责；各栈具体树见 `前端/前端目录结构规划.md`。
 
 ### `其他/`
 `终端/`（cmd、powershell、ps7、curl）、`vscode/`、`数学/`、`调试/`、`git.md`、`树莓派.md`、`algolia 搜索部署.md`、`浏览器 url 打开桌面应用 win系统.md` 等。
@@ -169,6 +175,7 @@ git-auto-push.bat          # 检测变更后自动 git add/commit/push
 
 - 仅编辑 Markdown 与 `.vuepress` 配置即可扩展站点；勿改动 `node_modules`、`.vuepress/dist`（构建产物）。
 - 依赖版本多为 `2.0.0-rc.*`（VuePress 2 RC），升级需谨慎，优先用 `pnpm run docs:update-package`。
-- `git-auto-push.bat` 会自动提交全部变更（`git add .`），本地调试产生的临时文件建议放在 `docs/临时/` 或忽略，避免被自动推送。
+- 本地调试产生的临时文件放 `docs/临时/`，或加进 `.gitignore`，别混进提交。
+- 提交按改动范围 `git add <具体文件>`，**不要 `git add .`**（会把 `.workbuddy-ai/`、`outputs/` 这类本地产物一起带进去）。
 - 文档语言为简体中文，`lang: zh-CN`。
 - 代码块语言务必使用 Shiki 内置语言（见上方「代码高亮（Shiki）」约定）。不要为了「看起来对」而写 `caddy`/`logql`/`promql` 等 Shiki 不支持的语言名，否则会触发构建失败。

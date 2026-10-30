@@ -12,6 +12,7 @@ const NAVBAR_CONFIG = [
   '后端',
   'linux',
   'ai',
+  '工程',
   '项目',
   '其他',
 ] as const
