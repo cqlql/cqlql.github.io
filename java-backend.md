@@ -10,7 +10,7 @@
 ## 个人优势
 
 - 熟练掌握 Java、Spring Boot、Spring Data JPA、Spring Security，能独立完成从表结构设计、接口开发到部署上线的完整链路
-- 熟悉 PostgreSQL + Flyway 版本化迁移、Redis 缓存与会话、MinIO 对象存储
+- 熟悉 PostgreSQL + Flyway 版本化迁移、Redis 会话与票据、MinIO 对象存储
 - 有 WebSocket 实时链路开发经验：音频流上行、ASR 实时识别、LLM 增量回推，处理断连自愈与会话续接
 - 熟悉大模型接入：豆包 LLM / ASR、vLLM 本地部署，Prompt 工程与 JSON Schema 结构化输出
 - 熟悉 Docker / K8s 部署，Actuator + Prometheus 监控，PostgreSQL / MinIO 备份与恢复
