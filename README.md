@@ -4,7 +4,7 @@
 
 关键词搜「rerank 为什么要对 top-20 做」搜不到，因为笔记里写的是「精排只处理粗排的前 N 条」——字面不重合，向量才救得回来。这个痛点是真的，所以这个项目会一直用下去。
 
-配套学习计划：[`cqlql-notes-resume/学习计划-RAG与Agent.md`](../cqlql-notes-resume/学习计划-RAG与Agent.md)
+配套学习计划：[`resume/学习计划-RAG与Agent.md`](../resume/学习计划-RAG与Agent.md)
 
 ---
 
