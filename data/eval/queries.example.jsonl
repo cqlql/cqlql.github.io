@@ -1,0 +1,2 @@
+{"query": "这里是示例，删掉它。query 要按「你会怎么问」写，不是按文档标题写", "expected": ["ai/框架与协议.md"]}
+{"query": "第二个示例：一个问题在多个文件都有答案时，expected 写多个", "expected": ["后端/devops/observability/可观测性.md", "其他/调试/调试.md"]}
