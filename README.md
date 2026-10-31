@@ -111,4 +111,14 @@
 
 ## 导出
 
-投递前导出 PDF，文件名用 `陈桥黎-<方向>.pdf`（如 `陈桥黎-前端开发.pdf`），不要用 `简历-前端开发.pdf` 这种不带姓名的。
+```bash
+npm run build   # 生成 dist/*.html 与 dist/陈桥黎-<方向>.pdf
+npm run html    # 只生成 HTML
+npm run pdf     # 只生成 PDF（需先有 HTML）
+```
+
+- 渲染链路：Markdown → 打印级 HTML（`scripts/build-resume.mjs` 内含 CSS）→ Playwright + 本机 Edge 打印 A4
+- 不需要下载 Chromium，用系统已有的 Edge 即可（`--channel msedge`）
+- 改样式改 `scripts/build-resume.mjs` 里的 `CSS` 常量，重新 build
+- 输出文件名自动是 `陈桥黎-<方向>.pdf`，可直接作为附件投递
+- 已验证：5 份均为 2 页，分页点落在段落之间，不会切断列表项

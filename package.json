@@ -1,0 +1,11 @@
+{
+  "name": "cqlql-resume",
+  "private": true,
+  "type": "module",
+  "description": "陈桥黎的求职材料：多方向 Markdown 简历 + 打印级 PDF 生成",
+  "scripts": {
+    "build": "node scripts/build-resume.mjs && node scripts/build-pdf.mjs",
+    "html": "node scripts/build-resume.mjs",
+    "pdf": "node scripts/build-pdf.mjs"
+  }
+}

@@ -2,3 +2,8 @@
 .workbuddy-ai/
 .DS_Store
 Thumbs.db
+
+# 构建中间产物（PDF 会提交，HTML 可随时重新生成）
+.tmp-pdf/
+dist/*.html
+node_modules/
