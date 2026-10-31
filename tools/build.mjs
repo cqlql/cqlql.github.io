@@ -10,7 +10,7 @@
 
 import fs from 'node:fs'
 import path from 'node:path'
-import { ROOT, loadCards, loadState, todayStr } from './lib.mjs'
+import { ROOT, loadCards, loadState } from './lib.mjs'
 
 const DIST = path.join(ROOT, 'dist')
 const OUT = path.join(DIST, 'index.html')
@@ -136,7 +136,7 @@ const safeJson = (obj) => JSON.stringify(obj).replace(/</g, '\\u003c')
 
 const cards = loadCards()
 const state = loadState()
-const today = todayStr()
+const filled = cards.filter((c) => c.filled).length
 
 const payload = cards.map((c) => ({
   id: c.id,
@@ -219,7 +219,7 @@ ${css}
       <button class="btn" id="btn-reset">清空记录</button>
       <input type="file" id="file-input" accept="application/json,.json" hidden>
       <br><br>
-      生成于 ${today}　·　${cards.length} 张卡
+      ${filled} 张已填 · ${cards.length} 张卡
     </div>
   </section>
 </main>
@@ -236,7 +236,6 @@ ${js}
 fs.mkdirSync(DIST, { recursive: true })
 fs.writeFileSync(OUT, html, 'utf8')
 
-const filled = cards.filter((c) => c.filled).length
 const kb = (Buffer.byteLength(html, 'utf8') / 1024).toFixed(0)
 console.log(`  已生成 dist/index.html　${kb} KB`)
 console.log(`  卡片 ${cards.length} 张，已填 ${filled} 张　双击打开即可复习`)
