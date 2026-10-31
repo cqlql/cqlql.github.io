@@ -2,7 +2,7 @@
 
 > 不是笔记本，是训练场。笔记是副产品，能讲出来才是产物。
 
-配套计划：[`cqlql-notes-resume/学习计划-RAG与Agent.md`](../cqlql-notes-resume/学习计划-RAG与Agent.md)
+配套计划：[`resume/学习计划-RAG与Agent.md`](../resume/学习计划-RAG与Agent.md)
 配套项目：[`notes-rag`](../notes-rag/README.md) —— 卡片里那些「我的数字」，全靠它跑出来
 
 ---
