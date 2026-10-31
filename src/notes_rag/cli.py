@@ -14,13 +14,14 @@ from .config import load_config
 from .embedder import Embedder
 from .generator import answer
 from .retriever import Retriever
-from .store import VectorStore, read_manifest
+from .store import open_store, read_manifest
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="笔记站语义问答")
     parser.add_argument("question", help="你的问题")
     parser.add_argument("--top-k", type=int, default=None, help="检索几条（默认取 .env 的 TOP_K）")
+    parser.add_argument("--backend", choices=["numpy", "pg"], default="numpy")
     parser.add_argument("--show-chunks", action="store_true", help="打印命中的原文片段")
     args = parser.parse_args()
 
@@ -28,16 +29,17 @@ def main() -> None:
 
     t0 = time.perf_counter()
     embedder = Embedder(cfg.embed_model)
-    store = VectorStore.load(cfg.index_dir)
+    store = open_store(args.backend, cfg)
     retriever = Retriever(embedder, store)
     t_load = time.perf_counter() - t0
 
-    manifest = read_manifest(cfg.index_dir)
-    if manifest.get("chunk_size") and manifest["chunk_size"] != cfg.chunk_size:
-        print(
-            f"⚠️  索引是用 chunk_size={manifest['chunk_size']} 建的，"
-            f"当前配置是 {cfg.chunk_size}。改了切分要重跑 ingest.py。\n"
-        )
+    if args.backend == "numpy":
+        manifest = read_manifest(cfg.index_dir)
+        if manifest.get("chunk_size") and manifest["chunk_size"] != cfg.chunk_size:
+            print(
+                f"⚠️  索引是用 chunk_size={manifest['chunk_size']} 建的，"
+                f"当前配置是 {cfg.chunk_size}。改了切分要重跑 ingest.py。\n"
+            )
 
     t1 = time.perf_counter()
     hits = retriever.search(args.question, top_k=args.top_k or cfg.top_k)

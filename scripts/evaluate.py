@@ -28,7 +28,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from notes_rag.config import ROOT, load_config  # noqa: E402
 from notes_rag.embedder import Embedder  # noqa: E402
 from notes_rag.retriever import Retriever  # noqa: E402
-from notes_rag.store import VectorStore, read_manifest  # noqa: E402
+from notes_rag.store import open_store, read_manifest  # noqa: E402
 
 QUERIES_FILE = ROOT / "data" / "eval" / "queries.jsonl"
 
@@ -36,6 +36,7 @@ QUERIES_FILE = ROOT / "data" / "eval" / "queries.jsonl"
 def main() -> None:
     parser = argparse.ArgumentParser(description="评估检索质量")
     parser.add_argument("--top-k", type=int, default=None)
+    parser.add_argument("--backend", choices=["numpy", "pg"], default="numpy")
     parser.add_argument("--max-miss", type=int, default=10, help="最多打印几条未命中")
     args = parser.parse_args()
 
@@ -56,15 +57,18 @@ def main() -> None:
     if not rows:
         raise SystemExit("评估集是空的")
 
-    manifest = read_manifest(cfg.index_dir)
-    print(
-        f"索引：{manifest.get('chunks', '?')} 块　chunk_size={manifest.get('chunk_size', '?')}"
-        f"　建于 {manifest.get('built_at', '?')}"
-    )
-    print(f"评估：{len(rows)} 条　top_k={k}\n")
+    if args.backend == "numpy":
+        manifest = read_manifest(cfg.index_dir)
+        print(
+            f"索引：{manifest.get('chunks', '?')} 块　chunk_size={manifest.get('chunk_size', '?')}"
+            f"　建于 {manifest.get('built_at', '?')}"
+        )
+    else:
+        print("索引：PostgreSQL（pgvector）")
+    print(f"后端：{args.backend}　评估：{len(rows)} 条　top_k={k}\n")
 
     embedder = Embedder(cfg.embed_model)
-    store = VectorStore.load(cfg.index_dir)
+    store = open_store(args.backend, cfg)
     retriever = Retriever(embedder, store)
 
     hit_count = 0

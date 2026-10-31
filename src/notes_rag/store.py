@@ -80,3 +80,16 @@ def read_manifest(index_dir: Path) -> dict:
     if not p.exists():
         return {}
     return json.loads(p.read_text(encoding="utf-8"))
+
+
+def open_store(backend: str, cfg):
+    """按后端打开存储。两种实现接口一致，所以上层不用改。
+
+    backend='numpy'  → 读 data/index/ 下的 .npy 文件
+    backend='pg'     → 连 PostgreSQL（pgvector）
+    """
+    if backend == "pg":
+        from .store_pg import PgVectorStore
+
+        return PgVectorStore(cfg.database_url)
+    return VectorStore.load(cfg.index_dir)

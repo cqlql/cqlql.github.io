@@ -36,6 +36,7 @@ class Config:
     llm_api_key: str
     llm_base_url: str
     llm_model: str
+    database_url: str
 
 
 def load_config() -> Config:
@@ -55,4 +56,7 @@ def load_config() -> Config:
         llm_api_key=os.getenv("LLM_API_KEY", ""),
         llm_base_url=os.getenv("LLM_BASE_URL", "https://ark.cn-beijing.volces.com/api/v3"),
         llm_model=os.getenv("LLM_MODEL", "doubao-pro-32k"),
+        database_url=os.getenv(
+            "DATABASE_URL", "postgresql://postgres:postgres@localhost:5433/notesrag"
+        ),
     )

@@ -11,6 +11,7 @@ dependencies = [
     "openai>=1.40",
     "python-dotenv>=1.0",
     "tqdm>=4.66",
+    "psycopg[binary]>=3.2",
 ]
 
 [dependency-groups]

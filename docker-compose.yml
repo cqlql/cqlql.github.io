@@ -1,0 +1,25 @@
+# 只用于本地做向量库对比实验，不是生产部署
+# 起：docker compose up -d
+# 停：docker compose down          （保留数据）
+# 清：docker compose down -v       （连数据一起删）
+
+services:
+  db:
+    image: pgvector/pgvector:pg17
+    container_name: notes-rag-db
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: notesrag
+    ports:
+      # 用 5433，避开本地可能已有的 5432
+      - '5433:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d notesrag']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  pgdata:
