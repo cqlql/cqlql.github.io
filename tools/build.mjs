@@ -147,6 +147,7 @@ const payload = cards.map((c) => ({
   filled: c.filled,
   hasNumbers: c.hasNumbers,
   short: mdToHtml(c.short),
+  expand: mdToHtml(c.expand),
   followup: mdToHtml(c.followup),
   // 未填的卡片也能点开看「面试官会问什么」
   questions: (c.followup.match(/^-\s*\*\*Q\*\*[:：]\s*(.+)$/gm) || []).map((l) =>

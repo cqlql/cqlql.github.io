@@ -184,8 +184,22 @@
     }
 
     var backExtra = ''
+
+    // 展开：默认收起，想细看再点开
+    if (c.expand) {
+      backExtra +=
+        '<details class="deep">' +
+        '<summary>展开' +
+        '<span class="hint-closed"> · 想细看再点开</span>' +
+        '<span class="hint-open"> · 点收起</span>' +
+        '</summary>' +
+        '<div class="prose">' +
+        c.expand +
+        '</div></details>'
+    }
+
     if (c.followup) {
-      backExtra =
+      backExtra +=
         '<div class="followup">' +
         '<div class="answer-head">追问预演</div>' +
         '<div class="prose">' +
@@ -514,6 +528,8 @@
 
   document.addEventListener('keydown', function (e) {
     if (e.target.tagName === 'INPUT') return
+    // 焦点在「展开」的 summary 上时，把空格/回车让给折叠，别抢去翻面
+    if (e.target.closest && e.target.closest('summary')) return
     if (view !== 'review' || !session) return
 
     if (e.key === ' ' || e.key === 'Enter') {

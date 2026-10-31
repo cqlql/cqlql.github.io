@@ -479,6 +479,81 @@ main {
   letter-spacing: 0.02em;
 }
 
+/* ── 展开（折叠参考） ────────────────────────────────── */
+.deep {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px dashed var(--border-strong);
+}
+
+.deep > summary {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  color: var(--text-3);
+  text-transform: uppercase;
+  transition: color 0.15s;
+}
+
+.deep > summary::-webkit-details-marker {
+  display: none;
+}
+
+.deep > summary::before {
+  content: '＋';
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 17px;
+  height: 17px;
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
+  font-size: 11px;
+  line-height: 1;
+  color: var(--text-3);
+  letter-spacing: 0;
+}
+
+.deep[open] > summary::before {
+  content: '－';
+}
+
+.deep[open] .hint-closed,
+.deep:not([open]) .hint-open {
+  display: none;
+}
+
+.deep > summary:hover {
+  color: var(--text-2);
+}
+
+.deep > summary:hover::before {
+  border-color: var(--text-3);
+  color: var(--text-2);
+}
+
+.deep > summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+.deep .prose {
+  margin-top: 16px;
+  font-size: 15.5px;
+  line-height: 1.8;
+}
+
+.deep .prose > :first-child {
+  margin-top: 0;
+}
+
 /* ── 自评按钮 ────────────────────────────────────────── */
 .actions {
   display: flex;
@@ -838,6 +913,18 @@ main {
 
   .prose {
     font-size: 16px;
+  }
+
+  /* 窄屏下「展开」里的对比表横向滚动，别把卡片撑破 */
+  .deep .prose table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .deep .prose th,
+  .deep .prose td {
+    white-space: nowrap;
   }
 
   .actions {
