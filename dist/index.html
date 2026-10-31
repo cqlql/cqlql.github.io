@@ -1,0 +1,1476 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>大模型应用 · 学习训练场</title>
+<style>
+/* ── 主题变量 ────────────────────────────────────────── */
+:root {
+  --bg: #fbfaf8;
+  --bg-glass: rgba(251, 250, 248, 0.86);
+  --surface: #ffffff;
+  --surface-2: #f5f3ef;
+  --border: #e7e3dc;
+  --border-strong: #d8d3ca;
+  --text: #23201c;
+  --text-2: #6f6a63;
+  --text-3: #a29c93;
+  --accent: #3b5bdb;
+  --accent-soft: #eef1ff;
+  --ok: #2b8a3e;
+  --ok-soft: #ebfbee;
+  --warn: #d9480f;
+  --warn-soft: #fff4e6;
+  --bad: #c92a2a;
+  --bad-soft: #fff5f5;
+  --shadow: 0 1px 2px rgba(35, 32, 28, 0.04), 0 10px 30px -14px rgba(35, 32, 28, 0.16);
+  --radius: 14px;
+}
+
+:root[data-theme='dark'] {
+  --bg: #131316;
+  --bg-glass: rgba(19, 19, 22, 0.86);
+  --surface: #1b1b20;
+  --surface-2: #232329;
+  --border: #2c2c34;
+  --border-strong: #3a3a44;
+  --text: #e9e6e1;
+  --text-2: #a8a29b;
+  --text-3: #7a746d;
+  --accent: #8da2ff;
+  --accent-soft: #1e2340;
+  --ok: #63d471;
+  --ok-soft: #16261a;
+  --warn: #ffa94d;
+  --warn-soft: #2a1f12;
+  --bad: #ff8787;
+  --bad-soft: #2a1616;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 10px 30px -14px rgba(0, 0, 0, 0.5);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --bg: #131316;
+    --bg-glass: rgba(19, 19, 22, 0.86);
+    --surface: #1b1b20;
+    --surface-2: #232329;
+    --border: #2c2c34;
+    --border-strong: #3a3a44;
+    --text: #e9e6e1;
+    --text-2: #a8a29b;
+    --text-3: #7a746d;
+    --accent: #8da2ff;
+    --accent-soft: #1e2340;
+    --ok: #63d471;
+    --ok-soft: #16261a;
+    --warn: #ffa94d;
+    --warn-soft: #2a1f12;
+    --bad: #ff8787;
+    --bad-soft: #2a1616;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 10px 30px -14px rgba(0, 0, 0, 0.5);
+  }
+}
+
+/* ── 基础 ────────────────────────────────────────────── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
+    'Hiragino Sans GB', 'Microsoft YaHei', 'Source Han Sans SC', sans-serif;
+  font-size: 16px;
+  line-height: 1.75;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  border: none;
+  background: none;
+}
+
+/* ── 顶栏 ────────────────────────────────────────────── */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: var(--bg-glass);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--border);
+}
+
+.topbar-inner {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 0 24px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.brand {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+.brand span {
+  color: var(--text-3);
+  font-weight: 400;
+}
+
+.topbar-spacer {
+  flex: 1;
+}
+
+.stat {
+  font-size: 13px;
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.stat b {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.icon-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+  color: var(--text-2);
+  transition: background 0.15s;
+}
+
+.icon-btn:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+/* ── 进度条 ──────────────────────────────────────────── */
+.progress-line {
+  height: 3px;
+  background: var(--surface-2);
+  position: relative;
+  overflow: hidden;
+}
+
+.progress-line i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--accent);
+  transition: width 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* ── 主体 ────────────────────────────────────────────── */
+main {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 32px 24px 80px;
+}
+
+.view {
+  display: none;
+}
+
+.view.active {
+  display: block;
+}
+
+/* ── 复习卡 ──────────────────────────────────────────── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 36px 40px 32px;
+  min-height: 300px;
+  display: flex;
+  flex-direction: column;
+  cursor: pointer;
+  transition: box-shadow 0.2s, transform 0.2s;
+}
+
+.card:hover {
+  box-shadow: 0 1px 2px rgba(35, 32, 28, 0.04), 0 14px 40px -16px rgba(35, 32, 28, 0.22);
+}
+
+.card:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.card.flipped {
+  cursor: default;
+}
+
+.face-front {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  flex: 1;
+  padding: 20px 0;
+}
+
+.card.flipped .face-front {
+  display: none;
+}
+
+.face-back {
+  display: none;
+}
+
+.card.flipped .face-back {
+  display: block;
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--text-3);
+  text-transform: uppercase;
+}
+
+.card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.counter {
+  font-size: 12px;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  flex-shrink: 0;
+}
+
+.notice {
+  margin-top: 22px;
+  padding: 13px 16px;
+  border-radius: 10px;
+  background: var(--warn-soft);
+  border: 1px solid color-mix(in srgb, var(--warn) 24%, transparent);
+  color: var(--warn);
+  font-size: 14.5px;
+  line-height: 1.7;
+}
+
+.notice span {
+  color: var(--text-2);
+  font-size: 13.5px;
+}
+
+.prose ul.qs {
+  padding-left: 20px;
+}
+
+.prose ul.qs li {
+  margin-bottom: 10px;
+  color: var(--text-2);
+}
+
+.card.preview {
+  cursor: default;
+}
+
+.card.preview:hover {
+  box-shadow: var(--shadow);
+}
+
+.tag em {
+  font-style: normal;
+  color: var(--accent);
+  background: var(--accent-soft);
+  padding: 1px 7px;
+  border-radius: 5px;
+  letter-spacing: 0;
+  text-transform: none;
+  font-size: 11.5px;
+}
+
+.card h1 {
+  font-size: 27px;
+  line-height: 1.45;
+  font-weight: 600;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.hint {
+  margin-top: 32px;
+  font-size: 13px;
+  color: var(--text-3);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.hint kbd {
+  font-family: inherit;
+  font-size: 11px;
+  border: 1px solid var(--border-strong);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  padding: 0 5px;
+  color: var(--text-2);
+}
+
+/* ── 答案区 ──────────────────────────────────────────── */
+.answer-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 12px;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  color: var(--text-3);
+  text-transform: uppercase;
+  font-weight: 500;
+}
+
+.answer-head::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+.prose {
+  font-size: 16.5px;
+  line-height: 1.82;
+  color: var(--text);
+}
+
+.prose p {
+  margin: 0 0 14px;
+}
+
+.prose p:last-child {
+  margin-bottom: 0;
+}
+
+.prose strong {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.prose code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.88em;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 1px 5px;
+}
+
+.prose ul,
+.prose ol {
+  margin: 0 0 14px;
+  padding-left: 22px;
+}
+
+.prose li {
+  margin-bottom: 8px;
+}
+
+.prose li::marker {
+  color: var(--text-3);
+}
+
+.prose blockquote {
+  margin: 0 0 14px;
+  padding: 10px 16px;
+  border-left: 3px solid var(--border-strong);
+  background: var(--surface-2);
+  border-radius: 0 8px 8px 0;
+  color: var(--text-2);
+  font-size: 15px;
+}
+
+.prose blockquote p {
+  margin: 0;
+}
+
+.prose table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0 0 16px;
+  font-size: 14.5px;
+}
+
+.prose th,
+.prose td {
+  border: 1px solid var(--border);
+  padding: 8px 12px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.prose th {
+  background: var(--surface-2);
+  font-weight: 600;
+  font-size: 13.5px;
+  color: var(--text-2);
+}
+
+.prose a {
+  color: var(--accent);
+  text-decoration: none;
+  border-bottom: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+/* 追问预演 */
+.followup {
+  margin-top: 28px;
+  padding-top: 24px;
+  border-top: 1px dashed var(--border-strong);
+}
+
+.followup .prose {
+  font-size: 15.5px;
+  line-height: 1.8;
+}
+
+.followup .prose ul {
+  list-style: none;
+  padding-left: 0;
+}
+
+.followup .prose li {
+  position: relative;
+  padding-left: 20px;
+  margin-bottom: 16px;
+}
+
+.followup .prose li::before {
+  content: '';
+  position: absolute;
+  left: 3px;
+  top: 10px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--border-strong);
+}
+
+.followup .prose li strong:first-child {
+  color: var(--text-2);
+  font-weight: 600;
+  font-size: 13.5px;
+  letter-spacing: 0.02em;
+}
+
+/* ── 自评按钮 ────────────────────────────────────────── */
+.actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 28px;
+  padding-top: 22px;
+  border-top: 1px solid var(--border);
+}
+
+.actions button {
+  flex: 1;
+  padding: 11px 8px;
+  border-radius: 10px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-2);
+  transition: all 0.14s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+}
+
+.actions button b {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  opacity: 0.55;
+}
+
+.actions button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px -4px rgba(35, 32, 28, 0.18);
+}
+
+.actions button[data-score='1']:hover {
+  border-color: var(--bad);
+  color: var(--bad);
+  background: var(--bad-soft);
+}
+
+.actions button[data-score='2']:hover {
+  border-color: var(--warn);
+  color: var(--warn);
+  background: var(--warn-soft);
+}
+
+.actions button[data-score='3']:hover {
+  border-color: var(--ok);
+  color: var(--ok);
+  background: var(--ok-soft);
+}
+
+.actions button:active {
+  transform: translateY(0);
+}
+
+/* 预览页只有一个按钮时不要撑满 */
+.actions > .btn {
+  flex: 0 0 auto;
+  padding: 9px 26px;
+}
+
+/* ── 空状态 ──────────────────────────────────────────── */
+.empty {
+  text-align: center;
+  padding: 72px 24px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius);
+  color: var(--text-2);
+}
+
+.empty .big {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+
+.empty p {
+  margin: 0 0 24px;
+  font-size: 14.5px;
+}
+
+.empty-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.btn {
+  padding: 9px 18px;
+  border-radius: 9px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  font-size: 14px;
+  color: var(--text);
+  transition: all 0.14s;
+}
+
+.btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.btn.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.btn.primary:hover {
+  opacity: 0.9;
+  color: #fff;
+}
+
+/* ── 标签切换 ────────────────────────────────────────── */
+.tabs {
+  display: flex;
+  margin-bottom: 24px;
+  border-bottom: 1px solid var(--border);
+}
+
+.tab {
+  padding: 9px 2px 10px;
+  margin-right: 24px;
+  font-size: 14.5px;
+  color: var(--text-3);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.tab:hover {
+  color: var(--text-2);
+}
+
+.tab.on {
+  color: var(--text);
+  border-bottom-color: var(--accent);
+  font-weight: 500;
+}
+
+/* ── 全部卡片 ────────────────────────────────────────── */
+.toolbar {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.search {
+  flex: 1;
+  min-width: 200px;
+  position: relative;
+}
+
+.search input {
+  width: 100%;
+  padding: 10px 14px 10px 36px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 14.5px;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.search input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.search input::placeholder {
+  color: var(--text-3);
+}
+
+.search svg {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-3);
+  pointer-events: none;
+}
+
+.seg {
+  display: flex;
+  background: var(--surface-2);
+  border-radius: 9px;
+  padding: 3px;
+  gap: 2px;
+}
+
+.seg button {
+  padding: 6px 12px;
+  border-radius: 7px;
+  font-size: 13px;
+  color: var(--text-2);
+  transition: all 0.14s;
+  white-space: nowrap;
+}
+
+.seg button.on {
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 500;
+  box-shadow: 0 1px 3px rgba(35, 32, 28, 0.1);
+}
+
+.group-title {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  margin: 28px 0 10px;
+  font-weight: 500;
+}
+
+.group-title:first-child {
+  margin-top: 0;
+}
+
+.list {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--surface);
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.item:last-child {
+  border-bottom: none;
+}
+
+.item:hover {
+  background: var(--surface-2);
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--border-strong);
+}
+
+.dot.due {
+  background: var(--bad);
+  box-shadow: 0 0 0 3px var(--bad-soft);
+}
+
+.dot.fresh {
+  background: var(--warn);
+}
+
+.dot.ok {
+  background: var(--ok);
+}
+
+.dot.todo {
+  background: transparent;
+  border: 1.5px dashed var(--border-strong);
+}
+
+.item-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.item-title {
+  font-size: 15px;
+  line-height: 1.5;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.item.todo .item-title {
+  color: var(--text-3);
+}
+
+.item-meta {
+  font-size: 12px;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+  display: flex;
+  gap: 10px;
+  margin-top: 1px;
+}
+
+.pill {
+  font-size: 11px;
+  padding: 1px 7px;
+  border-radius: 5px;
+  flex-shrink: 0;
+  font-weight: 500;
+}
+
+.pill.num {
+  background: var(--ok-soft);
+  color: var(--ok);
+}
+
+.pill.nonum {
+  background: var(--bad-soft);
+  color: var(--bad);
+}
+
+/* ── 底部提示 ────────────────────────────────────────── */
+.footnote {
+  margin-top: 28px;
+  font-size: 12.5px;
+  color: var(--text-3);
+  text-align: center;
+  line-height: 1.7;
+}
+
+/* ── 移动端 ──────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .topbar-inner {
+    padding: 0 16px;
+    height: 52px;
+    gap: 10px;
+  }
+
+  .brand span {
+    display: none;
+  }
+
+  main {
+    padding: 20px 16px 60px;
+  }
+
+  .card {
+    padding: 26px 22px 22px;
+    min-height: 260px;
+  }
+
+  .card h1 {
+    font-size: 21px;
+  }
+
+  .prose {
+    font-size: 16px;
+  }
+
+  .actions {
+    flex-direction: column;
+  }
+
+  .actions button {
+    padding: 13px 8px;
+  }
+
+  .item {
+    padding: 13px 14px;
+    gap: 11px;
+  }
+
+  .item-title {
+    white-space: normal;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">学习训练场 <span>· 大模型应用</span></div>
+    <div class="topbar-spacer"></div>
+    <div class="stat" id="stat-filled"></div>
+    <div class="stat" id="stat-due"></div>
+    <button class="icon-btn" id="btn-theme" title="切换深浅色" aria-label="切换深浅色">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+        <circle cx="12" cy="12" r="4.2"/>
+        <path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.2 5.2l1.4 1.4M17.4 17.4l1.4 1.4M18.8 5.2l-1.4 1.4M6.6 17.4l-1.4 1.4"/>
+      </svg>
+    </button>
+  </div>
+  <div class="progress-line"><i id="progress-bar" style="width:0"></i></div>
+</div>
+
+<main>
+  <div class="tabs">
+    <button class="tab on" data-goto="review">今日复习</button>
+    <button class="tab" data-goto="all">全部卡片</button>
+  </div>
+
+  <section class="view active" data-view="review">
+    <div id="review-body"></div>
+  </section>
+
+  <section class="view" data-view="all">
+    <div class="toolbar">
+      <div class="search">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>
+        </svg>
+        <input id="search-input" type="search" placeholder="搜索标题或编号" autocomplete="off">
+      </div>
+      <div class="seg">
+        <button data-filter="all" class="on">全部</button>
+        <button data-filter="due">到期</button>
+        <button data-filter="todo">待填</button>
+      </div>
+    </div>
+    <div id="list"></div>
+    <div class="footnote">
+      改卡片：编辑 cards/ 下的 md，然后运行 node tools/build.mjs 重新生成
+      <br><br>
+      <button class="btn" id="btn-export">导出记录</button>
+      <button class="btn" id="btn-import">导入记录</button>
+      <button class="btn" id="btn-reset">清空记录</button>
+      <input type="file" id="file-input" accept="application/json,.json" hidden>
+      <br><br>
+      生成于 2026-10-31　·　16 张卡
+    </div>
+  </section>
+</main>
+
+<script type="application/json" id="cards-data">[{"id":"rag-01","title":"为什么需要 RAG","stage":"rag","week":"1","file":"cards/01-rag/01-为什么需要RAG.md","filled":true,"hasNumbers":true,"short":"\u003cp>模型有三个绕不过去的问题：知识停在训练截止时间、看不到你的私有数据、不知道的时候会编得很像真的。\u003c/p>\n\u003cp>RAG 就是在回答前先做一次检索——把相关资料捞出来塞进 prompt，让模型基于资料回答，而不是凭记忆。\u003c/p>\n\u003cp>好处是三个：不用重训模型就能更新知识、答案能给出出处、模型没见过的私有数据也能用。\u003c/p>\n\u003cp>代价是\u003cstrong>检索质量决定上限\u003c/strong>：检索没捞到，生成再好也是编。\u003c/p>","followup":"\u003cul>\u003cli>\u003cstrong>Q\u003c/strong>：为什么不直接把文档全塞进 prompt？\u003cbr>\u003cstrong>A\u003c/strong>：三个原因。成本按 token 线性涨，一次问答可能几毛钱；长上下文有 lost in the middle 问题，中间部分容易被忽略；文档一多根本塞不下。RAG 是「按需取一小块」，成本和准确率都可控。\u003c/li>\u003c/ul>\n\u003cul>\u003cli>\u003cstrong>Q\u003c/strong>：RAG 和微调怎么选？\u003cbr>\u003cstrong>A\u003c/strong>：看知识会不会变。产品文档、内部规范这类天天变的用 RAG，改完立刻生效；要模型说话像某个领域的行家、或输出固定格式，用微调。两者可以叠加——微调管风格，RAG 管事实。\u003c/li>\u003c/ul>\n\u003cul>\u003cli>\u003cstrong>Q\u003c/strong>：RAG 最容易出问题的地方在哪？\u003cbr>\u003cstrong>A\u003c/strong>：检索。检索没召回，生成模型只能编，而且编得很自信。所以我先建了 50 条评估集量 recall@5，而不是先调 prompt——prompt 调得再好，喂错资料也救不回来。\u003c/li>\u003c/ul>\n\u003cul>\u003cli>\u003cstrong>Q\u003c/strong>：你怎么评估 RAG 的效果？\u003cbr>\u003cstrong>A\u003c/strong>：分两层。检索层看 recall@5，回答层看准确率和幻觉率。检索层的数字能定位问题——recall 高但答案错，是生成的问题；recall 低，是切分或检索的问题。混在一起看就分不清该改哪。\u003c/li>\u003c/ul>","questions":["为什么不直接把文档全塞进 prompt？","RAG 和微调怎么选？","RAG 最容易出问题的地方在哪？","你怎么评估 RAG 的效果？"]},{"id":"rag-02","title":"chunk size 和 overlap 怎么定","stage":"rag","week":"1","file":"cards/01-rag/02-切分策略.md","filled":false,"hasNumbers":false,"short":"\u003cp>（待填）\u003c/p>","followup":"\u003cul>\u003cli>\u003cstrong>Q\u003c/strong>：overlap 为什么要设成 size 的 10% 左右？设 0 会怎样？\u003cbr>\u003cstrong>A\u003c/strong>：\u003c/li>\u003c/ul>\n\u003cul>\u003cli>\u003cstrong>Q\u003c/strong>：什么时候该用「按标题层级切」而不是固定长度？\u003cbr>\u003cstrong>A\u003c/strong>：\u003c/li>\u003c/ul>\n\u003cul>\u003cli>\u003cstrong>Q\u003c/strong>：父子块具体怎么实现？检索命中的是子块，喂给模型的是父块，那引用出处怎么写？\u003cbr>\u003cstrong>A\u003c/strong>：\u003c/li>\u003c/ul>\n\u003cul>\u003cli>\u003cstrong>Q\u003c/strong>：切太碎会出现什么具体问题？举一个你遇到的例子。\u003cbr>\u003cstrong>A\u003c/strong>：\u003c/li>\u003c/ul>","questions":["overlap 为什么要设成 size 的 10% 左右？设 0 会怎样？","什么时候该用「按标题层级切」而不是固定长度？","父子块具体怎么实现？检索命中的是子块，喂给模型的是父块，那引用出处怎么写？","切太碎会出现什么具体问题？举一个你遇到的例子。"]},{"id":"rag-03","title":"embedding 模型怎么选","stage":"rag","week":"1","file":"cards/01-rag/03-Embedding选型.md","filled":false,"hasNumbers":false,"short":"\u003cp>（待填）\u003c/p>","followup":"\u003cul>\u003cli>\u003cstrong>Q\u003c/strong>：query 和 document 为什么要区别处理？\u003cbr>\u003cstrong>A\u003c/strong>：\u003c/li>\u003c/ul>\n\u003cul>\u003cli>\u003cstrong>Q\u003c/strong>：向量要不要归一化？不归一化会怎样？\u003cbr>\u003cstrong>A\u003c/strong>：\u003c/li>\u003c/ul>\n\u003cul>\u003cli>\u003cstrong>Q\u003c/strong>：什么时候必须用本地模型，不能用 API？\u003cbr>\u003cstrong>A\u003c/strong>：\u003c/li>\u003c/ul>\n\u003cul>\u003cli>\u003cstrong>Q\u003c/strong>：已经上线跑了一年，想换更好的 embedding 模型，要付出什么代价？\u003cbr>\u003cstrong>A\u003c/strong>：\u003c/li>\u003c/ul>","questions":["query 和 document 为什么要区别处理？","向量要不要归一化？不归一化会怎样？","什么时候必须用本地模型，不能用 API？","已经上线跑了一年，想换更好的 embedding 模型，要付出什么代价？"]},{"id":"rag-04","title":"向量检索怎么调（相似度 / top-k / HNSW 与 IVFFlat）","stage":"rag","week":"1","file":"cards/01-rag/04-向量检索.md","filled":false,"hasNumbers":false,"short":"\u003cp>（待填）\u003c/p>","followup":"\u003cul>\u003cli>\u003cstrong>Q\u003c/strong>：你的数据量多大？这个量级需要上 ANN 吗？\u003cbr>\u003cstrong>A\u003c/strong>：\u003c/li>\u003c/ul>\n\u003cul>\u003cli>\u003cstrong>Q\u003c/strong>：HNSW 的 ef_search 调大，代价是什么？\u003cbr>\u003cstrong>A\u003c/strong>：\u003c/li>\u003c/ul>\n\u003cul>\u003cli>\u003cstrong>Q\u003c/strong>：余弦相似度和内积什么时候可以互换？\u003cbr>\u003cstrong>A\u003c/strong>：\u003c/li>\u003c/ul>\n\u003cul>\u003cli>\u003cstrong>Q\u003c/strong>：top-k 取 5 还是 20？为什么不是 50？\u003cbr>\u003cstrong>A\u003c/strong>：\u003c/li>\u003c/ul>","questions":["你的数据量多大？这个量级需要上 ANN 吗？","HNSW 的 ef_search 调大，代价是什么？","余弦相似度和内积什么时候可以互换？","top-k 取 5 还是 20？为什么不是 50？"]},{"id":"rag-05","title":"为什么要混合检索（BM25 + 向量）","stage":"rag","week":"1","file":"cards/01-rag/05-混合检索.md","filled":false,"hasNumbers":false,"short":"\u003cp>（待填）\u003c/p>","followup":"\u003cul>\u003cli>\u003cstrong>Q\u003c/strong>：RRF 为什么比分数加权更常用？\u003cbr>\u003cstrong>A\u003c/strong>：\u003c/li>\u003c/ul>\n\u003cul>\u003cli>\u003cstrong>Q\u003c/strong>：混合检索之后，top-k 怎么分配？两路各取多少？\u003cbr>\u003cstrong>A\u003c/strong>：\u003c/li>\u003c/ul>\n\u003cul>\u003cli>\u003cstrong>Q\u003c/strong>：什么时候混合检索反而不如纯向量？\u003cbr>\u003cstrong>A\u003c/strong>：\u003c/li>\u003c/ul>\n\u003cul>\u003cli>\u003cstrong>Q\u003c/strong>：中文 BM25 怎么分词？分词错了会怎样？\u003cbr>\u003cstrong>A\u003c/strong>：\u003c/li>\u003c/ul>","questions":["RRF 为什么比分数加权更常用？","混合检索之后，top-k 怎么分配？两路各取多少？","什么时候混合检索反而不如纯向量？","中文 BM25 怎么分词？分词错了会怎样？"]},{"id":"rag-06","title":"rerank 为什么有效、为什么只对 top-20 做","stage":"rag","week":"2","file":"cards/01-rag/06-Rerank.md","filled":false,"hasNumbers":false,"short":"\u003cp>（待填）\u003c/p>","followup":"\u003cul>\u003cli>\u003cstrong>Q\u003c/strong>：为什么不直接对所有文档做 rerank？\u003cbr>\u003cstrong>A\u003c/strong>：\u003c/li>\u003c/ul>\n\u003cul>\u003cli>\u003cstrong>Q\u003c/strong>：top-20 这个数怎么定的？如果 recall@20 只有 0.6 呢？\u003cbr>\u003cstrong>A\u003c/strong>：\u003c/li>\u003c/ul>\n\u003cul>\u003cli>\u003cstrong>Q\u003c/strong>：rerank 之后取 top-5，会不会把原来对的那条挤掉？\u003cbr>\u003cstrong>A\u003c/strong>：\u003c/li>\u003c/ul>\n\u003cul>\u003cli>\u003cstrong>Q\u003c/strong>：bge-reranker 的输入格式和 max length 有什么坑？\u003cbr>\u003cstrong>A\u003c/strong>：\u003c/li>\u003c/ul>","questions":["为什么不直接对所有文档做 rerank？","top-20 这个数怎么定的？如果 recall@20 只有 0.6 呢？","rerank 之后取 top-5，会不会把原来对的那条挤掉？","bge-reranker 的输入格式和 max length 有什么坑？"]},{"id":"rag-07","title":"recall@k、MRR、nDCG 分别衡量什么","stage":"rag","week":"2","file":"cards/01-rag/07-评估指标.md","filled":false,"hasNumbers":false,"short":"\u003cp>（待填）\u003c/p>","followup":"\u003cul>\u003cli>\u003cstrong>Q\u003c/strong>：为什么 RAG 更看 recall 而不是 precision？\u003cbr>\u003cstrong>A\u003c/strong>：\u003c/li>\u003c/ul>\n\u003cul>\u003cli>\u003cstrong>Q\u003c/strong>：MRR 和 nDCG 的区别是什么？什么时候必须用 nDCG？\u003cbr>\u003cstrong>A\u003c/strong>：\u003c/li>\u003c/ul>\n\u003cul>\u003cli>\u003cstrong>Q\u003c/strong>：一个 query 有多个正确文档时，recall@5 怎么算？\u003cbr>\u003cstrong>A\u003c/strong>：\u003c/li>\u003c/ul>\n\u003cul>\u003cli>\u003cstrong>Q\u003c/strong>：recall@5 从 0.6 提升到 0.8，业务上意味着什么？\u003cbr>\u003cstrong>A\u003c/strong>：\u003c/li>\u003c/ul>","questions":["为什么 RAG 更看 recall 而不是 precision？","MRR 和 nDCG 的区别是什么？什么时候必须用 nDCG？","一个 query 有多个正确文档时，recall@5 怎么算？","recall@5 从 0.6 提升到 0.8，业务上意味着什么？"]},{"id":"agent-01","title":"Function Calling 的完整交互流程","stage":"agent","week":"3","file":"cards/02-agent/01-FunctionCalling协议.md","filled":false,"hasNumbers":false,"short":"\u003cp>（待填）\u003c/p>","followup":"\u003cul>\u003cli>\u003cstrong>Q\u003c/strong>：模型真的执行了你的函数吗？\u003cbr>\u003cstrong>A\u003c/strong>：\u003c/li>\u003c/ul>\n\u003cul>\u003cli>\u003cstrong>Q\u003c/strong>：模型一次返回多个 tool_calls，你怎么处理？\u003cbr>\u003cstrong>A\u003c/strong>：\u003c/li>\u003c/ul>\n\u003cul>\u003cli>\u003cstrong>Q\u003c/strong>：回填结果时为什么要带 tool_call_id？不带会怎样？\u003cbr>\u003cstrong>A\u003c/strong>：\u003c/li>\u003c/ul>\n\u003cul>\u003cli>\u003cstrong>Q\u003c/strong>：tool_choice 有哪几种取值，什么时候用 required？\u003cbr>\u003cstrong>A\u003c/strong>：\u003c/li>\u003c/ul>","questions":["模型真的执行了你的函数吗？","模型一次返回多个 tool_calls，你怎么处理？","回填结果时为什么要带 tool_call_id？不带会怎样？","tool_choice 有哪几种取值，什么时候用 required？"]},{"id":"agent-02","title":"工具描述怎么写模型才调得对","stage":"agent","week":"3","file":"cards/02-agent/02-工具描述设计.md","filled":false,"hasNumbers":false,"short":"\u003cp>（待填）\u003c/p>","followup":"\u003cul>\u003cli>\u003cstrong>Q\u003c/strong>：举一个「改了一句话，模型就从乱调变正确」的具体例子。\u003cbr>\u003cstrong>A\u003c/strong>：\u003c/li>\u003c/ul>\n\u003cul>\u003cli>\u003cstrong>Q\u003c/strong>：两个工具功能很像，怎么让模型选对？\u003cbr>\u003cstrong>A\u003c/strong>：\u003c/li>\u003c/ul>\n\u003cul>\u003cli>\u003cstrong>Q\u003c/strong>：工具数量多了（比如 20 个）会有什么问题？\u003cbr>\u003cstrong>A\u003c/strong>：\u003c/li>\u003c/ul>\n\u003cul>\u003cli>\u003cstrong>Q\u003c/strong>：description 写多长合适？写太长有什么副作用？\u003cbr>\u003cstrong>A\u003c/strong>：\u003c/li>\u003c/ul>","questions":["举一个「改了一句话，模型就从乱调变正确」的具体例子。","两个工具功能很像，怎么让模型选对？","工具数量多了（比如 20 个）会有什么问题？","description 写多长合适？写太长有什么副作用？"]},{"id":"agent-03","title":"ReAct 和一次性 Function Calling 的区别","stage":"agent","week":"3","file":"cards/02-agent/03-ReAct循环.md","filled":false,"hasNumbers":false,"short":"\u003cp>（待填）\u003c/p>","followup":"\u003cul>\u003cli>\u003cstrong>Q\u003c/strong>：Thought 那一步真的有用吗？去掉会怎样？\u003cbr>\u003cstrong>A\u003c/strong>：\u003c/li>\u003c/ul>\n\u003cul>\u003cli>\u003cstrong>Q\u003c/strong>：ReAct 和 plan-and-execute 怎么选？\u003cbr>\u003cstrong>A\u003c/strong>：\u003c/li>\u003c/ul>\n\u003cul>\u003cli>\u003cstrong>Q\u003c/strong>：ReAct 循环怎么终止？靠模型自己说结束可靠吗？\u003cbr>\u003cstrong>A\u003c/strong>：\u003c/li>\u003c/ul>\n\u003cul>\u003cli>\u003cstrong>Q\u003c/strong>：你的实现里，Thought 是模型的 reasoning 字段还是拼在 prompt 里的？\u003cbr>\u003cstrong>A\u003c/strong>：\u003c/li>\u003c/ul>","questions":["Thought 那一步真的有用吗？去掉会怎样？","ReAct 和 plan-and-execute 怎么选？","ReAct 循环怎么终止？靠模型自己说结束可靠吗？","你的实现里，Thought 是模型的 reasoning 字段还是拼在 prompt 里的？"]},{"id":"agent-04","title":"多轮调用时上下文怎么管","stage":"agent","week":"4","file":"cards/02-agent/04-多轮工具调用.md","filled":false,"hasNumbers":false,"short":"\u003cp>（待填）\u003c/p>","followup":"\u003cul>\u003cli>\u003cstrong>Q\u003c/strong>：三轮工具调用之后，messages 里具体有哪些消息？顺序是什么？\u003cbr>\u003cstrong>A\u003c/strong>：\u003c/li>\u003c/ul>\n\u003cul>\u003cli>\u003cstrong>Q\u003c/strong>：工具返回 5000 字，你直接塞回去吗？\u003cbr>\u003cstrong>A\u003c/strong>：\u003c/li>\u003c/ul>\n\u003cul>\u003cli>\u003cstrong>Q\u003c/strong>：上下文超了，先裁哪部分？为什么不能裁中间的 tool 消息？\u003cbr>\u003cstrong>A\u003c/strong>：\u003c/li>\u003c/ul>\n\u003cul>\u003cli>\u003cstrong>Q\u003c/strong>：怎么让模型知道某个工具已经调过了，避免重复调？\u003cbr>\u003cstrong>A\u003c/strong>：\u003c/li>\u003c/ul>","questions":["三轮工具调用之后，messages 里具体有哪些消息？顺序是什么？","工具返回 5000 字，你直接塞回去吗？","上下文超了，先裁哪部分？为什么不能裁中间的 tool 消息？","怎么让模型知道某个工具已经调过了，避免重复调？"]},{"id":"agent-05","title":"工具报错、重复调用、死循环怎么防","stage":"agent","week":"4","file":"cards/02-agent/05-失败处理.md","filled":false,"hasNumbers":false,"short":"\u003cp>（待填）\u003c/p>","followup":"\u003cul>\u003cli>\u003cstrong>Q\u003c/strong>：工具抛异常，你原样回给模型还是包装一下？举个实际写法。\u003cbr>\u003cstrong>A\u003c/strong>：\u003c/li>\u003c/ul>\n\u003cul>\u003cli>\u003cstrong>Q\u003c/strong>：模型反复调同一个工具，怎么破？\u003cbr>\u003cstrong>A\u003c/strong>：\u003c/li>\u003c/ul>\n\u003cul>\u003cli>\u003cstrong>Q\u003c/strong>：最大轮次设 5 的依据是什么？设 3 会怎样？\u003cbr>\u003cstrong>A\u003c/strong>：\u003c/li>\u003c/ul>\n\u003cul>\u003cli>\u003cstrong>Q\u003c/strong>：达到最大轮次时直接报错，用户体验如何？你会怎么处理？\u003cbr>\u003cstrong>A\u003c/strong>：\u003c/li>\u003c/ul>","questions":["工具抛异常，你原样回给模型还是包装一下？举个实际写法。","模型反复调同一个工具，怎么破？","最大轮次设 5 的依据是什么？设 3 会怎样？","达到最大轮次时直接报错，用户体验如何？你会怎么处理？"]},{"id":"agent-06","title":"什么场景不该用 Agent","stage":"agent","week":"4","file":"cards/02-agent/06-什么时候不该用Agent.md","filled":false,"hasNumbers":false,"short":"\u003cp>（待填）\u003c/p>","followup":"\u003cul>\u003cli>\u003cstrong>Q\u003c/strong>：你怎么判断一个需求该用 Agent 还是 workflow？\u003cbr>\u003cstrong>A\u003c/strong>：\u003c/li>\u003c/ul>\n\u003cul>\u003cli>\u003cstrong>Q\u003c/strong>：Agent 的成本和延迟比 workflow 高多少？能接受吗？\u003cbr>\u003cstrong>A\u003c/strong>：\u003c/li>\u003c/ul>\n\u003cul>\u003cli>\u003cstrong>Q\u003c/strong>：如果业务方坚持要「智能体」，但需求其实是固定流程，你怎么处理？\u003cbr>\u003cstrong>A\u003c/strong>：\u003c/li>\u003c/ul>\n\u003cul>\u003cli>\u003cstrong>Q\u003c/strong>：你的项目里哪部分用了 Agent，哪部分是固定流程？为什么这么切？\u003cbr>\u003cstrong>A\u003c/strong>：\u003c/li>\u003c/ul>","questions":["你怎么判断一个需求该用 Agent 还是 workflow？","Agent 的成本和延迟比 workflow 高多少？能接受吗？","如果业务方坚持要「智能体」，但需求其实是固定流程，你怎么处理？","你的项目里哪部分用了 Agent，哪部分是固定流程？为什么这么切？"]},{"id":"eval-01","title":"eval 集怎么建才不是自欺","stage":"eval","week":"5","file":"cards/03-eval/01-eval集构建.md","filled":false,"hasNumbers":false,"short":"\u003cp>（待填）\u003c/p>","followup":"\u003cul>\u003cli>\u003cstrong>Q\u003c/strong>：100 条从哪来的？为什么不是 20 条或 1000 条？\u003cbr>\u003cstrong>A\u003c/strong>：\u003c/li>\u003c/ul>\n\u003cul>\u003cli>\u003cstrong>Q\u003c/strong>：期望输出怎么标？标整段话还是标关键点？\u003cbr>\u003cstrong>A\u003c/strong>：\u003c/li>\u003c/ul>\n\u003cul>\u003cli>\u003cstrong>Q\u003c/strong>：你怎么保证 eval 集没被「调参调出来」？\u003cbr>\u003cstrong>A\u003c/strong>：\u003c/li>\u003c/ul>\n\u003cul>\u003cli>\u003cstrong>Q\u003c/strong>：eval 集多久更新一次？旧的是扔掉还是留着？\u003cbr>\u003cstrong>A\u003c/strong>：\u003c/li>\u003c/ul>","questions":["100 条从哪来的？为什么不是 20 条或 1000 条？","期望输出怎么标？标整段话还是标关键点？","你怎么保证 eval 集没被「调参调出来」？","eval 集多久更新一次？旧的是扔掉还是留着？"]},{"id":"eval-02","title":"LLM-as-judge 怎么用才可信","stage":"eval","week":"5","file":"cards/03-eval/02-LLM-as-judge.md","filled":false,"hasNumbers":false,"short":"\u003cp>（待填）\u003c/p>","followup":"\u003cul>\u003cli>\u003cstrong>Q\u003c/strong>：judge 会有什么系统性偏差？你怎么发现的？\u003cbr>\u003cstrong>A\u003c/strong>：\u003c/li>\u003c/ul>\n\u003cul>\u003cli>\u003cstrong>Q\u003c/strong>：一致率怎么算？算出来 65% 怎么办？\u003cbr>\u003cstrong>A\u003c/strong>：\u003c/li>\u003c/ul>\n\u003cul>\u003cli>\u003cstrong>Q\u003c/strong>：为什么不能只用 judge，不加人工？\u003cbr>\u003cstrong>A\u003c/strong>：\u003c/li>\u003c/ul>\n\u003cul>\u003cli>\u003cstrong>Q\u003c/strong>：judge 用同一个模型还是换一个更强的？\u003cbr>\u003cstrong>A\u003c/strong>：\u003c/li>\u003c/ul>","questions":["judge 会有什么系统性偏差？你怎么发现的？","一致率怎么算？算出来 65% 怎么办？","为什么不能只用 judge，不加人工？","judge 用同一个模型还是换一个更强的？"]},{"id":"eval-03","title":"准确率、幻觉率、耗时怎么定义","stage":"eval","week":"5","file":"cards/03-eval/03-指标定义.md","filled":false,"hasNumbers":false,"short":"\u003cp>（待填）\u003c/p>","followup":"\u003cul>\u003cli>\u003cstrong>Q\u003c/strong>：准确率的判定标准是什么？谁判的？\u003cbr>\u003cstrong>A\u003c/strong>：\u003c/li>\u003c/ul>\n\u003cul>\u003cli>\u003cstrong>Q\u003c/strong>：幻觉率怎么算才不是拍脑袋？边界怎么定？\u003cbr>\u003cstrong>A\u003c/strong>：\u003c/li>\u003c/ul>\n\u003cul>\u003cli>\u003cstrong>Q\u003c/strong>：为什么只定三个指标？不多测几个吗？\u003cbr>\u003cstrong>A\u003c/strong>：\u003c/li>\u003c/ul>\n\u003cul>\u003cli>\u003cstrong>Q\u003c/strong>：耗时是端到端还是首 token？为什么要拆开记？\u003cbr>\u003cstrong>A\u003c/strong>：\u003c/li>\u003c/ul>","questions":["准确率的判定标准是什么？谁判的？","幻觉率怎么算才不是拍脑袋？边界怎么定？","为什么只定三个指标？不多测几个吗？","耗时是端到端还是首 token？为什么要拆开记？"]}]</script>
+<script type="application/json" id="initial-state">{}</script>
+<script>
+/* 学习训练场 · 复习界面 */
+;(function () {
+  'use strict'
+
+  var CARDS = JSON.parse(document.getElementById('cards-data').textContent)
+  var INITIAL_STATE = JSON.parse(document.getElementById('initial-state').textContent)
+  var KEY = 'llm-learning-state-v1'
+  var THEME_KEY = 'llm-theme'
+
+  // ── 日期 ────────────────────────────────────────────
+  function pad(n) {
+    return n < 10 ? '0' + n : '' + n
+  }
+  function fmt(d) {
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate())
+  }
+  function todayStr() {
+    return fmt(new Date())
+  }
+  function addDays(n) {
+    var d = new Date()
+    d.setDate(d.getDate() + n)
+    return fmt(d)
+  }
+
+  // ── 状态 ────────────────────────────────────────────
+  var state = (function () {
+    try {
+      var raw = localStorage.getItem(KEY)
+      if (raw) return JSON.parse(raw)
+    } catch (e) {}
+    return JSON.parse(JSON.stringify(INITIAL_STATE))
+  })()
+
+  function saveState() {
+    try {
+      localStorage.setItem(KEY, JSON.stringify(state))
+    } catch (e) {}
+  }
+
+  function nextInterval(level, prev) {
+    var streak = (prev && prev.streak) || 0
+    if (level === 1) return { days: 1, streak: 0 }
+    if (level === 2) return { days: 3, streak: 0 }
+    var s = streak + 1
+    return { days: s >= 3 ? 21 : 7, streak: s }
+  }
+
+  var today = todayStr()
+
+  function filledCards() {
+    return CARDS.filter(function (c) {
+      return c.filled
+    })
+  }
+
+  function dueList() {
+    return filledCards()
+      .filter(function (c) {
+        var s = state[c.id]
+        return !s || !s.due || s.due <= today
+      })
+      .sort(function (a, b) {
+        var da = (state[a.id] && state[a.id].due) || '0000'
+        var db = (state[b.id] && state[b.id].due) || '0000'
+        return da < db ? -1 : da > db ? 1 : 0
+      })
+  }
+
+  function esc(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  }
+
+  var STAGE = {
+    rag: { short: 'RAG', full: '阶段一 · RAG' },
+    agent: { short: 'Agent', full: '阶段二 · Agent' },
+    eval: { short: '评测', full: '阶段三 · 评测' },
+  }
+  function stageShort(s) {
+    return (STAGE[s] && STAGE[s].short) || s
+  }
+  function stageFull(s) {
+    return (STAGE[s] && STAGE[s].full) || s
+  }
+
+  // ── 会话 ────────────────────────────────────────────
+  var session = null // { cards: [], pos: 0, scores: [] }
+  var flipped = false
+  var view = 'review'
+  var filter = 'all'
+  var keyword = ''
+
+  function startSession(cards) {
+    session = { cards: cards, pos: 0, scores: [] }
+    flipped = false
+    showView('review')
+    renderReview()
+  }
+
+  function showView(v) {
+    view = v
+    document.querySelectorAll('.view').forEach(function (el) {
+      el.classList.toggle('active', el.dataset.view === v)
+    })
+    document.querySelectorAll('.tab').forEach(function (b) {
+      b.classList.toggle('on', b.dataset.goto === v)
+    })
+    if (v === 'all') renderList()
+    if (v === 'review') renderReview()
+    window.scrollTo({ top: 0 })
+  }
+
+  // ── 顶栏统计 ────────────────────────────────────────
+  function renderStats() {
+    var f = filledCards().length
+    var d = dueList().length
+    document.getElementById('stat-filled').innerHTML = '<b>' + f + '</b>/' + CARDS.length
+    document.getElementById('stat-due').innerHTML = '今日到期 <b>' + d + '</b>'
+    document.getElementById('progress-bar').style.width =
+      (CARDS.length ? (f / CARDS.length) * 100 : 0) + '%'
+  }
+
+  // ── 复习视图 ────────────────────────────────────────
+  function renderReview() {
+    var el = document.getElementById('review-body')
+    renderStats()
+
+    if (!session) {
+      var due = dueList()
+      if (!due.length) {
+        el.innerHTML = emptyDone()
+        return
+      }
+      // 默认进来到期队列
+      session = { cards: due, pos: 0, scores: [] }
+    }
+
+    if (session.pos >= session.cards.length) {
+      el.innerHTML = sessionDone()
+      return
+    }
+
+    var c = session.cards[session.pos]
+    var s = state[c.id]
+    var total = session.cards.length
+    var num = session.pos + 1
+    var head =
+      '<div class="card-head">' +
+      '<div class="tag"><em>' +
+      stageShort(c.stage) +
+      '</em>第 ' +
+      esc(c.week || '-') +
+      ' 周</div>' +
+      (total > 1 ? '<div class="counter">' + num + ' / ' + total + '</div>' : '') +
+      '</div>'
+
+    // 未填的卡片：只给问题，不给答案
+    if (!c.filled) {
+      var qs = (c.questions || [])
+        .map(function (q) {
+          return '<li>' + esc(q) + '</li>'
+        })
+        .join('')
+      el.innerHTML =
+        '<div class="card preview">' +
+        head +
+        '<h1>' +
+        esc(c.title) +
+        '</h1>' +
+        '<div class="notice">这张还没填「30 秒版」' +
+        '<br><span>答案得自己写，写不出来说明还没懂。照着下面几个问题答一遍，就是这张卡的内容。</span></div>' +
+        (qs
+          ? '<div class="followup"><div class="answer-head">面试官会这么问</div>' +
+            '<div class="prose"><ul class="qs">' +
+            qs +
+            '</ul></div></div>'
+          : '') +
+        '<div class="actions"><button class="btn" id="btn-back">返回列表</button></div>' +
+        '</div>' +
+        '<div class="footnote">' +
+        esc(c.file) +
+        '</div>'
+      return
+    }
+
+    var backExtra = ''
+    if (c.followup) {
+      backExtra =
+        '<div class="followup">' +
+        '<div class="answer-head">追问预演</div>' +
+        '<div class="prose">' +
+        c.followup +
+        '</div></div>'
+    }
+
+    el.innerHTML =
+      '<div class="card' +
+      (flipped ? ' flipped' : '') +
+      '" id="card" tabindex="0" role="button">' +
+      '<div class="face-front">' +
+      head +
+      '<h1>' +
+      esc(c.title) +
+      '</h1>' +
+      '<div class="hint">先在心里答一遍，再翻开　<kbd>空格</kbd></div>' +
+      '</div>' +
+      '<div class="face-back">' +
+      '<div class="answer-head">30 秒版</div>' +
+      '<div class="prose">' +
+      (c.short || '<p>（还没写）</p>') +
+      '</div>' +
+      backExtra +
+      '<div class="actions">' +
+      '<button data-score="1"><b>1</b> 没答上</button>' +
+      '<button data-score="2"><b>2</b> 说清了</button>' +
+      '<button data-score="3"><b>3</b> 能扛追问</button>' +
+      '</div>' +
+      '</div>' +
+      '</div>' +
+      '<div class="footnote">' +
+      esc(c.file) +
+      (s && s.lastReview ? '　上次复习 ' + esc(s.lastReview) : '') +
+      '</div>'
+  }
+
+  function emptyDone() {
+    var todo = CARDS.filter(function (c) {
+      return !c.filled
+    }).length
+    return (
+      '<div class="empty">' +
+      '<div class="big">今天没有到期的卡</div>' +
+      '<p>' +
+      (filledCards().length
+        ? '间隔重复的休息日也是学习的一部分。想加练可以随机抽一张。'
+        : '还没有填完的卡片。先去写一张——只填「30 秒版」那一段就够。') +
+      '</p>' +
+      '<div class="empty-actions">' +
+      (filledCards().length
+        ? '<button class="btn primary" id="btn-random">随机抽一张</button>'
+        : '') +
+      '<button class="btn" id="btn-all">看全部卡片' + (todo ? '（' + todo + ' 张待填）' : '') + '</button>' +
+      '</div></div>'
+    )
+  }
+
+  function sessionDone() {
+    var n = session.scores.length
+    var sum = session.scores.reduce(function (a, b) {
+      return a + b
+    }, 0)
+    var avg = n ? (sum / n).toFixed(1) : '0'
+    var weak = session.scores.filter(function (x) {
+      return x === 1
+    }).length
+    var rest = dueList().length
+
+    return (
+      '<div class="empty">' +
+      '<div class="big">这一轮结束了</div>' +
+      '<p>复习 ' +
+      n +
+      ' 张，平均 ' +
+      avg +
+      ' 分' +
+      (weak ? '，其中 ' + weak + ' 张没答上' : '，全部答上') +
+      (rest ? '。还有 ' + rest + ' 张到期。' : '。') +
+      '</p>' +
+      '<div class="empty-actions">' +
+      (rest ? '<button class="btn primary" id="btn-more">再来一轮</button>' : '') +
+      '<button class="btn" id="btn-all">看全部卡片</button>' +
+      '</div></div>'
+    )
+  }
+
+  function flip() {
+    if (!session || session.pos >= session.cards.length) return
+    var cur = session.cards[session.pos]
+    if (!cur || !cur.filled) return
+    flipped = !flipped
+    var card = document.getElementById('card')
+    if (card) card.classList.toggle('flipped', flipped)
+    if (flipped) {
+      setTimeout(function () {
+        var el = document.getElementById('card')
+        if (!el) return
+        var top = el.getBoundingClientRect().top + window.scrollY - 72
+        if (top < window.scrollY) window.scrollTo({ top: top, behavior: 'smooth' })
+      }, 10)
+    }
+  }
+
+  function score(level) {
+    if (!session || session.pos >= session.cards.length) return
+    var c = session.cards[session.pos]
+    if (!c || !c.filled) return
+    var prev = state[c.id]
+    var r = nextInterval(level, prev)
+
+    state[c.id] = {
+      due: addDays(r.days),
+      level: level,
+      streak: r.streak,
+      times: ((prev && prev.times) || 0) + 1,
+      lastReview: today,
+    }
+    saveState()
+
+    session.scores.push(level)
+    session.pos++
+    flipped = false
+    renderReview()
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  // ── 全部卡片 ────────────────────────────────────────
+  function statusOf(c) {
+    if (!c.filled) return { cls: 'todo', label: '待填' }
+    var s = state[c.id]
+    if (!s || !s.due) return { cls: 'fresh', label: '未复习' }
+    if (s.due <= today) return { cls: 'due', label: '到期' }
+    return { cls: 'ok', label: s.due }
+  }
+
+  function renderList() {
+    var el = document.getElementById('list')
+    var kw = keyword.trim().toLowerCase()
+
+    var items = CARDS.filter(function (c) {
+      if (kw && (c.title + ' ' + c.id).toLowerCase().indexOf(kw) < 0) return false
+      if (filter === 'due') {
+        var s = state[c.id]
+        return c.filled && (!s || !s.due || s.due <= today)
+      }
+      if (filter === 'todo') return !c.filled
+      return true
+    })
+
+    if (!items.length) {
+      el.innerHTML = '<div class="empty"><p>没有匹配的卡片</p></div>'
+      return
+    }
+
+    var groups = {}
+    var order = []
+    items.forEach(function (c) {
+      if (!groups[c.stage]) {
+        groups[c.stage] = []
+        order.push(c.stage)
+      }
+      groups[c.stage].push(c)
+    })
+
+    var html = ''
+    order.forEach(function (st) {
+      html += '<div class="group-title">' + esc(stageFull(st)) + '</div><div class="list">'
+      groups[st].forEach(function (c) {
+        var stt = statusOf(c)
+        var pill = c.filled
+          ? c.hasNumbers
+            ? '<span class="pill num">有数字</span>'
+            : '<span class="pill nonum">缺数字</span>'
+          : ''
+        html +=
+          '<div class="item' +
+          (c.filled ? '' : ' todo') +
+          '" data-id="' +
+          esc(c.id) +
+          '">' +
+          '<span class="dot ' +
+          stt.cls +
+          '"></span>' +
+          '<div class="item-body">' +
+          '<div class="item-title">' +
+          esc(c.title) +
+          '</div>' +
+          '<div class="item-meta"><span>' +
+          esc(c.id) +
+          '</span><span>' +
+          esc(stt.label) +
+          '</span></div>' +
+          '</div>' +
+          pill +
+          '</div>'
+      })
+      html += '</div>'
+    })
+
+    el.innerHTML = html
+  }
+
+  // ── 事件 ────────────────────────────────────────────
+  document.addEventListener('click', function (e) {
+    var t = e.target
+
+    // 自评
+    var sc = t.closest('[data-score]')
+    if (sc) {
+      e.stopPropagation()
+      score(Number(sc.dataset.score))
+      return
+    }
+
+    // 卡片翻面
+    var card = t.closest('#card')
+    if (card) {
+      if (!flipped) flip()
+      return
+    }
+
+    // 列表项
+    var item = t.closest('.item')
+    if (item) {
+      var c = CARDS.find(function (x) {
+        return x.id === item.dataset.id
+      })
+      if (c) startSession([c])
+      return
+    }
+
+    if (t.closest('#btn-back')) return showView('all')
+
+    // 按钮
+    if (t.closest('#btn-random')) {
+      var f = filledCards()
+      if (f.length) startSession([f[Math.floor(Math.random() * f.length)]])
+      return
+    }
+    if (t.closest('#btn-all')) return showView('all')
+    if (t.closest('#btn-more')) return startSession(dueList())
+
+    var tab = t.closest('.tab')
+    if (tab) {
+      session = null
+      return showView(tab.dataset.goto)
+    }
+
+    var seg = t.closest('[data-filter]')
+    if (seg) {
+      filter = seg.dataset.filter
+      document.querySelectorAll('[data-filter]').forEach(function (b) {
+        b.classList.toggle('on', b.dataset.filter === filter)
+      })
+      renderList()
+      return
+    }
+
+    if (t.closest('#btn-theme')) {
+      var cur = document.documentElement.getAttribute('data-theme')
+      if (!cur) {
+        cur = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+      }
+      var next = cur === 'dark' ? 'light' : 'dark'
+      document.documentElement.setAttribute('data-theme', next)
+      try {
+        localStorage.setItem(THEME_KEY, next)
+      } catch (err) {}
+      return
+    }
+
+    if (t.closest('#btn-export')) {
+      var blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' })
+      var a = document.createElement('a')
+      a.href = URL.createObjectURL(blob)
+      a.download = 'review-state.json'
+      a.click()
+      return
+    }
+
+    if (t.closest('#btn-import')) {
+      document.getElementById('file-input').click()
+      return
+    }
+
+    if (t.closest('#btn-reset')) {
+      if (confirm('清空所有复习记录？这个操作不可撤销。')) {
+        state = {}
+        saveState()
+        session = null
+        renderReview()
+        renderList()
+      }
+      return
+    }
+  })
+
+  document.addEventListener('input', function (e) {
+    if (e.target.id === 'search-input') {
+      keyword = e.target.value
+      renderList()
+    }
+  })
+
+  document.getElementById('file-input').addEventListener('change', function (e) {
+    var file = e.target.files[0]
+    if (!file) return
+    var reader = new FileReader()
+    reader.onload = function () {
+      try {
+        var data = JSON.parse(reader.result)
+        state = data
+        saveState()
+        session = null
+        renderReview()
+        renderList()
+        alert('已导入 ' + Object.keys(data).length + ' 条复习记录。')
+      } catch (err) {
+        alert('文件格式不对，需要 review-state.json。')
+      }
+    }
+    reader.readAsText(file)
+    e.target.value = ''
+  })
+
+  document.addEventListener('keydown', function (e) {
+    if (e.target.tagName === 'INPUT') return
+    if (view !== 'review' || !session) return
+
+    if (e.key === ' ' || e.key === 'Enter') {
+      e.preventDefault()
+      if (!flipped) flip()
+    } else if (flipped && (e.key === '1' || e.key === '2' || e.key === '3')) {
+      e.preventDefault()
+      score(Number(e.key))
+    }
+  })
+
+  // ── 初始化 ──────────────────────────────────────────
+  try {
+    var th = localStorage.getItem(THEME_KEY)
+    if (th) document.documentElement.setAttribute('data-theme', th)
+  } catch (e) {}
+
+  renderStats()
+  showView('review')
+})()
+
+</script>
+</body>
+</html>
