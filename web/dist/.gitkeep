@@ -1,0 +1,7 @@
+# 这个文件只是为了让 web/dist/ 存在于仓库里。
+# Go 用 //go:embed all:web/dist 把前端产物打进二进制，而 embed 在目录
+# **不存在**时会直接编译失败。有了它，未构建前端时仍能编译，
+# 页面会给出「前端可能还没构建」而不是白屏。
+#
+# 由 vite.config.ts 在每次构建后自动重建 —— emptyOutDir 会把它删掉。
+# 真实产物（index.html / assets/）都在 .gitignore 里，不进 Git。

@@ -26,7 +26,9 @@ func commandHandler(name string) (func([]string) int, bool) {
 	case "servers":
 		return servers.CmdServers, true
 	case "ui":
-		return ui.CmdUI, true
+		// 前端产物在根包（webdist.go）嵌入，注入给 ui 包 —— embed 路径不能有 `..`，
+		// 而 ui 包拿到的是 fs.FS，测试因此可以塞 fstest.MapFS。
+		return func(a []string) int { return ui.CmdUI(a, webDist) }, true
 	case "backup":
 		return backup.CmdBackup, true
 	case "shortcut":

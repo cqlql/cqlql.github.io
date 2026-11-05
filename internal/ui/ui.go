@@ -10,11 +10,12 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/subtle"
-	"embed"
+	_ "embed"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/fs"
 	"net"
 	"net/http"
 	"os"
@@ -25,8 +26,8 @@ import (
 	"time"
 )
 
-//go:embed index.html
-var uiFiles embed.FS
+// distRoot 是前端产物在嵌入 FS 里的位置，与 webdist.go 的 `//go:embed all:web/dist` 对应。
+const distRoot = "web/dist"
 
 // IconBytes 是界面图标（多尺寸 ICO）：/favicon.ico 直接读内存，配置目录的
 // ops.ico 由 WriteIcon 落盘给桌面快捷方式用。只嵌一份，两处同源。
@@ -34,11 +35,12 @@ var uiFiles embed.FS
 //go:embed ops.ico
 var IconBytes []byte
 
-// faviconTokenPlaceholder：浏览器请求 favicon 不会带自定义 header，
-// 所以把 token 拼进 URL，仍然走 ServeHTTP 的 token 校验。
-const faviconTokenPlaceholder = "__OPS_TOKEN__"
-
-// 🔴 界面只监听 127.0.0.1；每个请求校验 token，写操作 POST 且校验 Origin。
+// 🔴 界面只监听 127.0.0.1；页面与 /api 校验 token，写操作 POST 且校验 Origin。
+//
+// 静态产物（/assets/*、/favicon.ico）**不过 token**，这是有意的：
+// 它们是代码与图标，不含任何数据；而浏览器请求 <script src> 时既带不上自定义头、
+// 也拿不到地址栏里的 ?token=。真正的边界是 API —— 拿不到 token 就调不通任何接口。
+// 详见 docs/ui.md §4。
 type uiState struct {
 	opMu   sync.Mutex // 串行化检查/写操作，避免并发读写同一份状态
 	mu     sync.Mutex
@@ -46,9 +48,13 @@ type uiState struct {
 	states map[string]shared.ServerStatus
 	token  string
 	origin string
+	// files 是 web/dist 的子 FS；前端未构建时为 nil（页面会明确说明，而不是白屏）。
+	files fs.FS
 }
 
-func CmdUI(args []string) int {
+// CmdUI 启动只读界面。static 通常是根包的 webDist；
+// 测试可以传 fstest.MapFS，从而不依赖「前端构建了没有」。
+func CmdUI(args []string, static fs.FS) int {
 	port := 7788
 	for i := 0; i < len(args); i++ {
 		a := args[i]
@@ -116,8 +122,12 @@ func CmdUI(args []string) int {
 		states: shared.LoadServerState(list.Path),
 		token:  token,
 		origin: fmt.Sprintf("http://127.0.0.1:%d", actual),
+		files:  distFS(static),
 	}
 	fmt.Printf("服务器管理界面：http://127.0.0.1:%d/?token=%s\n", actual, token)
+	if u.files == nil {
+		fmt.Println("WARN: 前端产物未嵌入（web/dist 为空）。先构建：cd web && npm install && npm run build，再重新 go build。")
+	}
 	fmt.Println("退出：Ctrl+C")
 
 	srv := &http.Server{Handler: u, ReadHeaderTimeout: 10 * time.Second}
@@ -128,11 +138,29 @@ func CmdUI(args []string) int {
 	return 0
 }
 
+// distFS 取出 web/dist 子目录；取不到（未构建 / 传了 nil）返回 nil，
+// 由 serveIndex 统一给出「前端还没构建」的说明页。
+func distFS(static fs.FS) fs.FS {
+	if static == nil {
+		return nil
+	}
+	sub, err := fs.Sub(static, distRoot)
+	if err != nil {
+		return nil
+	}
+	// fs.Sub 对空目录也会成功，所以再确认 index.html 真的在。
+	if _, err := fs.Stat(sub, "index.html"); err != nil {
+		return nil
+	}
+	return sub
+}
+
 func uiUsage() {
 	fmt.Print(`用法:
   ops ui [--port 7788]
 
 只监听 127.0.0.1；地址带随机 token；写操作只接受清单里的 name。
+页面来自 web/dist（构建：cd web && npm install && npm run build）。
 `)
 }
 
@@ -145,10 +173,25 @@ func randomToken() (string, error) {
 }
 
 func (u *uiState) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
+
+	// ---- 静态产物：不过 token（理由见 uiState 的注释）----
+	if r.Method == http.MethodGet || r.Method == http.MethodHead {
+		switch {
+		case r.URL.Path == "/favicon.ico":
+			w.Header().Set("Content-Type", "image/x-icon")
+			w.Header().Set("Cache-Control", "public, max-age=86400")
+			_, _ = w.Write(IconBytes)
+			return
+		case strings.HasPrefix(r.URL.Path, "/assets/"):
+			u.serveAsset(w, r)
+			return
+		}
+	}
+
+	// ---- 其余（页面与 /api）一律要 token ----
 	if !u.tokenOK(r) {
-		writeAPI(w, http.StatusUnauthorized, apiResponse{Error: "token 无效"})
+		u.writeUnauthorized(w, r)
 		return
 	}
 	if origin := r.Header.Get("Origin"); origin != "" && origin != u.origin {
@@ -157,18 +200,11 @@ func (u *uiState) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	switch {
-	case r.Method == http.MethodGet && r.URL.Path == "/":
-		page, err := uiFiles.ReadFile("index.html")
-		if err != nil {
-			http.Error(w, "页面加载失败", http.StatusInternalServerError)
-			return
-		}
-		page = bytes.ReplaceAll(page, []byte(faviconTokenPlaceholder), []byte(u.token))
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.Write(page)
-	case r.Method == http.MethodGet && r.URL.Path == "/favicon.ico":
-		w.Header().Set("Content-Type", "image/x-icon")
-		w.Write(IconBytes)
+	case r.Method == http.MethodGet && !strings.HasPrefix(r.URL.Path, "/api/"):
+		// 单页应用：除 /api 与 /assets 之外的 GET 都回 index.html。
+		// 只认这两个前缀（而不是「文件不存在就回退」）—— 后者会把构建产物缺失
+		// 伪装成一个语法错误的 HTML，比 404 难查得多。
+		u.serveIndex(w)
 	case r.Method == http.MethodGet && r.URL.Path == "/api/servers":
 		u.handleServers(w)
 	case r.Method == http.MethodPost && r.URL.Path == "/api/check":
@@ -178,6 +214,73 @@ func (u *uiState) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	default:
 		writeAPI(w, http.StatusNotFound, apiResponse{Error: "not found"})
 	}
+}
+
+// serveAsset 托管 web/dist/assets/*。
+//
+// 文件名带内容哈希，所以可以放心长缓存：构建一变，文件名跟着变，
+// 旧缓存永远不会被新页面引用。
+func (u *uiState) serveAsset(w http.ResponseWriter, r *http.Request) {
+	if u.files == nil {
+		http.Error(w, "前端产物未嵌入："+buildHint, http.StatusServiceUnavailable)
+		return
+	}
+	w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+	http.FileServer(http.FS(u.files)).ServeHTTP(w, r)
+}
+
+func (u *uiState) serveIndex(w http.ResponseWriter) {
+	// index.html 必须 no-store：它决定引用哪一组带哈希的产物，
+	// 缓存住它就会在重新构建之后继续引用已经不存在的旧文件名。
+	w.Header().Set("Cache-Control", "no-store")
+	if u.files == nil {
+		u.writeNotBuilt(w)
+		return
+	}
+	idx, err := fs.ReadFile(u.files, "index.html")
+	if err != nil {
+		u.writeNotBuilt(w)
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_, _ = w.Write(idx)
+}
+
+const buildHint = "cd web && npm install && npm run build，然后重新 go build -o ops.exe ."
+
+// writeNotBuilt 是「前端没构建」的唯一出口。
+// 它必须是**一页能看懂的 HTML**，而不是 500 或白屏 —— 这是全新 clone 之后
+// 最可能遇到的第一个状态（dist 里只有 .gitkeep）。
+func (u *uiState) writeNotBuilt(w http.ResponseWriter) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(http.StatusServiceUnavailable)
+	_, _ = io.WriteString(w, `<!doctype html><html lang="zh-CN"><meta charset="utf-8">
+<title>ops ui：前端未构建</title>
+<body style="font:14px/1.6 -apple-system,'Segoe UI','Microsoft YaHei',sans-serif;padding:32px;max-width:720px">
+<h1 style="font-size:18px">前端产物未嵌入</h1>
+<p>这个 ops.exe 是在前端构建之前编出来的，所以二进制里没有页面。</p>
+<p>构建一次再重新编译：</p>
+<pre style="background:#f2f3f5;padding:12px;border-radius:8px">`+buildHint+`</pre>
+<p style="color:#6b7280">后端接口本身是好的：<code>/api/servers</code> 仍然可用。</p>
+</body></html>`)
+}
+
+// writeUnauthorized 区分页面与接口：
+// 页面给人看（说清该用什么地址打开），接口给程序看（JSON 信封）。
+func (u *uiState) writeUnauthorized(w http.ResponseWriter, r *http.Request) {
+	if strings.HasPrefix(r.URL.Path, "/api/") {
+		writeAPI(w, http.StatusUnauthorized, apiResponse{Error: "token 无效"})
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(http.StatusUnauthorized)
+	_, _ = io.WriteString(w, `<!doctype html><html lang="zh-CN"><meta charset="utf-8">
+<title>ops ui：需要访问令牌</title>
+<body style="font:14px/1.6 -apple-system,'Segoe UI','Microsoft YaHei',sans-serif;padding:32px;max-width:720px">
+<h1 style="font-size:18px">需要访问令牌</h1>
+<p>界面只接受 <code>ops ui</code> 启动时打印的那个地址（带 <code>?token=</code>）。</p>
+<p>回到终端，复制「服务器管理界面：http://127.0.0.1:…/?token=…」整行重新打开。</p>
+</body></html>`)
 }
 
 func (u *uiState) tokenOK(r *http.Request) bool {
@@ -212,6 +315,7 @@ type apiResponse struct {
 
 func writeAPI(w http.ResponseWriter, code int, v apiResponse) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(code)
 	json.NewEncoder(w).Encode(v)
 }

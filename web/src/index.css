@@ -1,0 +1,72 @@
+:root {
+  --ops-bg: #f6f7f9;
+  --ops-text: #1f2328;
+  --ops-muted: #6b7280;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--ops-bg);
+  color: var(--ops-text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB',
+    'Microsoft YaHei', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+code,
+pre {
+  font-family: ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace;
+  font-size: 13px;
+}
+
+.page {
+  padding: 24px;
+}
+
+.page-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.page-head h1 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.page-meta {
+  margin-top: 4px;
+  color: var(--ops-muted);
+  font-size: 12px;
+  word-break: break-all;
+}
+
+.card {
+  background: #fff;
+  border: 1px solid #e3e6ea;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.hint {
+  margin: 0 0 12px;
+  color: var(--ops-muted);
+  font-size: 12px;
+}
+
+/* 表格里的 ssh 目标 / 私钥提示往往很长，别把列撑爆。 */
+.ant-table-cell code {
+  word-break: break-all;
+}

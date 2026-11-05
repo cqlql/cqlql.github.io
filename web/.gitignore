@@ -1,0 +1,7 @@
+node_modules/
+
+# 构建产物不进 Git；只有 dist/.gitkeep 例外（go:embed 需要目录存在）。
+dist/*
+!dist/.gitkeep
+
+*.local
