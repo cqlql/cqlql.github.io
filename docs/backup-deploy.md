@@ -131,8 +131,8 @@ ops backup verify [pg|minio|all] [--server <name>]
 
 ```
 ops/
-  backup_deploy.go   预检、tar 流上传、目录切换、install/preflight 调度
-  backup_deploy_test.go  命令拼装、占位符校验、cron 路径解析单测（不碰真实 ssh）
+  internal/backup/deploy.go               预检、tar 流上传、目录切换、install/preflight 调度
+  internal/backup/deploy_test.go          命令拼装、占位符校验、cron 路径解析单测（不碰真实 ssh）
 ```
 
 | 阶段 | 内容 | 验收 |

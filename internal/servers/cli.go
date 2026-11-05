@@ -1,4 +1,8 @@
-package main
+package servers
+
+import (
+	"pass-up/ops/internal/shared"
+)
 
 import (
 	"bufio"
@@ -11,7 +15,7 @@ import (
 	"time"
 )
 
-func cmdServers(args []string) int {
+func CmdServers(args []string) int {
 	if len(args) == 0 {
 		serversUsage()
 		return 2
@@ -46,12 +50,6 @@ func serversUsage() {
 `)
 }
 
-type checkRow struct {
-	Name string `json:"name"`
-	Role string `json:"role"`
-	serverStatus
-}
-
 func runServersList(args []string) int {
 	jsonOut := false
 	for _, a := range args {
@@ -66,20 +64,20 @@ func runServersList(args []string) int {
 			return 2
 		}
 	}
-	cfg, err := loadConfig()
+	cfg, err := shared.LoadConfig()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
 		return 1
 	}
-	list, err := loadServers(cfg)
+	list, err := shared.LoadServers(cfg)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
 		return 1
 	}
-	states := loadServerState(list.Path)
+	states := shared.LoadServerState(list.Path)
 
 	if jsonOut {
-		return printJSON(serverInfos(list, states))
+		return printJSON(ServerInfos(list, states))
 	}
 	fmt.Printf("清单：%s\n", list.Path)
 	fmt.Printf("%-16s %-7s %-22s %-8s %-9s %-8s %s\n", "NAME", "ROLE", "TARGET", "SUDO", "SSH", "CHECKED", "NOTE")
@@ -92,7 +90,7 @@ func runServersList(args []string) int {
 		}
 		fmt.Printf("%-16s %-7s %-22s %-8s %-9s %-8s %s\n",
 			s.Name, s.Role, fmt.Sprintf("%s@%s:%d", s.User, s.Host, s.Port),
-			sudoLabel(st), sshLabel(st), checked, s.Note)
+			shared.SudoLabel(st), shared.SSHLabel(st), checked, s.Note)
 	}
 	return 0
 }
@@ -126,40 +124,40 @@ func runServersCheck(args []string) int {
 		}
 	}
 
-	cfg, err := loadConfig()
+	cfg, err := shared.LoadConfig()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
 		return 1
 	}
-	list, err := loadServers(cfg)
+	list, err := shared.LoadServers(cfg)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
 		return 1
 	}
 
-	var targets []*server
+	var targets []*shared.Server
 	if target == "" || target == "all" {
 		for i := range list.Servers {
 			targets = append(targets, &list.Servers[i])
 		}
 	} else {
-		s, err := list.get(target)
+		s, err := list.Get(target)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
 			return 2
 		}
-		targets = []*server{s}
+		targets = []*shared.Server{s}
 	}
 
-	states := loadServerState(list.Path)
-	rows := make([]checkRow, 0, len(targets))
+	states := shared.LoadServerState(list.Path)
+	rows := make([]shared.CheckRow, 0, len(targets))
 	worst := 0
 	for _, s := range targets {
-		ctx, cancel := context.WithTimeout(context.Background(), timeoutServerCheck)
-		st := checkServer(ctx, s)
+		ctx, cancel := context.WithTimeout(context.Background(), TimeoutServerCheck)
+		st := CheckServer(ctx, s)
 		cancel()
 		states[s.Name] = st
-		rows = append(rows, checkRow{Name: s.Name, Role: s.Role, serverStatus: st})
+		rows = append(rows, shared.CheckRow{Name: s.Name, Role: s.Role, ServerStatus: st})
 		switch st.Sudo {
 		case "error":
 			worst = 2
@@ -169,7 +167,7 @@ func runServersCheck(args []string) int {
 			}
 		}
 	}
-	if err := saveServerState(list.Path, states); err != nil {
+	if err := shared.SaveServerState(list.Path, states); err != nil {
 		fmt.Fprintf(os.Stderr, "WARN: 保存检查结果失败：%v\n", err)
 	}
 
@@ -178,7 +176,7 @@ func runServersCheck(args []string) int {
 	}
 	fmt.Printf("%-16s %-7s %-9s %-10s %s\n", "NAME", "ROLE", "SSH", "SUDO", "DETAIL")
 	for _, r := range rows {
-		fmt.Printf("%-16s %-7s %-9s %-10s %s\n", r.Name, r.Role, sshLabel(r.serverStatus), sudoLabel(r.serverStatus), r.Detail)
+		fmt.Printf("%-16s %-7s %-9s %-10s %s\n", r.Name, r.Role, shared.SSHLabel(r.ServerStatus), shared.SudoLabel(r.ServerStatus), r.Detail)
 	}
 	return worst
 }
@@ -209,28 +207,28 @@ func runServersApplySudo(args []string) int {
 		return usageErr("必须指定服务器 name")
 	}
 
-	cfg, err := loadConfig()
+	cfg, err := shared.LoadConfig()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
 		return 1
 	}
-	list, err := loadServers(cfg)
+	list, err := shared.LoadServers(cfg)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
 		return 1
 	}
-	s, err := list.get(name)
+	s, err := list.Get(name)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
 		return 2
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), timeoutServerCheck)
-	st := checkServer(ctx, s)
+	ctx, cancel := context.WithTimeout(context.Background(), TimeoutServerCheck)
+	st := CheckServer(ctx, s)
 	cancel()
-	states := loadServerState(list.Path)
+	states := shared.LoadServerState(list.Path)
 	states[s.Name] = st
-	_ = saveServerState(list.Path, states)
+	_ = shared.SaveServerState(list.Path, states)
 
 	if st.SSH == "fail" {
 		fmt.Fprintf(os.Stderr, "ERROR: %s\n", st.Detail)
@@ -267,20 +265,20 @@ func runServersApplySudo(args []string) int {
 		return 1
 	}
 
-	ctx, cancel = context.WithTimeout(context.Background(), timeoutApplySudo)
-	_, err = applySudo(ctx, s, password, os.Stdout)
+	ctx, cancel = context.WithTimeout(context.Background(), TimeoutApplySudo)
+	_, err = ApplySudo(ctx, s, password, os.Stdout)
 	cancel()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
 		return 1
 	}
 
-	ctx, cancel = context.WithTimeout(context.Background(), timeoutServerCheck)
-	st = checkServer(ctx, s)
+	ctx, cancel = context.WithTimeout(context.Background(), TimeoutServerCheck)
+	st = CheckServer(ctx, s)
 	cancel()
-	states = loadServerState(list.Path)
+	states = shared.LoadServerState(list.Path)
 	states[s.Name] = st
-	if err := saveServerState(list.Path, states); err != nil {
+	if err := shared.SaveServerState(list.Path, states); err != nil {
 		fmt.Fprintf(os.Stderr, "WARN: 保存检查结果失败：%v\n", err)
 	}
 
@@ -290,7 +288,7 @@ func runServersApplySudo(args []string) int {
 	return 0
 }
 
-func confirmApply(r *bufio.Reader, s *server) bool {
+func confirmApply(r *bufio.Reader, s *shared.Server) bool {
 	fmt.Fprintf(os.Stderr, "将为 %s@%s:%d 写入 %s\n", s.User, s.Host, s.Port, sudoersDropInPath(s.User))
 	fmt.Fprint(os.Stderr, "确认执行？[y/N] ")
 	if r == nil {
@@ -322,11 +320,11 @@ func printJSON(v any) int {
 	return 0
 }
 
-func serverInfos(list *serverList, states map[string]serverStatus) []serverInfo {
-	out := make([]serverInfo, 0, len(list.Servers))
+func ServerInfos(list *shared.ServerList, states map[string]shared.ServerStatus) []shared.ServerInfo {
+	out := make([]shared.ServerInfo, 0, len(list.Servers))
 	for i := range list.Servers {
 		s := &list.Servers[i]
-		out = append(out, s.info(states[s.Name]))
+		out = append(out, s.Info(states[s.Name]))
 	}
 	return out
 }

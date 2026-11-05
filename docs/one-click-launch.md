@@ -321,18 +321,18 @@ cd /d "%~dp0"
 
 ```
 <仓库根>/
-  启动运维.cmd            启动器（CRLF、英文注释）
-  ops.exe                 本机二进制（构建产物，不入 Git）
-  shortcut.go             创建/删除/校验/桌面目录/启动器定位/PS 脚本
-  shortcut_test.go        §3.6 测试矩阵
-  menu.go                 交互菜单
-  menu_windows.go         Windows 单实例互斥体；menu_other.go 是空实现
-  menu_test.go            菜单默认只读与二次确认
-  ui.go                   go:embed 图标、/favicon.ico、writeIcon
-  ui_test.go              图标同源与 token 校验
-  ui/index.html           页面（favicon 链接带 token）
-  ui/ops.ico              9 尺寸图标（唯一字节来源）
-  <配置目录>/ops.ico      writeIcon 落盘，快捷方式指这里
+  启动运维.cmd                                启动器（CRLF、英文注释）
+  ops.exe                                 本机二进制（构建产物，不入 Git）
+  internal/launcher/shortcut.go           创建/删除/校验/桌面目录/启动器定位/PS 脚本
+  internal/launcher/shortcut_test.go      §3.6 测试矩阵
+  internal/launcher/menu.go               交互菜单
+  internal/launcher/menu_windows.go       Windows 单实例互斥体；menu_other.go 是空实现
+  internal/launcher/menu_test.go          菜单默认只读与二次确认
+  internal/ui/ui.go                       go:embed 图标、/favicon.ico、writeIcon
+  internal/ui/ui_test.go                  图标同源与 token 校验
+  internal/ui/index.html                  页面（favicon 链接带 token）
+  internal/ui/ops.ico                     9 尺寸图标（唯一字节来源）
+  <配置目录>/ops.ico                          writeIcon 落盘，快捷方式指这里
 ```
 
 | 阶段 | 内容 | 验收 |

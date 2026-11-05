@@ -119,9 +119,9 @@ ops ps / ops logs <service> [-f] [--server <name>]
 
 ```
 ops/
-  deploy.go         预检、rsync、构建、流转、compose up、健康门
-  rollback.go       :previous 回滚与 state.env
-  deploy_test.go    预检/命令拼装/健康门判定的单测（不碰真实 docker）
+  internal/deploy/deploy.go               预检、rsync、构建、流转、compose up、健康门
+  internal/deploy/rollback.go             :previous 回滚与 state.env
+  internal/deploy/deploy_test.go          预检/命令拼装/健康门判定的单测（不碰真实 docker）
 ```
 
 | 阶段 | 内容 | 验收 |

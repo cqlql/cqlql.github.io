@@ -1,4 +1,8 @@
-package main
+package launcher
+
+import (
+	"pass-up/ops/internal/shared"
+)
 
 import (
 	"bufio"
@@ -29,13 +33,13 @@ func (m *menu) targetServer() (string, bool) {
 }
 
 type menuAction struct {
-	key   string
+	Key   string
 	label string
 }
 
 // menuItems 只列已实现的动词。ui 是 P2 的切换点：能力已注册就多一项，
 // 未注册时菜单、.lnk、.cmd 的形状都不用改。
-func menuItems() []menuAction {
+func menuItems(probe func(string) bool) []menuAction {
 	items := []menuAction{
 		{"1", "查看 / 生成配置模板（ops init）"},
 		{"2", "备份部署预检（只读，--dry-run）"},
@@ -43,7 +47,7 @@ func menuItems() []menuAction {
 		{"4", "远端自检（backup verify）"},
 		{"5", "帮助（ops help）"},
 	}
-	if _, ok := commandHandler("ui"); ok {
+	if probe("ui") {
 		items = append(items, menuAction{"6", "打开网页面板（ops ui，Ctrl+C 结束）"})
 	}
 	return items
@@ -62,7 +66,7 @@ func menuChoice(s string) string {
 	return s
 }
 
-func cmdMenu(args []string) int {
+func CmdMenu(args []string, exec func([]string) int, probe func(string) bool) int {
 	for _, a := range args {
 		if a == "-h" || a == "--help" {
 			fmt.Print(`用法:
@@ -87,14 +91,14 @@ func cmdMenu(args []string) int {
 		fmt.Fprintln(os.Stderr, "菜单需要交互终端；脚本化使用请直接运行 ops <命令>。")
 		return 2
 	}
-	return runMenu(&menu{in: bufio.NewReader(os.Stdin), out: os.Stdout, exec: run, pause: true})
+	return runMenu(&menu{in: bufio.NewReader(os.Stdin), out: os.Stdout, exec: exec, pause: true}, probe)
 }
 
-func runMenu(m *menu) int {
+func runMenu(m *menu, probe func(string) bool) int {
 	for {
 		fmt.Fprintln(m.out, "\nPass-up 本地运维菜单（双击不会触发写操作）")
-		for _, item := range menuItems() {
-			fmt.Fprintf(m.out, "  %s. %s\n", item.key, item.label)
+		for _, item := range menuItems(probe) {
+			fmt.Fprintf(m.out, "  %s. %s\n", item.Key, item.label)
 		}
 		fmt.Fprintln(m.out, "  0. 退出")
 		fmt.Fprint(m.out, "请选择 [2]：")
@@ -107,7 +111,7 @@ func runMenu(m *menu) int {
 			fmt.Fprintln(m.out, "已退出。")
 			return 0
 		}
-		if !menuKeyExists(choice) {
+		if !menuKeyExists(choice, probe) {
 			fmt.Fprintf(m.out, "没有这个选项：%s\n", choice)
 			continue
 		}
@@ -126,9 +130,9 @@ func runMenu(m *menu) int {
 	}
 }
 
-func menuKeyExists(key string) bool {
-	for _, item := range menuItems() {
-		if item.key == key {
+func menuKeyExists(key string, probe func(string) bool) bool {
+	for _, item := range menuItems(probe) {
+		if item.Key == key {
 			return true
 		}
 	}
@@ -177,14 +181,14 @@ func (m *menu) runAction(key string) int {
 	return 2
 }
 
-// chooseServer 只回清单里存在的 name；空字符串表示省略 --server，由底层 resolve。
+// chooseServer 只回清单里存在的 name；空字符串表示省略 --server，由底层 Resolve。
 func (m *menu) chooseServer() (string, bool) {
-	cfg, err := loadConfig()
+	cfg, err := shared.LoadConfig()
 	if err != nil {
 		fmt.Fprintf(m.out, "读取配置失败：%v\n", err)
 		return "", false
 	}
-	list, err := loadServers(cfg)
+	list, err := shared.LoadServers(cfg)
 	if err != nil {
 		fmt.Fprintf(m.out, "读取服务器清单失败：%v\n", err)
 		return "", false
@@ -202,7 +206,7 @@ func (m *menu) chooseServer() (string, bool) {
 	if name == "" {
 		return "", true
 	}
-	if _, err := list.get(name); err != nil {
+	if _, err := list.Get(name); err != nil {
 		fmt.Fprintf(m.out, "%v\n", err)
 		return "", false
 	}

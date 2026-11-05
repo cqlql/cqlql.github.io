@@ -1,4 +1,9 @@
-package main
+package launcher
+
+import (
+	"pass-up/ops/internal/shared"
+	"pass-up/ops/internal/ui"
+)
 
 import (
 	"os"
@@ -94,7 +99,7 @@ func TestDesktopDirOverride(t *testing.T) {
 
 func TestIconSameBytes(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv(configDirEnv, dir)
+	t.Setenv(shared.ConfigDirEnv, dir)
 	path, err := ensureIcon()
 	if err != nil {
 		t.Fatalf("ensureIcon: %v", err)
@@ -103,8 +108,8 @@ func TestIconSameBytes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if string(got) != string(uiIcon) {
-		t.Fatal("落盘的 ops.ico 与嵌入的 uiIcon 不是同一份字节")
+	if string(got) != string(ui.IconBytes) {
+		t.Fatal("落盘的 ops.ico 与嵌入的 ui.IconBytes 不是同一份字节")
 	}
 	// 第二次调用不应重写或报错（只在缺失/内容不同时写）。
 	if _, err := ensureIcon(); err != nil {
@@ -146,10 +151,10 @@ func TestLauncherPath(t *testing.T) {
 }
 
 func TestShortcutUsageAndBadArgs(t *testing.T) {
-	if rc := cmdShortcut([]string{"--help"}); rc != 0 {
+	if rc := CmdShortcut([]string{"--help"}); rc != 0 {
 		t.Errorf("--help 退出码 = %d", rc)
 	}
-	if rc := cmdShortcut([]string{"--wat"}); rc != 2 {
+	if rc := CmdShortcut([]string{"--wat"}); rc != 2 {
 		t.Errorf("未知参数退出码 = %d", rc)
 	}
 }

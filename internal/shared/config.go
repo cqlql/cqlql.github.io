@@ -1,4 +1,4 @@
-package main
+package shared
 
 import (
 	"bufio"
@@ -9,9 +9,12 @@ import (
 	"strings"
 )
 
-// config 与 docs/config.md 一一对应；新增键先改文档，再改这里。
+// 配置目录覆盖变量：界面、快捷方式、菜单都从本机配置目录取同一份。
+const ConfigDirEnv = "PASS_UP_OPS_CONFIG_DIR"
+
+// Config 与 docs/config.md 一一对应；新增键先改文档，再改这里。
 // 主机 / 端口 / SSH 用户 / 私钥 / sudo 凭据只在服务器清单（servers.json）里。
-type config struct {
+type Config struct {
 	Path string
 
 	ServersFile   string
@@ -49,8 +52,8 @@ const serversTemplate = `{
 // remotePathRe 与 docs/config.md 的远端路径校验保持一致。
 var remotePathRe = regexp.MustCompile(`^/[A-Za-z0-9._/-]+$`)
 
-func userConfigDir() string {
-	if dir := os.Getenv(configDirEnv); dir != "" {
+func UserConfigDir() string {
+	if dir := os.Getenv(ConfigDirEnv); dir != "" {
 		return dir
 	}
 	if isWindows() {
@@ -72,14 +75,14 @@ func configPath() string {
 	if p := os.Getenv("PASS_UP_OPS_ENV"); p != "" {
 		return p
 	}
-	if dir := userConfigDir(); dir != "" {
+	if dir := UserConfigDir(); dir != "" {
 		return filepath.Join(dir, "ops.env")
 	}
 	return "ops.env"
 }
 
 func defaultServersPath() string {
-	if dir := userConfigDir(); dir != "" {
+	if dir := UserConfigDir(); dir != "" {
 		return filepath.Join(dir, "servers.json")
 	}
 	return "servers.json"
@@ -89,13 +92,13 @@ func isWindows() bool {
 	return os.PathSeparator == '\\'
 }
 
-func defaultConfig(path string) *config {
+func defaultConfig(path string) *Config {
 	cwd, err := os.Getwd()
 	if err != nil {
 		cwd = "."
 	}
 	base := filepath.Join(cwd, "..", "pass-up.backend", "deploy", "backup")
-	return &config{
+	return &Config{
 		Path:         path,
 		ServersFile:  defaultServersPath(),
 		DeployDir:    "/opt/passup-backup",
@@ -105,7 +108,7 @@ func defaultConfig(path string) *config {
 	}
 }
 
-func loadConfig() (*config, error) {
+func LoadConfig() (*Config, error) {
 	path := configPath()
 	c := defaultConfig(path)
 
@@ -161,7 +164,7 @@ func loadConfig() (*config, error) {
 	return c, nil
 }
 
-func (c *config) validate() error {
+func (c *Config) validate() error {
 	if c.ServersFile == "" {
 		return fmt.Errorf("服务器清单路径为空")
 	}
@@ -199,7 +202,7 @@ func resolveLocalPath(p string) string {
 	return abs
 }
 
-func cmdInit(args []string) int {
+func CmdInit(args []string) int {
 	if len(args) > 0 {
 		fmt.Fprintln(os.Stderr, "用法: ops init")
 		return 2

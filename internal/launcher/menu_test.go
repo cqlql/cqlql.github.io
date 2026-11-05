@@ -1,4 +1,4 @@
-package main
+package launcher
 
 import (
 	"bufio"
@@ -9,8 +9,8 @@ import (
 
 func TestMenuItemsOnlyImplementedVerbs(t *testing.T) {
 	keys := map[string]bool{}
-	for _, item := range menuItems() {
-		keys[item.key] = true
+	for _, item := range menuItems(testProbe) {
+		keys[item.Key] = true
 		if strings.Contains(item.label, "ops status") || strings.Contains(item.label, "ops deploy") {
 			t.Errorf("菜单列出了未实现的动词：%s", item.label)
 		}
@@ -20,7 +20,7 @@ func TestMenuItemsOnlyImplementedVerbs(t *testing.T) {
 			t.Errorf("缺少菜单项 %s", k)
 		}
 	}
-	if _, ok := commandHandler("ui"); ok && !keys["6"] {
+	if testProbe("ui") && !keys["6"] {
 		t.Error("ui 已注册，菜单却没有「打开网页面板」")
 	}
 }
@@ -49,7 +49,7 @@ func newTestMenu(input string, rc int, calls *[][]string) *menu {
 func TestMenuDefaultActionIsDryRunOnly(t *testing.T) {
 	var calls [][]string
 	m := newTestMenu("\n0\n", 0, &calls)
-	if rc := runMenu(m); rc != 0 {
+	if rc := runMenu(m, testProbe); rc != 0 {
 		t.Fatalf("runMenu = %d", rc)
 	}
 	if len(calls) != 1 {
@@ -107,3 +107,5 @@ func TestMenuTargetServerPassedThrough(t *testing.T) {
 		t.Fatalf("目标机没透传：%q", got)
 	}
 }
+
+func testProbe(name string) bool { return name == "ui" }

@@ -1,4 +1,8 @@
-package main
+package servers
+
+import (
+	"pass-up/ops/internal/shared"
+)
 
 import (
 	"encoding/base64"
@@ -8,14 +12,14 @@ import (
 	"testing"
 )
 
-func writeServersFile(t *testing.T, body string) *config {
+func writeServersFile(t *testing.T, body string) *shared.Config {
 	t.Helper()
 	dir := t.TempDir()
 	p := filepath.Join(dir, "servers.json")
 	if err := os.WriteFile(p, []byte(body), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	return &config{ServersFile: p, DeployDir: "/opt/passup-backup"}
+	return &shared.Config{ServersFile: p, DeployDir: "/opt/passup-backup"}
 }
 
 func TestLoadServersValid(t *testing.T) {
@@ -35,7 +39,7 @@ func TestLoadServersValid(t *testing.T) {
 	  ]
 	}`
 	cfg := writeServersFile(t, body)
-	list, err := loadServers(cfg)
+	list, err := shared.LoadServers(cfg)
 	if err != nil {
 		t.Fatalf("loadServers: %v", err)
 	}
@@ -46,13 +50,13 @@ func TestLoadServersValid(t *testing.T) {
 	if app.Port != 22 {
 		t.Errorf("缺省 port 应为 22，得到 %d", app.Port)
 	}
-	if app.Sudo.Mode != sudoModeNopasswd {
+	if app.Sudo.Mode != shared.SudoModeNopasswd {
 		t.Errorf("缺省 sudo.mode 应为 nopasswd，得到 %q", app.Sudo.Mode)
 	}
 	if !filepath.IsAbs(list.Servers[0].Key) {
 		t.Errorf("key 应展开为绝对路径")
 	}
-	user, k := list.Servers[0].monitorTarget()
+	user, k := list.Servers[0].MonitorTarget()
 	if user != "passup-ro" {
 		t.Errorf("monitor user = %q", user)
 	}
@@ -87,7 +91,7 @@ func TestLoadServersValidation(t *testing.T) {
 	}
 	for _, tc := range cases {
 		cfg := writeServersFile(t, tc.body)
-		if _, err := loadServers(cfg); err == nil {
+		if _, err := shared.LoadServers(cfg); err == nil {
 			t.Errorf("%s: 期望报错，实际通过", tc.name)
 		}
 	}
@@ -101,24 +105,24 @@ func TestResolveServer(t *testing.T) {
 	    {"name":"app-01","role":"app","host":"h2","user":"u"}
 	  ]
 	}`)
-	list, err := loadServers(cfg)
+	list, err := shared.LoadServers(cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	s, err := list.resolve("app-01", "")
+	s, err := list.Resolve("app-01", "")
 	if err != nil || s.Name != "app-01" {
 		t.Errorf("显式 name 选择失败：%v", err)
 	}
-	s, err = list.resolve("", "app-01")
+	s, err = list.Resolve("", "app-01")
 	if err != nil || s.Name != "app-01" {
 		t.Errorf("ops.env 默认选择失败：%v", err)
 	}
-	s, err = list.resolve("", "")
+	s, err = list.Resolve("", "")
 	if err != nil || s.Name != "backup-01" {
 		t.Errorf("清单 default 选择失败：%v", err)
 	}
-	if _, err := list.resolve("nope", ""); err == nil {
+	if _, err := list.Resolve("nope", ""); err == nil {
 		t.Error("未知 name 应报错")
 	}
 }
@@ -127,11 +131,11 @@ func TestResolveOnlyBackupFallback(t *testing.T) {
 	cfg := writeServersFile(t, `{"servers":[
 	  {"name":"b1","role":"backup","host":"h","user":"u"},
 	  {"name":"a1","role":"app","host":"h","user":"u"}]}`)
-	list, err := loadServers(cfg)
+	list, err := shared.LoadServers(cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
-	s, err := list.resolve("", "")
+	s, err := list.Resolve("", "")
 	if err != nil || s.Name != "b1" {
 		t.Errorf("唯一 backup 应自动选中：%v", err)
 	}
@@ -139,11 +143,11 @@ func TestResolveOnlyBackupFallback(t *testing.T) {
 	cfg = writeServersFile(t, `{"servers":[
 	  {"name":"b1","role":"backup","host":"h","user":"u"},
 	  {"name":"b2","role":"backup","host":"h","user":"u"}]}`)
-	list, err = loadServers(cfg)
+	list, err = shared.LoadServers(cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := list.resolve("", ""); err == nil {
+	if _, err := list.Resolve("", ""); err == nil {
 		t.Error("多台 backup 且无默认值应报错")
 	}
 }
@@ -170,7 +174,7 @@ func TestSudoersHelpers(t *testing.T) {
 }
 
 func TestChoosePassword(t *testing.T) {
-	s := &server{Sudo: sudoConfig{Password: "from-list"}}
+	s := &shared.Server{Sudo: shared.SudoConfig{Password: "from-list"}}
 	if got := choosePassword(s, "from-input"); got != "from-list" {
 		t.Errorf("清单密码应优先，得到 %q", got)
 	}
@@ -181,25 +185,25 @@ func TestChoosePassword(t *testing.T) {
 }
 
 func TestServerInfoNoKeyPath(t *testing.T) {
-	s := &server{Name: "a", Role: "backup", Host: "h", Port: 22, User: "u", Key: "/secret/key"}
-	info := s.info(serverStatus{})
-	if !info.HasKey {
+	s := &shared.Server{Name: "a", Role: "backup", Host: "h", Port: 22, User: "u", Key: "/secret/key"}
+	Info := s.Info(shared.ServerStatus{})
+	if !Info.HasKey {
 		t.Error("HasKey 应为 true")
 	}
-	if strings.Contains(strings.Join([]string{info.Name, info.Role, info.Host, info.Note}, " "), "/secret") {
+	if strings.Contains(strings.Join([]string{Info.Name, Info.Role, Info.Host, Info.Note}, " "), "/secret") {
 		t.Error("展示信息不应包含私钥路径")
 	}
 }
 
 func TestServerStateRoundTrip(t *testing.T) {
 	cfg := writeServersFile(t, `{"servers":[{"name":"a","role":"backup","host":"h","user":"u"}]}`)
-	states := map[string]serverStatus{
+	states := map[string]shared.ServerStatus{
 		"a": {SSH: "ok", Sudo: "need", Detail: "需要密码", CheckedAt: "2026-11-05T10:00:00+08:00"},
 	}
-	if err := saveServerState(cfg.ServersFile, states); err != nil {
+	if err := shared.SaveServerState(cfg.ServersFile, states); err != nil {
 		t.Fatal(err)
 	}
-	got := loadServerState(cfg.ServersFile)
+	got := shared.LoadServerState(cfg.ServersFile)
 	if got["a"].Sudo != "need" {
 		t.Errorf("状态未持久化：%+v", got)
 	}

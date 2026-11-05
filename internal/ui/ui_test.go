@@ -1,4 +1,4 @@
-package main
+package ui
 
 import (
 	"bytes"
@@ -19,7 +19,7 @@ func TestFaviconServesEmbeddedIcon(t *testing.T) {
 	if ct := w.Header().Get("Content-Type"); ct != "image/x-icon" {
 		t.Fatalf("Content-Type = %q", ct)
 	}
-	if !bytes.Equal(w.Body.Bytes(), uiIcon) {
+	if !bytes.Equal(w.Body.Bytes(), IconBytes) {
 		t.Fatal("favicon 与嵌入的图标不是同一份字节")
 	}
 }

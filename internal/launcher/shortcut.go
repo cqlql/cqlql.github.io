@@ -1,4 +1,9 @@
-package main
+package launcher
+
+import (
+	"pass-up/ops/internal/shared"
+	"pass-up/ops/internal/ui"
+)
 
 import (
 	"errors"
@@ -17,7 +22,6 @@ const (
 	launcherName        = "启动运维.cmd"
 
 	desktopDirEnv = "PASS_UP_OPS_DESKTOP_DIR"
-	configDirEnv  = "PASS_UP_OPS_CONFIG_DIR"
 )
 
 // shortcutInfo 是「建好了」的凭据：命令行拿去打印，界面拿去显示，两边同一份。
@@ -30,7 +34,7 @@ type shortcutInfo struct {
 var errShortcutWindowsOnly = errors.New("桌面快捷方式只对 Windows 有意义（.lnk）；" +
 	"macOS / Linux 请自己建一个指向 " + launcherName + " 的启动器")
 
-func cmdShortcut(args []string) int {
+func CmdShortcut(args []string) int {
 	name := defaultShortcutName
 	remove := false
 	for i := 0; i < len(args); i++ {
@@ -71,12 +75,12 @@ func cmdShortcut(args []string) int {
 		return 0
 	}
 
-	info, err := createShortcutOnDesktop(name)
+	Info, err := createShortcutOnDesktop(name)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
 		return 1
 	}
-	fmt.Printf("已创建桌面快捷方式：%s\n  指向：%s\n  图标：%s\n", info.Path, info.Launcher, info.Icon)
+	fmt.Printf("已创建桌面快捷方式：%s\n  指向：%s\n  图标：%s\n", Info.Path, Info.Launcher, Info.Icon)
 	return 0
 }
 
@@ -141,14 +145,14 @@ func removeShortcutOnDesktop(name string) (string, bool, error) {
 	return path, true, nil
 }
 
-// ensureIcon 写图标后补一次 Stat：writeIcon 自己吞错误（图标不该让界面起不来），
+// ensureIcon 写图标后补一次 Stat：ui.WriteIcon 自己吞错误（图标不该让界面起不来），
 // 但快捷方式不能假装成功，否则 .lnk 会悄悄变成空白图标。
 func ensureIcon() (string, error) {
-	dir := userConfigDir()
+	dir := shared.UserConfigDir()
 	if dir == "" {
-		return "", errors.New("找不到配置目录（可用 " + configDirEnv + " 指定）")
+		return "", errors.New("找不到配置目录（可用 " + shared.ConfigDirEnv + " 指定）")
 	}
-	writeIcon(dir)
+	ui.WriteIcon(dir)
 	path := filepath.Join(dir, "ops.ico")
 	if _, err := os.Stat(path); err != nil {
 		return "", fmt.Errorf("图标没能写到 %s：%w", path, err)

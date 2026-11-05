@@ -1,4 +1,9 @@
-package main
+package ui
+
+import (
+	"pass-up/ops/internal/servers"
+	"pass-up/ops/internal/shared"
+)
 
 import (
 	"bytes"
@@ -20,14 +25,14 @@ import (
 	"time"
 )
 
-//go:embed ui/index.html
+//go:embed index.html
 var uiFiles embed.FS
 
-// uiIcon 是界面图标（多尺寸 ICO）：/favicon.ico 直接读内存，配置目录的
-// ops.ico 由 writeIcon 落盘给桌面快捷方式用。只嵌一份，两处同源。
+// IconBytes 是界面图标（多尺寸 ICO）：/favicon.ico 直接读内存，配置目录的
+// ops.ico 由 WriteIcon 落盘给桌面快捷方式用。只嵌一份，两处同源。
 //
-//go:embed ui/ops.ico
-var uiIcon []byte
+//go:embed ops.ico
+var IconBytes []byte
 
 // faviconTokenPlaceholder：浏览器请求 favicon 不会带自定义 header，
 // 所以把 token 拼进 URL，仍然走 ServeHTTP 的 token 校验。
@@ -37,13 +42,13 @@ const faviconTokenPlaceholder = "__OPS_TOKEN__"
 type uiState struct {
 	opMu   sync.Mutex // 串行化检查/写操作，避免并发读写同一份状态
 	mu     sync.Mutex
-	list   *serverList
-	states map[string]serverStatus
+	list   *shared.ServerList
+	states map[string]shared.ServerStatus
 	token  string
 	origin string
 }
 
-func cmdUI(args []string) int {
+func CmdUI(args []string) int {
 	port := 7788
 	for i := 0; i < len(args); i++ {
 		a := args[i]
@@ -81,14 +86,14 @@ func cmdUI(args []string) int {
 	}
 
 	// 界面启动就保证配置目录里的 ops.ico 与嵌入的图标一致；写失败不影响界面。
-	writeIcon(userConfigDir())
+	WriteIcon(shared.UserConfigDir())
 
-	cfg, err := loadConfig()
+	cfg, err := shared.LoadConfig()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
 		return 1
 	}
-	list, err := loadServers(cfg)
+	list, err := shared.LoadServers(cfg)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
 		return 1
@@ -108,7 +113,7 @@ func cmdUI(args []string) int {
 
 	u := &uiState{
 		list:   list,
-		states: loadServerState(list.Path),
+		states: shared.LoadServerState(list.Path),
 		token:  token,
 		origin: fmt.Sprintf("http://127.0.0.1:%d", actual),
 	}
@@ -153,7 +158,7 @@ func (u *uiState) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	switch {
 	case r.Method == http.MethodGet && r.URL.Path == "/":
-		page, err := uiFiles.ReadFile("ui/index.html")
+		page, err := uiFiles.ReadFile("index.html")
 		if err != nil {
 			http.Error(w, "页面加载失败", http.StatusInternalServerError)
 			return
@@ -163,7 +168,7 @@ func (u *uiState) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Write(page)
 	case r.Method == http.MethodGet && r.URL.Path == "/favicon.ico":
 		w.Header().Set("Content-Type", "image/x-icon")
-		w.Write(uiIcon)
+		w.Write(IconBytes)
 	case r.Method == http.MethodGet && r.URL.Path == "/api/servers":
 		u.handleServers(w)
 	case r.Method == http.MethodPost && r.URL.Path == "/api/check":
@@ -184,18 +189,18 @@ func (u *uiState) tokenOK(r *http.Request) bool {
 }
 
 func (u *uiState) reload() error {
-	cfg, err := loadConfig()
+	cfg, err := shared.LoadConfig()
 	if err != nil {
 		return err
 	}
-	list, err := loadServers(cfg)
+	list, err := shared.LoadServers(cfg)
 	if err != nil {
 		return err
 	}
 	u.mu.Lock()
 	defer u.mu.Unlock()
 	u.list = list
-	u.states = loadServerState(list.Path)
+	u.states = shared.LoadServerState(list.Path)
 	return nil
 }
 
@@ -222,10 +227,10 @@ func (u *uiState) handleServers(w http.ResponseWriter) {
 	list, states := u.list, u.states
 	u.mu.Unlock()
 	writeAPI(w, http.StatusOK, apiResponse{OK: true, Data: struct {
-		ServersFile string       `json:"servers_file"`
-		Default     string       `json:"default,omitempty"`
-		Servers     []serverInfo `json:"servers"`
-	}{list.Path, list.Default, serverInfos(list, states)}})
+		ServersFile string              `json:"servers_file"`
+		Default     string              `json:"default,omitempty"`
+		Servers     []shared.ServerInfo `json:"servers"`
+	}{list.Path, list.Default, servers.ServerInfos(list, states)}})
 }
 
 type checkRequest struct {
@@ -256,29 +261,29 @@ func (u *uiState) handleCheck(w http.ResponseWriter, r *http.Request) {
 	states := u.states
 	u.mu.Unlock()
 
-	var targets []*server
+	var targets []*shared.Server
 	if req.Name == "" || req.Name == "all" {
 		for i := range list.Servers {
 			targets = append(targets, &list.Servers[i])
 		}
 	} else {
-		s, err := list.get(req.Name)
+		s, err := list.Get(req.Name)
 		if err != nil {
 			writeAPI(w, http.StatusNotFound, apiResponse{Error: err.Error()})
 			return
 		}
-		targets = []*server{s}
+		targets = []*shared.Server{s}
 	}
 
-	rows := make([]checkRow, 0, len(targets))
+	rows := make([]shared.CheckRow, 0, len(targets))
 	for _, s := range targets {
-		ctx, cancel := context.WithTimeout(context.Background(), timeoutServerCheck)
-		st := checkServer(ctx, s)
+		ctx, cancel := context.WithTimeout(context.Background(), servers.TimeoutServerCheck)
+		st := servers.CheckServer(ctx, s)
 		cancel()
 		states[s.Name] = st
-		rows = append(rows, checkRow{Name: s.Name, Role: s.Role, serverStatus: st})
+		rows = append(rows, shared.CheckRow{Name: s.Name, Role: s.Role, ServerStatus: st})
 	}
-	if err := saveServerState(list.Path, states); err != nil {
+	if err := shared.SaveServerState(list.Path, states); err != nil {
 		fmt.Fprintf(os.Stderr, "WARN: 保存检查结果失败：%v\n", err)
 	}
 	u.mu.Lock()
@@ -314,24 +319,24 @@ func (u *uiState) handleApplySudo(w http.ResponseWriter, r *http.Request) {
 	states := u.states
 	u.mu.Unlock()
 
-	s, err := list.get(req.Name)
+	s, err := list.Get(req.Name)
 	if err != nil {
 		writeAPI(w, http.StatusNotFound, apiResponse{Error: err.Error()})
 		return
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), timeoutApplySudo)
-	outcome, err := applySudo(ctx, s, req.Password, io.Discard)
+	ctx, cancel := context.WithTimeout(context.Background(), servers.TimeoutApplySudo)
+	outcome, err := servers.ApplySudo(ctx, s, req.Password, io.Discard)
 	cancel()
 	if err != nil {
 		writeAPI(w, http.StatusBadRequest, apiResponse{Error: err.Error()})
 		return
 	}
 
-	ctx, cancel = context.WithTimeout(context.Background(), timeoutServerCheck)
-	st := checkServer(ctx, s)
+	ctx, cancel = context.WithTimeout(context.Background(), servers.TimeoutServerCheck)
+	st := servers.CheckServer(ctx, s)
 	cancel()
 	states[s.Name] = st
-	if err := saveServerState(list.Path, states); err != nil {
+	if err := shared.SaveServerState(list.Path, states); err != nil {
 		fmt.Fprintf(os.Stderr, "WARN: 保存检查结果失败：%v\n", err)
 	}
 	u.mu.Lock()
@@ -339,27 +344,27 @@ func (u *uiState) handleApplySudo(w http.ResponseWriter, r *http.Request) {
 	u.mu.Unlock()
 
 	writeAPI(w, http.StatusOK, apiResponse{OK: true, Data: struct {
-		Message    string       `json:"message"`
-		AlreadyOK  bool         `json:"already_ok"`
-		Changed    bool         `json:"changed"`
-		BackupPath string       `json:"backup_path,omitempty"`
-		Status     serverStatus `json:"status"`
+		Message    string              `json:"message"`
+		AlreadyOK  bool                `json:"already_ok"`
+		Changed    bool                `json:"changed"`
+		BackupPath string              `json:"backup_path,omitempty"`
+		Status     shared.ServerStatus `json:"status"`
 	}{outcome.Message, outcome.AlreadyOK, outcome.Changed, outcome.BackupPath, st}})
 }
 
-// writeIcon 把嵌入的图标落到配置目录，供 .lnk 的 IconLocation 使用。
+// WriteIcon 把嵌入的图标落到配置目录，供 .lnk 的 IconLocation 使用。
 // 只在缺失或内容不同时写；失败一律忽略——图标不该让界面起不来。
 // 调用方 ensureIcon 会补一次 Stat，避免快捷方式假装成功却拿到空白图标。
-func writeIcon(dir string) {
+func WriteIcon(dir string) {
 	if dir == "" {
 		return
 	}
 	path := filepath.Join(dir, "ops.ico")
-	if b, err := os.ReadFile(path); err == nil && bytes.Equal(b, uiIcon) {
+	if b, err := os.ReadFile(path); err == nil && bytes.Equal(b, IconBytes) {
 		return
 	}
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return
 	}
-	_ = os.WriteFile(path, uiIcon, 0o644)
+	_ = os.WriteFile(path, IconBytes, 0o644)
 }

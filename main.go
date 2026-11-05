@@ -1,6 +1,14 @@
 package main
 
 import (
+	"pass-up/ops/internal/backup"
+	"pass-up/ops/internal/launcher"
+	"pass-up/ops/internal/servers"
+	"pass-up/ops/internal/shared"
+	"pass-up/ops/internal/ui"
+)
+
+import (
 	"fmt"
 	"os"
 )
@@ -14,17 +22,23 @@ func main() {
 func commandHandler(name string) (func([]string) int, bool) {
 	switch name {
 	case "init":
-		return cmdInit, true
+		return shared.CmdInit, true
 	case "servers":
-		return cmdServers, true
+		return servers.CmdServers, true
 	case "ui":
-		return cmdUI, true
+		return ui.CmdUI, true
 	case "backup":
-		return cmdBackup, true
+		return backup.CmdBackup, true
 	case "shortcut":
-		return cmdShortcut, true
+		return launcher.CmdShortcut, true
 	case "menu":
-		return cmdMenu, true
+		return func(a []string) int {
+			probe := func(n string) bool {
+				_, ok := commandHandler(n)
+				return ok
+			}
+			return launcher.CmdMenu(a, run, probe)
+		}, true
 	default:
 		return nil, false
 	}
@@ -48,26 +62,6 @@ func run(args []string) int {
 	return 2
 }
 
-func cmdBackup(args []string) int {
-	if len(args) == 0 {
-		backupUsage()
-		return 2
-	}
-	switch args[0] {
-	case "deploy":
-		return runBackupDeploy(args[1:])
-	case "verify":
-		return runBackupVerify(args[1:])
-	case "help", "-h", "--help":
-		backupUsage()
-		return 0
-	default:
-		fmt.Fprintf(os.Stderr, "未知子命令：backup %s\n\n", args[0])
-		backupUsage()
-		return 2
-	}
-}
-
 func usage() {
 	fmt.Print(`Pass-up 本地运维工具
 
@@ -88,21 +82,5 @@ func usage() {
 组件: pg | minio | all（默认 all）
 
 运行 ops servers --help 或 ops backup deploy --help 查看选项。
-`)
-}
-
-func backupUsage() {
-	fmt.Print(`用法:
-  ops backup deploy [pg|minio|all] --server <name> [--dry-run] [--force] [--run-now] [--install-deps]
-  ops backup verify [pg|minio|all] --server <name>
-
-目标机只从服务器清单（servers.json）里按 name 选择。
-
-选项:
-  --server <name> 目标服务器（省略则用清单的 default / 唯一的 backup）
-  --dry-run       只预检并打印将执行的远端命令，不修改远端
-  --force         用本机 backup.env 覆盖远端已有配置（旧配置随 .old 目录保留）
-  --run-now       安装成功后立即跑一次备份（写操作，可能较长时间）
-  --install-deps  自动安装缺失依赖（apt/dnf/yum；mc 从官方地址下载）
 `)
 }

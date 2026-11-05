@@ -1,4 +1,4 @@
-package main
+package shared
 
 import (
 	"context"
@@ -11,74 +11,74 @@ import (
 	"strings"
 )
 
-// sshTarget 只封装「本机 ssh CLI」，不实现 SSH 协议：
+// SSHTarget 只封装「本机 ssh CLI」，不实现 SSH 协议：
 // 复用 known_hosts / ssh-agent / ssh config，避免再造一套密钥管理。
-type sshTarget struct {
-	host         string
-	port         int
-	user         string
-	key          string
-	sudoPassword string
-	isRoot       bool // 远端账号已是 root，无需 sudo
+type SSHTarget struct {
+	Host         string
+	Port         int
+	User         string
+	Key          string
+	SudoPassword string
+	IsRoot       bool // 远端账号已是 root，无需 sudo
 }
 
-func newSSHTarget(s *server) *sshTarget {
+func NewSSHTarget(s *Server) *SSHTarget {
 	port := s.Port
 	if port == 0 {
 		port = 22
 	}
-	return &sshTarget{
-		host:         s.Host,
-		port:         port,
-		user:         s.User,
-		key:          s.Key,
-		sudoPassword: s.Sudo.Password,
-		isRoot:       s.User == "root" || s.Sudo.Mode == sudoModeRoot,
+	return &SSHTarget{
+		Host:         s.Host,
+		Port:         port,
+		User:         s.User,
+		Key:          s.Key,
+		SudoPassword: s.Sudo.Password,
+		IsRoot:       s.User == "root" || s.Sudo.Mode == SudoModeRoot,
 	}
 }
 
-func (t *sshTarget) sshArgs(remoteCmd string) []string {
+func (t *SSHTarget) sshArgs(remoteCmd string) []string {
 	args := []string{
 		"-o", "BatchMode=yes",
 		"-o", "ConnectTimeout=10",
 		"-o", "ServerAliveInterval=5",
 		"-o", "StrictHostKeyChecking=accept-new",
 		"-T",
-		"-p", strconv.Itoa(t.port),
+		"-p", strconv.Itoa(t.Port),
 	}
-	if t.key != "" {
-		args = append(args, "-i", t.key)
+	if t.Key != "" {
+		args = append(args, "-i", t.Key)
 	}
-	dest := t.host
-	if t.user != "" {
-		dest = t.user + "@" + t.host
+	dest := t.Host
+	if t.User != "" {
+		dest = t.User + "@" + t.Host
 	}
 	args = append(args, dest, remoteCmd)
 	return args
 }
 
 // rootWrap 让非 root 账号走免密 sudo；没有免密 sudo 时预检会提前失败。
-func (t *sshTarget) rootWrap(cmd string, root bool) string {
-	if !root || t.isRoot {
+func (t *SSHTarget) rootWrap(cmd string, root bool) string {
+	if !root || t.IsRoot {
 		return cmd
 	}
-	if t.sudoPassword != "" {
+	if t.SudoPassword != "" {
 		// -p '' 让 sudo 不打印提示；密码从 stdin 读，不出现在命令行与日志。
-		return "sudo -S -p '' sh -c " + shQuote(cmd)
+		return "sudo -S -p '' sh -c " + ShQuote(cmd)
 	}
-	return "sudo -n sh -c " + shQuote(cmd)
+	return "sudo -n sh -c " + ShQuote(cmd)
 }
 
 // sudoStdin：有密码时每次提权命令喂一行密码；否则不占用 stdin。
-func (t *sshTarget) sudoStdin(root bool) io.Reader {
-	if root && !t.isRoot && t.sudoPassword != "" {
-		return strings.NewReader(t.sudoPassword + "\n")
+func (t *SSHTarget) sudoStdin(root bool) io.Reader {
+	if root && !t.IsRoot && t.SudoPassword != "" {
+		return strings.NewReader(t.SudoPassword + "\n")
 	}
 	return nil
 }
 
-// capture 用于只读检查：返回输出与退出码。非零退出码不算 Go 错误。
-func (t *sshTarget) capture(ctx context.Context, cmd string, root bool) (string, int, error) {
+// Capture 用于只读检查：返回输出与退出码。非零退出码不算 Go 错误。
+func (t *SSHTarget) Capture(ctx context.Context, cmd string, root bool) (string, int, error) {
 	c := exec.CommandContext(ctx, "ssh", t.sshArgs(t.rootWrap(cmd, root))...)
 	c.Stdin = t.sudoStdin(root)
 	out, err := c.CombinedOutput()
@@ -93,8 +93,8 @@ func (t *sshTarget) capture(ctx context.Context, cmd string, root bool) (string,
 	return string(out), code, err
 }
 
-// stream 用于安装 / 自检 / 首跑：输出直接给人看，stdin 可接 tar 流。
-func (t *sshTarget) stream(ctx context.Context, cmd string, root bool, stdin io.Reader) (int, error) {
+// Stream 用于安装 / 自检 / 首跑：输出直接给人看，stdin 可接 tar 流。
+func (t *SSHTarget) Stream(ctx context.Context, cmd string, root bool, stdin io.Reader) (int, error) {
 	c := exec.CommandContext(ctx, "ssh", t.sshArgs(t.rootWrap(cmd, root))...)
 	if p := t.sudoStdin(root); p != nil {
 		c.Stdin = p
@@ -114,12 +114,12 @@ func (t *sshTarget) stream(ctx context.Context, cmd string, root bool, stdin io.
 	return -1, err
 }
 
-func shQuote(s string) string {
+func ShQuote(s string) string {
 	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }
 
-func mustCapture(ctx context.Context, t *sshTarget, cmd string, root bool) (string, error) {
-	out, code, err := t.capture(ctx, cmd, root)
+func mustCapture(ctx context.Context, t *SSHTarget, cmd string, root bool) (string, error) {
+	out, code, err := t.Capture(ctx, cmd, root)
 	if err != nil {
 		return "", fmt.Errorf("ssh 执行失败：%w", err)
 	}

@@ -1,0 +1,15 @@
+# 构建产物：本地单二进制，不进 Git（见 docs/one-click-launch.md §7）
+*.exe
+*.test
+*.out
+
+# IDE / 工具会话数据，不是项目源码
+.workbuddy-ai/
+
+# 本机配置：含私钥路径与 sudo 凭据，见 docs/config.md
+ops.env
+servers.json
+
+# 系统杂项
+.DS_Store
+Thumbs.db

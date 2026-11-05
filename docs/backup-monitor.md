@@ -139,14 +139,14 @@ CLI 表格、`--json`、网页用的都是这一份（**不许前端自己再算
 ```
 ops/
   go.mod
-  main.go          命令分发、usage、退出码
-  config.go        ops.env 读写、默认值、校验、init 模板
-  remote.go        ssh 封装（BatchMode / 10s 连接 / 30s 总超时 / stdin 脚本）
-  status.go        Status 结构、探针脚本、解析、assess、终端渲染
-  ui.go            go:embed 页面、loopback + token + Origin 校验、30s 缓存
-  ui/index.html    单页状态面板
-  status_test.go   解析与判定单测（固定文本 fixture）
-  config_test.go   配置解析与校验单测
+  main.go                                 命令分发、usage、退出码
+  internal/shared/config.go               ops.env 读写、默认值、校验、init 模板
+  internal/shared/remote.go               ssh 封装（BatchMode / 10s 连接 / 30s 总超时 / stdin 脚本）
+  internal/monitor/status.go              Status 结构、探针脚本、解析、assess、终端渲染
+  internal/ui/ui.go                       go:embed 页面、loopback + token + Origin 校验、30s 缓存
+  internal/ui/index.html                  单页状态面板
+  internal/monitor/status_test.go         解析与判定单测（固定文本 fixture）
+  internal/shared/config_test.go          配置解析与校验单测
 ```
 
 | 阶段 | 内容 | 验收 |

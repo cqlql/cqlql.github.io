@@ -1,4 +1,8 @@
-package main
+package backup
+
+import (
+	"pass-up/ops/internal/shared"
+)
 
 import (
 	"archive/tar"
@@ -120,7 +124,59 @@ func TestEnvsToKeep(t *testing.T) {
 }
 
 func TestShQuote(t *testing.T) {
-	if got := shQuote("a'b"); got != `'a'\''b'` {
+	if got := shared.ShQuote("a'b"); got != `'a'\''b'` {
 		t.Errorf("shQuote = %s", got)
+	}
+}
+
+func TestParseDeployArgs(t *testing.T) {
+	opt, err := parseDeployArgs([]string{"minio", "--dry-run", "--run-now", "--server", "backup-01"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(opt.comps) != 1 || opt.comps[0] != compMinio {
+		t.Errorf("comps = %v", opt.comps)
+	}
+	if !opt.dryRun || !opt.runNow || opt.Server != "backup-01" {
+		t.Errorf("flags = %+v", opt)
+	}
+
+	if _, err := parseDeployArgs([]string{"pg", "--server=app-01"}); err != nil {
+		t.Fatalf("--server=name: %v", err)
+	}
+	if _, err := parseDeployArgs([]string{"pg", "minio"}); err == nil {
+		t.Error("多个组件应报错")
+	}
+	if _, err := parseDeployArgs([]string{"unknown"}); err == nil {
+		t.Error("未知组件应报错")
+	}
+	if _, err := parseDeployArgs([]string{"--server"}); err == nil {
+		t.Error("--server 缺值应报错")
+	}
+}
+
+func TestInspectLocalEnv(t *testing.T) {
+	dir := t.TempDir()
+	missing := filepath.Join(dir, "missing.env")
+	if _, ok := inspectLocalEnv(missing); ok {
+		t.Error("missing 不应通过")
+	}
+
+	empty := filepath.Join(dir, "empty.env")
+	os.WriteFile(empty, []byte("  \n"), 0o600)
+	if issue, ok := inspectLocalEnv(empty); ok || issue != "empty" {
+		t.Errorf("empty: ok=%v issue=%q", ok, issue)
+	}
+
+	ph := filepath.Join(dir, "ph.env")
+	os.WriteFile(ph, []byte("PG_PASSWORD=CHANGE_ME\n"), 0o600)
+	if issue, ok := inspectLocalEnv(ph); ok || issue != "placeholder" {
+		t.Errorf("placeholder: ok=%v issue=%q", ok, issue)
+	}
+
+	good := filepath.Join(dir, "good.env")
+	os.WriteFile(good, []byte("PG_PASSWORD=secret\n"), 0o600)
+	if issue, ok := inspectLocalEnv(good); !ok || issue != "" {
+		t.Errorf("good: ok=%v issue=%q", ok, issue)
 	}
 }

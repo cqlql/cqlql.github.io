@@ -1,4 +1,8 @@
-package main
+package backup
+
+import (
+	"pass-up/ops/internal/shared"
+)
 
 import (
 	"archive/tar"
@@ -96,7 +100,7 @@ func (c component) logrotateDst() string {
 	return "/etc/logrotate.d/minio-backup"
 }
 
-func (c component) envFile(cfg *config) string {
+func (c component) envFile(cfg *shared.Config) string {
 	if c == compPG {
 		return cfg.PGEnvFile
 	}
@@ -105,7 +109,7 @@ func (c component) envFile(cfg *config) string {
 
 type deployOptions struct {
 	comps       []component
-	server      string
+	Server      string
 	dryRun      bool
 	force       bool
 	runNow      bool
@@ -131,9 +135,9 @@ func parseDeployArgs(args []string) (deployOptions, error) {
 				return opt, fmt.Errorf("--server 缺少参数")
 			}
 			i++
-			opt.server = args[i]
+			opt.Server = args[i]
 		case strings.HasPrefix(a, "--server="):
-			opt.server = strings.TrimPrefix(a, "--server=")
+			opt.Server = strings.TrimPrefix(a, "--server=")
 		case a == "-h" || a == "--help":
 			return opt, errHelp
 		case strings.HasPrefix(a, "-"):
@@ -174,17 +178,17 @@ func runBackupDeploy(args []string) int {
 		return 2
 	}
 
-	cfg, err := loadConfig()
+	cfg, err := shared.LoadConfig()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
 		return 1
 	}
-	list, err := loadServers(cfg)
+	list, err := shared.LoadServers(cfg)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
 		return 1
 	}
-	srv, err := list.resolve(opt.server, cfg.DefaultServer)
+	srv, err := list.Resolve(opt.Server, cfg.DefaultServer)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
 		return 1
@@ -195,11 +199,11 @@ func runBackupDeploy(args []string) int {
 		return 1
 	}
 
-	t := newSSHTarget(srv)
+	t := shared.NewSSHTarget(srv)
 	root := context.Background()
 
 	ctx, cancel := context.WithTimeout(root, timeoutPrecheck)
-	err = t.checkAccess(ctx)
+	err = checkAccess(t, ctx)
 	cancel()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
@@ -207,7 +211,7 @@ func runBackupDeploy(args []string) int {
 	}
 
 	ctx, cancel = context.WithTimeout(root, timeoutPrecheck)
-	missing, optional, err := t.checkDeps(ctx, opt.comps)
+	missing, optional, err := checkDeps(t, ctx, opt.comps)
 	cancel()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: 检查依赖失败：%v\n", err)
@@ -217,14 +221,14 @@ func runBackupDeploy(args []string) int {
 	if opt.installDeps && len(missing) > 0 && !opt.dryRun {
 		fmt.Printf("==> 安装缺失依赖：%s\n", strings.Join(missing, ", "))
 		ctx, cancel = context.WithTimeout(root, timeoutDeps)
-		err = t.installDeps(ctx, missing)
+		err = installDeps(t, ctx, missing)
 		cancel()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
 			return 1
 		}
 		ctx, cancel = context.WithTimeout(root, timeoutPrecheck)
-		missing, optional, err = t.checkDeps(ctx, opt.comps)
+		missing, optional, err = checkDeps(t, ctx, opt.comps)
 		cancel()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "ERROR: 复查依赖失败：%v\n", err)
@@ -244,7 +248,7 @@ func runBackupDeploy(args []string) int {
 	}
 
 	ctx, cancel = context.WithTimeout(root, timeoutPrecheck)
-	cronOut, err := t.cronOutput(ctx)
+	cronOut, err := cronOutput(t, ctx)
 	cancel()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: 读取远端 crontab 失败：%v\n", err)
@@ -265,7 +269,7 @@ func runBackupDeploy(args []string) int {
 
 	ctx, cancel = context.WithTimeout(root, timeoutPrecheck)
 	for i := range plans {
-		plans[i].remoteState, err = t.envState(ctx, cfg.DeployDir, plans[i].comp)
+		plans[i].remoteState, err = envState(t, ctx, cfg.DeployDir, plans[i].comp)
 		if err != nil {
 			cancel()
 			fmt.Fprintf(os.Stderr, "ERROR: 检查远端配置失败：%v\n", err)
@@ -292,9 +296,9 @@ func runBackupDeploy(args []string) int {
 	}
 
 	ctx, cancel = context.WithTimeout(root, timeoutPrecheck)
-	freeMB, _ := t.freeMB(ctx, cfg.DeployDir)
+	freeMB, _ := freeMB(t, ctx, cfg.DeployDir)
 	ctx, cancel = context.WithTimeout(root, timeoutPrecheck)
-	hadOld, err := t.dirExists(ctx, cfg.DeployDir)
+	hadOld, err := dirExists(t, ctx, cfg.DeployDir)
 	cancel()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: 检查远端目录失败：%v\n", err)
@@ -309,7 +313,7 @@ func runBackupDeploy(args []string) int {
 	}
 
 	ctx, cancel = context.WithTimeout(root, timeoutUpload)
-	err = t.prepareDir(ctx, cfg.DeployDir)
+	err = prepareDir(t, ctx, cfg.DeployDir)
 	cancel()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: 准备远端目录失败：%v\n", err)
@@ -329,7 +333,7 @@ func runBackupDeploy(args []string) int {
 	}
 	fmt.Printf("==> 上传脚本（%.1f KB）\n", float64(len(payload))/1024)
 	ctx, cancel = context.WithTimeout(root, timeoutUpload)
-	err = t.upload(ctx, cfg.DeployDir, payload)
+	err = upload(t, ctx, cfg.DeployDir, payload)
 	cancel()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: 上传失败：%v\n", err)
@@ -337,7 +341,7 @@ func runBackupDeploy(args []string) int {
 	}
 
 	ctx, cancel = context.WithTimeout(root, timeoutUpload)
-	err = t.swap(ctx, cfg.DeployDir, envsToKeep(plans))
+	err = swap(t, ctx, cfg.DeployDir, envsToKeep(plans))
 	cancel()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: 切换目录失败：%v\n", err)
@@ -345,7 +349,7 @@ func runBackupDeploy(args []string) int {
 	}
 
 	ctx, cancel = context.WithTimeout(root, timeoutPrecheck)
-	err = t.installLogrotate(ctx, cfg.DeployDir, opt.comps)
+	err = installLogrotate(t, ctx, cfg.DeployDir, opt.comps)
 	cancel()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: 安装 logrotate 配置失败：%v\n", err)
@@ -355,7 +359,7 @@ func runBackupDeploy(args []string) int {
 	for _, c := range opt.comps {
 		fmt.Printf("==> 安装 %s\n", c)
 		ctx, cancel = context.WithTimeout(root, timeoutInstall)
-		code, err := t.stream(ctx, "bash "+shQuote(c.installPath(cfg.DeployDir))+" </dev/null", true, nil)
+		code, err := t.Stream(ctx, "bash "+shared.ShQuote(c.installPath(cfg.DeployDir))+" </dev/null", true, nil)
 		cancel()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "ERROR: 安装 %s 失败：%v\n", c, err)
@@ -369,7 +373,7 @@ func runBackupDeploy(args []string) int {
 
 	fmt.Println("==> 运行 preflight 自检")
 	ctx, cancel = context.WithTimeout(root, timeoutPreflight)
-	code, err := t.stream(ctx, "bash "+shQuote(path.Join(cfg.DeployDir, "preflight_check.sh"))+" "+preflightArg(opt.comps)+" </dev/null", true, nil)
+	code, err := t.Stream(ctx, "bash "+shared.ShQuote(path.Join(cfg.DeployDir, "preflight_check.sh"))+" "+preflightArg(opt.comps)+" </dev/null", true, nil)
 	cancel()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: preflight 执行失败：%v\n", err)
@@ -387,7 +391,7 @@ func runBackupDeploy(args []string) int {
 		for _, c := range opt.comps {
 			fmt.Printf("==> 首次运行 %s 备份（可能需要较长时间）\n", c)
 			ctx, cancel = context.WithTimeout(root, timeoutRunNow)
-			code, err := t.stream(ctx, "bash "+shQuote(c.backupPath(cfg.DeployDir)), true, nil)
+			code, err := t.Stream(ctx, "bash "+shared.ShQuote(c.backupPath(cfg.DeployDir)), true, nil)
 			cancel()
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "ERROR: %s 备份执行失败：%v\n", c, err)
@@ -407,14 +411,14 @@ func runBackupDeploy(args []string) int {
 	return 0
 }
 
-func failAfterInstall(root context.Context, t *sshTarget, cfg *config, comps []component, hadOld bool) int {
+func failAfterInstall(root context.Context, t *shared.SSHTarget, cfg *shared.Config, comps []component, hadOld bool) int {
 	if !hadOld {
 		fmt.Fprintln(os.Stderr, "全新安装未回滚（没有可回滚的旧版本）；修复配置后重跑 ops backup deploy。")
 		return 1
 	}
 	fmt.Fprintln(os.Stderr, "==> 回滚到上一版脚本")
 	ctx, cancel := context.WithTimeout(root, timeoutUpload)
-	err := t.rollback(ctx, cfg.DeployDir)
+	err := rollback(t, ctx, cfg.DeployDir)
 	cancel()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: 回滚失败，请人工检查 %s.old 与 %s.failed：%v\n", cfg.DeployDir, cfg.DeployDir, err)
@@ -422,14 +426,14 @@ func failAfterInstall(root context.Context, t *sshTarget, cfg *config, comps []c
 	}
 	for _, c := range comps {
 		ctx, cancel = context.WithTimeout(root, timeoutInstall)
-		t.stream(ctx, "bash "+shQuote(c.installPath(cfg.DeployDir))+" </dev/null", true, nil)
+		t.Stream(ctx, "bash "+shared.ShQuote(c.installPath(cfg.DeployDir))+" </dev/null", true, nil)
 		cancel()
 	}
 	fmt.Fprintln(os.Stderr, "已回滚脚本并重装旧版本；配置未回滚。")
 	return 1
 }
 
-func printDeployPlan(cfg *config, srv *server, opt deployOptions, plans []envPlan, freeMB string) {
+func printDeployPlan(cfg *shared.Config, srv *shared.Server, opt deployOptions, plans []envPlan, freeMB string) {
 	fmt.Printf("部署计划\n  服务器：%s（%s）\n  主机：%s@%s:%d\n  组件：%s\n  目录：%s\n",
 		srv.Name, srv.Role, srv.User, srv.Host, srv.Port, joinComponents(opt.comps), cfg.DeployDir)
 	for _, p := range plans {
@@ -452,7 +456,7 @@ func localState(p envPlan) string {
 	return p.localIssue
 }
 
-func printDryRun(cfg *config, srv *server, opt deployOptions) {
+func printDryRun(cfg *shared.Config, srv *shared.Server, opt deployOptions) {
 	newDir := cfg.DeployDir + ".new"
 	fmt.Println("将要执行的远端命令：")
 	fmt.Printf("  rm -rf %s && mkdir -p %s && chown %s %s\n", newDir, newDir, srv.User, newDir)
@@ -486,7 +490,7 @@ func preflightArg(comps []component) string {
 	return string(comps[0])
 }
 
-func buildEnvPlans(cfg *config, comps []component) ([]envPlan, error) {
+func buildEnvPlans(cfg *shared.Config, comps []component) ([]envPlan, error) {
 	var plans []envPlan
 	for _, c := range comps {
 		p := envPlan{comp: c, local: c.envFile(cfg)}
@@ -516,16 +520,16 @@ func inspectLocalEnv(p string) (string, bool) {
 	return "", true
 }
 
-func (t *sshTarget) checkAccess(ctx context.Context) error {
-	out, _, err := t.capture(ctx, "id -u", false)
+func checkAccess(t *shared.SSHTarget, ctx context.Context) error {
+	out, _, err := t.Capture(ctx, "id -u", false)
 	if err != nil {
 		return fmt.Errorf("SSH 连接失败：%w", err)
 	}
 	if strings.TrimSpace(out) == "0" {
-		t.isRoot = true
+		t.IsRoot = true
 		return nil
 	}
-	_, code, err := t.capture(ctx, "true", true)
+	_, code, err := t.Capture(ctx, "true", true)
 	if err != nil {
 		return fmt.Errorf("检查 sudo 失败：%w", err)
 	}
@@ -535,7 +539,7 @@ func (t *sshTarget) checkAccess(ctx context.Context) error {
 	return nil
 }
 
-func (t *sshTarget) checkDeps(ctx context.Context, comps []component) (missing, optional []string, err error) {
+func checkDeps(t *shared.SSHTarget, ctx context.Context, comps []component) (missing, optional []string, err error) {
 	required := map[string]bool{
 		"tar": true, "crontab": true, "ssh": true, "scp": true, "nc": true,
 	}
@@ -554,7 +558,7 @@ func (t *sshTarget) checkDeps(ctx context.Context, comps []component) (missing, 
 	names = append(names, "logrotate")
 
 	cmd := `for c in ` + strings.Join(names, " ") + `; do command -v "$c" >/dev/null 2>&1 || echo "$c"; done`
-	out, _, err := t.capture(ctx, cmd, false)
+	out, _, err := t.Capture(ctx, cmd, false)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -568,8 +572,8 @@ func (t *sshTarget) checkDeps(ctx context.Context, comps []component) (missing, 
 	return missing, optional, nil
 }
 
-func (t *sshTarget) installDeps(ctx context.Context, missing []string) error {
-	code, err := t.stream(ctx, depsInstallScript(missing), true, nil)
+func installDeps(t *shared.SSHTarget, ctx context.Context, missing []string) error {
+	code, err := t.Stream(ctx, depsInstallScript(missing), true, nil)
 	if err != nil {
 		return fmt.Errorf("安装依赖失败：%w", err)
 	}
@@ -698,8 +702,8 @@ func dedup(in []string) []string {
 	return out
 }
 
-func (t *sshTarget) cronOutput(ctx context.Context) (string, error) {
-	out, _, err := t.capture(ctx, "crontab -l 2>/dev/null || true", true)
+func cronOutput(t *shared.SSHTarget, ctx context.Context) (string, error) {
+	out, _, err := t.Capture(ctx, "crontab -l 2>/dev/null || true", true)
 	return out, err
 }
 
@@ -725,21 +729,21 @@ func normRemoteDir(d string) string {
 	return strings.TrimRight(filepath.ToSlash(d), "/")
 }
 
-func (t *sshTarget) envState(ctx context.Context, dir string, c component) (string, error) {
+func envState(t *shared.SSHTarget, ctx context.Context, dir string, c component) (string, error) {
 	p := path.Join(dir, c.envRel())
 	cmd := fmt.Sprintf(
 		`if [ -f %s ]; then if grep -Eq 'CHANGE_ME|YOUR_' %s; then echo PLACEHOLDER; else echo OK; fi; else echo MISSING; fi`,
-		shQuote(p), shQuote(p))
-	out, _, err := t.capture(ctx, cmd, true)
+		shared.ShQuote(p), shared.ShQuote(p))
+	out, _, err := t.Capture(ctx, cmd, true)
 	if err != nil {
 		return "", err
 	}
 	return strings.TrimSpace(out), nil
 }
 
-func (t *sshTarget) freeMB(ctx context.Context, dir string) (string, error) {
+func freeMB(t *shared.SSHTarget, ctx context.Context, dir string) (string, error) {
 	parent := path.Dir(dir)
-	out, _, err := t.capture(ctx, "df -P -m "+shQuote(parent)+" 2>/dev/null | tail -1", false)
+	out, _, err := t.Capture(ctx, "df -P -m "+shared.ShQuote(parent)+" 2>/dev/null | tail -1", false)
 	if err != nil {
 		return "", err
 	}
@@ -750,8 +754,8 @@ func (t *sshTarget) freeMB(ctx context.Context, dir string) (string, error) {
 	return f[3], nil
 }
 
-func (t *sshTarget) dirExists(ctx context.Context, dir string) (bool, error) {
-	out, code, err := t.capture(ctx, "test -d "+shQuote(dir)+" && echo YES || echo NO", true)
+func dirExists(t *shared.SSHTarget, ctx context.Context, dir string) (bool, error) {
+	out, code, err := t.Capture(ctx, "test -d "+shared.ShQuote(dir)+" && echo YES || echo NO", true)
 	if err != nil {
 		return false, err
 	}
@@ -761,15 +765,15 @@ func (t *sshTarget) dirExists(ctx context.Context, dir string) (bool, error) {
 	return strings.TrimSpace(out) == "YES", nil
 }
 
-func (t *sshTarget) prepareDir(ctx context.Context, dir string) error {
+func prepareDir(t *shared.SSHTarget, ctx context.Context, dir string) error {
 	newDir := dir + ".new"
-	user := t.user
+	user := t.User
 	if user == "" {
 		user = "root"
 	}
 	cmd := fmt.Sprintf("set -e; rm -rf %s; mkdir -p %s; chown %s %s",
-		shQuote(newDir), shQuote(newDir), shQuote(user), shQuote(newDir))
-	code, err := t.stream(ctx, cmd, true, nil)
+		shared.ShQuote(newDir), shared.ShQuote(newDir), shared.ShQuote(user), shared.ShQuote(newDir))
+	code, err := t.Stream(ctx, cmd, true, nil)
 	if err != nil {
 		return err
 	}
@@ -779,9 +783,9 @@ func (t *sshTarget) prepareDir(ctx context.Context, dir string) error {
 	return nil
 }
 
-func (t *sshTarget) upload(ctx context.Context, dir string, payload []byte) error {
-	cmd := "tar -xzf - -C " + shQuote(dir+".new")
-	code, err := t.stream(ctx, cmd, false, bytes.NewReader(payload))
+func upload(t *shared.SSHTarget, ctx context.Context, dir string, payload []byte) error {
+	cmd := "tar -xzf - -C " + shared.ShQuote(dir+".new")
+	code, err := t.Stream(ctx, cmd, false, bytes.NewReader(payload))
 	if err != nil {
 		return err
 	}
@@ -791,7 +795,7 @@ func (t *sshTarget) upload(ctx context.Context, dir string, payload []byte) erro
 	return nil
 }
 
-func (t *sshTarget) swap(ctx context.Context, dir string, keep []component) error {
+func swap(t *shared.SSHTarget, ctx context.Context, dir string, keep []component) error {
 	var b strings.Builder
 	b.WriteString("set -e\n")
 	for _, c := range keep {
@@ -799,13 +803,13 @@ func (t *sshTarget) swap(ctx context.Context, dir string, keep []component) erro
 		oldEnv := path.Join(dir, rel)
 		newEnv := path.Join(dir+".new", rel)
 		fmt.Fprintf(&b, "if [ -f %s ] && [ ! -f %s ]; then cp -p %s %s; fi\n",
-			shQuote(oldEnv), shQuote(newEnv), shQuote(oldEnv), shQuote(newEnv))
+			shared.ShQuote(oldEnv), shared.ShQuote(newEnv), shared.ShQuote(oldEnv), shared.ShQuote(newEnv))
 	}
-	fmt.Fprintf(&b, "rm -rf %s\n", shQuote(dir+".old"))
-	fmt.Fprintf(&b, "if [ -d %s ]; then mv %s %s; fi\n", shQuote(dir), shQuote(dir), shQuote(dir+".old"))
-	fmt.Fprintf(&b, "mv %s %s\n", shQuote(dir+".new"), shQuote(dir))
+	fmt.Fprintf(&b, "rm -rf %s\n", shared.ShQuote(dir+".old"))
+	fmt.Fprintf(&b, "if [ -d %s ]; then mv %s %s; fi\n", shared.ShQuote(dir), shared.ShQuote(dir), shared.ShQuote(dir+".old"))
+	fmt.Fprintf(&b, "mv %s %s\n", shared.ShQuote(dir+".new"), shared.ShQuote(dir))
 
-	code, err := t.stream(ctx, b.String(), true, nil)
+	code, err := t.Stream(ctx, b.String(), true, nil)
 	if err != nil {
 		return err
 	}
@@ -815,19 +819,19 @@ func (t *sshTarget) swap(ctx context.Context, dir string, keep []component) erro
 	return nil
 }
 
-func (t *sshTarget) installLogrotate(ctx context.Context, dir string, comps []component) error {
+func installLogrotate(t *shared.SSHTarget, ctx context.Context, dir string, comps []component) error {
 	var b strings.Builder
 	b.WriteString("set -e\n")
 	for _, c := range comps {
 		src := c.logrotateSrc(dir)
 		dst := c.logrotateDst()
 		fmt.Fprintf(&b, "if [ -f %s ]; then cp -f %s %s && chmod 644 %s; else echo '缺少 %s' >&2; exit 1; fi\n",
-			shQuote(src), shQuote(src), shQuote(dst), shQuote(dst), src)
+			shared.ShQuote(src), shared.ShQuote(src), shared.ShQuote(dst), shared.ShQuote(dst), src)
 	}
 	if len(comps) == 0 {
 		return nil
 	}
-	code, err := t.stream(ctx, b.String(), true, nil)
+	code, err := t.Stream(ctx, b.String(), true, nil)
 	if err != nil {
 		return err
 	}
@@ -837,12 +841,12 @@ func (t *sshTarget) installLogrotate(ctx context.Context, dir string, comps []co
 	return nil
 }
 
-func (t *sshTarget) rollback(ctx context.Context, dir string) error {
+func rollback(t *shared.SSHTarget, ctx context.Context, dir string) error {
 	failed := dir + ".failed"
 	cmd := fmt.Sprintf("set -e; rm -rf %s; if [ -d %s ]; then mv %s %s; fi; if [ -d %s ]; then mv %s %s; fi",
-		shQuote(failed), shQuote(dir), shQuote(dir), shQuote(failed),
-		shQuote(dir+".old"), shQuote(dir+".old"), shQuote(dir))
-	code, err := t.stream(ctx, cmd, true, nil)
+		shared.ShQuote(failed), shared.ShQuote(dir), shared.ShQuote(dir), shared.ShQuote(failed),
+		shared.ShQuote(dir+".old"), shared.ShQuote(dir+".old"), shared.ShQuote(dir))
+	code, err := t.Stream(ctx, cmd, true, nil)
 	if err != nil {
 		return err
 	}
@@ -969,26 +973,26 @@ func runBackupVerify(args []string) int {
 			comps = c
 		}
 	}
-	cfg, err := loadConfig()
+	cfg, err := shared.LoadConfig()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
 		return 1
 	}
-	list, err := loadServers(cfg)
+	list, err := shared.LoadServers(cfg)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
 		return 1
 	}
-	srv, err := list.resolve(serverName, cfg.DefaultServer)
+	srv, err := list.Resolve(serverName, cfg.DefaultServer)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
 		return 1
 	}
-	t := newSSHTarget(srv)
+	t := shared.NewSSHTarget(srv)
 	root := context.Background()
 
 	ctx, cancel := context.WithTimeout(root, timeoutPrecheck)
-	err = t.checkAccess(ctx)
+	err = checkAccess(t, ctx)
 	cancel()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
@@ -996,7 +1000,7 @@ func runBackupVerify(args []string) int {
 	}
 
 	ctx, cancel = context.WithTimeout(root, timeoutPrecheck)
-	exists, err := t.dirExists(ctx, cfg.DeployDir)
+	exists, err := dirExists(t, ctx, cfg.DeployDir)
 	cancel()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
@@ -1008,7 +1012,7 @@ func runBackupVerify(args []string) int {
 	}
 
 	ctx, cancel = context.WithTimeout(root, timeoutPreflight)
-	code, err := t.stream(ctx, "bash "+shQuote(path.Join(cfg.DeployDir, "preflight_check.sh"))+" "+preflightArg(comps), true, nil)
+	code, err := t.Stream(ctx, "bash "+shared.ShQuote(path.Join(cfg.DeployDir, "preflight_check.sh"))+" "+preflightArg(comps), true, nil)
 	cancel()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: preflight 执行失败：%v\n", err)
@@ -1021,4 +1025,42 @@ func runBackupVerify(args []string) int {
 		fmt.Println("WARN: preflight 有警告。")
 	}
 	return 0
+}
+
+// CmdBackup 是 backup 动词的分发入口：与 runBackupDeploy / runBackupVerify 同文件，
+// main.go 只保留全局注册表、run 与 usage。
+func CmdBackup(args []string) int {
+	if len(args) == 0 {
+		backupUsage()
+		return 2
+	}
+	switch args[0] {
+	case "deploy":
+		return runBackupDeploy(args[1:])
+	case "verify":
+		return runBackupVerify(args[1:])
+	case "help", "-h", "--help":
+		backupUsage()
+		return 0
+	default:
+		fmt.Fprintf(os.Stderr, "未知子命令：backup %s\n\n", args[0])
+		backupUsage()
+		return 2
+	}
+}
+
+func backupUsage() {
+	fmt.Print(`用法:
+  ops backup deploy [pg|minio|all] --server <name> [--dry-run] [--force] [--run-now] [--install-deps]
+  ops backup verify [pg|minio|all] --server <name>
+
+目标机只从服务器清单（servers.json）里按 name 选择。
+
+选项:
+  --server <name> 目标服务器（省略则用清单的 default / 唯一的 backup）
+  --dry-run       只预检并打印将执行的远端命令，不修改远端
+  --force         用本机 backup.env 覆盖远端已有配置（旧配置随 .old 目录保留）
+  --run-now       安装成功后立即跑一次备份（写操作，可能较长时间）
+  --install-deps  自动安装缺失依赖（apt/dnf/yum；mc 从官方地址下载）
+`)
 }

@@ -1,4 +1,8 @@
-package main
+package servers
+
+import (
+	"pass-up/ops/internal/shared"
+)
 
 import (
 	"context"
@@ -13,8 +17,8 @@ import (
 )
 
 const (
-	timeoutServerCheck = 60 * time.Second
-	timeoutApplySudo   = 2 * time.Minute
+	TimeoutServerCheck = 60 * time.Second
+	TimeoutApplySudo   = 2 * time.Minute
 )
 
 // 🔴 只写一个 drop-in；权限必须 0440 root:root，否则 sudo 忽略该片段。
@@ -26,43 +30,43 @@ func sudoersContent(user string) string {
 	return user + " ALL=(ALL) NOPASSWD:ALL\n"
 }
 
-// checkServer 只读：SSH 可达 + 当前账号能否 sudo -n。
+// CheckServer 只读：SSH 可达 + 当前账号能否 sudo -n。
 // 绝不复用清单里的 sudo.password —— 那会把「有密码」误报成「已免密」。
-func checkServer(ctx context.Context, s *server) serverStatus {
-	st := serverStatus{SSH: "unknown", CheckedAt: time.Now().Format(time.RFC3339)}
-	t := newSSHTarget(s)
-	t.sudoPassword = ""
+func CheckServer(ctx context.Context, s *shared.Server) shared.ServerStatus {
+	st := shared.ServerStatus{SSH: "unknown", CheckedAt: time.Now().Format(time.RFC3339)}
+	t := shared.NewSSHTarget(s)
+	t.SudoPassword = ""
 
-	uid, code, err := t.capture(ctx, "id -u", false)
+	uid, code, err := t.Capture(ctx, "id -u", false)
 	if err != nil {
 		st.SSH = "fail"
 		st.Sudo = "error"
-		st.Detail = "SSH 连接失败：" + firstLine(err.Error())
+		st.Detail = "SSH 连接失败：" + shared.FirstLine(err.Error())
 		return st
 	}
 	if code != 0 {
 		st.SSH = "fail"
 		st.Sudo = "error"
-		st.Detail = "SSH 登录失败：" + firstLine(uid)
+		st.Detail = "SSH 登录失败：" + shared.FirstLine(uid)
 		return st
 	}
 	st.SSH = "ok"
 
-	if s.User == "root" || s.Sudo.Mode == sudoModeRoot || strings.TrimSpace(uid) == "0" {
+	if s.User == "root" || s.Sudo.Mode == shared.SudoModeRoot || strings.TrimSpace(uid) == "0" {
 		st.Sudo = "root"
 		st.Detail = "root 登录，无需配置免密 sudo"
 		return st
 	}
-	if s.Sudo.Mode == sudoModeNone {
+	if s.Sudo.Mode == shared.SudoModeNone {
 		st.Sudo = "disabled"
 		st.Detail = "清单标记 sudo.mode=none，不配置"
 		return st
 	}
 
-	_, code, err = t.capture(ctx, "true", true)
+	_, code, err = t.Capture(ctx, "true", true)
 	if err != nil {
 		st.Sudo = "error"
-		st.Detail = "检查 sudo 失败：" + firstLine(err.Error())
+		st.Detail = "检查 sudo 失败：" + shared.FirstLine(err.Error())
 		return st
 	}
 	if code == 0 {
@@ -82,12 +86,12 @@ type applyOutcome struct {
 	Message    string
 }
 
-// applySudo 为 server.user 落地免密 sudo；password 走 stdin，不进命令行。
-func applySudo(ctx context.Context, s *server, password string, log io.Writer) (*applyOutcome, error) {
-	if s.User == "root" || s.Sudo.Mode == sudoModeRoot {
+// ApplySudo 为 shared.Server.User 落地免密 sudo；password 走 stdin，不进命令行。
+func ApplySudo(ctx context.Context, s *shared.Server, password string, log io.Writer) (*applyOutcome, error) {
+	if s.User == "root" || s.Sudo.Mode == shared.SudoModeRoot {
 		return &applyOutcome{AlreadyOK: true, Message: "root 登录，无需配置免密 sudo"}, nil
 	}
-	if s.Sudo.Mode == sudoModeNone {
+	if s.Sudo.Mode == shared.SudoModeNone {
 		return nil, fmt.Errorf("清单把 %s 标记为 sudo.mode=none，不配置免密 sudo", s.Name)
 	}
 	if password == "" {
@@ -97,21 +101,21 @@ func applySudo(ctx context.Context, s *server, password string, log io.Writer) (
 		return nil, fmt.Errorf("需要初始 sudo 密码：在清单里填 sudo.password，或用 --password-stdin / 界面一次性输入")
 	}
 
-	t := newSSHTarget(s)
-	t.sudoPassword = ""
+	t := shared.NewSSHTarget(s)
+	t.SudoPassword = ""
 
-	uid, code, err := t.capture(ctx, "id -u", false)
+	uid, code, err := t.Capture(ctx, "id -u", false)
 	if err != nil {
 		return nil, fmt.Errorf("SSH 连接失败：%w", err)
 	}
 	if code != 0 {
-		return nil, fmt.Errorf("SSH 登录失败：%s", firstLine(uid))
+		return nil, fmt.Errorf("SSH 登录失败：%s", shared.FirstLine(uid))
 	}
 	if strings.TrimSpace(uid) == "0" {
 		return &applyOutcome{AlreadyOK: true, Message: "远端账号已是 root，无需配置"}, nil
 	}
 
-	_, code, err = t.capture(ctx, "true", true)
+	_, code, err = t.Capture(ctx, "true", true)
 	if err == nil && code == 0 {
 		return &applyOutcome{AlreadyOK: true, Message: "已存在可用的免密 sudo，无需重复配置"}, nil
 	}
@@ -120,18 +124,18 @@ func applySudo(ctx context.Context, s *server, password string, log io.Writer) (
 	}
 
 	// 先用初始密码确认 sudo 本身可用，再动文件。
-	t.sudoPassword = password
-	out, code, err := t.capture(ctx, "true", true)
+	t.SudoPassword = password
+	out, code, err := t.Capture(ctx, "true", true)
 	if err != nil {
 		return nil, fmt.Errorf("检查 sudo 失败：%w", err)
 	}
 	if code != 0 {
-		return nil, fmt.Errorf("sudo 密码错误或不可用：%s", firstLine(out))
+		return nil, fmt.Errorf("sudo 密码错误或不可用：%s", shared.FirstLine(out))
 	}
 
 	dropin := sudoersDropInPath(s.User)
 	desired := sudoersContent(s.User)
-	existing, _, err := t.capture(ctx, "if [ -f "+shQuote(dropin)+" ]; then cat "+shQuote(dropin)+"; fi", true)
+	existing, _, err := t.Capture(ctx, "if [ -f "+shared.ShQuote(dropin)+" ]; then cat "+shared.ShQuote(dropin)+"; fi", true)
 	if err != nil {
 		return nil, fmt.Errorf("读取现有 sudoers 片段失败：%w", err)
 	}
@@ -148,25 +152,25 @@ func applySudo(ctx context.Context, s *server, password string, log io.Writer) (
 		}
 	}
 
-	res, code, err := t.capture(ctx, scriptCommand(sudoApplyScript(dropin, desired)), true)
+	res, code, err := t.Capture(ctx, scriptCommand(sudoApplyScript(dropin, desired)), true)
 	if err != nil {
 		return nil, fmt.Errorf("写入 sudoers 片段失败：%w", err)
 	}
 	if code != 0 {
-		return nil, fmt.Errorf("写入 sudoers 片段失败：%s", firstLine(res))
+		return nil, fmt.Errorf("写入 sudoers 片段失败：%s", shared.FirstLine(res))
 	}
 
 	// 🔴 不能以 root 身份验证：root 自己 sudo -n 永远成功，等于没验。
-	verify, code, err := t.capture(ctx, "runuser -u "+shQuote(s.User)+" -- sudo -n true", true)
+	verify, code, err := t.Capture(ctx, "runuser -u "+shared.ShQuote(s.User)+" -- sudo -n true", true)
 	if err != nil || code != 0 {
-		detail := firstLine(verify)
+		detail := shared.FirstLine(verify)
 		if err != nil {
 			detail = err.Error()
 		}
 		if existing == "" {
-			t.capture(ctx, "rm -f "+shQuote(dropin), true)
+			t.Capture(ctx, "rm -f "+shared.ShQuote(dropin), true)
 		} else {
-			t.capture(ctx, scriptCommand(sudoRestoreScript(dropin, existing)), true)
+			t.Capture(ctx, scriptCommand(sudoRestoreScript(dropin, existing)), true)
 		}
 		if strings.Contains(detail, "runuser: command not found") {
 			return nil, fmt.Errorf("验证失败：远端缺少 runuser，无法以 %s 身份验证（已回滚）", s.User)
@@ -185,31 +189,31 @@ func applySudo(ctx context.Context, s *server, password string, log io.Writer) (
 // sudoApplyScript 在 root 下执行：临时文件 → visudo 自检 → install 落位。
 func sudoApplyScript(dropin, content string) string {
 	return "set -e\n" +
-		"tmp=" + shQuote(dropin+".tmp.$$") + "\n" +
+		"tmp=" + shared.ShQuote(dropin+".tmp.$$") + "\n" +
 		"trap 'rm -f \"$tmp\"' EXIT\n" +
-		"printf '%s' " + shQuote(content) + " > \"$tmp\"\n" +
+		"printf '%s' " + shared.ShQuote(content) + " > \"$tmp\"\n" +
 		"chmod 0440 \"$tmp\"\n" +
 		"visudo -cf \"$tmp\"\n" +
-		"install -m 0440 -o root -g root \"$tmp\" " + shQuote(dropin) + "\n"
+		"install -m 0440 -o root -g root \"$tmp\" " + shared.ShQuote(dropin) + "\n"
 }
 
 func sudoRestoreScript(dropin, content string) string {
 	return "set -e\n" +
-		"tmp=" + shQuote(dropin+".restore.$$") + "\n" +
+		"tmp=" + shared.ShQuote(dropin+".restore.$$") + "\n" +
 		"trap 'rm -f \"$tmp\"' EXIT\n" +
-		"printf '%s' " + shQuote(content) + " > \"$tmp\"\n" +
-		"install -m 0440 -o root -g root \"$tmp\" " + shQuote(dropin) + "\n"
+		"printf '%s' " + shared.ShQuote(content) + " > \"$tmp\"\n" +
+		"install -m 0440 -o root -g root \"$tmp\" " + shared.ShQuote(dropin) + "\n"
 }
 
 // scriptCommand 用 base64 传脚本：stdin 只留给 sudo 密码，不用 ssh -t。
 func scriptCommand(script string) string {
 	enc := base64.StdEncoding.EncodeToString([]byte(script))
-	return "echo " + shQuote(enc) + " | base64 -d | sh"
+	return "echo " + shared.ShQuote(enc) + " | base64 -d | sh"
 }
 
 // backupSudoersFragment 把已有的不同内容拉回本机（600，路径不含私钥）。
 func backupSudoersFragment(name, content string) (string, error) {
-	dir := filepath.Join(userConfigDir(), "backups", "sudoers")
+	dir := filepath.Join(shared.UserConfigDir(), "backups", "sudoers")
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return "", err
 	}
@@ -228,7 +232,7 @@ func backupSudoersFragment(name, content string) (string, error) {
 }
 
 // choosePassword：清单里的 sudo.password 优先，其次本次输入。
-func choosePassword(s *server, input string) string {
+func choosePassword(s *shared.Server, input string) string {
 	if s.Sudo.Password != "" {
 		return s.Sudo.Password
 	}

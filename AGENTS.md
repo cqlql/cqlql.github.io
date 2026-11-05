@@ -2,15 +2,20 @@
 
 > 状态：**P0 服务器管理（含一键免密 sudo）已实现并真机验证**；
 > P1 备份能力部署已实现并真机验证；一键启动与桌面快捷方式（S2/S3 + 图标同源）已实现，
-> S4 真机人工验收待做；P2 监控、P3–P4 应用部署仍为方案（2026-11-05）。
+> S4 真机人工验收待做；P2 监控、P3–P4 应用部署仍为方案、代码未实现（2026-11-05）。
+> **2026-11-05 已按能力竖切 Go 包**：`main.go` 薄入口 + `internal/{shared,servers,backup,ui,launcher}`。
 > 只放「每次动代码都要遵守」的红线：一句结论 + 一个指针。判据、流程、踩坑都在 `docs/`。
 > 通用文档规则以 `cqlql-notes/docs/工程/文档约定.md` 为准。
 
 ## 项目概述
 
-- 本地单二进制运维工具：`ops servers list/check/apply-sudo` 管服务器与免密 sudo；
-  `ops backup deploy` 安装/升级备份能力；`ops status/ui` 只读查看备份；
-  `ops deploy/rollback` 单机一键 Docker 部署。
+- 本地单二进制运维工具，**已实现**：`ops servers list/check/apply-sudo` 管服务器与免密 sudo；
+  `ops backup deploy/verify` 安装、升级与预检备份能力；`ops ui` 只读查看服务器清单与检查结果；
+  `ops shortcut` / `ops menu` / `启动运维.cmd` 是本机一键启动入口。
+- **仍是方案、代码未实现**：`ops status`（P2 备份监控）、`ops deploy` / `ops rollback`
+  （P3–P4 单机 Docker 部署）；设计见 `docs/backup-monitor.md` / `docs/deploy.md`。
+- 代码按能力分包：`main.go` 只做命令分发，`internal/<能力>/` 放实现，
+  `internal/shared/` 放配置、ssh 封装与服务器清单模型。详见「目录与边界」。
 - 服务器（备份端 / 应用端）只在 `servers.json` 登记一处，命令用 `--server <name>` 选目标。
 - 仅 Go 标准库；所有动作在本机执行，经本机 `ssh` 到目标机。
 - 🔴 不改 `pass-up.backend` / `pass-up.ai` / `pass-up.frontend` 的任何代码。
@@ -34,8 +39,9 @@
 7. 🔴 **Flyway 单向**：镜像可回滚，数据库不回滚；回滚后起不来要如实说明。
    详见 `docs/deploy.md`。
 8. 🔴 **私钥路径不打印**：可以写进配置，但不出现在任何输出、错误与日志。
-9. 🔴 **安装与监控分离**：`status` / `ui` 只看与检查；写 crontab / logrotate / 目录 /
-   sudoers 只走 `ops backup deploy` 或 `ops servers apply-sudo`，**不复用只读账号**。
+9. 🔴 **安装与监控分离**：只读命令（`ui`，以及 P2 规划中的 `status`）只看与检查；写 crontab /
+   logrotate / 目录 / sudoers 只走 `ops backup deploy` 或 `ops servers apply-sudo`，
+   **不复用只读账号**。
    sudo 密码只经 **stdin**（CLI `--password-stdin` / 界面单次请求内存），
    清单可选的 `sudo.password` 用完建议删除；**禁止 `--password` 参数**。
    详见 `docs/backup-deploy.md`、`docs/servers.md`。
@@ -66,20 +72,43 @@ ops servers check all
 ops servers apply-sudo <name> --password-stdin
 ops backup deploy --server <name> --dry-run
 ops backup deploy --server <name> --install-deps
-ops status --server <name> [--json]
+ops backup verify --server <name>
 ops ui [--port 7788]
 ops shortcut [--name <名字>] [--remove]
 ops menu --help
-ops deploy --server <name> --dry-run
 ```
+
+上面只列 `main.go` 注册表里**已实现**的命令；`ops status` / `ops deploy` / `ops rollback`
+尚未实现，不要照抄执行。子命令选项以各能力的 `--help` 为准。
+本机二进制：`go build -o ops.exe .`（`启动运维.cmd` 按仓根 `ops.exe` 定位，不要挪）。
 
 ## 目录与边界
 
-- **暂不竖切包**：当前只有「服务器管理 / 备份 / 部署」三个能力，按文件横切更好找。
-  母本阈值是「领域 ≥10 或接口 ≥30」才竖切（`cqlql-notes/docs/工程/目录结构规范.md` §6）。
-- `config.go` / `remote.go` 是共用层，不得反向依赖 `status.go` / `deploy.go` 的业务结构。
-- 目录是长出来的：**不建空目录**；`ui/` 已有页面与图标，快捷方式 / 菜单按文件横切。
-- 计划中的文件树见 `docs/backup-monitor.md` §7 与 `docs/deploy.md` §5。
+- **已按能力竖切 Go 包**（2026-11-05）。母本 `cqlql-notes/docs/工程/目录结构规范.md` §6
+  的四项阈值（领域 ≥10 / 接口 ≥30 / ≥2 人 / 表数 ≥10 或第二存储）仍未达到，
+  本次是按项目决定提前拆；代价是 41 个跨包符号导出、6 套测试归位与共用层下沉。
+  `main.go` 只留 `main` / `commandHandler` / `run` / 全局 `usage`。
+- 🔴 **依赖方向只许单向**：
+  `main → {servers, backup, ui, launcher} → shared`，另有 `ui → servers`、`launcher → ui`。
+  `shared` **不得 import 任何能力包**，也不得引用能力专属类型；出现环时先把共享常量 / 模型
+  下沉到 `internal/shared/`，不要在能力包之间打补丁。
+- `internal/shared/`：`config.go`（配置与 `ConfigDirEnv`）、`remote.go`（`SSHTarget` 与 ssh 封装）、
+  `servers.go`（服务器清单、状态与 `CheckRow` 展示模型）。`configDirEnv` 曾定义在
+  `shortcut.go`，导致 shared 反向依赖 launcher，已下沉，别再挪回去。
+- 🔴 **跨包不能给共享类型挂方法**：`SSHTarget` 的 backup 专属操作只能是
+  `internal/backup/deploy.go` 里的自由函数（`checkAccess(t, ctx, ...)` 等），
+  首参为 `*shared.SSHTarget`；`SSHTarget` 的字段（`Host` / `User` / `Key` / `SudoPassword` 等）
+  因跨包访问而导出，不要改回小写。
+- 🔴 **动词注册表只有一份**：`commandHandler` 在 `main.go`。菜单不反向依赖入口，
+  `launcher.CmdMenu(args, exec, probe)` 由 `main.go` 注入 `run` 与
+  `func(n string) bool { _, ok := commandHandler(n); return ok }`；不要再抄一份动词表。
+- `internal/ui/` 的 `index.html` / `ops.ico` 与 `ui.go` 同目录才能 `//go:embed`；
+  图标字节经 `ui.IconBytes` 导出给 `launcher` 写快捷方式，两处同源。
+- `internal/launcher/` 的 `menu_windows.go` / `menu_other.go` 靠 build tag 切平台实现。
+- 命令入口统一 `Cmd<动词>`（如 `backup.CmdBackup`、`servers.CmdServers`）；
+  能力的 CLI 分发与 usage 归各自包，测试文件也随能力归位。
+- `docs/backup-monitor.md` §7 与 `docs/deploy.md` §5 的文件树是 P2/P3–P4 的**计划**，
+  `status.go` / `deploy.go` / `rollback.go` 目前都不存在；落地时在 `internal/<能力>/` 下建包。
 
 ## 文档规则
 
@@ -97,9 +126,9 @@ ops deploy --server <name> --dry-run
 | :--- | :--- | :--- |
 | 服务器管理 + 一键免密 sudo（P0 先做） | `docs/servers.md` | 主机只来自清单；只写一个 sudoers drop-in；验证用 `runuser` |
 | 备份能力部署（P1 ✅，监控的前置） | `docs/backup-deploy.md` | 复用 `install.sh`；不覆盖 `backup.env`；不静默迁移目录；logrotate 由工具落盘 |
-| 备份监控（P2） | `docs/backup-monitor.md` | 只读采集；时间差在远端算；`-` 不是 0 |
-| 单机一键 Docker 部署（P3–P4） | `docs/deploy.md` | `.env` 去 CRLF；镜像前缀必须等于 compose；Flyway 单向 |
+| 备份监控（P2 · 方案，未实现） | `docs/backup-monitor.md` | 只读采集；时间差在远端算；`-` 不是 0 |
+| 单机一键 Docker 部署（P3–P4 · 方案，未实现） | `docs/deploy.md` | `.env` 去 CRLF；镜像前缀必须等于 compose；Flyway 单向 |
 | 一键启动与桌面快捷方式（S2/S3 ✅，S4 人工验收待做） | `docs/one-click-launch.md` | `.lnk` 只指启动器；图标用独立 `.ico`；名字校验挡路径穿越；双击绝不触发写操作 |
 | 配置（唯一维护处） | `docs/config.md` | 所有 `PASS_UP_OPS_*` 只在这里定义一次 |
 | 文档治理 | `cqlql-notes/docs/工程/文档约定.md` | 新加文档前先过 4 问；索引只有一份 |
-| 目录与依赖 | `cqlql-notes/docs/工程/目录结构规范.md` | 按能力切；未过阈值先横切 |
+| 目录与依赖 | `cqlql-notes/docs/工程/目录结构规范.md` + 本文「目录与边界」 | 依赖单向；`shared` 不得反向 import 能力包；跨包符号必须导出 |
