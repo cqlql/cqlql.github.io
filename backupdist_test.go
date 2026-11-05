@@ -53,11 +53,18 @@ func TestEmbeddedBackupScriptsHaveNoCredentials(t *testing.T) {
 }
 
 // 脚本被截断或写空时，远端会以「莫名奇妙的语法错误」失败。
-// 这里只做最便宜的两条：非空 + 以 shebang 开头（.sh 才要求）。
+// 这里只做最便宜的三条：非空 + 以 shebang 开头（.sh 才要求）+ 不含 CR。
+//
+// 🔴 CR 那条不是洁癖：这些文件跑在 Linux 上，CRLF 会让 bash 报
+// `$'\r': command not found`，而本机（Windows）跑得好好的，极难定位。
+// .gitattributes 管的是 checkout，管不住「有人用会存 CRLF 的编辑器改脚本」。
 func TestEmbeddedShellScriptsLookSane(t *testing.T) {
 	err := fs.WalkDir(backupScripts, "deploy/backup", func(p string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() || !strings.HasSuffix(p, ".sh") {
+		if err != nil || d.IsDir() {
 			return err
+		}
+		if !strings.HasSuffix(p, ".sh") && !strings.HasSuffix(p, ".logrotate") {
+			return nil
 		}
 		data, err := fs.ReadFile(backupScripts, p)
 		if err != nil {
@@ -66,7 +73,10 @@ func TestEmbeddedShellScriptsLookSane(t *testing.T) {
 		if len(data) == 0 {
 			t.Errorf("%s 是空文件", p)
 		}
-		if !strings.HasPrefix(string(data), "#!") {
+		if strings.ContainsRune(string(data), '\r') {
+			t.Errorf("%s 含 CR：CRLF 脚本在 Linux 上会报 $'\\r': command not found", p)
+		}
+		if strings.HasSuffix(p, ".sh") && !strings.HasPrefix(string(data), "#!") {
 			t.Errorf("%s 缺少 shebang", p)
 		}
 		return nil
