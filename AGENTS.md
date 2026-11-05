@@ -1,15 +1,21 @@
 # AGENTS.md
 
-> 状态：**方案（未实现）**（2026-11-05）。
+> 状态：**P0 服务器管理（含一键免密 sudo）已实现并真机验证**；
+> P1 备份能力部署已实现并真机验证；P2 监控、P3–P4 应用部署仍为方案（2026-11-05）。
 > 只放「每次动代码都要遵守」的红线：一句结论 + 一个指针。判据、流程、踩坑都在 `docs/`。
 > 通用文档规则以 `cqlql-notes/docs/工程/文档约定.md` 为准。
 
 ## 项目概述
 
-- 本地单二进制运维工具：`ops backup deploy` 安装/升级备份能力；`ops status/ui` 只读查看备份；
+- 本地单二进制运维工具：`ops servers list/check/apply-sudo` 管服务器与免密 sudo；
+  `ops backup deploy` 安装/升级备份能力；`ops status/ui` 只读查看备份；
   `ops deploy/rollback` 单机一键 Docker 部署。
+- 服务器（备份端 / 应用端）只在 `servers.json` 登记一处，命令用 `--server <name>` 选目标。
 - 仅 Go 标准库；所有动作在本机执行，经本机 `ssh` 到目标机。
 - 🔴 不改 `pass-up.backend` / `pass-up.ai` / `pass-up.frontend` 的任何代码。
+  例外（2026-11-05 真机验证）：只修了 `deploy/backup/**` 自身的两个缺陷
+  （`pg_restore` 版本低于服务端时误判 dump 损坏、`install.sh` 把空值 `""` 当占位符），
+  未改业务代码。
 
 ## 硬约束
 
@@ -27,9 +33,22 @@
 7. 🔴 **Flyway 单向**：镜像可回滚，数据库不回滚；回滚后起不来要如实说明。
    详见 `docs/deploy.md`。
 8. 🔴 **私钥路径不打印**：可以写进配置，但不出现在任何输出、错误与日志。
-9. 🔴 **安装与监控分离**：`status` / `ui` 只读；写 crontab / logrotate / 目录只走
-   `ops backup deploy`，必须 root（或免密 `sudo`），**不复用只读账号**。
-   详见 `docs/backup-deploy.md`。
+9. 🔴 **安装与监控分离**：`status` / `ui` 只看与检查；写 crontab / logrotate / 目录 /
+   sudoers 只走 `ops backup deploy` 或 `ops servers apply-sudo`，**不复用只读账号**。
+   sudo 密码只经 **stdin**（CLI `--password-stdin` / 界面单次请求内存），
+   清单可选的 `sudo.password` 用完建议删除；**禁止 `--password` 参数**。
+   详见 `docs/backup-deploy.md`、`docs/servers.md`。
+10. 🔴 **`--dry-run` 不改远端**：即使同时给 `--install-deps` 也不安装，只报告缺失项。
+11. 🔴 **整目录切换必须保留未部署组件的 `backup.env`**：只部署 `pg` 时，`minio/backup.env`
+    也要从旧目录搬进 `.new`，否则重部署单组件会丢另一组件配置（已踩过）。
+12. 🔴 **主机只来自 `servers.json`**：命令只接受 `--server <name>`，不接受任意 host；
+    旧 `PASS_UP_OPS_*_HOST/_PORT/_USER/_KEY` 已删除，不保留第二套来源。
+13. 🔴 **免密 sudo 只写一个 drop-in**：`/etc/sudoers.d/90-<user>-nopasswd`，
+    先 `visudo -cf` 再 `install -m 0440 -o root -g root`；验证必须
+    `runuser -u <user> -- sudo -n true`（root 自己验证永远成功，等于没验）。
+    详见 `docs/servers.md` §6。
+14. 🔴 **界面只监听 `127.0.0.1`**，token + `Origin` 校验；写操作必须 `POST`，
+    且只接受清单里的 `name`（未知 name 返回 404，不代理任意主机）。
 
 ## 命令与验证
 
@@ -39,16 +58,19 @@ go test ./...
 go build ./...
 
 ops init
-ops backup deploy --dry-run
-ops backup deploy
-ops status [--json]
+ops servers list
+ops servers check all
+ops servers apply-sudo <name> --password-stdin
+ops backup deploy --server <name> --dry-run
+ops backup deploy --server <name> --install-deps
+ops status --server <name> [--json]
 ops ui [--port 7788]
-ops deploy --dry-run
+ops deploy --server <name> --dry-run
 ```
 
 ## 目录与边界
 
-- **暂不竖切包**：当前只有「备份监控 / 部署」两个能力，按文件横切更好找。
+- **暂不竖切包**：当前只有「服务器管理 / 备份 / 部署」三个能力，按文件横切更好找。
   母本阈值是「领域 ≥10 或接口 ≥30」才竖切（`cqlql-notes/docs/工程/目录结构规范.md` §6）。
 - `config.go` / `remote.go` 是共用层，不得反向依赖 `status.go` / `deploy.go` 的业务结构。
 - 目录是长出来的：**不建空目录**；`ui/` 等真正写页面时再建。
@@ -68,7 +90,8 @@ ops deploy --dry-run
 
 | 能力 / 模块 | 文档 | 最硬的那条红线 |
 | :--- | :--- | :--- |
-| 备份能力部署（P1，监控的前置） | `docs/backup-deploy.md` | 复用 `install.sh`；不覆盖 `backup.env`；不静默迁移目录 |
+| 服务器管理 + 一键免密 sudo（P0 先做） | `docs/servers.md` | 主机只来自清单；只写一个 sudoers drop-in；验证用 `runuser` |
+| 备份能力部署（P1 ✅，监控的前置） | `docs/backup-deploy.md` | 复用 `install.sh`；不覆盖 `backup.env`；不静默迁移目录；logrotate 由工具落盘 |
 | 备份监控（P2） | `docs/backup-monitor.md` | 只读采集；时间差在远端算；`-` 不是 0 |
 | 单机一键 Docker 部署（P3–P4） | `docs/deploy.md` | `.env` 去 CRLF；镜像前缀必须等于 compose；Flyway 单向 |
 | 配置（唯一维护处） | `docs/config.md` | 所有 `PASS_UP_OPS_*` 只在这里定义一次 |

@@ -19,21 +19,23 @@
 | frontend-web（Caddy + 静态站） | 同上 | 80 / 81 / 82 | `GET /` |
 
 「一键」指一条命令，不是零配置：Docker、`/data` 目录、`.env`、`secrets/` 仍需首次准备。
-**部署目标与备份服务器可以是同一台，也可以是两台**。
+**部署目标与备份服务器可以是同一台，也可以是两台**；目标机一律由
+[servers.json](servers.md) 的 `--server <name>` 选择，不再在 `ops.env` 里重复写 host。
 
 ## 2. 命令
 
 ```
-ops deploy [all|infra|ai|backend|web] [--dry-run] [--no-build] [--no-sync]
+ops deploy [all|infra|ai|backend|web] [--server <name>] [--dry-run] [--no-build] [--no-sync]
     all（默认）：infra → ai → backend → web
+    --server    目标机（来自 servers.json）；省略用清单的 default
     --dry-run  只预检并打印将执行的每条远端命令，不改远端任何文件
     --no-build 复用远端已有镜像（只同步配置并 compose up）
     --no-sync  不同步配置（假定远端配置已就绪），只换镜像
 
-ops rollback [all|ai|backend]
+ops rollback [all|ai|backend] [--server <name>]
     回到上一次成功的镜像 tag 并重建；**不回滚数据库**
 
-ops ps / ops logs <service> [-f]
+ops ps / ops logs <service> [-f] [--server <name>]
     只读查看容器状态与日志
 ```
 
@@ -42,8 +44,9 @@ ops ps / ops logs <service> [-f]
 ### 3.1 预检
 
 - 本机：`docker`、`ssh`、三个仓库目录存在、当前 git commit 可读；
-- 远端：Docker + compose 插件、目标端口未被非本栈容器占用、磁盘余量、
-  `/data/postgres` 与 `/data/minio/data` 可写；
+- 远端：目标机来自 [servers.json](servers.md)，提权用该条目的 `user` + `sudo`
+  （免密 `sudo -n` 或一次性密码经 stdin）；Docker + compose 插件、目标端口未被非本栈容器占用、
+  磁盘余量、`/data/postgres` 与 `/data/minio/data` 可写；
 - 远端加锁（`/opt/passup/.deploy/lock`），拿不到锁立刻失败，不排队。
 
 ### 3.2 配置备份 + 同步
@@ -134,7 +137,8 @@ ops/
 | 风险 | 说明与对策 |
 | :--- | :--- |
 | 首次部署缺前置 | `/data`、`.env`、`secrets/` 未就绪时，预检必须**明确指出缺哪一项**，不要开始构建 |
-| Docker 权限 | 目标用户不在 `docker` 组会 permission denied；预检先 `docker info` 探一次 |
+| Docker 权限 | 目标用户不在 `docker` 组会 permission denied；预检先 `docker info` 探一次；必要时用清单里的 `user` + 免密 sudo |
+| 多台应用服务器 | 由 `--server` 逐台发布；本期不做并行批量（锁与端口冲突都按单机设计） |
 | 镜像很大 | Java 镜像 1GB+，流转耗时；可切 registry 模式或 `--no-build` |
 | Flyway 单向 | 镜像可回滚，schema 不可；回滚文案必须如实 |
 | CRLF | 见 §3.2，这是本仓库最容易复发的部署故障 |
@@ -151,3 +155,4 @@ ops/
 | 远端锁 + 本地锁 | 只加本地锁 | 多人 / 多机发布时本地锁挡不住 |
 | 暂不竖切 Go 包 | `backup/` + `deploy/` 子包 | 当前领域 < 10，按母本阈值先横切；触发条件出现再拆（见 `AGENTS.md`） |
 | 只做单机 Docker | 纳入 k8s | 本期目标明确是单机一键；k8s 另起分册 |
+| 主机来自 `servers.json` | 每台机器各写一套 `DEPLOY_HOST` | 主机定义只维护一处，`--server` 选目标；避免与备份端配置漂移 |

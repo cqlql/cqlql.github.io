@@ -1,4 +1,4 @@
-> 状态：**方案（未实现）**（2026-11-05）
+> 状态：**已实现（P1，2026-11-05 已在测试机验证）**
 
 # 备份能力部署（安装与升级）
 
@@ -25,7 +25,7 @@
 | | 备份监控 | 本文 |
 | :--- | :--- | :--- |
 | 动作 | 只读采集 | 写目录 / crontab / logrotate |
-| 账号 | 专用只读账号 | 安装账号（root 或免密 sudo） |
+| 账号 | 清单的 `monitor`（只读） | 清单的 `user` + `sudo`（安装账号） |
 | 命令 | `status` / `ui` | `backup deploy` / `backup verify` |
 
 🔴 **`status` / `ui` 绝不触发安装**；安装只走显式的 `ops backup deploy`。
@@ -33,13 +33,16 @@
 ## 3. 命令
 
 ```
-ops backup deploy [pg|minio|all] [--dry-run] [--force] [--run-now]
+ops backup deploy [pg|minio|all] [--server <name>] [--dry-run] [--force] [--run-now] [--install-deps]
     all（默认）：postgres → minio
-    --dry-run  只预检并打印将执行的远端命令，不改远端任何文件
-    --force    用本机 backup.env 覆盖远端配置（覆盖前先备份）
-    --run-now  安装成功后立刻跑一次备份（默认关闭：这是写操作，且可能很重）
+    --server        目标机（来自 servers.json，见 docs/servers.md）；省略用清单的 default
+    --dry-run       只预检并打印将执行的远端命令，不改远端任何文件
+    --force         用本机 backup.env 覆盖远端配置（覆盖前先备份）
+    --run-now       安装成功后立刻跑一次备份（默认关闭：这是写操作，且可能很重）
+    --install-deps  安装缺失依赖（apt/dnf/yum；mc 官方下载失效时从本机 minio 镜像提取）；
+                    --dry-run 下只报告不安装
 
-ops backup verify [pg|minio|all]
+ops backup verify [pg|minio|all] [--server <name>]
     只跑远端 preflight_check.sh，不安装、不备份
 ```
 
@@ -48,8 +51,11 @@ ops backup verify [pg|minio|all]
 ### 4.1 预检
 
 - 本机：`deploy/backup/**` 存在；本机 ssh 可用；**不要求本机有 `rsync`**。
-- 远端：`id -u` 或 `sudo -n true` 通过；依赖命令 `ssh` / `scp` / `pg_restore` /
-  `mc` / `logrotate` / `crontab` 逐项报告（缺失给安装命令，但**不自动装**，见 §9）；
+- 远端：目标机由 `--server` 从 [servers.json](servers.md) 选择；安装提权用该条目的
+  `user` + `sudo`（已免密走 `sudo -n`；否则用清单 `sudo.password` 或界面/`--password-stdin`
+  经 **ssh stdin** 走 `sudo -S -p ''`，密码不出现在命令行/日志）；依赖命令 `ssh` / `scp` / `pg_restore` /
+  `mc` / `logrotate` / `crontab` 逐项报告；缺失时**默认只报告**，加 `--install-deps` 才安装
+  （`--dry-run` 永不安装）；
 - 磁盘余量、`/data` 与日志目录可写；
 - **目录漂移检查**：`crontab -l` 里带 `#PG_BACKUP` / `#MINIO_BACKUP` 的行会包含脚本绝对路径。
   若与 `PASS_UP_OPS_BACKUP_DEPLOY_DIR` 不一致 → **直接失败**，提示改配置，
@@ -62,7 +68,8 @@ ops backup verify [pg|minio|all]
 - 换目录前：
   1. 把现有 `<deploy_dir>` 备份成 `<deploy_dir>.old`（保留一份）；
   2. 把旧目录里的 `postgres/backup.env`、`minio/backup.env` 复制进 `.new`
-     （除非 `--force` 且本机提供了配置）；
+     （本次要「上传新配置」的组件除外；**未参与本次部署的组件配置也必须保留**——
+     曾因只保留选中组件，重部署单组件把另一组件的 `backup.env` 弄丢）；
   3. `mv` 换名。cron 里引用的绝对路径不变。
 - Windows 开发机不一定有 `rsync`，因此不用 `backup_sync.sh` 的 rsync 路径；
   tar 流由 Go 标准库生成。
@@ -82,11 +89,12 @@ ops backup verify [pg|minio|all]
 
 ### 4.4 安装
 
-- 依次执行远端 `sudo -n bash <deploy_dir>/postgres/install.sh` 与
-  `minio/install.sh`，**stdin 关闭**（脚本里的 `read` 会走默认分支，不会卡住）。
-- 复用脚本已有的幂等逻辑：`backup.env` 存在就不覆盖、cron 按标签先删后加、
-  logrotate 装到 `/etc/logrotate.d/{pg,minio}-backup`。
-- 安装前已校验配置，避免「占位符还在就装 cron」——脚本本身不会拦这种情况。
+- 依次执行远端 `bash <deploy_dir>/postgres/install.sh` 与 `minio/install.sh`（root 身份，
+  **stdin 关闭**：脚本里的 `read` 会走默认分支，不会卡住）。
+- 复用脚本已有的幂等逻辑：`backup.env` 存在就不覆盖、cron 按标签先删后加。
+- 🔴 `install.sh` 对 logrotate **只提示不安装**：工具在安装前把
+  `pg_backup.logrotate` / `minio_backup.logrotate` 落到
+  `/etc/logrotate.d/{pg,minio}-backup`（权限 644），否则「一键部署」会漏掉这一项。
 
 ### 4.5 自检与首跑
 
@@ -129,8 +137,8 @@ ops/
 
 | 阶段 | 内容 | 验收 |
 | :--- | :--- | :--- |
-| P1 | `backup deploy`（pg/minio/all）+ `backup verify` | 空机器一键装好；重复执行幂等；`--dry-run` 与手工步骤一致 |
-| P1+（可选） | `--install-deps`（apt/yum）、卸载步骤 | 按需 |
+| P1 ✅ | `backup deploy`（pg/minio/all）+ `--install-deps` + `backup verify` | 已在 `172.16.0.222` 验证：重复执行幂等、单组件重部署保留另一组件配置、pg/minio 首跑成功 |
+| P1+（可选） | 卸载步骤 | 按需 |
 
 P1 先于监控：装好后 `last_success.txt` 才会出现，`status` 才有东西可读。
 
@@ -138,12 +146,12 @@ P1 先于监控：装好后 `last_success.txt` 才会出现，`status` 才有东
 
 | 风险 | 说明与对策 |
 | :--- | :--- |
-| 用了监控的只读账号 | 必然在写 crontab 时失败；预检先判 root / `sudo -n`，并提示换 `PASS_UP_OPS_BACKUP_ADMIN_USER` |
+| 用了监控的只读账号 | 必然在写 crontab 时失败；预检先判 root / `sudo -n`，并提示改用该服务器的 `user` |
 | 目录被静默迁移 | cron 里是绝对路径；工具按标签行反查并拒绝不一致（§4.1） |
 | 覆盖了远端配置 | 默认不覆盖；`--force` 前先备份到 `.deploy/backup/<ts>/` |
 | 凭证泄露 | `backup.env` 只上传不回显；权限 `600`；私钥不搬运 |
 | 装完立刻跑全量备份 | `--run-now` 默认关闭；只在大盘/低峰时显式开启 |
-| 依赖缺失 | 只报告不自动装；避免在未知发行版上乱动包管理器 |
+| 依赖缺失 | 默认只报告；显式 `--install-deps` 才 apt/dnf/yum 安装；`--dry-run` 永不安装 |
 | 卸载误删历史备份 | 本期不提供卸载命令，只给人工步骤 |
 
 ## 9. 决策与备选
@@ -154,4 +162,4 @@ P1 先于监控：装好后 `last_success.txt` 才会出现，`status` 才有东
 | 复用 `install.sh` | 在 Go 里重写安装逻辑 | cron / logrotate / 配置生成只能有一份，否则两套逻辑漂移 |
 | tar 流上传 | 本机 `rsync` | Windows 开发机不一定有 rsync；tar 走 ssh stdin 更稳 |
 | 配置默认保留 | 每次都用本机配置覆盖 | 远端可能已人工修过；默认覆盖会造成静默变更 |
-| 依赖只报告 | 自动 apt/yum 安装 | 发行版与网络不确定；自动装包的风险高于省一步 |
+| 依赖只报告 | 自动 apt/yum 安装 | 发行版与网络不确定；改为**显式 `--install-deps`** 才动包管理器 |

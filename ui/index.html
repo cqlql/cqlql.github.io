@@ -1,0 +1,338 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pass-up 服务器管理</title>
+<style>
+  :root {
+    color-scheme: light;
+    --bg: #f6f7f9;
+    --card: #ffffff;
+    --line: #e3e6ea;
+    --text: #1f2328;
+    --muted: #6b7280;
+    --ok: #0f7b3f;
+    --warn: #a15c00;
+    --err: #b42318;
+    --accent: #2563eb;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 24px;
+    background: var(--bg);
+    color: var(--text);
+    font: 14px/1.5 -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+  }
+  h1 { margin: 0; font-size: 20px; }
+  .meta { color: var(--muted); font-size: 12px; margin-top: 4px; word-break: break-all; }
+  header {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    gap: 16px; margin-bottom: 16px;
+  }
+  .card {
+    background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+    overflow: auto;
+  }
+  table { width: 100%; border-collapse: collapse; min-width: 820px; }
+  th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-size: 12px; color: var(--muted); font-weight: 600; background: #fafbfc; white-space: nowrap; }
+  tr:last-child td { border-bottom: 0; }
+  .target { font-family: ui-monospace, Consolas, monospace; font-size: 13px; }
+  .detail { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .tag { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 12px; border: 1px solid transparent; white-space: nowrap; }
+  .tag.ok { color: var(--ok); background: #eaf6ee; border-color: #c8e6d3; }
+  .tag.warn { color: var(--warn); background: #fff4e4; border-color: #f1d7ac; }
+  .tag.err { color: var(--err); background: #fdecea; border-color: #f5c2bd; }
+  .tag.muted { color: var(--muted); background: #f2f3f5; border-color: #e3e6ea; }
+  button {
+    font: inherit; padding: 5px 12px; border-radius: 7px; cursor: pointer;
+    border: 1px solid var(--line); background: #fff; color: var(--text);
+  }
+  button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.primary:hover:not(:disabled) { background: #1d4ed8; color: #fff; }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  .actions-cell { white-space: nowrap; }
+  .actions-cell button + button { margin-left: 6px; }
+  #msg { min-height: 22px; margin: 12px 2px; color: var(--muted); font-size: 13px; }
+  #msg.err { color: var(--err); }
+  #msg.ok { color: var(--ok); }
+  dialog { border: 1px solid var(--line); border-radius: 12px; padding: 20px; width: min(420px, 90vw); }
+  dialog::backdrop { background: rgba(0,0,0,.28); }
+  dialog h3 { margin: 0 0 6px; font-size: 16px; }
+  dialog p { color: var(--muted); font-size: 12px; margin: 0 0 12px; }
+  dialog input { width: 100%; padding: 8px 10px; font: inherit; border: 1px solid var(--line); border-radius: 7px; }
+  .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Pass-up 服务器管理</h1>
+    <div class="meta">清单：<span id="path">加载中…</span></div>
+  </div>
+  <div>
+    <button class="primary" id="checkAll">检查全部</button>
+  </div>
+</header>
+
+<div id="msg"></div>
+
+<div class="card">
+  <table>
+    <thead>
+      <tr>
+        <th>名称</th>
+        <th>角色</th>
+        <th>连接</th>
+        <th>SSH</th>
+        <th>免密 sudo</th>
+        <th>最近检查</th>
+        <th>操作</th>
+      </tr>
+    </thead>
+    <tbody id="rows">
+      <tr><td colspan="7" class="detail">加载中…</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<dialog id="pwDialog">
+  <h3>输入初始 sudo 密码</h3>
+  <p id="pwHint"></p>
+  <input id="pwInput" type="password" autocomplete="off" placeholder="只用于本次请求">
+  <div class="dialog-actions">
+    <button id="pwCancel" type="button">取消</button>
+    <button id="pwOk" type="button" class="primary">确定</button>
+  </div>
+</dialog>
+
+<script>
+const token = new URLSearchParams(location.search).get('token') || '';
+let servers = [];
+
+async function api(method, path, body) {
+  const opts = { method, headers: { 'X-Ops-Token': token } };
+  if (body !== undefined) {
+    opts.headers['Content-Type'] = 'application/json';
+    opts.body = JSON.stringify(body);
+  }
+  const r = await fetch(path, opts);
+  let j;
+  try { j = await r.json(); } catch (e) { throw new Error('HTTP ' + r.status); }
+  if (!j.ok) throw new Error(j.error || ('HTTP ' + r.status));
+  return j.data;
+}
+
+function showMsg(text, kind) {
+  const el = document.getElementById('msg');
+  el.textContent = text || '';
+  el.className = kind || '';
+}
+
+function sshTag(st) {
+  const map = { ok: ['可达', 'ok'], fail: ['失败', 'err'], unknown: ['—', 'muted'] };
+  const [label, cls] = map[st] || map.unknown;
+  return tag(label, cls);
+}
+
+function sudoTag(st) {
+  const map = {
+    ok: ['已免密', 'ok'],
+    need: ['需要配置', 'warn'],
+    root: ['root 登录', 'muted'],
+    disabled: ['已跳过', 'muted'],
+    error: ['连接失败', 'err']
+  };
+  const [label, cls] = map[st] || ['—', 'muted'];
+  return tag(label, cls);
+}
+
+function tag(label, cls) {
+  const s = document.createElement('span');
+  s.className = 'tag ' + cls;
+  s.textContent = label;
+  return s;
+}
+
+function fmtChecked(v) {
+  if (!v) return '—';
+  const d = new Date(v);
+  if (Number.isNaN(d.getTime())) return v;
+  const pad = n => String(n).padStart(2, '0');
+  return `${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function render() {
+  const tbody = document.getElementById('rows');
+  tbody.textContent = '';
+  if (!servers.length) {
+    const tr = document.createElement('tr');
+    const td = document.createElement('td');
+    td.colSpan = 7; td.className = 'detail';
+    td.textContent = '清单为空。请按 docs/servers.md §3 添加服务器后刷新。';
+    tr.appendChild(td); tbody.appendChild(tr);
+    return;
+  }
+  for (const s of servers) {
+    const tr = document.createElement('tr');
+    const st = s.status || {};
+
+    const tdName = document.createElement('td');
+    tdName.textContent = s.name;
+    if (s.note) {
+      const n = document.createElement('div');
+      n.className = 'detail'; n.textContent = s.note;
+      tdName.appendChild(n);
+    }
+
+    const tdRole = document.createElement('td');
+    tdRole.textContent = s.role;
+
+    const tdTarget = document.createElement('td');
+    tdTarget.className = 'target';
+    tdTarget.textContent = `${s.user}@${s.host}:${s.port}`;
+    const keyInfo = document.createElement('div');
+    keyInfo.className = 'detail';
+    keyInfo.textContent = s.has_key ? '私钥已配置' : '使用 ssh config / agent';
+    tdTarget.appendChild(keyInfo);
+
+    const tdSSH = document.createElement('td');
+    tdSSH.appendChild(sshTag(st.ssh));
+    const tdSudo = document.createElement('td');
+    tdSudo.appendChild(sudoTag(st.sudo));
+    if (st.detail && st.sudo !== 'ok' && st.sudo !== 'root') {
+      const d = document.createElement('div');
+      d.className = 'detail'; d.textContent = st.detail;
+      tdSudo.appendChild(d);
+    }
+
+    const tdChecked = document.createElement('td');
+    tdChecked.textContent = fmtChecked(st.checked_at);
+
+    const tdActions = document.createElement('td');
+    tdActions.className = 'actions-cell';
+
+    const btnCheck = document.createElement('button');
+    btnCheck.textContent = '检查';
+    btnCheck.onclick = () => doCheck(s.name, btnCheck);
+
+    const btnSudo = document.createElement('button');
+    btnSudo.textContent = '一键免密 sudo';
+    btnSudo.className = 'primary';
+    btnSudo.disabled = s.sudo_mode === 'root' || s.sudo_mode === 'none' || st.sudo === 'ok' || st.sudo === 'root';
+    btnSudo.onclick = () => startApply(s, btnSudo);
+
+    tdActions.appendChild(btnCheck);
+    tdActions.appendChild(btnSudo);
+
+    tr.appendChild(tdName);
+    tr.appendChild(tdRole);
+    tr.appendChild(tdTarget);
+    tr.appendChild(tdSSH);
+    tr.appendChild(tdSudo);
+    tr.appendChild(tdChecked);
+    tr.appendChild(tdActions);
+    tbody.appendChild(tr);
+  }
+}
+
+function mergeRows(rows) {
+  for (const r of rows) {
+    const s = servers.find(x => x.name === r.name);
+    if (s) s.status = { ssh: r.ssh, sudo: r.sudo, detail: r.detail, checked_at: r.checked_at };
+  }
+  render();
+}
+
+async function load() {
+  try {
+    const data = await api('GET', '/api/servers');
+    servers = data.servers || [];
+    document.getElementById('path').textContent = data.servers_file;
+    render();
+  } catch (e) {
+    showMsg(e.message, 'err');
+    document.getElementById('path').textContent = '加载失败';
+  }
+}
+
+async function doCheck(name, btn) {
+  if (btn) btn.disabled = true;
+  showMsg(name ? `正在检查 ${name}…` : '正在检查全部…');
+  try {
+    const body = name ? { name } : {};
+    const rows = await api('POST', '/api/check', body);
+    mergeRows(rows);
+    showMsg('检查完成。', 'ok');
+  } catch (e) {
+    showMsg(e.message, 'err');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+function askPassword(name) {
+  return new Promise(resolve => {
+    const dlg = document.getElementById('pwDialog');
+    const input = document.getElementById('pwInput');
+    document.getElementById('pwHint').textContent =
+      `${name} 需要初始 sudo 密码；密码只在本次请求内存中使用，不落盘、不写日志。`;
+    input.value = '';
+    let settled = false;
+    const close = val => {
+      if (settled) return;
+      settled = true;
+      input.value = '';
+      if (dlg.open) dlg.close();
+      resolve(val);
+    };
+    document.getElementById('pwOk').onclick = () => close(input.value);
+    document.getElementById('pwCancel').onclick = () => close(null);
+    dlg.oncancel = () => close(null);
+    dlg.showModal();
+    input.focus();
+  });
+}
+
+async function startApply(s, btn) {
+  btn.disabled = true;
+  try {
+    if (!s.status || !s.status.sudo) {
+      showMsg(`先检查 ${s.name}…`);
+      const rows = await api('POST', '/api/check', { name: s.name });
+      mergeRows(rows);
+    }
+    if (s.status.sudo === 'ok' || s.status.sudo === 'root') {
+      showMsg(`${s.name} 已无需配置。`, 'ok');
+      return;
+    }
+    let password = '';
+    if (!s.password_configured) {
+      const pw = await askPassword(s.name);
+      if (pw === null) { showMsg('已取消。'); return; }
+      password = pw;
+    }
+    showMsg(`正在为 ${s.name} 配置免密 sudo…`);
+    const res = await api('POST', '/api/apply-sudo', { name: s.name, password });
+    s.status = res.status;
+    render();
+    showMsg(res.message + (res.backup_path ? `（已备份原片段：${res.backup_path}）` : ''), 'ok');
+  } catch (e) {
+    showMsg(e.message, 'err');
+    try {
+      const rows = await api('POST', '/api/check', { name: s.name });
+      mergeRows(rows);
+    } catch (_) {}
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+document.getElementById('checkAll').onclick = (e) => doCheck('', e.currentTarget);
+load();
+</script>
+</body>
+</html>
