@@ -156,6 +156,30 @@ func TestDepsInstallScript(t *testing.T) {
 	}
 }
 
+// 空的 then 分支在 sh 里是语法错误：`sh: Syntax error: "elif" unexpected`。
+// 2026-11-05 踩过——只缺 mc 时 apt/dnf/yum 三个分支都没有包，脚本直接跑不起来。
+// 这条测试把「生成器永远不产出空分支」钉成不变量。
+func TestDepsInstallScriptNoEmptyBranch(t *testing.T) {
+	cases := [][]string{
+		{"mc"},
+		{"pg_restore"},
+		{"crontab"},
+		{"logrotate"},
+		{"pg_restore", "mc"},
+		{"pg_restore", "crontab", "nc", "logrotate", "mc"},
+	}
+	for _, missing := range cases {
+		s := depsInstallScript(missing)
+		if strings.Contains(s, "then\nelif") || strings.Contains(s, "then\nelse") {
+			t.Errorf("missing=%v 生成了空 then 分支：\n%s", missing, s)
+		}
+		// 只有 mc 时不该白跑一次 apt-get update。
+		if len(missing) == 1 && missing[0] == "mc" && strings.Contains(s, "apt-get update") {
+			t.Errorf("只装 mc 时不应触发包管理器：\n%s", s)
+		}
+	}
+}
+
 func TestEnvsToKeep(t *testing.T) {
 	// 只部署 pg（上传新配置）时，minio 的旧 env 必须保留。
 	got := envsToKeep([]envPlan{{comp: compPG, upload: true}, {comp: compMinio, keep: true}})

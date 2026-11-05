@@ -614,21 +614,18 @@ func depsInstallScript(missing []string) string {
 	}
 	var b strings.Builder
 	b.WriteString("set -e\n")
-	if len(missing) > 0 {
+	// 只有 mc 缺失时，三个包管理器都没有包要装：以前仍会生成 if/elif/elif 骨架，
+	// 空 then 分支在 sh 里是语法错误（实测 `sh: Syntax error: "elif" unexpected`），
+	// 而且白跑一次 apt-get update。所以整段只在真有包时才生成，空分支回 `:`。
+	aptArgs, rpmArgs := aptPackages(set), rpmPackages(set)
+	if len(aptArgs) > 0 || len(rpmArgs) > 0 {
 		b.WriteString("if command -v apt-get >/dev/null 2>&1; then\n")
 		b.WriteString("  apt-get update\n")
-		args := aptPackages(set)
-		if len(args) > 0 {
-			b.WriteString("  DEBIAN_FRONTEND=noninteractive apt-get install -y " + strings.Join(args, " ") + "\n")
-		}
+		b.WriteString(installLine("DEBIAN_FRONTEND=noninteractive apt-get install -y ", aptArgs))
 		b.WriteString("elif command -v dnf >/dev/null 2>&1; then\n")
-		if args := rpmPackages(set); len(args) > 0 {
-			b.WriteString("  dnf install -y " + strings.Join(args, " ") + "\n")
-		}
+		b.WriteString(installLine("dnf install -y ", rpmArgs))
 		b.WriteString("elif command -v yum >/dev/null 2>&1; then\n")
-		if args := rpmPackages(set); len(args) > 0 {
-			b.WriteString("  yum install -y " + strings.Join(args, " ") + "\n")
-		}
+		b.WriteString(installLine("yum install -y ", rpmArgs))
 		b.WriteString("else\n  echo '没有支持的包管理器（apt/dnf/yum）' >&2; exit 1\nfi\n")
 	}
 	if set["mc"] {
@@ -639,13 +636,20 @@ func depsInstallScript(missing []string) string {
     aarch64|arm64) arch=arm64 ;;
     *) echo "不支持的 CPU 架构: $arch" >&2; exit 1 ;;
   esac
-  url="https://dl.min.io/client/mc/release/linux-$arch/mc"
   ok=0
-  if command -v curl >/dev/null 2>&1; then
-    curl -fsSL "$url" -o /usr/local/bin/mc && ok=1 || rm -f /usr/local/bin/mc
-  elif command -v wget >/dev/null 2>&1; then
-    wget -qO /usr/local/bin/mc "$url" && ok=1 || rm -f /usr/local/bin/mc
-  fi
+  # dl.min.io 自 2025 起对社区版直接返回 410 Gone（client 与 server 两个路径实测都是），
+  # 官方中国镜像 dl.minio.org.cn 仍正常分发，放前面先试；官方地址保留在列表里，
+  # 以便它哪天恢复后自动回退。都拿不到再从本机 minio 镜像里提取。
+  for url in \
+    "https://dl.minio.org.cn/client/mc/release/linux-$arch/mc" \
+    "https://dl.min.io/client/mc/release/linux-$arch/mc"
+  do
+    if command -v curl >/dev/null 2>&1; then
+      curl -fsSL "$url" -o /usr/local/bin/mc && { ok=1; break; } || rm -f /usr/local/bin/mc
+    elif command -v wget >/dev/null 2>&1; then
+      wget -qO /usr/local/bin/mc "$url" && { ok=1; break; } || rm -f /usr/local/bin/mc
+    fi
+  done
   # dl.min.io 已停止分发社区版 mc（实测返回 410）：退回从本机 minio 镜像里提取
   if [ "$ok" -ne 1 ] && command -v docker >/dev/null 2>&1; then
     img=$(docker images --format '{{.Repository}}:{{.Tag}}' | grep -m1 -E '^(minio/minio|quay.io/minio/minio):' || true)
@@ -666,6 +670,15 @@ fi
 `)
 	}
 	return b.String()
+}
+
+// installLine 生成一行安装命令。没有包时必须回 `:`：
+// 空的 then 分支在 sh 里是语法错误，而 dnf/yum 分支在没有 rpm 包时正好是空的。
+func installLine(prefix string, args []string) string {
+	if len(args) == 0 {
+		return "  :\n"
+	}
+	return "  " + prefix + strings.Join(args, " ") + "\n"
 }
 
 func aptPackages(set map[string]bool) []string {
