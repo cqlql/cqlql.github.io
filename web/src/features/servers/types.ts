@@ -55,3 +55,10 @@ export interface ApplySudoResult {
   backup_path?: string
   status: ServerStatus
 }
+
+/** POST /api/shortcut 的结果：与 Go 的 shared.ShortcutInfo 逐字对齐。 */
+export interface ShortcutInfo {
+  path: string
+  launcher: string
+  icon: string
+}

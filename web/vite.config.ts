@@ -1,6 +1,14 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
+// 本文件在 Node 里执行，但项目没引 @types/node（见 tsconfig 的说明），
+// 所以只声明这里用到的那一个成员。
+declare const process: { env: Record<string, string | undefined> }
+
+// ops ui 默认 7788，但**被占用会自动递增**（同机的 suikouji ops 也用 7788）。
+// 开发时用 OPS_UI_PORT 对齐实际端口，例如：OPS_UI_PORT=7789 npm run dev
+const opsUIPort = process.env.OPS_UI_PORT ?? '7788'
+
 /**
  * 构建时往 dist/ 里补一个 .gitkeep。
  *
@@ -37,7 +45,9 @@ function keepDistPlaceholder() {
 // 前端不必为「开发时跨域、生产时同源」写两套逻辑（那两套逻辑迟早会漂移）。
 //
 // ⚠️ 端口 5175，不是 wsl-manager 的 5174、也不是 console 的 5173 ——
-//    三个前端要能同时开；后端 7788 同理（wsl-manager 是 8788）。
+//    三个前端要能同时开。后端 7788 不是独占的：wsl-manager 是 8788，
+//    suikouji ops 也用 7788，所以 `ops ui` 被占时会自动往后递增；
+//    dev 时若它换了端口，用 OPS_UI_PORT 让这里的代理跟过去。
 export default defineConfig({
   plugins: [react(), keepDistPlaceholder()],
   build: {
@@ -51,7 +61,7 @@ export default defineConfig({
     port: 5175,
     proxy: {
       '/api': {
-        target: 'http://127.0.0.1:7788',
+        target: `http://127.0.0.1:${opsUIPort}`,
         changeOrigin: true,
       },
     },

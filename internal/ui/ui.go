@@ -14,15 +14,18 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"html"
 	"io"
 	"io/fs"
 	"net"
 	"net/http"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 )
 
@@ -50,15 +53,36 @@ type uiState struct {
 	origin string
 	// files 是 web/dist 的子 FS；前端未构建时为 nil（页面会明确说明，而不是白屏）。
 	files fs.FS
+	// setupErr 非空表示配置或服务器清单还读不出来。界面**照样起来**，只是页面
+	// 回一页「配置还没准备好」的说明：首次双击时 ops init 生成的是空清单模板，
+	// 若在这里直接退出，隐藏窗口里就是一次无声失败，表现为「双击没反应」。
+	setupErr error
+	// createShortcut 由 main.go 注入：真正的实现在 launcher（它要用 ui.IconBytes
+	// 写图标），而 ui 不能反向 import launcher。nil = 这个构建没有该能力。
+	createShortcut func() (shared.ShortcutInfo, error)
 }
 
-// CmdUI 启动只读界面。static 通常是根包的 webDist；
-// 测试可以传 fstest.MapFS，从而不依赖「前端构建了没有」。
-func CmdUI(args []string, static fs.FS) int {
-	port := 7788
+// exitProcess 是 /api/shutdown 的测试缝：生产环境就是 os.Exit。
+var exitProcess = os.Exit
+
+// CmdUI 启动只读界面。static 通常是根包的 webDist；createShortcut 由 main.go
+// 注入（实现是 launcher.CreateShortcutOnDesktop，ui 不能反向依赖它）。
+// 测试可以传 fstest.MapFS 与假的 createShortcut，不依赖「前端构建了没有」与真桌面。
+func CmdUI(args []string, static fs.FS, createShortcut func() (shared.ShortcutInfo, error)) int {
+	// --background 必须在 flag 解析**之前**拦下：它要把后面的参数原样交给
+	// 隐藏守护，自己不参与 ui 的参数解析（也只活几百毫秒）。
+	if len(args) > 0 && args[0] == "--background" {
+		return backgroundUI(args[1:])
+	}
+
+	port := defaultUIPort
+	noOpen := false
+	explicitPort := false
 	for i := 0; i < len(args); i++ {
 		a := args[i]
 		switch {
+		case a == "--no-open":
+			noOpen = true
 		case a == "--port":
 			if i+1 >= len(args) {
 				fmt.Fprintln(os.Stderr, "ERROR: --port 缺少参数")
@@ -71,6 +95,7 @@ func CmdUI(args []string, static fs.FS) int {
 				return 2
 			}
 			port = n
+			explicitPort = true
 		case strings.HasPrefix(a, "--port="):
 			n, err := strconv.Atoi(strings.TrimPrefix(a, "--port="))
 			if err != nil {
@@ -78,6 +103,7 @@ func CmdUI(args []string, static fs.FS) int {
 				return 2
 			}
 			port = n
+			explicitPort = true
 		case a == "-h" || a == "--help":
 			uiUsage()
 			return 0
@@ -91,18 +117,47 @@ func CmdUI(args []string, static fs.FS) int {
 		return 2
 	}
 
-	// 界面启动就保证配置目录里的 ops.ico 与嵌入的图标一致；写失败不影响界面。
-	WriteIcon(shared.UserConfigDir())
-
-	cfg, err := shared.LoadConfig()
+	dir, err := uiConfigDir()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
 		return 1
 	}
-	list, err := shared.LoadServers(cfg)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
-		return 1
+	// 界面启动就保证配置目录里的 ops.ico 与嵌入的图标一致；写失败不影响界面。
+	WriteIcon(dir)
+
+	// 单实例：第二次 `ops ui` 不启第二个进程，只把浏览器指到已有实例。
+	// 互斥体由内核持有，进程被强杀也会自动释放，不存在残留锁文件。
+	release, ok := acquireSingleton(uiSingletonKey(dir))
+	if !ok {
+		info, ierr := readUIInfo(dir)
+		if ierr != nil {
+			fmt.Fprintf(os.Stderr, "ERROR: 这个配置目录下已有界面进程，但读不到它的端口/token：%v\n", ierr)
+			fmt.Fprintf(os.Stderr, "       先点那个界面的「关闭界面」；或删掉 %s 再试\n", uiInfoPath(dir))
+			return 1
+		}
+		// 显式要了另一个端口却装作没看见，比报错更糟：人会以为自己起在了新端口上。
+		if explicitPort && info.Port != port {
+			fmt.Fprintf(os.Stderr, "ERROR: 已有界面在 %d 上跑（单实例），显式指定的 --port %d 不会生效。\n", info.Port, port)
+			fmt.Fprintln(os.Stderr, "       想换端口就先点页面上的「关闭界面」，再重新打开。")
+			return 1
+		}
+		fmt.Printf("· 已有界面在跑：%s\n", uiURL(info.Port, ""))
+		if !noOpen {
+			openBrowser(uiURL(info.Port, info.Token))
+		}
+		return 0
+	}
+	defer release()
+
+	// 配置 / 清单读不出来也照样起界面：页面给一页能照做的说明，修好之后
+	// 刷新即可（serveIndex 每次都会重读），不必重启进程。
+	var list *shared.ServerList
+	var setupErr error
+	cfg, cfgErr := shared.LoadConfig()
+	if cfgErr != nil {
+		setupErr = cfgErr
+	} else if list, err = shared.LoadServers(cfg); err != nil {
+		setupErr = err
 	}
 	token, err := randomToken()
 	if err != nil {
@@ -110,27 +165,58 @@ func CmdUI(args []string, static fs.FS) int {
 		return 1
 	}
 
-	ln, err := net.Listen("tcp", net.JoinHostPort("127.0.0.1", strconv.Itoa(port)))
+	ln, actual, err := uiListen(port, explicitPort)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "ERROR: 监听 127.0.0.1:%d 失败：%v\n", port, err)
+		fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
 		return 1
 	}
-	actual := ln.Addr().(*net.TCPAddr).Port
-
-	u := &uiState{
-		list:   list,
-		states: shared.LoadServerState(list.Path),
-		token:  token,
-		origin: fmt.Sprintf("http://127.0.0.1:%d", actual),
-		files:  distFS(static),
+	// port==0 是「让系统分配」，不是「0 被占用」——别把正常情况报成冲突。
+	if actual != port && port != 0 {
+		// 同机的 suikouji ops 也默认 7788；双击时不避让就永远是「没反应」。
+		fmt.Printf("· 端口 %d 被占用，改用 %d\n", port, actual)
 	}
-	fmt.Printf("服务器管理界面：http://127.0.0.1:%d/?token=%s\n", actual, token)
+	if err := writeUIInfo(dir, uiInfo{Port: actual, Token: token}); err != nil {
+		_ = ln.Close()
+		fmt.Fprintf(os.Stderr, "ERROR: 写 %s 失败：%v\n", uiInfoPath(dir), err)
+		return 1
+	}
+
+	states := map[string]shared.ServerStatus{}
+	if list != nil {
+		states = shared.LoadServerState(list.Path)
+	}
+	u := &uiState{
+		list:           list,
+		states:         states,
+		token:          token,
+		origin:         fmt.Sprintf("http://127.0.0.1:%d", actual),
+		files:          distFS(static),
+		setupErr:       setupErr,
+		createShortcut: createShortcut,
+	}
+	fmt.Printf("服务器管理界面：%s\n", uiURL(actual, token))
+	if setupErr != nil {
+		fmt.Printf("△ 配置还没准备好：%v\n   页面会显示怎么补；补完刷新即可，不用重启界面。\n", setupErr)
+	}
 	if u.files == nil {
 		fmt.Println("WARN: 前端产物未嵌入（web/dist 为空）。先构建：cd web && npm install && npm run build，再重新 go build。")
 	}
-	fmt.Println("退出：Ctrl+C")
+	fmt.Println("退出：Ctrl+C，或点页面上的「关闭界面」")
 
 	srv := &http.Server{Handler: u, ReadHeaderTimeout: 10 * time.Second}
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
+	defer signal.Stop(stop)
+	go func() {
+		<-stop
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		_ = srv.Shutdown(ctx)
+	}()
+
+	if !noOpen {
+		openBrowser(uiURL(actual, token))
+	}
 	if err := srv.Serve(ln); err != nil && err != http.ErrServerClosed {
 		fmt.Fprintf(os.Stderr, "ERROR: 界面服务退出：%v\n", err)
 		return 1
@@ -157,11 +243,57 @@ func distFS(static fs.FS) fs.FS {
 
 func uiUsage() {
 	fmt.Print(`用法:
-  ops ui [--port 7788]
+  ops ui [--port 7788] [--no-open]
+  ops ui --background --launcher <启动运维.cmd 的绝对路径> [上面的参数]
+
+第一种是前台：占着终端，Ctrl+C 或页面上的「关闭界面」停。
+第二种只由启动器调用：把界面交给隐藏的后台 cmd，自己立刻返回。
+已有实例时这两种都只会把浏览器指过去，不启第二个进程。
 
 只监听 127.0.0.1；地址带随机 token；写操作只接受清单里的 name。
+默认端口 7788，**被占用时自动往后递增**（同机其它工具也可能用 7788）；
+显式写了 --port 则严格绑定，被占直接报错，不偷偷换端口。
+--no-open 不自动打开浏览器（验收 / 脚本用）。
 页面来自 web/dist（构建：cd web && npm install && npm run build）。
 `)
+}
+
+// defaultUIPort 只是「起点」，不是必须抢到的端口：同机的 suikouji ops 也默认
+// 7788，两个工具经常同时开着。绑死一个端口的后果是双击后隐藏窗口里监听失败，
+// 浏览器永远不会打开——表现为「双击没反应」，日志里却只有一句 bind 错误。
+const (
+	defaultUIPort  = 7788
+	uiPortMaxTries = 20
+)
+
+// uiListen 只绑回环。两条规则：
+//   - 未显式给 --port：从起点往后试，被占就递增（双击路径必须总能起来）。
+//   - 显式给了 --port：严格绑定，被占就报错——静默换端口等于没尊重用户的要求。
+//
+// 返回的是**实际**端口（--port 0 时由系统分配），ui.json / origin / 浏览器地址
+// 全用这一个值，否则单实例复用与 Origin 校验都会对不上。
+func uiListen(requested int, explicit bool) (net.Listener, int, error) {
+	tries := uiPortMaxTries
+	if explicit {
+		tries = 1
+	}
+	var lastErr error
+	for i := 0; i < tries; i++ {
+		p := requested + i
+		if p < 0 || p > 65535 {
+			break
+		}
+		ln, err := net.Listen("tcp", net.JoinHostPort("127.0.0.1", strconv.Itoa(p)))
+		if err == nil {
+			return ln, ln.Addr().(*net.TCPAddr).Port, nil
+		}
+		lastErr = err
+	}
+	if explicit {
+		return nil, 0, fmt.Errorf("监听 127.0.0.1:%d 失败：%v\n"+
+			"       显式指定的端口被占用；换一个端口，或去掉 --port 让它自动避让", requested, lastErr)
+	}
+	return nil, 0, fmt.Errorf("从 %d 起连试 %d 个端口都不可用：%w", requested, tries, lastErr)
 }
 
 func randomToken() (string, error) {
@@ -211,6 +343,10 @@ func (u *uiState) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		u.handleCheck(w, r)
 	case r.Method == http.MethodPost && r.URL.Path == "/api/apply-sudo":
 		u.handleApplySudo(w, r)
+	case r.Method == http.MethodPost && r.URL.Path == "/api/shortcut":
+		u.handleShortcut(w)
+	case r.Method == http.MethodPost && r.URL.Path == "/api/shutdown":
+		u.handleShutdown(w)
 	default:
 		writeAPI(w, http.StatusNotFound, apiResponse{Error: "not found"})
 	}
@@ -233,6 +369,25 @@ func (u *uiState) serveIndex(w http.ResponseWriter) {
 	// index.html 必须 no-store：它决定引用哪一组带哈希的产物，
 	// 缓存住它就会在重新构建之后继续引用已经不存在的旧文件名。
 	w.Header().Set("Cache-Control", "no-store")
+
+	// 配置还没准备好时，每次请求都重读一次：补完之后刷新就能进正常页面，
+	// 不必重启界面（首次双击最需要这条——那时窗口是隐藏的，没人能去重启）。
+	u.mu.Lock()
+	setupErr := u.setupErr
+	u.mu.Unlock()
+	if setupErr != nil {
+		// reload 成功时会把 setupErr 清掉，下次请求直接走正常页面。
+		if err := u.reload(); err != nil {
+			setupErr = err
+		} else {
+			setupErr = nil
+		}
+	}
+	if setupErr != nil {
+		u.writeSetupHint(w, setupErr)
+		return
+	}
+
 	if u.files == nil {
 		u.writeNotBuilt(w)
 		return
@@ -262,6 +417,38 @@ func (u *uiState) writeNotBuilt(w http.ResponseWriter) {
 <p>构建一次再重新编译：</p>
 <pre style="background:#f2f3f5;padding:12px;border-radius:8px">`+buildHint+`</pre>
 <p style="color:#6b7280">后端接口本身是好的：<code>/api/servers</code> 仍然可用。</p>
+</body></html>`)
+}
+
+// writeSetupHint 是「配置 / 服务器清单还读不出来」时的一页说明。
+//
+// 它不是错误页：界面已经好好地在 127.0.0.1 上跑着，只是没有数据可显示。
+// 必须给出**能照做的下一步**，否则首次双击（ops init 生成空清单模板）时，
+// 用户看到的是一个隐藏窗口里起不来的服务 + 一个白屏标签页。
+func (u *uiState) writeSetupHint(w http.ResponseWriter, err error) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(http.StatusServiceUnavailable)
+	extra := ""
+	if u.files == nil {
+		extra = `<p>另外，这个 ops.exe 里还没有前端产物，构建一次再重新编译：</p><pre>` +
+			html.EscapeString(buildHint) + `</pre>`
+	}
+	_, _ = io.WriteString(w, `<!doctype html><html lang="zh-CN"><meta charset="utf-8">
+<title>ops ui：配置还没准备好</title>
+<body style="font:14px/1.6 -apple-system,'Segoe UI','Microsoft YaHei',sans-serif;padding:32px;max-width:720px">
+<h1 style="font-size:18px">网页面板已启动，但配置还没准备好</h1>
+<p>界面本身是好的，只是读不到 <code>ops.env</code> / <code>servers.json</code>：</p>
+<pre style="background:#f2f3f5;padding:12px;border-radius:8px;white-space:pre-wrap">`+
+		html.EscapeString(err.Error())+`</pre>
+<p>按顺序补：</p>
+<ol>
+  <li>没有配置模板就先跑 <code>ops init</code>（生成 <code>ops.env</code> 与空 <code>servers.json</code>）；</li>
+  <li>按 <code>docs/servers.md</code> §3 往 <code>servers.json</code> 里加至少一台服务器；</li>
+  <li>回来点下面的按钮，不用重启界面。</li>
+</ol>
+<button onclick="location.reload()" style="padding:8px 16px;font-size:14px;cursor:pointer">补好了，重新加载</button>
+`+extra+`
+<p style="color:#6b7280">配置目录可用 <code>`+html.EscapeString(shared.ConfigDirEnv)+`</code> 指定。</p>
 </body></html>`)
 }
 
@@ -304,6 +491,7 @@ func (u *uiState) reload() error {
 	defer u.mu.Unlock()
 	u.list = list
 	u.states = shared.LoadServerState(list.Path)
+	u.setupErr = nil
 	return nil
 }
 
@@ -324,7 +512,9 @@ func (u *uiState) handleServers(w http.ResponseWriter) {
 	u.opMu.Lock()
 	defer u.opMu.Unlock()
 	if err := u.reload(); err != nil {
-		writeAPI(w, http.StatusInternalServerError, apiResponse{Error: err.Error()})
+		// 503 而不是 500：这不是服务坏了，是「还差一份配置」，页面会据此
+		// 显示那页能照做的说明（见 writeSetupHint）。
+		writeAPI(w, http.StatusServiceUnavailable, apiResponse{Error: "配置还没准备好：" + err.Error()})
 		return
 	}
 	u.mu.Lock()
@@ -357,7 +547,9 @@ func (u *uiState) handleCheck(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if err := u.reload(); err != nil {
-		writeAPI(w, http.StatusInternalServerError, apiResponse{Error: err.Error()})
+		// 503 而不是 500：这不是服务坏了，是「还差一份配置」，页面会据此
+		// 显示那页能照做的说明（见 writeSetupHint）。
+		writeAPI(w, http.StatusServiceUnavailable, apiResponse{Error: "配置还没准备好：" + err.Error()})
 		return
 	}
 	u.mu.Lock()
@@ -415,7 +607,9 @@ func (u *uiState) handleApplySudo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := u.reload(); err != nil {
-		writeAPI(w, http.StatusInternalServerError, apiResponse{Error: err.Error()})
+		// 503 而不是 500：这不是服务坏了，是「还差一份配置」，页面会据此
+		// 显示那页能照做的说明（见 writeSetupHint）。
+		writeAPI(w, http.StatusServiceUnavailable, apiResponse{Error: "配置还没准备好：" + err.Error()})
 		return
 	}
 	u.mu.Lock()
@@ -454,6 +648,45 @@ func (u *uiState) handleApplySudo(w http.ResponseWriter, r *http.Request) {
 		BackupPath string              `json:"backup_path,omitempty"`
 		Status     shared.ServerStatus `json:"status"`
 	}{outcome.Message, outcome.AlreadyOK, outcome.Changed, outcome.BackupPath, st}})
+}
+
+// handleShortcut 服务页面上的「创建桌面快捷方式」。
+//
+// 三点与别的接口不同：
+//   - **不受配置缺失限制**：建快捷方式只碰本机桌面，跟 servers.json 填没填无关；
+//     配置还没准备好时这个按钮照样该能用（那时别的接口都是 503）。
+//   - 不进锁、不写任何远端：它不与检查 / 一键免密 sudo 互斥。
+//   - 实现与 `ops shortcut` 是**同一份**（main.go 注入的 launcher 实现），
+//     界面不自己拼路径——否则「命令行建出来能用、界面建出来指向别处」。
+func (u *uiState) handleShortcut(w http.ResponseWriter) {
+	if u.createShortcut == nil {
+		writeAPI(w, http.StatusNotImplemented, apiResponse{Error: "这个构建没有桌面快捷方式能力"})
+		return
+	}
+	info, err := u.createShortcut()
+	if err != nil {
+		// 500 而不是 400：失败几乎都是环境问题（没 PowerShell、找不到启动器、
+		// 不是 Windows），不是请求写错了。界面把 message 原样显示。
+		writeAPI(w, http.StatusInternalServerError, apiResponse{Error: err.Error()})
+		return
+	}
+	writeAPI(w, http.StatusOK, apiResponse{OK: true, Data: info})
+}
+
+// handleShutdown 关掉界面自己（退出码 0）。
+//
+// 后台模式下窗口是隐藏的，页面上的「关闭界面」就是唯一体面的停止方式：
+// 不用翻日志、不用开任务管理器。它不改远端、不写配置，只结束本机这个进程。
+// 与「重启」不同，这里不存在退出码 75：关掉之后没有东西留下是预期结果。
+func (u *uiState) handleShutdown(w http.ResponseWriter) {
+	writeAPI(w, http.StatusOK, apiResponse{OK: true, Data: map[string]bool{"stopping": true}})
+	// 响应先出去再退出：顺序反了浏览器拿到的是「连接被重置」，
+	// 而它本来应该显示「界面已关闭」。
+	go func() {
+		time.Sleep(300 * time.Millisecond)
+		fmt.Println("· 界面已关闭（重新双击 启动运维.cmd 再打开）")
+		exitProcess(0)
+	}()
 }
 
 // WriteIcon 把嵌入的图标落到配置目录，供 .lnk 的 IconLocation 使用。

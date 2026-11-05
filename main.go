@@ -28,7 +28,13 @@ func commandHandler(name string) (func([]string) int, bool) {
 	case "ui":
 		// 前端产物在根包（webdist.go）嵌入，注入给 ui 包 —— embed 路径不能有 `..`，
 		// 而 ui 包拿到的是 fs.FS，测试因此可以塞 fstest.MapFS。
-		return func(a []string) int { return ui.CmdUI(a, webDist) }, true
+		// 桌面快捷方式的实现在 launcher（它要用 ui.IconBytes），这里注入：
+		// 让 ui 反向 import launcher 会成环。
+		return func(a []string) int {
+			return ui.CmdUI(a, webDist, func() (shared.ShortcutInfo, error) {
+				return launcher.CreateShortcutOnDesktop(launcher.DefaultShortcutName)
+			})
+		}, true
 	case "backup":
 		return backup.CmdBackup, true
 	case "shortcut":
@@ -72,7 +78,7 @@ func usage() {
   ops servers list [--json]              服务器清单与最近检查结果
   ops servers check [name|all] [--json]  只读检查 SSH 与免密 sudo
   ops servers apply-sudo <name>          一键配置免密 sudo（写操作）
-  ops ui [--port 7788]                   本机界面（只监听 127.0.0.1）
+  ops ui [--port 7788] [--no-open]       本机界面（只监听 127.0.0.1；端口被占自动递增）
   ops shortcut [--name <名字>] [--remove]
                                          创建/删除桌面快捷方式（仅 Windows）
   ops menu                               交互菜单（启动器双击入口）

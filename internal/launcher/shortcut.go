@@ -18,24 +18,22 @@ import (
 // 桌面快捷方式是纯本机动作：不改远端、不提权、不写注册表、不开机自启。
 // .lnk 只指向仓库根的启动器，图标用与 /favicon.ico 同一份字节的 ops.ico。
 const (
-	defaultShortcutName = "Pass-up · 运维"
+	// DefaultShortcutName 是桌面快捷方式的默认名字：多项目共存时必须不同，
+	// 否则互相覆盖（见 docs/one-click-launch.md §6）。
+	DefaultShortcutName = "Pass-up · 运维"
 	launcherName        = "启动运维.cmd"
 
 	desktopDirEnv = "PASS_UP_OPS_DESKTOP_DIR"
 )
 
-// shortcutInfo 是「建好了」的凭据：命令行拿去打印，界面拿去显示，两边同一份。
-type shortcutInfo struct {
-	Path     string `json:"path"`
-	Launcher string `json:"launcher"`
-	Icon     string `json:"icon"`
-}
+// 结果模型在 shared.ShortcutInfo：界面也要回传同一份字段，而 ui 不能反向
+// import launcher（launcher 已经 import ui，反过来就成环）。
 
 var errShortcutWindowsOnly = errors.New("桌面快捷方式只对 Windows 有意义（.lnk）；" +
 	"macOS / Linux 请自己建一个指向 " + launcherName + " 的启动器")
 
 func CmdShortcut(args []string) int {
-	name := defaultShortcutName
+	name := DefaultShortcutName
 	remove := false
 	for i := 0; i < len(args); i++ {
 		a := args[i]
@@ -75,7 +73,7 @@ func CmdShortcut(args []string) int {
 		return 0
 	}
 
-	Info, err := createShortcutOnDesktop(name)
+	Info, err := CreateShortcutOnDesktop(name)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
 		return 1
@@ -95,32 +93,34 @@ func shortcutUsage() {
 `)
 }
 
-// createShortcutOnDesktop 是唯一的创建实现：命令行与界面都必须走这里，
-// 否则「命令行建出来能用、界面建出来指向别处」。
-func createShortcutOnDesktop(name string) (shortcutInfo, error) {
+// CreateShortcutOnDesktop 是唯一的创建实现：命令行（ops shortcut）与界面上的
+// 「创建桌面快捷方式」都必须走这里，否则「命令行建出来能用、界面建出来指向别处」。
+//
+// 界面侧由 main.go 注入（ui 不能 import launcher），但实现只有这一份。
+func CreateShortcutOnDesktop(name string) (shared.ShortcutInfo, error) {
 	if runtime.GOOS != "windows" {
-		return shortcutInfo{}, errShortcutWindowsOnly
+		return shared.ShortcutInfo{}, errShortcutWindowsOnly
 	}
 	if err := validateShortcutName(name); err != nil {
-		return shortcutInfo{}, err
+		return shared.ShortcutInfo{}, err
 	}
 	desktop, err := desktopDir()
 	if err != nil {
-		return shortcutInfo{}, err
+		return shared.ShortcutInfo{}, err
 	}
 	launcher, err := launcherPath()
 	if err != nil {
-		return shortcutInfo{}, err
+		return shared.ShortcutInfo{}, err
 	}
 	icon, err := ensureIcon()
 	if err != nil {
-		return shortcutInfo{}, err
+		return shared.ShortcutInfo{}, err
 	}
 	lnk := filepath.Join(desktop, name+".lnk")
 	if err := createShortcut(lnk, launcher, filepath.Dir(launcher), icon); err != nil {
-		return shortcutInfo{}, err
+		return shared.ShortcutInfo{}, err
 	}
-	return shortcutInfo{Path: lnk, Launcher: launcher, Icon: icon}, nil
+	return shared.ShortcutInfo{Path: lnk, Launcher: launcher, Icon: icon}, nil
 }
 
 // removeShortcutOnDesktop 返回 (路径, 是否真的删掉, 错误)：本来没有不算错。
@@ -258,7 +258,7 @@ $sc.Description = %s
 $sc.WindowStyle = 7
 $sc.Save()
 `, psQuote(lnk), psQuote(target), psQuote(workdir), psQuote(icon+",0"),
-		psQuote(defaultShortcutName+"：双击打开本地运维菜单"))
+		psQuote(DefaultShortcutName+"：双击打开本地运维界面"))
 }
 
 // psQuote：PowerShell 单引号字面量里只有 ' 需要转义，写成两个连续单引号。
