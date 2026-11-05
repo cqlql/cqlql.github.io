@@ -77,7 +77,17 @@ func (t *SSHTarget) sudoStdin(root bool) io.Reader {
 	return nil
 }
 
-// Capture 用于只读检查：返回输出与退出码。非零退出码不算 Go 错误。
+// sshExitTransport 是 ssh **自己**失败的退出码（连接被拒 / 被重置 / 认证失败 / 主机不可达），
+// 与远端命令的退出码没有关系。
+//
+// 🔴 必须单独识别：不区分开就会把「连不上」当成「远端命令失败」。
+// 2026-11-05 踩过一次——ssh 被重置时 Capture 返回 (报错文本, 255, nil)，
+// checkAccess 于是看到「id -u 没输出、sudo -n true 非零」，报出「sudo 不可用」，
+// 把排查方向带到了 sudoers 上，实际是网络/sshd 的问题。
+const sshExitTransport = 255
+
+// Capture 用于只读检查：返回输出与退出码。非零退出码不算 Go 错误，
+// **但 255 例外**——那是 ssh 自身失败，不是远端命令的结论。
 func (t *SSHTarget) Capture(ctx context.Context, cmd string, root bool) (string, int, error) {
 	c := exec.CommandContext(ctx, "ssh", t.sshArgs(t.rootWrap(cmd, root))...)
 	c.Stdin = t.sudoStdin(root)
@@ -90,7 +100,13 @@ func (t *SSHTarget) Capture(ctx context.Context, cmd string, root bool) (string,
 			err = nil
 		}
 	}
-	return string(out), code, err
+	if err != nil {
+		return string(out), -1, err
+	}
+	if code == sshExitTransport {
+		return string(out), code, fmt.Errorf("ssh 连接失败（exit 255）：%s", strings.TrimSpace(string(out)))
+	}
+	return string(out), code, nil
 }
 
 // Stream 用于安装 / 自检 / 首跑：输出直接给人看，stdin 可接 tar 流。

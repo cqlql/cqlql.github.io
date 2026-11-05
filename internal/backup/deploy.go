@@ -538,20 +538,27 @@ func inspectLocalEnv(p string) (string, bool) {
 }
 
 func checkAccess(t *shared.SSHTarget, ctx context.Context) error {
-	out, _, err := t.Capture(ctx, "id -u", false)
+	out, code, err := t.Capture(ctx, "id -u", false)
 	if err != nil {
 		return fmt.Errorf("SSH 连接失败：%w", err)
+	}
+	if code != 0 {
+		return fmt.Errorf("SSH 命令失败（exit %d）：%s", code, strings.TrimSpace(out))
 	}
 	if strings.TrimSpace(out) == "0" {
 		t.IsRoot = true
 		return nil
 	}
-	_, code, err := t.Capture(ctx, "true", true)
+	// 远端输出必须带上：连接被重置时这里以前只报「sudo 不可用」，
+	// 与真的没有免密 sudo 长得一模一样，排查方向会直接跑偏。
+	sudoOut, code, err := t.Capture(ctx, "true", true)
 	if err != nil {
-		return fmt.Errorf("检查 sudo 失败：%w", err)
+		return fmt.Errorf("SSH 连接失败（sudo 探测）：%w", err)
 	}
 	if code != 0 {
-		return fmt.Errorf("sudo 不可用：先运行 ops servers apply-sudo <name> 配置免密 sudo，或在清单里填 sudo.password")
+		return fmt.Errorf("sudo 不可用（exit %d）：%s\n"+
+			"先运行 ops servers apply-sudo <name> 配置免密 sudo，或在清单里填 sudo.password",
+			code, strings.TrimSpace(sudoOut))
 	}
 	return nil
 }
