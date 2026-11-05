@@ -143,8 +143,8 @@ ops/
   internal/shared/config.go               ops.env 读写、默认值、校验、init 模板
   internal/shared/remote.go               ssh 封装（BatchMode / 10s 连接 / 30s 总超时 / stdin 脚本）
   internal/monitor/status.go              Status 结构、探针脚本、解析、assess、终端渲染
-  internal/ui/ui.go                       go:embed 页面、loopback + token + Origin 校验、30s 缓存
-  internal/ui/index.html                  单页状态面板
+  internal/ui/ui.go                       静态产物托管、loopback + token + Origin 校验、30s 缓存
+  web/src/views/StatusView.tsx            P2 状态面板（四张卡 + 问题清单；构建后嵌入，见 ui.md）
   internal/monitor/status_test.go         解析与判定单测（固定文本 fixture）
   internal/shared/config_test.go          配置解析与校验单测
 ```
