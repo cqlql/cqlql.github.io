@@ -8,7 +8,7 @@
 
 ## 1. 要解决什么
 
-备份体系见 [`pass-up.backend/docs/deployment-backup.md`](../../pass-up.backend/docs/deployment-backup.md) §9：
+备份体系见 [backup-scripts.md](backup-scripts.md)（脚本已迁入本仓 `deploy/backup/`）：
 
 | 备份对象 | 心跳文件 | 定时 |
 | :--- | :--- | :--- |

@@ -1,0 +1,25 @@
+# MinIO 异地备份日志轮转配置
+# 安装方式（需 root）：
+#   cp deploy/backup/minio/minio_backup.logrotate /etc/logrotate.d/minio-backup
+# 然后可用如下命令测试（dry-run）：
+#   logrotate -d /etc/logrotate.d/minio-backup
+
+# 所有备份/巡检日志已统一写入 minio_backup.log，此处 *.log 兜底覆盖该单一文件
+/var/log/minio-backup/*.log {
+    # 每天轮转一次
+    daily
+    # 日志缺失不报错
+    missingok
+    # 空文件不轮转
+    notifempty
+    # 最多保留 14 个历史文件
+    rotate 14
+    # 压缩历史日志（默认 gzip）
+    compress
+    # 延迟一轮再压缩，方便排查最近一次
+    delaycompress
+    # 拷贝后清空原文件，脚本持续 >> 追加不中断
+    copytruncate
+    # 历史文件加日期后缀，如 minio_backup.log-20260813.gz
+    dateext
+}

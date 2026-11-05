@@ -83,11 +83,12 @@ JSON 结构、字段语义与校验规则见 [servers.md](servers.md) §3，**�
 | 键 | 默认 | 说明 |
 | :--- | :--- | :--- |
 | `PASS_UP_OPS_BACKUP_DEPLOY_DIR` | `/opt/passup-backup` | 远端脚本目录；**升级已有安装必须填现有路径** |
-| `PASS_UP_OPS_BACKUP_SRC_DIR` | 工具目录的 `../pass-up.backend/deploy/backup` | 本机脚本源目录 |
-| `PASS_UP_OPS_BACKUP_PG_ENV_FILE` | `../pass-up.backend/deploy/backup/postgres/backup.env` | 本机已填好的配置（不入 Git） |
-| `PASS_UP_OPS_BACKUP_MINIO_ENV_FILE` | `../pass-up.backend/deploy/backup/minio/backup.env` | 同上 |
+| `PASS_UP_OPS_BACKUP_SRC_DIR` | 空 | 空 = 用**编进二进制**的脚本（`deploy/backup` 已嵌入）；只有调试才填本机目录覆盖 |
+| `PASS_UP_OPS_BACKUP_PG_ENV_FILE` | 配置目录 `backup/postgres.env` | 本机已填好的配置（含凭证，不入 Git） |
+| `PASS_UP_OPS_BACKUP_MINIO_ENV_FILE` | 配置目录 `backup/minio.env` | 同上 |
 
-`backup.env` 的键名与默认值属于 `pass-up.backend` 仓库，本工具**不复制**，只上传与校验。
+`backup.env` 的键名与默认值随脚本一起维护在 `deploy/backup/<组件>/backup.env.example`
+（模板用 `ops backup env` 生成到配置目录），本工具**不复制**键定义，只上传与校验。
 
 ## 5. 应用部署（P3–P4）
 

@@ -12,6 +12,13 @@
 ops.env
 servers.json
 
+# 备份脚本目录里不许出现真实凭证：//go:embed 会把整个目录编进二进制。
+# 已填好的 backup.env 放配置目录 backup/{postgres,minio}.env（见 docs/config.md）。
+deploy/backup/**/backup.env
+deploy/backup/**/sync.env
+deploy/backup/**/*.log
+deploy/backup/**/last_success.txt
+
 # 系统杂项
 .DS_Store
 Thumbs.db

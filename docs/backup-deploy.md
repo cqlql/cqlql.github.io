@@ -6,12 +6,13 @@
 
 ## 1. 要解决什么
 
-把 `pass-up.backend/deploy/backup/**` 的脚本、配置、cron、logrotate 一次性装到备份服务器。
+把本仓 `deploy/backup/**` 的脚本、配置、cron、logrotate 一次性装到备份服务器。
 
-现状是两步手工：
+脚本本身随二进制分发（`//go:embed all:deploy/backup`，见 [backup-scripts.md](backup-scripts.md)），
+所以 `ops.exe` 单独拷到任何机器上都能部署，**不再依赖当前工作目录或兄弟仓**。
 
-1. `bash deploy/backup/backup_sync.sh` 用本机 `rsync` 同步脚本；
-2. `ssh` 上服务器 `sudo bash postgres/install.sh`、`sudo bash minio/install.sh`。
+历史上是两步手工：`backup_sync.sh`（rsync 推目录）+ `ssh` 上服务器跑 `install.sh`。
+那条路径已在 2026-11-05 删除（Windows 开发机没有 rsync、且不注入配置/不装 logrotate/不跑 preflight）。
 
 目标：`ops backup deploy` 一条命令完成「预检 → 上传 → 配置 → 安装 → 自检 → 交付监控」。
 
@@ -44,13 +45,18 @@ ops backup deploy [pg|minio|all] [--server <name>] [--dry-run] [--force] [--run-
 
 ops backup verify [pg|minio|all] [--server <name>]
     只跑远端 preflight_check.sh，不安装、不备份
+
+ops backup env [pg|minio|all]
+    把嵌入的 backup.env.example 落到配置目录 backup/{postgres,minio}.env
+    （已存在不覆盖；脚本树里不放真实凭证，所以模板必须由这条命令给出）
 ```
 
 ## 4. 部署流程
 
 ### 4.1 预检
 
-- 本机：`deploy/backup/**` 存在；本机 ssh 可用；**不要求本机有 `rsync`**。
+- 本机：嵌入的 `deploy/backup/**` 完整（缺 `install.sh` / `preflight_check.sh` /
+  `lib/common.sh` / `*.logrotate` 时在连远端之前就失败）；本机 ssh 可用；**不要求本机有 `rsync`**。
 - 远端：目标机由 `--server` 从 [servers.json](servers.md) 选择；安装提权用该条目的
   `user` + `sudo`（已免密走 `sudo -n`；否则用清单 `sudo.password` 或界面/`--password-stdin`
   经 **ssh stdin** 走 `sudo -S -p ''`，密码不出现在命令行/日志）；依赖命令 `ssh` / `scp` / `pg_restore` /
@@ -77,9 +83,10 @@ ops backup verify [pg|minio|all] [--server <name>]
 ### 4.3 配置
 
 - 本机配置来自 `PASS_UP_OPS_BACKUP_PG_ENV_FILE` / `..._MINIO_ENV_FILE`
-  （默认指向 `pass-up.backend/deploy/backup/{postgres,minio}/backup.env`，**不入 Git**）。
+  （默认是配置目录的 `backup/postgres.env` / `backup/minio.env`，**不入 Git**；
+  模板用 `ops backup env` 生成，键定义只在 `deploy/backup/<组件>/backup.env.example` 维护）。
 - 上传前校验：文件存在、无 `CHANGE_ME` / `YOUR_` 占位符、键名与
-  `backup.env.example` 对得上（**字段定义只在 backend 仓库维护，本文不复制**）。
+  `backup.env.example` 对得上（**字段定义不在这份文档里复制**）。
 - 远端必须存在有效配置才允许安装：
   - 有本机配置 → 上传（`--force` 才覆盖远端已有配置，且先备份）；
   - 无本机配置但远端已有有效配置 → 保留，继续；
@@ -118,21 +125,23 @@ ops backup verify [pg|minio|all] [--server <name>]
   **不自动回滚配置**（配置回滚会让「哪版凭据生效」说不清，需人工确认）。
 - 不提供 `uninstall`：删 cron / logrotate / 历史备份是破坏性操作，本期只出人工步骤。
 
-## 6. 与现有脚本的关系
+## 6. 与脚本的关系
 
-| 现有 | 新工具 | 关系 |
+| 脚本 | 工具怎么用 | 关系 |
 | :--- | :--- | :--- |
-| `backup_sync.sh` + `sync.env` | `ops backup deploy` 的上传段 | 取代；脚本保留到 `--dry-run` 对齐后再议 |
-| `postgres/install.sh` | 原样调用 | **不复制**其 cron / logrotate / 配置生成逻辑 |
+| `postgres/install.sh` / `minio/install.sh` | 原样调用 | **不复制**其 cron / logrotate / 配置生成逻辑 |
 | `preflight_check.sh` | 原样调用 | 自检结果直接作为部署门 |
-| `Makefile` 的 `*-install` | 不调用 | Makefile 依赖仓库在本机；工具直接跑脚本 |
+| `Makefile` 的 `*-install` | 不调用 | 工具直接跑脚本；Makefile 是给人手工用的 |
+| ~~`backup_sync.sh` + `sync.env`~~ | 已删除 | 由本命令的上传段取代（原因见 [backup-scripts.md](backup-scripts.md) §5） |
 
 ## 7. 文件与阶段
 
 ```
 ops/
-  internal/backup/deploy.go               预检、tar 流上传、目录切换、install/preflight 调度
-  internal/backup/deploy_test.go          命令拼装、占位符校验、cron 路径解析单测（不碰真实 ssh）
+  deploy/backup/**                       脚本本体（编进二进制，见 docs/backup-scripts.md）
+  backupdist.go                          //go:embed all:deploy/backup
+  internal/backup/deploy.go              预检、tar 流上传、目录切换、install/preflight 调度
+  internal/backup/deploy_test.go         命令拼装、占位符校验、cron 路径解析、脚本包完整性单测
 ```
 
 | 阶段 | 内容 | 验收 |

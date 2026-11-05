@@ -1,0 +1,13 @@
+# ==========================================
+# 行尾策略
+# ==========================================
+# 备份脚本跑在 Linux 上，CRLF 会让 bash 报 `$'\r': command not found`。
+# 更麻烦的是：这些文件会被 //go:embed 编进 ops.exe —— 工作区一旦是 CRLF，
+# 编出来、部署到远端的就是坏脚本，而本机跑得好好的，极难定位。
+# （本仓 core.autocrlf 可能是 true，所以必须显式钉成 LF，不能依赖默认值。）
+*.sh          text eol=lf
+*.logrotate   text eol=lf
+*.env.example text eol=lf
+
+# Windows 批处理反过来：cmd.exe 对 LF 的 goto/label 解析不可靠。
+*.cmd         text eol=crlf

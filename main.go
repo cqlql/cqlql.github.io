@@ -36,7 +36,11 @@ func commandHandler(name string) (func([]string) int, bool) {
 			})
 		}, true
 	case "backup":
-		return backup.CmdBackup, true
+		// 备份脚本（deploy/backup）在根包（backupdist.go）嵌入，注入给 backup 包 ——
+		// 与 ui 收 fs.FS 同理：embed 路径不能有 `..`，internal/backup 自己嵌不了。
+		return func(a []string) int {
+			return backup.CmdBackup(a, backupScripts)
+		}, true
 	case "shortcut":
 		return launcher.CmdShortcut, true
 	case "menu":
@@ -83,9 +87,10 @@ func usage() {
                                          创建/删除桌面快捷方式（仅 Windows）
   ops menu                               交互菜单（启动器双击入口）
   ops backup deploy [组件] --server <name> [选项]
-                                         安装/升级备份能力（P1）
+                                         安装/升级备份能力（脚本随二进制分发）
   ops backup verify [组件] --server <name>
                                          只跑远端 preflight 自检
+  ops backup env [组件]                  生成本机备份配置模板（backup/*.env）
 
 组件: pg | minio | all（默认 all）
 

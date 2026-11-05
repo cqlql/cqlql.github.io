@@ -7,13 +7,17 @@
 > S5 未做退出码 75 自重建与 `.new` 换身，源码改动仍要手动 `go build`（见 `docs/one-click-launch.md`）。
 > **2026-11-05 已按能力竖切 Go 包**：`main.go` 薄入口 + `internal/{shared,servers,backup,ui,launcher}`。
 > **2026-11-05 界面迁到 Vite + TS + React + antd**：源码在 `web/`，产物嵌进二进制（见 `docs/ui.md`）。
+> **2026-11-05 备份脚本迁入本仓**：`deploy/backup/**` 从 `pass-up.backend` 整体搬来并
+> `//go:embed` 进二进制，`ops.exe` 不再依赖兄弟仓（见 `docs/backup-scripts.md`）。
 > 只放「每次动代码都要遵守」的红线：一句结论 + 一个指针。判据、流程、踩坑都在 `docs/`。
 > 通用文档规则以 `cqlql-notes/docs/工程/文档约定.md` 为准。
 
 ## 项目概述
 
 - 本地单二进制运维工具，**已实现**：`ops servers list/check/apply-sudo` 管服务器与免密 sudo；
-  `ops backup deploy/verify` 安装、升级与预检备份能力；`ops ui` 只读查看服务器清单与检查结果
+  `ops backup deploy/verify/env` 安装、升级、预检备份能力并生成配置模板
+  （备份脚本本体就在本仓 `deploy/backup/`，编进二进制）；
+  `ops ui` 只读查看服务器清单与检查结果
   （前端是 React 工程，源码 `web/`，构建后嵌入二进制）；
   双击 `启动运维.cmd` 直接开这个网页面板（后台隐藏守护 + 自动开浏览器 + 单实例）；
   `ops menu` 是显式的交互菜单入口，`ops shortcut` 建桌面 `.lnk`。见 `docs/one-click-launch.md`。
@@ -24,9 +28,9 @@
 - 服务器（备份端 / 应用端）只在 `servers.json` 登记一处，命令用 `--server <name>` 选目标。
 - 仅 Go 标准库；所有动作在本机执行，经本机 `ssh` 到目标机。
 - 🔴 不改 `pass-up.backend` / `pass-up.ai` / `pass-up.frontend` 的任何代码。
-  例外（2026-11-05 真机验证）：只修了 `deploy/backup/**` 自身的两个缺陷
-  （`pg_restore` 版本低于服务端时误判 dump 损坏、`install.sh` 把空值 `""` 当占位符），
-  未改业务代码。
+  例外（2026-11-05）：备份脚本已整体迁入本仓 `deploy/backup/`，backend 侧只做了
+  「删目录 + 改引用指向」，未改业务代码；同日真机验证时也只修过 `deploy/backup/**` 自身
+  的两个缺陷（`pg_restore` 版本低于服务端时误判 dump 损坏、`install.sh` 把空值 `""` 当占位符）。
 
 ## 硬约束
 
@@ -80,6 +84,14 @@
 18. 🔴 **桌面快捷方式只有一份实现**：`launcher.CreateShortcutOnDesktop` 是唯一入口，
     `ops shortcut` 与页面按钮（`POST /api/shortcut`）都调它；ui 通过 main 注入，
     不反向 import launcher。该按钮**不依赖配置是否齐全**（只碰本机桌面）。
+19. 🔴 **备份脚本编在二进制里**：改了 `deploy/backup/**` 必须重新 `go build`，
+    只跑旧 `ops.exe` 部署出去的还是旧脚本（与「改了 `web/` 必须 `npm run build`」同理）。
+    嵌入点是仓库根 `backupdist.go`（embed 路径不能有 `..`，`internal/backup` 自己嵌不了），
+    `backup.CmdBackup(args, fs.FS)` 由 `main.go` 注入。详见 `docs/backup-scripts.md`。
+20. 🔴 **`deploy/backup/` 里不许出现真实凭证**：`//go:embed all:deploy/backup` 会整目录编进
+    二进制，`backup.env` 一旦放回去就等于把数据库/MinIO 密码打进 exe。真实配置在配置目录
+    `backup/{postgres,minio}.env`（模板 `ops backup env` 生成），打包时以 0600 单独注入；
+    `.gitignore` 与 `backupdist_test.go` 各挡一道。
 
 ## 命令与验证
 
@@ -99,6 +111,7 @@ ops servers check all
 ops servers apply-sudo <name> --password-stdin
 ops backup deploy --server <name> --dry-run
 ops backup deploy --server <name> --install-deps
+ops backup env
 ops backup verify --server <name>
 ops ui [--port 7788] [--no-open]
 ops shortcut [--name <名字>] [--remove]
@@ -140,6 +153,11 @@ ops menu --help
   所以嵌 `web/dist` 的文件只能是仓库根的 `webdist.go`（`package main`），
   `ui.CmdUI(args, static fs.FS)` **接收**它 —— `internal/ui/` 不再嵌页面。
   别为了「放得整齐」把 `web/` 挪进 `internal/`：那样 `main.go` 就得反向依赖 `ui` 的私有目录。
+- 🔴 **备份脚本在 `deploy/backup/`，同样靠根包注入**：嵌入点是仓库根 `backupdist.go`
+  （`//go:embed all:deploy/backup`），`backup.CmdBackup(args, scripts fs.FS)` 接收它。
+  目录结构必须与远端一致（`postgres/` `minio/` `lib/` `preflight_check.sh`）：
+  `component.remoteDir()` / `installPath()` / `logrotateSrc()` 都按这个相对布局拼远端路径。
+  脚本本体说明见 `docs/backup-scripts.md`，安装流程见 `docs/backup-deploy.md`。
 - `internal/ui/`：`ui.go`（服务端、token、`/api/shutdown`、配置降级页）、
   `background.go`（`--background` 调度、`ui.json`、日志轮转、开浏览器）、
   `background_{windows,other}.go`（隐藏 cmd 守护，靠 build tag 切平台）、`ops.ico`；
@@ -177,6 +195,7 @@ ops menu --help
 | :--- | :--- | :--- |
 | 服务器管理 + 一键免密 sudo（P0 先做） | `docs/servers.md` | 主机只来自清单；只写一个 sudoers drop-in；验证用 `runuser` |
 | 界面（`ops ui` · Vite + React + antd） | `docs/ui.md` | 静态产物不过 token、API 才是边界；产物不进 Git 但 `.gitkeep` 必进；未构建要回说明页；单实例 + 配置不全也起页面 |
+| 备份脚本（`deploy/backup/**`，已迁入本仓） | `docs/backup-scripts.md` | 脚本编在二进制里，改了必须 `go build`；目录里不许有真实凭证；恢复脚本禁止入 Crontab |
 | 备份能力部署（P1 ✅，监控的前置） | `docs/backup-deploy.md` | 复用 `install.sh`；不覆盖 `backup.env`；不静默迁移目录；logrotate 由工具落盘 |
 | 备份监控（P2 · 方案，未实现） | `docs/backup-monitor.md` | 只读采集；时间差在远端算；`-` 不是 0 |
 | 单机一键 Docker 部署（P3–P4 · 方案，未实现） | `docs/deploy.md` | `.env` 去 CRLF；镜像前缀必须等于 compose；Flyway 单向 |

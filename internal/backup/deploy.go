@@ -62,6 +62,14 @@ func (c component) envRel() string {
 	return c.remoteDir() + "/backup.env"
 }
 
+// envName 是本机配置文件在配置目录 backup/ 下的名字（远端一律叫 <组件>/backup.env）。
+func (c component) envName() string {
+	if c == compPG {
+		return "postgres.env"
+	}
+	return "minio.env"
+}
+
 // envsToKeep：整目录切换时，只有本次「上传新配置」的组件不保留旧 env；
 // 其余组件（含本次未部署的）必须从旧目录搬回，否则重部署单组件会弄丢别的组件配置。
 func envsToKeep(plans []envPlan) []component {
@@ -167,7 +175,7 @@ type envPlan struct {
 	keep        bool
 }
 
-func runBackupDeploy(args []string) int {
+func runBackupDeploy(args []string, embedded fs.FS) int {
 	opt, err := parseDeployArgs(args)
 	if errors.Is(err, errHelp) {
 		backupUsage()
@@ -180,6 +188,15 @@ func runBackupDeploy(args []string) int {
 
 	cfg, err := shared.LoadConfig()
 	if err != nil {
+		fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
+		return 1
+	}
+	src, err := scriptFS(cfg, embedded)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
+		return 1
+	}
+	if err := checkScripts(src, opt.comps); err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
 		return 1
 	}
@@ -289,8 +306,8 @@ func runBackupDeploy(args []string) int {
 			p.keep = true
 			fmt.Printf("WARN: 本机配置缺失，保留远端已有的 %s/backup.env\n", p.comp.remoteDir())
 		default:
-			fmt.Fprintf(os.Stderr, "ERROR: %s 既没有本机配置也没有有效的远端配置。\n先按 backup.env.example 准备：%s\n",
-				p.comp.remoteDir(), p.local)
+			fmt.Fprintf(os.Stderr, "ERROR: %s 既没有本机配置也没有有效的远端配置。\n先运行 ops backup env %s 生成模板，填好后重试：%s\n",
+				p.comp.remoteDir(), p.comp, p.local)
 			return 1
 		}
 	}
@@ -326,7 +343,7 @@ func runBackupDeploy(args []string) int {
 			envs[p.comp.envRel()] = p.local
 		}
 	}
-	payload, err := buildPayload(cfg.SrcDir, envs)
+	payload, err := buildPayload(src, envs)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: 打包备份脚本失败：%v\n", err)
 		return 1
@@ -501,7 +518,7 @@ func buildEnvPlans(cfg *shared.Config, comps []component) ([]envPlan, error) {
 			plans = append(plans, p)
 			continue
 		}
-		return nil, fmt.Errorf("%s 无效（%s），先按 backup.env.example 填好", p.local, issue)
+		return nil, fmt.Errorf("%s 无效（%s），先运行 ops backup env %s 生成模板并填好", p.local, issue, p.comp)
 	}
 	return plans, nil
 }
@@ -856,7 +873,52 @@ func rollback(t *shared.SSHTarget, ctx context.Context, dir string) error {
 	return nil
 }
 
-func buildPayload(srcDir string, envs map[string]string) ([]byte, error) {
+// embeddedRoot 是嵌入的脚本树在 embed.FS 里的前缀（见仓库根 backupdist.go）。
+const embeddedRoot = "deploy/backup"
+
+// scriptFS 选出本次打包用的脚本来源。
+//
+// 默认（cfg.SrcDir 为空）用**编进二进制**的那份：ops.exe 因此可以单独拷到任何机器上
+// 部署，不再依赖「从仓根跑」或兄弟仓是否存在。显式配置 PASS_UP_OPS_BACKUP_SRC_DIR
+// 时才用磁盘目录 —— 留给调试与临时热修，代价是那台机器上的脚本可能与二进制不一致。
+func scriptFS(cfg *shared.Config, embedded fs.FS) (fs.FS, error) {
+	if cfg.SrcDir == "" {
+		sub, err := fs.Sub(embedded, embeddedRoot)
+		if err != nil {
+			return nil, fmt.Errorf("嵌入的备份脚本不可用：%w", err)
+		}
+		return sub, nil
+	}
+	info, err := os.Stat(cfg.SrcDir)
+	if err != nil || !info.IsDir() {
+		return nil, fmt.Errorf("PASS_UP_OPS_BACKUP_SRC_DIR 指向的目录不可用：%s", cfg.SrcDir)
+	}
+	return os.DirFS(cfg.SrcDir), nil
+}
+
+// checkScripts 在动远端之前先确认脚本包是完整的：
+// 缺文件时上传会「成功」，直到远端 install.sh 报 command not found 才发现。
+func checkScripts(src fs.FS, comps []component) error {
+	need := []string{"preflight_check.sh", "lib/common.sh"}
+	for _, c := range comps {
+		need = append(need,
+			path.Join(c.remoteDir(), "install.sh"),
+			c.backupPath(""),
+			c.logrotateSrc(""),
+		)
+	}
+	for _, n := range need {
+		if _, err := fs.Stat(src, n); err != nil {
+			return fmt.Errorf("脚本包缺少 %s（嵌入产物不完整，或 PASS_UP_OPS_BACKUP_SRC_DIR 指错了目录）", n)
+		}
+	}
+	return nil
+}
+
+// buildPayload 把脚本树打成 tar.gz。src 可能是嵌入的 deploy/backup（embed.FS），
+// 也可能是覆盖出来的磁盘目录（os.DirFS）—— 两者都是 fs.FS，路径一律斜杠分隔，
+// 所以不再需要 filepath.Rel / ToSlash 那套 Windows 专用处理。
+func buildPayload(src fs.FS, envs map[string]string) ([]byte, error) {
 	var buf bytes.Buffer
 	gz := gzip.NewWriter(&buf)
 	tw := tar.NewWriter(gz)
@@ -865,23 +927,19 @@ func buildPayload(srcDir string, envs map[string]string) ([]byte, error) {
 	// "time stamp ... is X s in the future"（仅噪音，但会淹没真正的错误）。
 	modTime := time.Now().Add(-5 * time.Second)
 
-	err := filepath.WalkDir(srcDir, func(p string, d fs.DirEntry, err error) error {
+	err := fs.WalkDir(src, ".", func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
-		rel, err := filepath.Rel(srcDir, p)
-		if err != nil {
-			return err
-		}
-		if rel == "." {
+		if p == "." {
 			return nil
 		}
-		rel = filepath.ToSlash(rel)
+		rel := p
 		base := d.Name()
 
 		if d.IsDir() {
 			if base == ".git" || base == ".deploy" {
-				return filepath.SkipDir
+				return fs.SkipDir
 			}
 			hdr := &tar.Header{Name: rel + "/", Mode: 0o755, Typeflag: tar.TypeDir, ModTime: modTime}
 			return tw.WriteHeader(hdr)
@@ -892,7 +950,7 @@ func buildPayload(srcDir string, envs map[string]string) ([]byte, error) {
 		if excludedBackupFile(base) {
 			return nil
 		}
-		data, err := os.ReadFile(p)
+		data, err := fs.ReadFile(src, p)
 		if err != nil {
 			return err
 		}
@@ -1029,16 +1087,21 @@ func runBackupVerify(args []string) int {
 
 // CmdBackup 是 backup 动词的分发入口：与 runBackupDeploy / runBackupVerify 同文件，
 // main.go 只保留全局注册表、run 与 usage。
-func CmdBackup(args []string) int {
+//
+// embedded 是编进二进制的脚本树（根包 backupdist.go 注入）：embed 路径不能有 `..`，
+// 所以 internal/backup 自己嵌不了 deploy/backup，只能由 main 传进来（与 ui 收 fs.FS 同理）。
+func CmdBackup(args []string, embedded fs.FS) int {
 	if len(args) == 0 {
 		backupUsage()
 		return 2
 	}
 	switch args[0] {
 	case "deploy":
-		return runBackupDeploy(args[1:])
+		return runBackupDeploy(args[1:], embedded)
 	case "verify":
 		return runBackupVerify(args[1:])
+	case "env":
+		return runBackupEnv(args[1:], embedded)
 	case "help", "-h", "--help":
 		backupUsage()
 		return 0
@@ -1049,12 +1112,60 @@ func CmdBackup(args []string) int {
 	}
 }
 
+// runBackupEnv 把嵌入的 backup.env.example 落到本机配置目录，供人填真实值。
+// 脚本树里不放任何真实凭证，所以「新机器上从哪拿模板」必须由这条命令回答。
+// 已存在的文件一律不覆盖：那是填好的凭证。
+func runBackupEnv(args []string, embedded fs.FS) int {
+	comps := []component{compPG, compMinio}
+	if len(args) > 0 {
+		var err error
+		comps, err = parseComponents(args[0])
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
+			return 2
+		}
+		if len(args) > 1 {
+			fmt.Fprintln(os.Stderr, "用法: ops backup env [pg|minio|all]")
+			return 2
+		}
+	}
+
+	dir := shared.BackupEnvDir()
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		fmt.Fprintf(os.Stderr, "ERROR: 创建配置目录失败：%v\n", err)
+		return 1
+	}
+	for _, c := range comps {
+		src := path.Join(embeddedRoot, c.remoteDir(), "backup.env.example")
+		data, err := fs.ReadFile(embedded, src)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "ERROR: 嵌入产物缺少 %s：%v\n", src, err)
+			return 1
+		}
+		dst := filepath.Join(dir, c.envName())
+		if _, err := os.Stat(dst); err == nil {
+			fmt.Printf("%s 已存在，未覆盖：%s\n", c, dst)
+			continue
+		}
+		if err := os.WriteFile(dst, data, 0o600); err != nil {
+			fmt.Fprintf(os.Stderr, "ERROR: 写入 %s 失败：%v\n", dst, err)
+			return 1
+		}
+		fmt.Printf("已生成 %s 模板：%s\n", c, dst)
+	}
+	fmt.Println("请按模板填好必填项（勿留 CHANGE_ME / YOUR_），再运行 ops backup deploy。")
+	return 0
+}
+
 func backupUsage() {
 	fmt.Print(`用法:
   ops backup deploy [pg|minio|all] --server <name> [--dry-run] [--force] [--run-now] [--install-deps]
   ops backup verify [pg|minio|all] --server <name>
+  ops backup env    [pg|minio|all]        生成本机配置模板（已存在不覆盖）
 
 目标机只从服务器清单（servers.json）里按 name 选择。
+脚本随二进制分发（deploy/backup 已嵌入）；只有调试时才用
+PASS_UP_OPS_BACKUP_SRC_DIR 覆盖成本机目录。
 
 选项:
   --server <name> 目标服务器（省略则用清单的 default / 唯一的 backup）

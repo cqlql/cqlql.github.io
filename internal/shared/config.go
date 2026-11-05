@@ -35,12 +35,14 @@ PASS_UP_OPS_DEFAULT_SERVER=
 
 # 备份能力安装（P1；目标机由 --server 选择）
 PASS_UP_OPS_BACKUP_DEPLOY_DIR=/opt/passup-backup
-# 本机备份脚本源目录（相对当前目录）
-PASS_UP_OPS_BACKUP_SRC_DIR=../pass-up.backend/deploy/backup
+# 备份脚本默认用编进二进制的那份（deploy/backup 已嵌入）；
+# 只有调试时才填本机目录覆盖，留空即可。
+PASS_UP_OPS_BACKUP_SRC_DIR=
 
-# 已填好的备份配置（含凭证，不入 Git）
-PASS_UP_OPS_BACKUP_PG_ENV_FILE=../pass-up.backend/deploy/backup/postgres/backup.env
-PASS_UP_OPS_BACKUP_MINIO_ENV_FILE=../pass-up.backend/deploy/backup/minio/backup.env
+# 已填好的备份配置（含凭证，不入 Git；留空用配置目录 backup/{postgres,minio}.env）
+# 模板用 ops backup env 生成
+PASS_UP_OPS_BACKUP_PG_ENV_FILE=
+PASS_UP_OPS_BACKUP_MINIO_ENV_FILE=
 `
 
 const serversTemplate = `{
@@ -93,19 +95,24 @@ func isWindows() bool {
 }
 
 func defaultConfig(path string) *Config {
-	cwd, err := os.Getwd()
-	if err != nil {
-		cwd = "."
-	}
-	base := filepath.Join(cwd, "..", "pass-up.backend", "deploy", "backup")
+	envDir := BackupEnvDir()
 	return &Config{
-		Path:         path,
-		ServersFile:  defaultServersPath(),
-		DeployDir:    "/opt/passup-backup",
-		SrcDir:       base,
-		PGEnvFile:    filepath.Join(base, "postgres", "backup.env"),
-		MinioEnvFile: filepath.Join(base, "minio", "backup.env"),
+		Path:        path,
+		ServersFile: defaultServersPath(),
+		DeployDir:   "/opt/passup-backup",
+		// SrcDir 留空 = 用编进二进制的那份脚本（deploy/backup 已嵌入，见 backupdist.go）。
+		// 备份脚本不再从兄弟仓读，因此与当前工作目录无关，ops.exe 可以单独拷走使用。
+		SrcDir:       "",
+		PGEnvFile:    filepath.Join(envDir, "postgres.env"),
+		MinioEnvFile: filepath.Join(envDir, "minio.env"),
 	}
+}
+
+// BackupEnvDir 是本机备份配置目录（backup/{postgres,minio}.env）。
+// 这两个文件含数据库/MinIO 凭证，既不进仓库（见 .gitignore），也不进二进制 ——
+// 打包时由 backup deploy 以 0600 单独注入到远端 <组件>/backup.env。
+func BackupEnvDir() string {
+	return filepath.Join(UserConfigDir(), "backup")
 }
 
 func LoadConfig() (*Config, error) {
@@ -146,11 +153,18 @@ func LoadConfig() (*Config, error) {
 		case "PASS_UP_OPS_BACKUP_DEPLOY_DIR":
 			c.DeployDir = v
 		case "PASS_UP_OPS_BACKUP_SRC_DIR":
-			c.SrcDir = resolveLocalPath(v)
+			// 留空 = 用嵌入的脚本；只有调试才填具体目录。
+			if v != "" {
+				c.SrcDir = resolveLocalPath(v)
+			}
 		case "PASS_UP_OPS_BACKUP_PG_ENV_FILE":
-			c.PGEnvFile = resolveLocalPath(v)
+			if v != "" {
+				c.PGEnvFile = resolveLocalPath(v)
+			}
 		case "PASS_UP_OPS_BACKUP_MINIO_ENV_FILE":
-			c.MinioEnvFile = resolveLocalPath(v)
+			if v != "" {
+				c.MinioEnvFile = resolveLocalPath(v)
+			}
 		default:
 			// 未知键忽略：ops.env 由人维护，允许保留历史键。
 		}

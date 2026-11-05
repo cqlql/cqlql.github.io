@@ -9,11 +9,56 @@ import (
 	"bytes"
 	"compress/gzip"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"testing/fstest"
 )
+
+// 默认（未配 SRC_DIR）必须用嵌入的脚本树，ops.exe 才能单独拷走使用。
+func TestScriptFSDefaultsToEmbedded(t *testing.T) {
+	emb := fstest.MapFS{
+		"deploy/backup/preflight_check.sh": {Data: []byte("#!/bin/sh\n")},
+	}
+	src, err := scriptFS(&shared.Config{}, emb)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fs.Stat(src, "preflight_check.sh"); err != nil {
+		t.Errorf("应取到嵌入脚本：%v", err)
+	}
+	// fs.Sub 之后不应还能看到 embed 的前缀。
+	if _, err := fs.Stat(src, "deploy/backup/preflight_check.sh"); err == nil {
+		t.Error("scriptFS 应已去掉 deploy/backup 前缀")
+	}
+}
+
+func TestScriptFSOverrideMustExist(t *testing.T) {
+	cfg := &shared.Config{SrcDir: filepath.Join(t.TempDir(), "nope")}
+	if _, err := scriptFS(cfg, fstest.MapFS{}); err == nil {
+		t.Error("SRC_DIR 指向不存在的目录应报错")
+	}
+}
+
+// 缺文件要在这里拦下：上传会「成功」，问题要到远端 install.sh 才暴露。
+func TestCheckScriptsMissing(t *testing.T) {
+	complete := fstest.MapFS{
+		"preflight_check.sh":           {Data: []byte("x")},
+		"lib/common.sh":                {Data: []byte("x")},
+		"postgres/install.sh":          {Data: []byte("x")},
+		"postgres/pg_backup.sh":        {Data: []byte("x")},
+		"postgres/pg_backup.logrotate": {Data: []byte("x")},
+	}
+	if err := checkScripts(complete, []component{compPG}); err != nil {
+		t.Errorf("完整脚本包不应报错：%v", err)
+	}
+	// 只部署 pg 时不要求 minio 的文件。
+	if err := checkScripts(complete, []component{compPG, compMinio}); err == nil {
+		t.Error("缺 minio 脚本时应报错")
+	}
+}
 
 func TestBuildPayload(t *testing.T) {
 	src := t.TempDir()
@@ -38,7 +83,7 @@ func TestBuildPayload(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	payload, err := buildPayload(src, map[string]string{"postgres/backup.env": localEnv})
+	payload, err := buildPayload(os.DirFS(src), map[string]string{"postgres/backup.env": localEnv})
 	if err != nil {
 		t.Fatal(err)
 	}
