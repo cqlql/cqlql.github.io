@@ -1,10 +1,13 @@
 > 状态：**现行**（2026-11-05 起）。界面已从「单文件 `index.html` + 原生 JS」迁到
-> Vite + TypeScript + React + antd，产物构建后嵌入二进制；Go 侧的三个接口与鉴权模型没变。
+> Vite + TypeScript + React + antd，产物构建后嵌入二进制；鉴权模型没变。
+> 同日起双击 `启动运维.cmd` 直接开这个页面（隐藏后台守护 + 单实例），形态见
+> [one-click-launch.md](one-click-launch.md) §4.4，本文只讲界面与接口。
 > 未实现的 P2/P3 页面按本文件 §7 的触发条件再加。
 
 # 界面（`ops ui`）
 
-只读查看服务器清单与检查结果；写操作只有「一键免密 sudo」一个。
+只读查看服务器清单与检查结果；会改远端的写操作只有「一键免密 sudo」一个，
+另有 `POST /api/shutdown` 只关本机界面进程、不碰远端。
 接口、清单与 sudo 的规则分别见 [servers.md](servers.md) 与 [config.md](config.md)，本文只讲界面本身。
 
 ## 1. 为什么不再用单文件 HTML
@@ -91,12 +94,19 @@ webdist.go                       //go:embed all:web/dist（根包，package main
 | `/favicon.ico` | **否** | 图标字节与桌面快捷方式同源（`ui.IconBytes`），不含任何信息 |
 | 其它 `GET`（页面） | 是 | 401 回**中文说明页**：该用 CLI 打印的带 `?token=` 的地址打开 |
 | `/api/*` | 是 | 401 回 JSON 信封 `{"ok":false,"error":"token 无效"}` |
+| `/api/shortcut` | 是 | `POST`，额外校验 `Origin`；只碰本机桌面（建 `.lnk`），**不依赖配置是否齐全** |
+| `/api/shutdown` | 是 | `POST`，额外校验 `Origin`；只结束**本机**界面进程（退出码 0），不改远端 |
 
 - 静态产物不过 token 是**有意的**：真正的边界是 API —— 拿不到 token 就调不通任何接口，
   页面本身只是空壳。服务只监听 `127.0.0.1`，见 AGENTS.md 硬约束 14。
 - 写操作额外校验 `Origin`：有 `Origin` 头且不等于本服务源 → 403（挡别的网页借浏览器打本机）。
-- token 只活在**内存 + 地址栏**，不写 `localStorage`：`ops ui` 每次启动都换新 token，
-  存下来只会让人分不清「当前这个后端」和「上一个」。
+  `POST /api/shutdown` 也走这条，所以别的网页关不掉这个面板。
+- token 只活在**内存 + 地址栏 + 配置目录的 `ui.json`（0600）**，不写 `localStorage`：
+  `ops ui` 每次启动都换新 token，存进 localStorage 只会让人分不清「当前这个后端」和「上一个」。
+  `ui.json` 是给第二次双击「把浏览器指回已有实例」用的，见 [config.md](config.md) §1。
+- 配置 / 服务器清单读不出来时，页面回 **503 + 一页能照做的说明**（不是白屏、不是 500）：
+  `ops init` 生成的是空清单模板，而后台窗口是隐藏的，静默退出等于「双击没反应」。
+  每次请求都会重读配置，补完**刷新即可**；API 侧同样回 503 + 中文原因。
 - 旧的 `__OPS_TOKEN__` 占位符已删除。以前 favicon 也要 token，只能在 HTML 里拼占位符
   再由 Go 替换；favicon 公开之后这条链路整段消失了。
 
@@ -122,8 +132,33 @@ cd web && npm install
 npm test && npm run typecheck && npm run build
 cd .. && go build -o ops.exe .
 
+ops ui                    # 前台：打印带 token 的地址并自动开浏览器
+ops ui --no-open          # 不自动开浏览器（验收 / 脚本）
+启动运维.cmd               # 双击：隐藏后台托管 + 自动开浏览器 + 单实例
+启动运维.cmd --fg         # 前台跑 ops ui，保留窗口看 stdout
+启动运维.cmd --menu       # 交互菜单（只读预检 / 远端自检等入口）
+
 npm run dev        # 5175；/api 代理到 127.0.0.1:7788（先起 ops ui）
 ```
+
+- **每次进程启动换一把 token**：`ops ui` 写 `ui.json`（port + token，0600）后自动开浏览器；
+  再双击一次（或再敲一次 `ops ui`）只会把浏览器指回同一个实例，不启第二个服务。
+  单实例靠 Windows 命名互斥体，进程被强杀也会自动释放。
+- 🔴 **默认端口 7788，被占用时自动往后递增**（最多 20 个）。同机的 `suikouji ops`
+  也默认 7788，两个工具经常同时开着——绑死端口的结果是隐藏窗口里 bind 失败、
+  浏览器永远不开，表现为「双击没反应」。显式 `--port` 则严格绑定，被占直接报错，
+  不偷偷换端口。**实际端口**写进 `ui.json`，浏览器地址、Origin 校验、单实例复用都用它。
+- 🔴 **后台启动失败要回退前台**：`--background` 父进程 spawn 后等守护把新的 `ui.json`
+  写出来（上限 6 秒），超时就返回非 0，启动器改在前台跑 `ops ui`——错误直接显示在
+  可见窗口里，不再只躺在 `ops-ui.log`。
+- **「创建桌面快捷方式」**：页面右上角按钮 → `POST /api/shortcut` → 与 `ops shortcut`
+  **同一份实现**（`launcher.CreateShortcutOnDesktop`，由 `main.go` 注入；ui 不反向依赖
+  launcher）。只碰本机桌面，配置还没准备好时也能用；非 Windows 回一句明确错误。
+  成功时把完整 `.lnk` 路径显示在页面上。
+- **停**：点页面右上角的「关闭界面」（`POST /api/shutdown` → 退出码 0），或前台模式下 Ctrl+C。
+  后台模式的窗口是隐藏的，没有这个按钮就只能去任务管理器杀进程。
+- 🔴 **后台守护不给「重启」按钮**：本仓没做退出码 75 自重建 / `ops.exe.new` 换身，
+  源码改动请手动 `go build -o ops.exe .`（改了 `web/` 先 `npm run build`）。
 
 - ⚠️ **改完 `web/` 一律 `npm test` 与 `npm run typecheck` 两个都跑**：
   `test/` 故意不在 `tsconfig.json` 的 `include` 里（不想为一个测试引 `@types/node`），
@@ -134,7 +169,9 @@ npm run dev        # 5175；/api 代理到 127.0.0.1:7788（先起 ops ui）
   `ERR_MODULE_NOT_FOUND`。由 `tsconfig.json` 的 `allowImportingTsExtensions` 放行。
 - 推论：**能被测试覆盖的模块，运行时依赖链上不能出现 `.tsx`**（Node 不认 JSX）。
   这正是 `utils/` 与 `service.ts` 不 import 组件的原因 —— 分层顺带把可测性保住了。
-- 端口 5175 / 7788 是刻意的：同机的 `console`(5173)、`wsl-manager`(5174/8788) 要能同时开。
+- 端口 5175 是刻意的（避开 `console` 5173、`wsl-manager` 5174）；后端 7788 只是**起点**：
+  `wsl-manager` 用 8788、`suikouji ops` 也用 7788，所以 `ops ui` 被占时会自动递增。
+  dev 代理用 `OPS_UI_PORT` 对齐实际端口：`OPS_UI_PORT=7789 npm run dev`。
 
 ## 7. 什么时候才加路由 / 状态库
 

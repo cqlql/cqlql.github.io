@@ -1,8 +1,10 @@
 # AGENTS.md
 
 > 状态：**P0 服务器管理（含一键免密 sudo）已实现并真机验证**；
-> P1 备份能力部署已实现并真机验证；一键启动与桌面快捷方式（S2/S3 + 图标同源）已实现，
+> P1 备份能力部署已实现并真机验证；一键启动与桌面快捷方式（S2/S3/S5 + 图标同源）已实现，
+> **双击 `启动运维.cmd` 直接开网页面板**（隐藏守护 / 单实例 / 自动开浏览器 / 关闭界面），
 > S4 真机人工验收待做；P2 监控、P3–P4 应用部署仍为方案、代码未实现（2026-11-05）。
+> S5 未做退出码 75 自重建与 `.new` 换身，源码改动仍要手动 `go build`（见 `docs/one-click-launch.md`）。
 > **2026-11-05 已按能力竖切 Go 包**：`main.go` 薄入口 + `internal/{shared,servers,backup,ui,launcher}`。
 > **2026-11-05 界面迁到 Vite + TS + React + antd**：源码在 `web/`，产物嵌进二进制（见 `docs/ui.md`）。
 > 只放「每次动代码都要遵守」的红线：一句结论 + 一个指针。判据、流程、踩坑都在 `docs/`。
@@ -13,7 +15,8 @@
 - 本地单二进制运维工具，**已实现**：`ops servers list/check/apply-sudo` 管服务器与免密 sudo；
   `ops backup deploy/verify` 安装、升级与预检备份能力；`ops ui` 只读查看服务器清单与检查结果
   （前端是 React 工程，源码 `web/`，构建后嵌入二进制）；
-  `ops shortcut` / `ops menu` / `启动运维.cmd` 是本机一键启动入口。
+  双击 `启动运维.cmd` 直接开这个网页面板（后台隐藏守护 + 自动开浏览器 + 单实例）；
+  `ops menu` 是显式的交互菜单入口，`ops shortcut` 建桌面 `.lnk`。见 `docs/one-click-launch.md`。
 - **仍是方案、代码未实现**：`ops status`（P2 备份监控）、`ops deploy` / `ops rollback`
   （P3–P4 单机 Docker 部署）；设计见 `docs/backup-monitor.md` / `docs/deploy.md`。
 - 代码按能力分包：`main.go` 只做命令分发，`internal/<能力>/` 放实现，
@@ -59,12 +62,24 @@
 14. 🔴 **界面只监听 `127.0.0.1`**，页面与 `/api/*` 校验 token + 写操作校验 `Origin`；
     静态产物（`/assets/*`、`/favicon.ico`）**不过 token**（是代码不是数据，
     浏览器也带不上自定义头），真正的边界是 API；写操作必须 `POST`，
-    且只接受清单里的 `name`（未知 name 返回 404，不代理任意主机）。详见 `docs/ui.md` §4。
-15. 🔴 **双击不触发写操作**：`.lnk` 只指 `启动运维.cmd`，图标是独立 `.ico`，名字必校验；
-    菜单默认只读预检，安装要「预检通过 + 输入 yes」。详见 `docs/one-click-launch.md`。
+    且只接受清单里的 `name`（未知 name 返回 404，不代理任意主机）；
+    `POST /api/shutdown` 是例外中的例外——纯本机动作，不涉及清单，只结束界面进程。
+    详见 `docs/ui.md` §4。
+15. 🔴 **双击不触发写操作**：双击直接开**只读**网页面板；唯一写（一键免密 sudo）要显式
+    点击 + 输密码，安装类动作仍走 `启动运维.cmd --menu` 的「预检通过 + 输入 yes」或命令行
+    显式调用。`.lnk` 只指启动器，图标是独立 `.ico`，名字必校验。详见 `docs/one-click-launch.md`。
 16. 🔴 **前端产物不进 Git，但 `web/dist/.gitkeep` 必须进**：`//go:embed all:web/dist`
     在目录不存在时直接编译失败；真实产物由 `npm run build` 生成，`vite.config.ts`
     用 `emitFile` 重建那个占位（`emptyOutDir` 会删它）。详见 `docs/ui.md` §3。
+17. 🔴 **后台界面只起一个、配置不全也得起、端口被占要避让**：单实例只认
+    `internal/shared` 的命名互斥体（不靠 `tasklist`），**互斥体名带配置目录指纹**
+    （配置目录可被覆盖，机器级名字会互相挡）；`ui.json` 0600 只存 port+token；
+    默认端口 7788 被占**自动递增**（同机 `suikouji ops` 也占 7788），显式 `--port` 才严格绑定；
+    `ops init` 生成的空 `servers.json` 不能让 `ops ui` 静默退出，要回一页能照做的说明；
+    守护起不来必须回退前台。详见 `docs/ui.md` §4 / `docs/one-click-launch.md` §4.4。
+18. 🔴 **桌面快捷方式只有一份实现**：`launcher.CreateShortcutOnDesktop` 是唯一入口，
+    `ops shortcut` 与页面按钮（`POST /api/shortcut`）都调它；ui 通过 main 注入，
+    不反向 import launcher。该按钮**不依赖配置是否齐全**（只碰本机桌面）。
 
 ## 命令与验证
 
@@ -85,7 +100,7 @@ ops servers apply-sudo <name> --password-stdin
 ops backup deploy --server <name> --dry-run
 ops backup deploy --server <name> --install-deps
 ops backup verify --server <name>
-ops ui [--port 7788]
+ops ui [--port 7788] [--no-open]
 ops shortcut [--name <名字>] [--remove]
 ops menu --help
 ```
@@ -93,6 +108,9 @@ ops menu --help
 上面只列 `main.go` 注册表里**已实现**的命令；`ops status` / `ops deploy` / `ops rollback`
 尚未实现，不要照抄执行。子命令选项以各能力的 `--help` 为准。
 本机二进制：`go build -o ops.exe .`（`启动运维.cmd` 按仓根 `ops.exe` 定位，不要挪）。
+双击 `启动运维.cmd` 无参 → 后台网页 + 自动开浏览器；`--fg` 前台 `ops ui`（保留窗口）、
+`--menu` 交互菜单、`--bg` 后台守护专用；带子命令（`help` / `servers list` …）原样转发。
+后台 stdout 在配置目录 `ops-ui.log`；停界面点页面「关闭界面」。
 🔴 **改了 `web/` 就必须重新 `npm run build` 再 `go build`**：产物是编进二进制的，
 只 `go build` 拿到的是上一次的页面（未构建过则是「怎么构建」的说明页）。
 
@@ -107,8 +125,10 @@ ops menu --help
   `shared` **不得 import 任何能力包**，也不得引用能力专属类型；出现环时先把共享常量 / 模型
   下沉到 `internal/shared/`，不要在能力包之间打补丁。
 - `internal/shared/`：`config.go`（配置与 `ConfigDirEnv`）、`remote.go`（`SSHTarget` 与 ssh 封装）、
-  `servers.go`（服务器清单、状态与 `CheckRow` 展示模型）。`configDirEnv` 曾定义在
-  `shortcut.go`，导致 shared 反向依赖 launcher，已下沉，别再挪回去。
+  `servers.go`（服务器清单、状态与 `CheckRow` 展示模型）、
+  `singleton_{windows,other}.go`（跨进程命名互斥体 `AcquireSingleton`，菜单与界面共用一份，
+  各用不同名字）。`configDirEnv` 曾定义在 `shortcut.go`，导致 shared 反向依赖 launcher，
+  已下沉，别再挪回去。
 - 🔴 **跨包不能给共享类型挂方法**：`SSHTarget` 的 backup 专属操作只能是
   `internal/backup/deploy.go` 里的自由函数（`checkAccess(t, ctx, ...)` 等），
   首参为 `*shared.SSHTarget`；`SSHTarget` 的字段（`Host` / `User` / `Key` / `SudoPassword` 等）
@@ -120,15 +140,22 @@ ops menu --help
   所以嵌 `web/dist` 的文件只能是仓库根的 `webdist.go`（`package main`），
   `ui.CmdUI(args, static fs.FS)` **接收**它 —— `internal/ui/` 不再嵌页面。
   别为了「放得整齐」把 `web/` 挪进 `internal/`：那样 `main.go` 就得反向依赖 `ui` 的私有目录。
-- `internal/ui/` 只剩 `ui.go`（服务端）与 `ops.ico`；图标字节经 `ui.IconBytes` 导出给
-  `launcher` 写快捷方式，两处同源。`/favicon.ico` 直接读内存，不走 `dist`。
+- `internal/ui/`：`ui.go`（服务端、token、`/api/shutdown`、配置降级页）、
+  `background.go`（`--background` 调度、`ui.json`、日志轮转、开浏览器）、
+  `background_{windows,other}.go`（隐藏 cmd 守护，靠 build tag 切平台）、`ops.ico`；
+  图标字节经 `ui.IconBytes` 导出给 `launcher` 写快捷方式，两处同源。
+  `/favicon.ico` 直接读内存，不走 `dist`。
+  🔴 **后台调度放 `ui` 包、不放 `launcher`**：`launcher → ui` 已有依赖，反过来会成环。
+  🔴 **创建快捷方式靠注入**：`ui.CmdUI(args, static, createShortcut)` 的第三参由 `main.go`
+  传 `launcher.CreateShortcutOnDesktop`；别让 ui 直接 import launcher。
 - `web/` 按母本 `cqlql-notes/docs/工程/目录结构规范.md` 与 `前端/前端目录结构规划.md` §二 排：
   `features/<能力>/`（`api.ts` / `service.ts` / `types.ts` / `utils/` / `components/` / `pages/` /
   `index.ts`）+ `shared/{api,ui,utils}`。🔴 **没有 `router/`、顶层 `pages/`、`src/api/`、`src/lib/`**
   —— 不是漏了，是只有一页时不该有（母本 §2「目录是长出来的」）。
   约定（相对 import 必须写扩展名、`test/` 不在 tsconfig include、端口 5175、产物不进 Git）
   见 `docs/ui.md`；**不要在前端算指标**，那是 Go 侧的唯一真源。
-- `internal/launcher/` 的 `menu_windows.go` / `menu_other.go` 靠 build tag 切平台实现。
+- `internal/launcher/` 的 `menu_windows.go` / `menu_other.go` 靠 build tag 切平台，
+  现在只是调 `shared.AcquireSingleton` 的薄包装（互斥体实现只在 shared 一份）。
 - 命令入口统一 `Cmd<动词>`（如 `backup.CmdBackup`、`servers.CmdServers`）；
   能力的 CLI 分发与 usage 归各自包，测试文件也随能力归位。
 - `docs/backup-monitor.md` §7 与 `docs/deploy.md` §5 的文件树是 P2/P3–P4 的**计划**，
@@ -149,11 +176,11 @@ ops menu --help
 | 能力 / 模块 | 文档 | 最硬的那条红线 |
 | :--- | :--- | :--- |
 | 服务器管理 + 一键免密 sudo（P0 先做） | `docs/servers.md` | 主机只来自清单；只写一个 sudoers drop-in；验证用 `runuser` |
-| 界面（`ops ui` · Vite + React + antd） | `docs/ui.md` | 静态产物不过 token、API 才是边界；产物不进 Git 但 `.gitkeep` 必进；未构建要回说明页 |
+| 界面（`ops ui` · Vite + React + antd） | `docs/ui.md` | 静态产物不过 token、API 才是边界；产物不进 Git 但 `.gitkeep` 必进；未构建要回说明页；单实例 + 配置不全也起页面 |
 | 备份能力部署（P1 ✅，监控的前置） | `docs/backup-deploy.md` | 复用 `install.sh`；不覆盖 `backup.env`；不静默迁移目录；logrotate 由工具落盘 |
 | 备份监控（P2 · 方案，未实现） | `docs/backup-monitor.md` | 只读采集；时间差在远端算；`-` 不是 0 |
 | 单机一键 Docker 部署（P3–P4 · 方案，未实现） | `docs/deploy.md` | `.env` 去 CRLF；镜像前缀必须等于 compose；Flyway 单向 |
-| 一键启动与桌面快捷方式（S2/S3 ✅，S4 人工验收待做） | `docs/one-click-launch.md` | `.lnk` 只指启动器；图标用独立 `.ico`；名字校验挡路径穿越；双击绝不触发写操作 |
+| 一键启动与桌面快捷方式（S2/S3/S5 ✅，S4 人工验收待做） | `docs/one-click-launch.md` | 双击直达网页面板（隐藏守护 + 单实例）；`.lnk` 只指启动器；图标用独立 `.ico`；名字校验挡路径穿越；双击绝不触发写操作 |
 | 配置（唯一维护处） | `docs/config.md` | 所有 `PASS_UP_OPS_*` 只在这里定义一次 |
 | 文档治理 | `cqlql-notes/docs/工程/文档约定.md` | 新加文档前先过 4 问；索引只有一份 |
 | 目录与依赖 | `cqlql-notes/docs/工程/目录结构规范.md` + 本文「目录与边界」 | 依赖单向；`shared` 不得反向 import 能力包；跨包符号必须导出 |
