@@ -50,6 +50,9 @@ const serversTemplate = `{
 var remotePathRe = regexp.MustCompile(`^/[A-Za-z0-9._/-]+$`)
 
 func userConfigDir() string {
+	if dir := os.Getenv(configDirEnv); dir != "" {
+		return dir
+	}
 	if isWindows() {
 		if dir, err := os.UserConfigDir(); err == nil {
 			return filepath.Join(dir, "pass-up")

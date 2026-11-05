@@ -14,6 +14,15 @@
 
 `ops.env` 格式：标准 `KEY=VALUE`，允许 `#` 注释、空行、值两侧单/双引号。不进 Git。
 
+**本机路径覆盖（环境变量，主要给单测 / 验收用）**：
+
+| 键 | 默认 | 说明 |
+| :--- | :--- | :--- |
+| `PASS_UP_OPS_CONFIG_DIR` | 空 | 覆盖配置目录（`ops.env` / `servers.json` / `ops.ico` 所在目录） |
+| `PASS_UP_OPS_DESKTOP_DIR` | 空 | 覆盖桌面目录；`ops shortcut` 与单测绝不写真桌面 |
+
+键名只在这里定义一次；其它文档只引用，不复述默认值。
+
 ## 2. 服务器清单（唯一主机来源）
 
 文件：`PASS_UP_OPS_SERVERS_FILE`

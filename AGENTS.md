@@ -1,7 +1,8 @@
 # AGENTS.md
 
 > 状态：**P0 服务器管理（含一键免密 sudo）已实现并真机验证**；
-> P1 备份能力部署已实现并真机验证；P2 监控、P3–P4 应用部署仍为方案（2026-11-05）。
+> P1 备份能力部署已实现并真机验证；一键启动与桌面快捷方式（S2/S3 + 图标同源）已实现，
+> S4 真机人工验收待做；P2 监控、P3–P4 应用部署仍为方案（2026-11-05）。
 > 只放「每次动代码都要遵守」的红线：一句结论 + 一个指针。判据、流程、踩坑都在 `docs/`。
 > 通用文档规则以 `cqlql-notes/docs/工程/文档约定.md` 为准。
 
@@ -49,6 +50,8 @@
     详见 `docs/servers.md` §6。
 14. 🔴 **界面只监听 `127.0.0.1`**，token + `Origin` 校验；写操作必须 `POST`，
     且只接受清单里的 `name`（未知 name 返回 404，不代理任意主机）。
+15. 🔴 **双击不触发写操作**：`.lnk` 只指 `启动运维.cmd`，图标是独立 `.ico`，名字必校验；
+    菜单默认只读预检，安装要「预检通过 + 输入 yes」。详见 `docs/one-click-launch.md`。
 
 ## 命令与验证
 
@@ -65,6 +68,8 @@ ops backup deploy --server <name> --dry-run
 ops backup deploy --server <name> --install-deps
 ops status --server <name> [--json]
 ops ui [--port 7788]
+ops shortcut [--name <名字>] [--remove]
+ops menu --help
 ops deploy --server <name> --dry-run
 ```
 
@@ -73,7 +78,7 @@ ops deploy --server <name> --dry-run
 - **暂不竖切包**：当前只有「服务器管理 / 备份 / 部署」三个能力，按文件横切更好找。
   母本阈值是「领域 ≥10 或接口 ≥30」才竖切（`cqlql-notes/docs/工程/目录结构规范.md` §6）。
 - `config.go` / `remote.go` 是共用层，不得反向依赖 `status.go` / `deploy.go` 的业务结构。
-- 目录是长出来的：**不建空目录**；`ui/` 等真正写页面时再建。
+- 目录是长出来的：**不建空目录**；`ui/` 已有页面与图标，快捷方式 / 菜单按文件横切。
 - 计划中的文件树见 `docs/backup-monitor.md` §7 与 `docs/deploy.md` §5。
 
 ## 文档规则
@@ -94,6 +99,7 @@ ops deploy --server <name> --dry-run
 | 备份能力部署（P1 ✅，监控的前置） | `docs/backup-deploy.md` | 复用 `install.sh`；不覆盖 `backup.env`；不静默迁移目录；logrotate 由工具落盘 |
 | 备份监控（P2） | `docs/backup-monitor.md` | 只读采集；时间差在远端算；`-` 不是 0 |
 | 单机一键 Docker 部署（P3–P4） | `docs/deploy.md` | `.env` 去 CRLF；镜像前缀必须等于 compose；Flyway 单向 |
+| 一键启动与桌面快捷方式（S2/S3 ✅，S4 人工验收待做） | `docs/one-click-launch.md` | `.lnk` 只指启动器；图标用独立 `.ico`；名字校验挡路径穿越；双击绝不触发写操作 |
 | 配置（唯一维护处） | `docs/config.md` | 所有 `PASS_UP_OPS_*` 只在这里定义一次 |
 | 文档治理 | `cqlql-notes/docs/工程/文档约定.md` | 新加文档前先过 4 问；索引只有一份 |
 | 目录与依赖 | `cqlql-notes/docs/工程/目录结构规范.md` | 按能力切；未过阈值先横切 |

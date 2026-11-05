@@ -9,28 +9,43 @@ func main() {
 	os.Exit(run(os.Args[1:]))
 }
 
+// commandHandler 是动词的唯一注册表：run 用它分发，菜单用它做能力探测，
+// 不再有第三份字符串表需要同步（usage 是给人看的说明文本）。
+func commandHandler(name string) (func([]string) int, bool) {
+	switch name {
+	case "init":
+		return cmdInit, true
+	case "servers":
+		return cmdServers, true
+	case "ui":
+		return cmdUI, true
+	case "backup":
+		return cmdBackup, true
+	case "shortcut":
+		return cmdShortcut, true
+	case "menu":
+		return cmdMenu, true
+	default:
+		return nil, false
+	}
+}
+
 func run(args []string) int {
 	if len(args) == 0 {
 		usage()
 		return 2
 	}
 	switch args[0] {
-	case "init":
-		return cmdInit(args[1:])
-	case "servers":
-		return cmdServers(args[1:])
-	case "ui":
-		return cmdUI(args[1:])
-	case "backup":
-		return cmdBackup(args[1:])
 	case "help", "-h", "--help":
 		usage()
 		return 0
-	default:
-		fmt.Fprintf(os.Stderr, "未知命令：%s\n\n", args[0])
-		usage()
-		return 2
 	}
+	if h, ok := commandHandler(args[0]); ok {
+		return h(args[1:])
+	}
+	fmt.Fprintf(os.Stderr, "未知命令：%s\n\n", args[0])
+	usage()
+	return 2
 }
 
 func cmdBackup(args []string) int {
@@ -62,6 +77,9 @@ func usage() {
   ops servers check [name|all] [--json]  只读检查 SSH 与免密 sudo
   ops servers apply-sudo <name>          一键配置免密 sudo（写操作）
   ops ui [--port 7788]                   本机界面（只监听 127.0.0.1）
+  ops shortcut [--name <名字>] [--remove]
+                                         创建/删除桌面快捷方式（仅 Windows）
+  ops menu                               交互菜单（启动器双击入口）
   ops backup deploy [组件] --server <name> [选项]
                                          安装/升级备份能力（P1）
   ops backup verify [组件] --server <name>

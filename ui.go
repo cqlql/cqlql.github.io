@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/subtle"
@@ -12,6 +13,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -20,6 +22,16 @@ import (
 
 //go:embed ui/index.html
 var uiFiles embed.FS
+
+// uiIcon 是界面图标（多尺寸 ICO）：/favicon.ico 直接读内存，配置目录的
+// ops.ico 由 writeIcon 落盘给桌面快捷方式用。只嵌一份，两处同源。
+//
+//go:embed ui/ops.ico
+var uiIcon []byte
+
+// faviconTokenPlaceholder：浏览器请求 favicon 不会带自定义 header，
+// 所以把 token 拼进 URL，仍然走 ServeHTTP 的 token 校验。
+const faviconTokenPlaceholder = "__OPS_TOKEN__"
 
 // 🔴 界面只监听 127.0.0.1；每个请求校验 token，写操作 POST 且校验 Origin。
 type uiState struct {
@@ -67,6 +79,9 @@ func cmdUI(args []string) int {
 		fmt.Fprintf(os.Stderr, "ERROR: 端口超出 0-65535：%d\n", port)
 		return 2
 	}
+
+	// 界面启动就保证配置目录里的 ops.ico 与嵌入的图标一致；写失败不影响界面。
+	writeIcon(userConfigDir())
 
 	cfg, err := loadConfig()
 	if err != nil {
@@ -143,8 +158,12 @@ func (u *uiState) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "页面加载失败", http.StatusInternalServerError)
 			return
 		}
+		page = bytes.ReplaceAll(page, []byte(faviconTokenPlaceholder), []byte(u.token))
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.Write(page)
+	case r.Method == http.MethodGet && r.URL.Path == "/favicon.ico":
+		w.Header().Set("Content-Type", "image/x-icon")
+		w.Write(uiIcon)
 	case r.Method == http.MethodGet && r.URL.Path == "/api/servers":
 		u.handleServers(w)
 	case r.Method == http.MethodPost && r.URL.Path == "/api/check":
@@ -326,4 +345,21 @@ func (u *uiState) handleApplySudo(w http.ResponseWriter, r *http.Request) {
 		BackupPath string       `json:"backup_path,omitempty"`
 		Status     serverStatus `json:"status"`
 	}{outcome.Message, outcome.AlreadyOK, outcome.Changed, outcome.BackupPath, st}})
+}
+
+// writeIcon 把嵌入的图标落到配置目录，供 .lnk 的 IconLocation 使用。
+// 只在缺失或内容不同时写；失败一律忽略——图标不该让界面起不来。
+// 调用方 ensureIcon 会补一次 Stat，避免快捷方式假装成功却拿到空白图标。
+func writeIcon(dir string) {
+	if dir == "" {
+		return
+	}
+	path := filepath.Join(dir, "ops.ico")
+	if b, err := os.ReadFile(path); err == nil && bytes.Equal(b, uiIcon) {
+		return
+	}
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return
+	}
+	_ = os.WriteFile(path, uiIcon, 0o644)
 }
