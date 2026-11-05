@@ -1,5 +1,7 @@
 # 构建产物：本地单二进制，不进 Git（见 docs/one-click-launch.md §7）
 *.exe
+# Windows 上覆盖运行中的 exe 时留下的备份（如 ops.exe~）
+*.exe~
 *.test
 *.out
 
