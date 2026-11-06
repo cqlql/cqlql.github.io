@@ -5,6 +5,7 @@ package main
 
 import (
 	"io/fs"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -29,25 +30,47 @@ func readComponentScript(t *testing.T, name string) string {
 	return s
 }
 
-func TestEmbeddedComponentScriptsComplete(t *testing.T) {
-	readComponentScript(t, "deploy/component/docker/check.sh")
-	readComponentScript(t, "deploy/component/docker/install.sh")
+// 只取代码行：注释里写「不要做 X」不该被当成「做了 X」。
+func codeLines(s string) string {
+	out := []string{}
+	for _, line := range strings.Split(s, "\n") {
+		if strings.HasPrefix(strings.TrimSpace(line), "#") {
+			continue
+		}
+		out = append(out, line)
+	}
+	return strings.Join(out, "\n")
 }
 
-// 🔴 check.sh 是「采集」脚本：绝不写远端、绝不提权、绝不装包（AGENTS.md 硬约束 1）。
-func TestComponentCheckScriptIsReadOnly(t *testing.T) {
-	s := readComponentScript(t, "deploy/component/docker/check.sh")
-	for _, bad := range []string{
-		"apt-get install", "apt install", "usermod", "groupadd",
-		"systemctl enable", "systemctl restart", "systemctl start",
-		"tee ", "rm -", "mv ", ">> /", "> /etc", "docker pull", "sudo -i",
+func TestEmbeddedComponentScriptsComplete(t *testing.T) {
+	for _, name := range []string{
+		"deploy/component/docker/check.sh", "deploy/component/docker/install.sh",
+		"deploy/component/minio/check.sh", "deploy/component/minio/install.sh",
 	} {
-		if strings.Contains(s, bad) {
-			t.Errorf("只读体检脚本里不该出现 %q", bad)
-		}
+		readComponentScript(t, name)
 	}
-	if !strings.Contains(s, "CHECK_OK") {
-		t.Error("check.sh 必须输出 CHECK_OK 标记，Go 侧据此判定 collected")
+}
+
+// 🔴 check.sh 是「采集」脚本：绝不写远端、绝不提权、绝不装包 / 拉镜像
+//    （AGENTS.md 硬约束 1）。每个组件一份，全部都要过这一关。
+func TestComponentCheckScriptIsReadOnly(t *testing.T) {
+	for _, name := range []string{
+		"deploy/component/docker/check.sh", "deploy/component/minio/check.sh",
+	} {
+		code := codeLines(readComponentScript(t, name))
+		for _, bad := range []string{
+			"apt-get install", "apt install", "usermod", "groupadd",
+			"systemctl enable", "systemctl restart", "systemctl start",
+			"tee ", "rm -", "mv ", ">> /", "> /etc", "docker pull", "sudo -i",
+			"docker run", "docker load", "mkdir ",
+		} {
+			if strings.Contains(code, bad) {
+				t.Errorf("%s 的只读体检脚本里不该出现 %q", name, bad)
+			}
+		}
+		if !strings.Contains(code, "CHECK_OK yes") {
+			t.Errorf("%s 必须输出 CHECK_OK 标记，Go 侧据此判定 collected", name)
+		}
 	}
 }
 
@@ -69,7 +92,7 @@ func TestComponentInstallFollowsOfficialDockerDocs(t *testing.T) {
 	}
 	// 内网目标机 Docker Hub 超时：验证绝不能靠拉 hello-world 镜像。
 	for _, bad := range []string{"docker run", "docker pull"} {
-		if strings.Contains(s, bad) {
+		if strings.Contains(codeLines(s), bad) {
 			t.Errorf("安装脚本不该出现 %q（会依赖外网镜像仓库）", bad)
 		}
 	}
@@ -78,7 +101,36 @@ func TestComponentInstallFollowsOfficialDockerDocs(t *testing.T) {
 	}
 }
 
+// MinIO 安装：只用离线镜像、不重建已有容器、不删数据、不动 crontab / backup.env。
+func TestMinioInstallScriptNeverPullsOrDeletesData(t *testing.T) {
+	s := codeLines(readComponentScript(t, "deploy/component/minio/install.sh"))
+	for _, must := range []string{
+		"docker image inspect", "docker run -d", "--restart unless-stopped",
+		"MINIO_ROOT_USER=", "MINIO_ROOT_PASSWORD=", "/data/minio",
+		"/minio/health/live", "COMPONENT_MINIO_IMAGE",
+	} {
+		if !strings.Contains(s, must) {
+			t.Errorf("MinIO 安装脚本缺少关键片段 %q", must)
+		}
+	}
+	for _, bad := range []string{
+		"docker pull", "docker rm ", "rm -rf", "crontab", "backup.env",
+		"docker rmi", "> /var/log",
+	} {
+		if strings.Contains(s, bad) {
+			t.Errorf("MinIO 安装脚本不该出现 %q", bad)
+		}
+	}
+	// 只取容器状态，不 inspect 全量配置（那会把 root 凭证带进日志）。
+	if !strings.Contains(s, "docker start") {
+		t.Error("已有但未运行的容器应直接 start，不该重建")
+	}
+}
+
 // 🔴 deploy/component 整目录编进 exe，不许出现任何真实凭证（AGENTS.md 硬约束 20）。
+// 「-e MINIO_ROOT_PASSWORD=\"$VAR\"」是变量引用，不是凭证；字面值才算泄漏。
+var credLiteralRe = regexp.MustCompile(`(?m)(MINIO_ROOT_USER|MINIO_ROOT_PASSWORD|DEST_KEY|DEST_SECRET)\s*=\s*['"][^$'"]{3,}['"]`)
+
 func TestComponentScriptsHaveNoCredentials(t *testing.T) {
 	err := fs.WalkDir(componentScripts, "deploy/component", func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -97,10 +149,14 @@ func TestComponentScriptsHaveNoCredentials(t *testing.T) {
 		if e != nil {
 			return e
 		}
-		for _, banned := range []string{"BEGIN PRIVATE KEY", "MINIO_ROOT_PASSWORD=", "DEST_SECRET=", "sudo.password"} {
-			if strings.Contains(string(b), banned) {
+		s := string(b)
+		for _, banned := range []string{"BEGIN PRIVATE KEY", "sudo.password"} {
+			if strings.Contains(s, banned) {
 				t.Errorf("%s 里不该出现凭证片段 %q", p, banned)
 			}
+		}
+		if m := credLiteralRe.FindString(s); m != "" {
+			t.Errorf("%s 里出现了硬编码凭证赋值：%q", p, m)
 		}
 		return nil
 	})

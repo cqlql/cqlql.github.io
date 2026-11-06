@@ -17,7 +17,7 @@ import type {
  * 留空才不会把已配好的密码/私钥清空。想清空请直接改文件。
  */
 
-export type ConfirmKind = 'servers' | 'env' | 'sync'
+export type ConfirmKind = 'servers' | 'add' | 'env' | 'sync'
 
 // ---- 后端响应归一化 ----
 
@@ -40,6 +40,7 @@ export function normalizeConfigView(v: ConfigView | null | undefined): ConfigVie
   return {
     servers_file: raw.servers_file ?? '',
     sync_enabled: raw.sync_enabled ?? false,
+    setup_error: raw.setup_error,
     servers: list<ConfigServer>(raw.servers),
     envs: list<EnvView>(raw.envs).map((e) => ({ ...e, fields: list<EnvField>(e.fields) })),
   }
@@ -64,6 +65,23 @@ export function serverInitial(s: ConfigServer): Record<string, string> {
     role: s.role,
     note: s.note ?? '',
     sudo_mode: s.sudo_mode,
+    key: '',
+    sudo_password: '',
+  }
+}
+
+/**
+ * 新增一台服务器时的表单初值：只给能过后端全量校验的默认值，
+ * name / host / user 仍要人填。与编辑模式共用同一张表单和同一套字段白名单。
+ */
+export function newServerInitial(): Record<string, string> {
+  return {
+    host: '',
+    port: '22',
+    user: '',
+    role: 'backup',
+    note: '',
+    sudo_mode: 'nopasswd',
     key: '',
     sudo_password: '',
   }
@@ -146,6 +164,8 @@ export function confirmTitle(kind: ConfirmKind): string {
   switch (kind) {
     case 'servers':
       return '确认保存服务器清单'
+    case 'add':
+      return '确认新增一台服务器'
     case 'env':
       return '确认保存备份配置（本机）'
     default:
@@ -161,6 +181,8 @@ export function confirmHint(
   switch (kind) {
     case 'servers':
       return `将把 ${detail.count ?? 0} 项修改写入 ${detail.server ?? ''} 的 servers.json（本机文件，先留 .bak）。改了登录账号或 sudo 模式后，需要重新执行「一键免密 sudo」。`
+    case 'add':
+      return `将把这台服务器追加到 servers.json（本机文件，先留 .bak），并做一次全量校验；校验不通过原文件一字不动。新增只写本机，不会连任何远端。`
     case 'env':
       return `将把 ${detail.count ?? 0} 项修改写入本机的 ${c} 配置（0600，先留 .bak）。这只是本机文件，远端 backup.env 不会变。`
     default:

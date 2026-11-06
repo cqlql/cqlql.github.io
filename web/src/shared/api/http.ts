@@ -53,10 +53,24 @@ export async function request<T>(path: string, init: RequestInit = {}): Promise<
   const headers = new Headers(init.headers)
   if (token) headers.set('X-Ops-Token', token)
   if (init.body !== undefined) headers.set('Content-Type', 'application/json')
+  return send<T>(path, { ...init, headers })
+}
 
+/**
+ * multipart 上传（离线镜像 tar）。**不要**手动设 Content-Type：
+ * 浏览器要自己带 boundary，手工设了服务端就解析不出 part。
+ * 令牌、信封、401 与错误处理仍走同一个 send，不复制第二套判定。
+ */
+export async function requestForm<T>(path: string, form: FormData): Promise<T> {
+  const headers = new Headers()
+  if (token) headers.set('X-Ops-Token', token)
+  return send<T>(path, { method: 'POST', headers, body: form })
+}
+
+async function send<T>(path: string, init: RequestInit): Promise<T> {
   let res: Response
   try {
-    res = await fetch(path, { ...init, headers })
+    res = await fetch(path, init)
   } catch (cause) {
     throw new ApiError('network', 0, '连不上 ops ui 后端（进程退出了？）：' + String(cause))
   }

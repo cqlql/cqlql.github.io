@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type { CSSProperties } from 'react'
 import { Alert, Button, Input, Modal, Select, Tag } from 'antd'
 
 import { componentsApi } from '../api.ts'
@@ -7,10 +8,10 @@ import {
   fetchStatus,
   resumeComponentTask,
   startComponentInstall,
+  startImageLoad,
 } from '../service.ts'
 import type { WatchHooks } from '../service.ts'
 import type {
-  ComponentStatus,
   ComponentTask,
   ComponentsStatusView,
   ServerOption,
@@ -18,28 +19,32 @@ import type {
 import {
   canInstall,
   checkColor,
+  confirmCopy,
+  imageHint,
   installHint,
+  installLabel,
   normalizeStatusView,
+  preflightOf,
   stateColor,
   stateLabel,
 } from '../utils/format.ts'
 
 /**
- * 「环境组件」页：组件目录 + 选中组件详情。
+ * 「环境组件」页：一个组件目录 + 选中组件详情。
  *
  * 目录由后端注册表渲染，新增组件只加一条后端声明，前端不用改结构。
- * 本轮只接入 docker 的安装；minio 以 planned 占位，更新 / 卸载按钮明确置灰。
- * 双击落地页仍是服务器管理页，这一页默认只做只读体检。
+ * 两个已接入组件：docker（官方 apt 仓库）、minio（离线镜像 + 运行时注入凭证）。
+ * 双击落地页仍是服务器管理页；这一页默认只做只读体检，写动作要显式确认。
  */
 const EMPTY_VIEW: ComponentsStatusView = normalizeStatusView(null)
 
 type Notice = { kind: 'success' | 'error' | 'info' | 'warning'; text: string } | null
 
-const thStyle: React.CSSProperties = {
+const thStyle: CSSProperties = {
   textAlign: 'left', padding: '8px 10px', borderBottom: '1px solid #e5e9f0',
   fontSize: 12, color: '#6b7280', fontWeight: 500, background: '#fafbfc',
 }
-const tdStyle: React.CSSProperties = {
+const tdStyle: CSSProperties = {
   padding: '8px 10px', borderBottom: '1px solid #e5e9f0', verticalAlign: 'middle',
 }
 
@@ -58,6 +63,12 @@ export function ComponentsPage() {
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [confirmText, setConfirmText] = useState('')
   const [password, setPassword] = useState('')
+
+  // 离线镜像导入：另一个写动作，也走 yes + 服务端 dry-run 门 + 同一个任务锁。
+  const [imageFile, setImageFile] = useState<File | null>(null)
+  const [imageOpen, setImageOpen] = useState(false)
+  const [imageConfirmText, setImageConfirmText] = useState('')
+  const [imagePassword, setImagePassword] = useState('')
 
   const alive = useRef(true)
   const pollId = useRef(0)
@@ -122,7 +133,7 @@ export function ComponentsPage() {
     [view.components, selected],
   )
 
-  // 依赖由后端注册表的 depends 声明推导；目前 docker 无上游依赖。
+  // 依赖由后端注册表的 depends 声明推导（minio → docker）。
   const dependenciesReady = useMemo(() => {
     const dep = current?.depends
     if (!dep) return true
@@ -130,7 +141,15 @@ export function ComponentsPage() {
     return s === 'ok' || s === 'degraded'
   }, [current, view.components])
 
+  const dockerReady = useMemo(() => {
+    const s = view.components.find((c) => c.id === 'docker')?.state
+    return s === 'ok' || s === 'degraded'
+  }, [view.components])
+
+  const pre = preflightOf(view, current)
   const installable = canInstall(current, view, busy || loading, dependenciesReady)
+  const copy = confirmCopy(current?.id)
+  const imageEnabled = !!current?.offline_image && !busy && !loading && view.collected && dockerReady
 
   const closeConfirm = useCallback(() => {
     setConfirmOpen(false)
@@ -139,24 +158,25 @@ export function ComponentsPage() {
   }, [])
 
   const submitConfirm = useCallback(() => {
-    if (confirmText !== 'yes' || !name) return
+    const id = current?.id
+    if (confirmText !== 'yes' || !name || !id || !installable) return
     const pw = password
-    const id = ++pollId.current
+    const poll = ++pollId.current
     closeConfirm()
     setBusy(true)
     setLog('')
     setTask(null)
-    setNotice({ kind: 'info', text: '安装已提交，服务端正在跑 --dry-run 预检…' })
+    setNotice({ kind: 'info', text: `${installLabel(id)}已提交，服务端正在跑 --dry-run 预检…` })
     void (async () => {
       try {
         const t = await startComponentInstall(
           componentsApi,
-          { verb: 'install', component: 'docker', name, confirm: 'yes', ...(pw ? { password: pw } : {}) },
-          makeHooks(id),
+          { verb: 'install', component: id, name, confirm: 'yes', ...(pw ? { password: pw } : {}) },
+          makeHooks(poll),
         )
         setTask(t)
         setNotice(t.exit_code === 0
-          ? { kind: 'success', text: 'Docker 引擎安装完成，请点「重新检查」复核状态。' }
+          ? { kind: 'success', text: `${installLabel(id)}完成，请点「重新检查」复核状态。` }
           : { kind: 'error', text: `任务结束，退出码 ${t.exit_code}。请看日志并复核远端状态。` })
       } catch (e) {
         setNotice({ kind: 'error', text: errText(e) })
@@ -165,7 +185,45 @@ export function ComponentsPage() {
         void refresh(name)
       }
     })()
-  }, [confirmText, password, name, closeConfirm, makeHooks, refresh])
+  }, [confirmText, password, name, current, installable, closeConfirm, makeHooks, refresh])
+
+  const closeImage = useCallback(() => {
+    setImageOpen(false)
+    setImageConfirmText('')
+    setImagePassword('')
+  }, [])
+
+  const submitImage = useCallback(() => {
+    if (imageConfirmText !== 'yes' || !name || !imageFile || !imageEnabled) return
+    const form = new FormData()
+    form.append('verb', 'image-load')
+    form.append('component', 'minio')
+    form.append('name', name)
+    form.append('confirm', 'yes')
+    if (imagePassword) form.append('password', imagePassword)
+    form.append('image', imageFile, imageFile.name)
+    const poll = ++pollId.current
+    closeImage()
+    setBusy(true)
+    setLog('')
+    setTask(null)
+    setNotice({ kind: 'info', text: '镜像包已提交，服务端正在做 --dry-run 校验…' })
+    void (async () => {
+      try {
+        const t = await startImageLoad(componentsApi, form, makeHooks(poll))
+        setTask(t)
+        setNotice(t.exit_code === 0
+          ? { kind: 'success', text: '离线镜像已导入，请点「重新检查」复核镜像清单。' }
+          : { kind: 'error', text: `导入结束，退出码 ${t.exit_code}。请看日志并复核远端状态。` })
+      } catch (e) {
+        setNotice({ kind: 'error', text: errText(e) })
+      } finally {
+        setBusy(false)
+        setImageFile(null)
+        void refresh(name)
+      }
+    })()
+  }, [imageConfirmText, imagePassword, name, imageFile, imageEnabled, closeImage, makeHooks, refresh])
 
   return (
     <div className="page">
@@ -173,7 +231,7 @@ export function ComponentsPage() {
         <div>
           <h1>环境组件</h1>
           <div className="page-meta">
-            默认只读体检；安装会写远端 apt 源 / 系统包 / 服务，需输入 yes 二次确认并由服务端先跑预检
+            默认只读体检；安装 / 导入镜像会写远端，需输入 yes 二次确认并由服务端先跑预检
           </div>
         </div>
         <Tag color="blue">一个导航项 · 可扩展目录</Tag>
@@ -205,7 +263,7 @@ export function ComponentsPage() {
         {busy && (
           <Alert
             type="error" showIcon style={{ marginTop: 12 }}
-            message="远端任务运行中：新的写请求会被服务端以 409 拒绝；刷新页面不会打断已开始的安装。"
+            message="远端任务运行中：新的写请求会被服务端以 409 拒绝；刷新页面不会打断已开始的任务。"
           />
         )}
       </section>
@@ -251,7 +309,7 @@ export function ComponentsPage() {
           </table>
         </div>
         <div className="hint" style={{ marginTop: 10 }}>
-          minio 目前是目录里的占位项（尚未接入），任何写操作都会被后端白名单拒绝。
+          依赖链：① Docker 引擎 → ② MinIO 服务 → ③ mc mirror 备份链路；上游没就绪时下游写动作一律禁用。
         </div>
       </section>
 
@@ -264,18 +322,18 @@ export function ComponentsPage() {
           {current?.version || installHint(current, view, dependenciesReady)}
         </div>
         <Alert
-          type={view.preflight.ready ? 'info' : 'warning'}
+          type={pre.ready ? 'info' : 'warning'}
           showIcon
           message={installHint(current, view, dependenciesReady)}
           style={{ marginBottom: 10 }}
         />
-        {view.preflight.blockers.length > 0 && (
+        {pre.blockers.length > 0 && (
           <Alert type="error" showIcon style={{ marginBottom: 10 }}
-            message="预检阻塞项" description={<ul style={{ margin: 0, paddingLeft: 18 }}>{view.preflight.blockers.map((b) => <li key={b}>{b}</li>)}</ul>} />
+            message="预检阻塞项" description={<ul style={{ margin: 0, paddingLeft: 18 }}>{pre.blockers.map((b) => <li key={b}>{b}</li>)}</ul>} />
         )}
-        {view.preflight.warnings.length > 0 && (
+        {pre.warnings.length > 0 && (
           <Alert type="warning" showIcon style={{ marginBottom: 10 }}
-            message="预检提示" description={<ul style={{ margin: 0, paddingLeft: 18 }}>{view.preflight.warnings.map((w) => <li key={w}>{w}</li>)}</ul>} />
+            message="预检提示" description={<ul style={{ margin: 0, paddingLeft: 18 }}>{pre.warnings.map((w) => <li key={w}>{w}</li>)}</ul>} />
         )}
 
         {current?.phase === 'planned' ? (
@@ -303,15 +361,68 @@ export function ComponentsPage() {
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
               <Button type="primary" disabled={!installable} onClick={() => setConfirmOpen(true)}>
-                安装 Docker 引擎
+                {installLabel(current?.id)}
               </Button>
               <Button disabled title="后续接入">更新</Button>
               <Button disabled danger title="后续接入">卸载</Button>
-              <span className="hint">更新 / 卸载尚未接入；安装不会动容器、镜像与 /var/lib/docker。</span>
+              <span className="hint">更新 / 卸载尚未接入；安装不会删数据、不动引擎与已有镜像。</span>
             </div>
           </>
         )}
       </section>
+
+      {current?.offline_image && (
+        <section className="card">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+            <b style={{ fontSize: 14 }}>MinIO 离线镜像</b>
+            <Tag color="orange">不走外网</Tag>
+            <span className="hint">只属于 MinIO；Docker 引擎走官方 apt 仓库，不需要 tar</span>
+          </div>
+          <div style={{ border: '1px solid #e5e9f0', borderRadius: 8, overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+              <thead>
+                <tr>
+                  <th style={thStyle}>镜像 : 标签</th>
+                  <th style={thStyle}>镜像 ID</th>
+                  <th style={thStyle}>大小</th>
+                  <th style={thStyle}>导入时间</th>
+                </tr>
+              </thead>
+              <tbody>
+                {view.images.length === 0 && (
+                  <tr><td colSpan={4} style={{ ...tdStyle, color: '#9aa3af' }}>目标机尚无已导入的 MinIO 镜像</td></tr>
+                )}
+                {view.images.map((img) => (
+                  <tr key={`${img.reference}-${img.id}`}>
+                    <td style={{ ...tdStyle, fontFamily: 'monospace', fontSize: 12 }}>{img.reference}</td>
+                    <td style={tdStyle}>{img.id}</td>
+                    <td style={tdStyle}>{img.size}</td>
+                    <td style={tdStyle}>{img.created}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="hint" style={{ marginTop: 10 }}>{imageHint(view, dockerReady)}</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center', marginTop: 10 }}>
+            <input
+              type="file"
+              accept=".tar"
+              disabled={busy}
+              onChange={(e) => setImageFile(e.target.files?.[0] ?? null)}
+            />
+            <Button
+              disabled={!imageEnabled || !imageFile}
+              onClick={() => setImageOpen(true)}
+            >
+              导入到远端
+            </Button>
+            <span className="hint">
+              选择本机 docker save 导出的 .tar；服务端校验后才上传，接口不接受任意本机路径。
+            </span>
+          </div>
+        </section>
+      )}
 
       <section className="card">
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
@@ -333,7 +444,7 @@ export function ComponentsPage() {
       </section>
 
       <Modal
-        title="确认安装 Docker 引擎"
+        title={copy.title}
         open={confirmOpen}
         onCancel={closeConfirm}
         onOk={submitConfirm}
@@ -345,13 +456,10 @@ export function ComponentsPage() {
         <Alert
           type="warning" showIcon style={{ marginBottom: 12 }}
           message="这是远端写操作"
-          description="会安装系统包、写 /etc/apt/sources.list.d/docker.sources、启用 docker.service，并把清单用户加入 docker 组。"
+          description={copy.description}
         />
         <ul style={{ paddingLeft: 18, margin: '0 0 12px', fontSize: 13, lineHeight: 1.9 }}>
-          <li>服务端会先跑一次 --dry-run 预检，不通过就不安装、远端不改动。</li>
-          <li>不跑 hello-world（会拉 Docker Hub 镜像），不动容器 / 镜像 / /var/lib/docker。</li>
-          <li>不修改 crontab、backup.env；不改 DEST_URL（仍需在「配置」页把 8007 改成 9000）。</li>
-          <li>组变更需重新登录才在当前会话生效。</li>
+          {copy.items.map((it) => <li key={it}>{it}</li>)}
         </ul>
         <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 4 }}>请输入 yes 确认：</div>
         <Input value={confirmText} onChange={(e) => setConfirmText(e.target.value)} placeholder="yes" autoComplete="off" />
@@ -359,6 +467,36 @@ export function ComponentsPage() {
           一次性 sudo 密码（目标机已配免密 sudo 可留空）：
         </div>
         <Input.Password value={password} onChange={(e) => setPassword(e.target.value)} placeholder="留空则用免密 sudo" autoComplete="new-password" />
+      </Modal>
+
+      <Modal
+        title="确认导入 MinIO 离线镜像"
+        open={imageOpen}
+        onCancel={closeImage}
+        onOk={submitImage}
+        okText="确认导入"
+        cancelText="取消"
+        okButtonProps={{ disabled: imageConfirmText !== 'yes', danger: true }}
+        destroyOnClose
+      >
+        <Alert
+          type="warning" showIcon style={{ marginBottom: 12 }}
+          message="这是远端写操作"
+          description="会把本机镜像包上传到目标机并执行 docker load；不启动容器、不改数据目录、不改 backup.env。"
+        />
+        <ul style={{ paddingLeft: 18, margin: '0 0 12px', fontSize: 13, lineHeight: 1.9 }}>
+          <li>服务端先跑 --dry-run 校验 tar，不通过就不上传、远端不改动。</li>
+          <li>绝不执行 docker pull（目标机拉不到 Docker Hub / quay.io / dl.min.io）。</li>
+          <li>临时镜像包由服务端生成路径、任务结束即删；接口不接受任意本机路径。</li>
+        </ul>
+        <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 4 }}>
+          已选：{imageFile?.name ?? '（未选择）'}。请输入 yes 确认：
+        </div>
+        <Input value={imageConfirmText} onChange={(e) => setImageConfirmText(e.target.value)} placeholder="yes" autoComplete="off" />
+        <div style={{ fontSize: 12, color: '#6b7280', margin: '10px 0 4px' }}>
+          一次性 sudo 密码（目标机已配免密 sudo 可留空）：
+        </div>
+        <Input.Password value={imagePassword} onChange={(e) => setImagePassword(e.target.value)} placeholder="留空则用免密 sudo" autoComplete="new-password" />
       </Modal>
     </div>
   )

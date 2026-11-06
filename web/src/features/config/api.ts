@@ -12,8 +12,8 @@ import type {
 /**
  * 只发请求 + 在边界归一化响应，不写业务判断（判定都在 utils/draft.ts）。
  *
- * 🔴 四个接口都不带路径参数：目标文件由服务端从 ops.env / 配置目录解析。
- * 三个写接口都必须带 confirm="yes"，服务端会拒掉没确认的请求。
+ * 🔴 所有接口都不带路径参数：目标文件由服务端从 ops.env / 配置目录解析。
+ * 四个写接口都必须带 confirm="yes"，服务端会拒掉没确认的请求。
  * 🔴 两个读接口过 normalize*：后端 nil slice 会编成 null，直接 .find 会白屏。
  */
 export const configApi = {
@@ -24,6 +24,17 @@ export const configApi = {
     request<ServerSaveResult>('/api/config/servers', {
       method: 'POST',
       body: JSON.stringify({ name, fields, confirm: 'yes' }),
+    }),
+
+  /**
+   * 写：追加一台服务器。空清单 / servers.json 还不存在时也能用 ——
+   * 换电脑后的第一台服务器就是在界面里加的，不用去编辑器手敲 JSON。
+   * 服务端同样先落 .tmp 全量校验、.bak + 原子替换。
+   */
+  addServer: (fields: Record<string, string>) =>
+    request<ServerSaveResult>('/api/config/servers', {
+      method: 'POST',
+      body: JSON.stringify({ mode: 'add', fields, confirm: 'yes' }),
     }),
 
   saveEnv: (component: BackupComponent, fields: Record<string, string>) =>

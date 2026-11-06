@@ -26,6 +26,17 @@
 > crontab），定时备份、preflight 自检、首跑一律以清单 `user` 运行，`known_hosts` /
 > `~/.mc` 与备份机手工 ssh 同源；升级会迁移 root crontab 与目录属主。
 > 见硬约束 24 / `docs/backup-deploy.md` §4.4。
+> **2026-11-06 环境组件能力落地**：`ops component list/install/image-load` + 界面第 3 项
+> 「环境组件」（组件目录 + 详情）；Docker 走官方 apt 仓库，MinIO 走**离线镜像 tar**
+> 与本机 `backup/minio.env` 运行时注入的 root 凭证，见 `docs/components.md` /
+> `docs/ui.md` §13 / 硬约束 25。界面更新 / 卸载仍未接入。
+> **2026-11-06 换电脑零手工 + 配置不全不挡路**：`启动运维.cmd` **先**问
+> `ops.exe __dist-check` —— 二进制里已有页面就零构建（磁盘 `web/dist` 被删也只补占位目录）；
+> 只有没页面才自动 `node.exe npm-cli.js run build` + `go build -o ops.exe .`，
+> 见 `docs/one-click-launch.md` §4.1 / 硬约束 26；
+> `ops ui` 配置缺失时**照常返回 SPA**，`/api/servers` 回 200 + `setup_error`（空清单 +
+> 默认路径），落地页给「去配置页 / 打开清单」引导；配置页新增「新增服务器」（`mode=add`），
+> 空清单自动进该模式，保存后服务器管理页自动刷新。见 `docs/ui.md` §12 / 硬约束 26。
 > 只放「每次动代码都要遵守」的红线：一句结论 + 一个指针。判据、流程、踩坑都在 `docs/`。
 > 通用文档规则以 `cqlql-notes/docs/工程/文档约定.md` 为准。
 
@@ -35,6 +46,8 @@
   `ops backup deploy/verify/env/sync-env` 安装、升级、预检备份能力、生成配置模板、
   单独同步配置到远端
   （备份脚本本体就在本仓 `deploy/backup/`，编进二进制）；
+  `ops component list/install/image-load` 管备份端环境组件（Docker 引擎与 MinIO 服务，
+  只读体检 / 安装 / 离线镜像导入，脚本在 `deploy/component/` 编进二进制，见 `docs/components.md`）；
   `ops ui` 默认只读查看服务器清单与检查结果；「备份能力部署」页另有预检 / 安装 / 自检
   三个显式入口（安装要输 yes，服务端先跑 `--dry-run`，见 `docs/ui.md` §9）；
   顶部工具栏另有「重启」（本机动作，可选先重建 + 换 exe，见 `docs/ui.md` §11）
@@ -106,12 +119,16 @@
     `.lnk` 只指启动器，图标是独立 `.ico`，名字必校验。详见 `docs/one-click-launch.md`。
 16. 🔴 **前端产物不进 Git，但 `web/dist/.gitkeep` 必须进**：`//go:embed all:web/dist`
     在目录不存在时直接编译失败；真实产物由 `npm run build` 生成，`vite.config.ts`
-    用 `emitFile` 重建那个占位（`emptyOutDir` 会删它）。详见 `docs/ui.md` §3。
+    用 `emitFile` 重建那个占位（`emptyOutDir` 会删它）。
+    🔴 **换电脑 / 全新 clone 时启动器自动补齐**（不要求人手敲构建命令）：判据是
+    `__dist-check` 看**二进制里**有没有 `index.html` + `assets/`，不是看磁盘目录 ——
+    「磁盘 dist 已构建、exe 却是旧的」正是最常见的坏状态。详见硬约束 26 / `docs/ui.md` §3。
 17. 🔴 **后台界面只起一个、配置不全也得起、端口被占要避让**：单实例只认
     `internal/shared` 的命名互斥体（不靠 `tasklist`），**互斥体名带配置目录指纹**
     （配置目录可被覆盖，机器级名字会互相挡）；`ui.json` 0600 只存 port+token；
     默认端口 7788 被占**自动递增**（同机 `suikouji ops` 也占 7788），显式 `--port` 才严格绑定；
-    `ops init` 生成的空 `servers.json` 不能让 `ops ui` 静默退出，要回一页能照做的说明；
+    `ops init` 生成的空 `servers.json` 不能让 `ops ui` 静默退出，**也不能用一页 503 说明
+    把人挡在界面外**（界面里就有补配置的入口），要照常回 SPA 并给可操作的引导；
     守护起不来必须回退前台。详见 `docs/ui.md` §4 / `docs/one-click-launch.md` §4.4。
 18. 🔴 **桌面快捷方式只有一份实现**：`launcher.CreateShortcutOnDesktop` 是唯一入口，
     `ops shortcut` 与页面按钮（`POST /api/shortcut`）都调它；ui 通过 main 注入，
@@ -154,7 +171,9 @@
        `POST /api/config/{servers,backup-env,sync-env}` 必须带 `confirm=="yes"`；
     ② 路径全部由服务端从 `ops.env` / 配置目录解析，**接口不接收任何路径**；
        `name` 只认 `servers.json`、组件只认 `pg|minio|all`；
-    ③ 字段白名单：清单不改 `name`（主键），env 只改「模板定义过或文件里已有」的键；
+    ③ 字段白名单：编辑已有清单时不改 `name`（主键）；`mode=add` 新增时 `name` 必填、
+       不许重名，其余字段仍只认同一份白名单，写前同样过 `shared.LoadServers` 全量校验；
+       env 只改「模板定义过或文件里已有」的键；
        值按 shell 字面量转义（env 会被远端 `source`，`$(...)` / 反引号必须失效）；
     ④ 写 0600 + 先留 `.bak` + 原子替换；清单写前用 `shared.LoadServers` 全量校验，
        校验失败原文件一字不动；私钥路径不进任何输出 / 日志；
@@ -189,6 +208,56 @@
     ⑥ 部署失败回滚时 `failAfterInstall` 必须撤销运行用户 crontab 里本次装的任务
        （`revokeRunUserCrontab`）：旧 install.sh 会把任务装回 root，不撤销就双跑。
     详见 `docs/backup-deploy.md` §2 / §4.4 / §5、`docs/backup-scripts.md` §4.1。
+25. 🔴 **环境组件按注册表接，MinIO 不在线拉镜像、凭证只走运行时注入**（2026-11-06 新增）：
+    ① 组件 id 只认 `internal/component/registry.go`；写操作 `Runnable`、导入 tar
+       `SupportsImage` 各挡一道，planned 组件一律拒绝；新增组件 = 一条声明 +
+       一份只读 `check.sh`（可选 `install.sh`），导航项与页面数不变。
+    ② `deploy/component/**` 整目录 embed，**不许出现凭证 / .env / 私钥 / 日志**；
+       MinIO root 凭证只从本机 `backup/minio.env` 的 `DEST_KEY` / `DEST_SECRET` 读，
+       运行时拼到上传脚本头部（远端 0600 临时文件，成败都删），
+       不进 argv / HTTP 响应 / 任务日志；页面只回「是否已配置」与 `DEST_URL` 端口。
+    ③ 🔴 **绝不 `docker pull`**：k1 实测 Docker Hub 超时 / quay.io 401 / dl.min.io 410；
+       MinIO 只认人导入的离线 tar（`image-load` 先校验 `manifest.json`），
+       远端没有镜像时预检直接拦下，不留半状态。
+    ④ 安装幂等：Docker 已装就跳过 apt；MinIO 已有容器只做健康检查 / `docker start`，
+       不重建、不删 `/data/minio`、不动引擎 / 其它镜像 / crontab / `backup.env`。
+    ⑤ `check.sh` 只读（不写文件 / 不提权 / 不装包 / 不拉镜像）；采不到就是 `unknown`，
+       不用 0 兜底（硬约束 3）。
+    ⑥ 界面写动作（install / image-load）照抄硬约束 21 的六道门，与备份部署共用
+       同一把后台任务锁；`/api/components/image` **不接收任何本机路径**，
+       临时 tar 由服务端生成、任务结束即删。
+    ⑦ 改了 `deploy/component/**` 必须重编 Go（与 `deploy/backup/**`、`web/dist` 同理，
+       `internal/restart/staleness.go` 已把它算作 Go 构建输入）。
+    详见 `docs/components.md` / `docs/ui.md` §13。
+26. 🔴 **换电脑零手工、配置不全不挡路**（2026-11-06 新增）：
+    ① `启动运维.cmd` 的 `:ensure` 段负责「这台机器能不能跑」，🔴 **顺序是红线**：
+       先用内部命令 `ops.exe __dist-check` 判**二进制里**有没有 `index.html` + `assets/`；
+       返回 0 就零构建直接放行（哪怕磁盘 `web/dist` 被手删，也只补回目录 + `.gitkeep`
+       占位，保证以后 `go build` 的 embed 目录还在）。只有 exe 不存在 / 自检非零
+       （旧 exe 不认识该命令退 2 也算缺）才需要磁盘产物：缺 `web/dist/index.html` →
+       用 `where node.exe` 取**绝对路径**的 `node.exe npm-cli.js run build` 构建前端
+       （🔴 不 `call npm.cmd`：项目级 / pnpm shim 的 `%~dp0` 会指到
+       `web\node_modules\npm` 而报 `Cannot find module ...\npm-cli.js`）；
+       只有 `.bin\vite.cmd` 缺失或首次 build 失败才先 `npm install` 修复一次并重试；
+       随后 `go build -o ops.exe .`。`--bg` 隐藏守护**不做任何构建**；
+       显式子命令跳过前端检查但仍要保证 exe 存在；找不到 Node / go 要停在可见窗口给提示，
+       覆盖运行中 exe 失败要提示先点「关闭界面」。
+    ② `__dist-check` 与 `__restart` / `__takeover` 一样是内部命令：不进 `commandHandler`、
+       不进 usage / 菜单，只回退出码、不做写操作；判定函数 `embeddedWebOK` 用 MapFS 可测。
+    ③ `.cmd` 保持 CRLF + 全 ASCII 注释/echo；🔴 `if (...)` 块里不许出现未转义的 `)`，
+       否则块提前闭合、`pause` 变成无条件执行（隐藏守护会挂成隐形僵尸，已踩过）。
+    ④ `ops ui` 在配置 / 清单读不出来时**照常返回 SPA**（`serveIndex` 不再有 503 降级页）；
+       `/api/servers` 回 200 + `setup_error` + 空数组 + 默认 `servers_file`，
+       让前端给「去配置页 / 打开清单」的可操作引导；需要清单的写操作仍各自回 503。
+    ⑤ 本机配置编辑用 `shared.FallbackConfig()`（与 `LoadConfig` 同一套路径规则，
+       不要求 `ops.env` 存在）：`GET /api/config`、`POST /api/config/backup-env`、
+       `POST /api/open-servers-file`、`ui.reload()` 都走它；
+       🔴 **任何要连远端的动作仍必须严格 `LoadConfig`**（sync-env / compare / CLI），
+       不许拿默认路径冒充一台目标机。
+    ⑥ 配置页「新增服务器」是第四个写接口：`mode=add` 同样要 `confirm=="yes"`、
+       同样过字段白名单 + `.tmp` 全量校验 + `.bak` + 原子替换（0600），空清单自动进该模式；
+       保存后由 `onServersChanged` 让一直挂载着的落地页重新取数。
+    详见 `docs/one-click-launch.md` §4.1 / `docs/ui.md` §12。
 
 ## 命令与验证
 
@@ -212,6 +281,9 @@ ops backup deploy --server <name> --password-stdin   # 初始 sudo 密码从 std
 ops backup env
 ops backup verify --server <name>
 ops backup sync-env pg --server <name>   # 只把本机配置推到远端 backup.env
+ops component list --server <name> --json
+ops component install docker|minio --server <name> --dry-run
+ops component image-load minio --server <name> --image-tar <本机 .tar> --dry-run
 ops ui [--port 7788] [--no-open]
 ops shortcut [--name <名字>] [--remove]
 ops menu --help
@@ -225,6 +297,8 @@ ops menu --help
 后台 stdout 在配置目录 `ops-ui.log`；停界面点页面「关闭界面」。
 🔴 **改了 `web/` 就必须重新 `npm run build` 再 `go build`**：产物是编进二进制的，
 只 `go build` 拿到的是上一次的页面（未构建过则是「怎么构建」的说明页）。
+换电脑 / 全新 clone **不用手敲这两条**：`启动运维.cmd` 检测到产物缺失会自动补齐
+（硬约束 26）；但源码改了之后的增量重建不在启动器职责内，仍走下面那句或界面「重启」勾「先重建」。
 改了 `web/` 或 `deploy/backup/**` 也可以点界面顶部「重启」并勾「先重建」一键完成：
 服务端按同样顺序构建，源码过期时复选框自动勾上（判据见 `internal/restart/staleness.go`）。
 
@@ -264,7 +338,7 @@ ops menu --help
   目录结构必须与远端一致（`postgres/` `minio/` `lib/` `preflight_check.sh`）：
   `component.remoteDir()` / `installPath()` / `logrotateSrc()` 都按这个相对布局拼远端路径。
   脚本本体说明见 `docs/backup-scripts.md`，安装流程见 `docs/backup-deploy.md`。
-- `internal/ui/`：`ui.go`（服务端、token、`/api/shutdown`、配置降级页）、
+- `internal/ui/`：`ui.go`（服务端、token、`/api/shutdown`、配置缺失仍回 SPA）、
   `backup.go`（备份任务状态、`/api/backup/*`、预检门、日志脱敏）、
   `background.go`（`--background` 调度、`ui.json`、日志轮转、开浏览器）、
   `background_{windows,other}.go`（隐藏 cmd 守护，靠 build tag 切平台）、`ops.ico`；

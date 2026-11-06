@@ -1,20 +1,23 @@
 import { useCallback, useEffect, useState } from 'react'
-import { CloudServerOutlined, DatabaseOutlined, SettingOutlined } from '@ant-design/icons'
+import { AppstoreOutlined, CloudServerOutlined, DatabaseOutlined, SettingOutlined } from '@ant-design/icons'
 import { App as AntApp, ConfigProvider, Layout, Menu } from 'antd'
 import type { MenuProps } from 'antd'
 import zhCN from 'antd/locale/zh_CN'
 
 import { BackupPage } from './features/backup/index.ts'
+import { ComponentsPage } from './features/components/index.ts'
 import { ConfigPage } from './features/config/index.ts'
 import { ServersPage } from './features/servers/index.ts'
 import { RestartPanel } from './features/system/index.ts'
 import { ErrorBoundary } from './shared/ui/ErrorBoundary.tsx'
 
-type PageKey = 'servers' | 'backup' | 'config'
+type PageKey = 'servers' | 'backup' | 'components' | 'config'
 
 const NAV_ITEMS: MenuProps['items'] = [
   { key: 'servers', icon: <CloudServerOutlined />, label: '服务器管理' },
   { key: 'backup', icon: <DatabaseOutlined />, label: '备份能力部署' },
+  // 「环境组件」是一个可扩展的目录页：以后加组件只加注册表声明，不再加导航项。
+  { key: 'components', icon: <AppstoreOutlined />, label: '环境组件' },
   // 低频入口：放最后，不给主路径（服务器管理 / 备份部署）多一次点击。
   { key: 'config', icon: <SettingOutlined />, label: '配置' },
 ]
@@ -55,13 +58,21 @@ function useNarrow() {
 export default function App() {
   const [page, setPage] = useState<PageKey>('servers')
   const [visited, setVisited] = useState<PageKey[]>(['servers'])
+  // 配置页改了 servers.json 后，服务器管理页要重新取数：它一直挂载着，
+  // 切回来不会重新挂载，光靠「切页」刷新不到新加的那台机器。
+  const [serversVersion, setServersVersion] = useState(0)
   const narrow = useNarrow()
 
-  const onNav = useCallback<NonNullable<MenuProps['onClick']>>(({ key }) => {
-    const next = key as PageKey
+  const openPage = useCallback((next: PageKey) => {
     setPage(next)
     setVisited((v) => (v.includes(next) ? v : [...v, next]))
   }, [])
+
+  const onNav = useCallback<NonNullable<MenuProps['onClick']>>(({ key }) => {
+    openPage(key as PageKey)
+  }, [openPage])
+
+  const bumpServers = useCallback(() => setServersVersion((v) => v + 1), [])
 
   const nav = (
     <Menu
@@ -106,13 +117,20 @@ export default function App() {
                     顶部工具栏（尤其「重启」）和另外两页还得留着，否则白屏后没法自救。
                     外层那个 ErrorBoundary 是兜底，正常情况轮不到它。 */}
                 <div className="app-pane" hidden={page !== 'servers'}>
-                  <ErrorBoundary><ServersPage /></ErrorBoundary>
+                  <ErrorBoundary>
+                    <ServersPage onGoConfig={() => openPage('config')} version={serversVersion} />
+                  </ErrorBoundary>
                 </div>
                 <div className="app-pane" hidden={page !== 'backup'}>
                   {visited.includes('backup') && <ErrorBoundary><BackupPage /></ErrorBoundary>}
                 </div>
+                <div className="app-pane" hidden={page !== 'components'}>
+                  {visited.includes('components') && <ErrorBoundary><ComponentsPage /></ErrorBoundary>}
+                </div>
                 <div className="app-pane" hidden={page !== 'config'}>
-                  {visited.includes('config') && <ErrorBoundary><ConfigPage /></ErrorBoundary>}
+                  {visited.includes('config') && (
+                    <ErrorBoundary><ConfigPage onServersChanged={bumpServers} /></ErrorBoundary>
+                  )}
                 </div>
               </Layout.Content>
             </Layout>

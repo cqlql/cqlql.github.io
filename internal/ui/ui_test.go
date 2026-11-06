@@ -177,39 +177,38 @@ func TestShutdownStopsProcess(t *testing.T) {
 	}
 }
 
-// 首次双击时 ops init 生成的是**空** servers.json，界面必须照样起来，
-// 并给人一页能照做的说明，而不是在隐藏窗口里静默退出。
-func TestSetupHintExplainsNextStep(t *testing.T) {
+// 🔴 配置缺失**不许挡住页面**：界面里本来就有「配置」页和「打开清单」入口，
+// 把人拦在一页 503 说明上，反而让他没法在界面里把配置补齐。
+func TestIndexServedWithoutConfig(t *testing.T) {
 	t.Setenv(shared.ConfigDirEnv, t.TempDir())
 	u := newState(t, fakeDist(t))
 	u.setupErr = errors.New("读不到服务器清单")
 
 	w := serve(u, http.MethodGet, "/?token=tok", nil)
-	if w.Code != http.StatusServiceUnavailable {
-		t.Fatalf("状态码 = %d，想要 503", w.Code)
+	if w.Code != http.StatusOK {
+		t.Fatalf("配置缺失时页面仍应返回 SPA，实得 %d：%s", w.Code, w.Body.String())
 	}
-	body := w.Body.String()
-	for _, want := range []string{"配置还没准备好", "ops init", "servers.json", "重新加载"} {
-		if !strings.Contains(body, want) {
-			t.Errorf("说明页缺少 %q：%q", want, body)
-		}
+	if !strings.Contains(w.Body.String(), `id="root"`) {
+		t.Fatalf("没有返回前端页面：%q", w.Body.String())
 	}
 }
 
 // 补完配置后**刷新即可**，不用重启界面：隐藏窗口模式下没人能去重启。
-func TestSetupHintRecoversAfterConfigFixed(t *testing.T) {
+func TestConfigRecoversAfterConfigFixed(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv(shared.ConfigDirEnv, dir)
 	u := newState(t, fakeDist(t))
 	u.setupErr = errors.New("待补")
 
-	if w := serve(u, http.MethodGet, "/?token=tok", nil); w.Code != http.StatusServiceUnavailable {
-		t.Fatalf("第一次请求应为 503，实得 %d", w.Code)
+	first := serve(u, http.MethodGet, "/api/servers?token=tok", nil)
+	if first.Code != http.StatusOK || !strings.Contains(first.Body.String(), `"setup_error"`) {
+		t.Fatalf("配置缺失时 /api/servers 应回 200 + setup_error，实得 %d / %q", first.Code, first.Body.String())
 	}
 	writeValidConfig(t, dir)
-	w := serve(u, http.MethodGet, "/?token=tok", nil)
-	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), `id="root"`) {
-		t.Fatalf("配置补完后刷新应回到正常页面，实得 %d / %q", w.Code, w.Body.String())
+	w := serve(u, http.MethodGet, "/api/servers?token=tok", nil)
+	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), `"name":"bk"`) ||
+		strings.Contains(w.Body.String(), `"setup_error"`) {
+		t.Fatalf("配置补完后刷新应拿到清单，实得 %d / %q", w.Code, w.Body.String())
 	}
 	if u.setupErr != nil {
 		t.Error("reload 成功后 setupErr 应该被清掉")

@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strconv"
@@ -141,6 +142,122 @@ func editServersFile(path, name string, fields map[string]string) (serverEditRes
 	}
 	if len(res.Changed) == 0 {
 		return res, fmt.Errorf("没有需要保存的修改")
+	}
+	return res, nil
+}
+
+// addServersFile 在清单里追加一台服务器。
+//
+// 首次使用时 servers.json 常常只是 ops init 的空模板，甚至还不存在；而
+// editServersFile 只能改**已有**的 name，空清单时配置页的保存按钮是灰的，
+// 人还得去编辑器手敲一段 JSON —— 与「界面上就能配」正相反。
+//
+// 🔴 与 editServersFile 共用同一套约束，不另开一条写入路径：
+//   - 字段白名单（多一个 name，且新增时必填）；
+//   - 写前落 .tmp，借 shared.LoadServers 做**全量**校验（名称 / role / host /
+//     user / sudo.mode / 私钥存在性 / default 指向），不通过则原文件一字未动；
+//   - .bak + 原子替换，权限 0600；
+//   - 写操作一律在调用方过 confirm=yes 与「备份任务在跑就 409」两道门。
+func addServersFile(path string, fields map[string]string) (serverEditResult, error) {
+	var res serverEditResult
+	allowed := map[string]bool{"name": true}
+	for k := range serverEditableFields {
+		allowed[k] = true
+	}
+	for k := range fields {
+		if !allowed[k] {
+			return res, fmt.Errorf("不允许修改的字段：%s", k)
+		}
+	}
+	name := strings.TrimSpace(fields["name"])
+	if name == "" {
+		return res, fmt.Errorf("请填写服务器名称（name）")
+	}
+
+	raw, err := os.ReadFile(path)
+	if err != nil && !os.IsNotExist(err) {
+		return res, fmt.Errorf("读取服务器清单失败：%w", err)
+	}
+	root := map[string]any{}
+	if len(bytes.TrimSpace(raw)) > 0 {
+		dec := json.NewDecoder(bytes.NewReader(raw))
+		dec.UseNumber()
+		if err := dec.Decode(&root); err != nil {
+			return res, fmt.Errorf("解析服务器清单失败：%w", err)
+		}
+	}
+	arr, ok := root["servers"].([]any)
+	if !ok {
+		if root["servers"] != nil {
+			return res, fmt.Errorf("服务器清单的 servers 不是数组")
+		}
+		arr = []any{}
+	}
+	for _, v := range arr {
+		if m, ok := v.(map[string]any); ok && m["name"] == name {
+			return res, fmt.Errorf("清单里已有同名服务器：%s（要改它请回到编辑模式）", name)
+		}
+	}
+
+	// 不给也能通过全量校验的默认值：一台最普通的备份端。
+	item := map[string]any{
+		"name": name,
+		"role": "backup",
+		"port": 22,
+		"sudo": map[string]any{"mode": shared.SudoModeNopasswd},
+	}
+	for k, v := range fields {
+		v = strings.TrimSpace(v)
+		if v == "" || k == "name" {
+			continue
+		}
+		switch k {
+		case "port":
+			n, err := strconv.Atoi(v)
+			if err != nil {
+				return res, fmt.Errorf("port 必须是数字：%q", v)
+			}
+			item["port"] = n
+		case "sudo_mode", "sudo_password":
+			sudo, ok := item["sudo"].(map[string]any)
+			if !ok {
+				sudo = map[string]any{}
+				item["sudo"] = sudo
+			}
+			if k == "sudo_mode" {
+				sudo["mode"] = v
+			} else {
+				sudo["password"] = v
+			}
+		default:
+			item[k] = v
+		}
+		res.Changed = append(res.Changed, k)
+	}
+	sort.Strings(res.Changed)
+	root["servers"] = append(arr, item)
+	if _, ok := root["default"]; !ok {
+		root["default"] = ""
+	}
+
+	out, err := json.MarshalIndent(root, "", "  ")
+	if err != nil {
+		return res, err
+	}
+	out = append(out, '\n')
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		return res, fmt.Errorf("创建配置目录失败：%w", err)
+	}
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, out, 0o600); err != nil {
+		return res, fmt.Errorf("写临时清单失败：%w", err)
+	}
+	if _, err := shared.LoadServers(&shared.Config{ServersFile: tmp}); err != nil {
+		_ = os.Remove(tmp)
+		return res, fmt.Errorf("新增后的清单校验不通过，未写入：%w", err)
+	}
+	if err := writeWithBackup(path, tmp, out); err != nil {
+		return res, err
 	}
 	return res, nil
 }

@@ -24,6 +24,7 @@ func makeRoot(t *testing.T) (root, exe string) {
 		"deploy/backup/pg/pg_backup.sh":    "#!/bin/sh\n",
 		"deploy/backup/pg/backup.example":  "PG=1\n",
 		"deploy/backup/minio/minio.env.sh": "#!/bin/sh\n",
+		"deploy/component/minio/check.sh":  "#!/bin/bash\n",
 		"ops.exe":                          "binary",
 	}
 	for rel, content := range files {
@@ -93,6 +94,15 @@ func TestCheckEmbeddedBackupScriptIsStale(t *testing.T) {
 	got := Check(root, exe)
 	if !got.Go || !strings.Contains(got.Reason(), "pg_backup.sh") {
 		t.Fatalf("deploy/backup 整目录 embed，改脚本同样要重编 Go：%+v", got)
+	}
+}
+
+func TestCheckEmbeddedComponentScriptIsStale(t *testing.T) {
+	root, exe := makeRoot(t)
+	touch(t, root, "deploy/component/minio/check.sh")
+	got := Check(root, exe)
+	if !got.Go || !strings.Contains(got.Reason(), "check.sh") {
+		t.Fatalf("deploy/component 整目录 embed，改组件脚本同样要重编 Go：%+v", got)
 	}
 }
 

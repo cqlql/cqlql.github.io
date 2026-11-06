@@ -100,10 +100,10 @@ func TestEditEnvFile(t *testing.T) {
 	}
 
 	changed, err := editEnvFile(p, pgEnvDefs, map[string]string{
-		"PG_SSH_HOST":     "10.0.0.9",
-		"PG_SSH_KEY":      "/root/.ssh/$(id)",
-		"PG_SSH_USER":     "", // 空值 = 保持不变
-		"PG_BACKUP_ROOT":  "/data/backups/postgres",
+		"PG_SSH_HOST":        "10.0.0.9",
+		"PG_SSH_KEY":         "/root/.ssh/$(id)",
+		"PG_SSH_USER":        "", // 空值 = 保持不变
+		"PG_BACKUP_ROOT":     "/data/backups/postgres",
 		"UNKNOWN_FUTURE_KEY": "keep",
 	})
 	if err != nil {
@@ -224,6 +224,153 @@ func TestConfigAPIViewAndConfirmGate(t *testing.T) {
 	if got := serveConfigPost(u, "/api/config/servers",
 		`{"name":"bk","confirm":"yes","fields":{"note":"hello"}}`).Code; got != http.StatusOK {
 		t.Errorf("正常保存失败：%d", got)
+	}
+}
+
+// 🔴 配置不全时「配置」页必须能打开：那一页正是用来把配置补齐的。
+// 503 会把人拦在门外，只能回头去手敲命令，与「省事」正相反。
+func TestConfigViewWorksWithoutConfig(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv(shared.ConfigDirEnv, dir)
+	t.Setenv("PASS_UP_OPS_ENV", "")
+	u := newState(t, fakeDist(t))
+
+	w := serve(u, http.MethodGet, "/api/config?token=tok", nil)
+	if w.Code != http.StatusOK {
+		t.Fatalf("配置缺失时 GET /api/config = %d：%s", w.Code, w.Body.String())
+	}
+	var envelope struct {
+		Data configView `json:"data"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &envelope); err != nil {
+		t.Fatal(err)
+	}
+	v := envelope.Data
+	if v.SetupError == "" {
+		t.Error("没把「还差什么配置」带回页面")
+	}
+	if len(v.Servers) != 0 {
+		t.Errorf("清单读不出来时应回空数组，实得 %+v", v.Servers)
+	}
+	if len(v.Envs) != 2 {
+		t.Errorf("两份备份配置仍应可编辑，实得 %d 份", len(v.Envs))
+	}
+	if !strings.Contains(v.ServersFile, "servers.json") {
+		t.Errorf("没给出清单路径：%q", v.ServersFile)
+	}
+}
+
+// 配置不全时也能把备份配置写进默认路径（不必先手工建 ops.env）。
+func TestConfigEnvSaveWorksWithoutConfig(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv(shared.ConfigDirEnv, dir)
+	t.Setenv("PASS_UP_OPS_ENV", "")
+	u := newState(t, fakeDist(t))
+
+	w := serveConfigPost(u, "/api/config/backup-env",
+		`{"component":"pg","confirm":"yes","fields":{"PG_SSH_HOST":"10.0.0.9"}}`)
+	if w.Code != http.StatusOK {
+		t.Fatalf("配置缺失时保存 env = %d：%s", w.Code, w.Body.String())
+	}
+	raw, err := os.ReadFile(filepath.Join(dir, "backup", "postgres.env"))
+	if err != nil {
+		t.Fatalf("没写出默认路径下的 postgres.env：%v", err)
+	}
+	if !strings.Contains(string(raw), `PG_SSH_HOST="10.0.0.9"`) {
+		t.Errorf("写出的内容不对：%s", raw)
+	}
+}
+
+// ---- 新增服务器：空清单 / 文件不存在时也能在界面里把第一台写进去 ----
+
+func TestAddServerIntoEmptyList(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv(shared.ConfigDirEnv, dir)
+	t.Setenv("PASS_UP_OPS_ENV", "")
+	p := filepath.Join(dir, "servers.json")
+	if err := os.WriteFile(p, []byte("{\"default\":\"\",\"servers\":[]}\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	u := newState(t, fakeDist(t))
+
+	// mode=add 也要过 confirm=yes 这道门。
+	if got := serveConfigPost(u, "/api/config/servers",
+		`{"mode":"add","fields":{"name":"bk","host":"10.0.0.1","user":"ubuntu"}}`).Code; got != http.StatusBadRequest {
+		t.Fatalf("没输 yes 竟然放行：%d", got)
+	}
+	w := serveConfigPost(u, "/api/config/servers",
+		`{"mode":"add","confirm":"yes","fields":{"name":"bk","host":"10.0.0.1","user":"ubuntu","role":"backup"}}`)
+	if w.Code != http.StatusOK {
+		t.Fatalf("新增失败：%d %s", w.Code, w.Body.String())
+	}
+	// 保存完落地页立刻就能读到，不用重启界面。
+	got := serve(u, http.MethodGet, "/api/servers?token=tok", nil)
+	if got.Code != http.StatusOK || !strings.Contains(got.Body.String(), `"name":"bk"`) {
+		t.Fatalf("保存后 /api/servers 没拿到新服务器：%d %s", got.Code, got.Body.String())
+	}
+	// 同名不许再加一次，且原文件没被改坏。
+	if got := serveConfigPost(u, "/api/config/servers",
+		`{"mode":"add","confirm":"yes","fields":{"name":"bk","host":"10.0.0.2","user":"ubuntu"}}`).Code; got != http.StatusBadRequest {
+		t.Fatalf("重名竟然放行：%d", got)
+	}
+	raw, err := os.ReadFile(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Count(string(raw), `"name": "bk"`) != 1 {
+		t.Errorf("清单被写坏了：%s", raw)
+	}
+	if _, err := os.Stat(p + ".bak"); err != nil {
+		t.Errorf("没有留 .bak：%v", err)
+	}
+}
+
+func TestAddServerCreatesMissingList(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv(shared.ConfigDirEnv, dir)
+	t.Setenv("PASS_UP_OPS_ENV", "")
+	u := newState(t, fakeDist(t))
+
+	w := serveConfigPost(u, "/api/config/servers",
+		`{"mode":"add","confirm":"yes","fields":{"name":"bk","host":"10.0.0.1","user":"ubuntu"}}`)
+	if w.Code != http.StatusOK {
+		t.Fatalf("清单不存在时新增失败：%d %s", w.Code, w.Body.String())
+	}
+	raw, err := os.ReadFile(filepath.Join(dir, "servers.json"))
+	if err != nil {
+		t.Fatalf("没写出 servers.json：%v", err)
+	}
+	for _, want := range []string{`"name": "bk"`, `"port": 22`, `"mode": "nopasswd"`} {
+		if !strings.Contains(string(raw), want) {
+			t.Errorf("新清单缺少 %q：%s", want, raw)
+		}
+	}
+}
+
+func TestAddServerRejectsBadFields(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv(shared.ConfigDirEnv, dir)
+	t.Setenv("PASS_UP_OPS_ENV", "")
+	p := filepath.Join(dir, "servers.json")
+	original := "{\"default\":\"\",\"servers\":[]}\n"
+	if err := os.WriteFile(p, []byte(original), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	u := newState(t, fakeDist(t))
+
+	for _, body := range []string{
+		`{"mode":"add","confirm":"yes","fields":{"host":"10.0.0.1"}}`,                             // 没填 name
+		`{"mode":"add","confirm":"yes","fields":{"name":"bk","evil":"x"}}`,                        // 不在白名单
+		`{"mode":"add","confirm":"yes","fields":{"name":"bk","host":"bad host","user":"ubuntu"}}`, // 全量校验不过
+		`{"mode":"bogus","confirm":"yes","fields":{"name":"bk"}}`,                                 // 未知模式
+	} {
+		if got := serveConfigPost(u, "/api/config/servers", body).Code; got != http.StatusBadRequest {
+			t.Errorf("非法请求竟然放行（%s）：%d", body, got)
+		}
+	}
+	got, _ := os.ReadFile(p)
+	if string(got) != original {
+		t.Errorf("校验失败后清单被改了：%s", got)
 	}
 }
 

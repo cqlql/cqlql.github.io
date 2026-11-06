@@ -7,6 +7,9 @@
 > 🔴 红线由「界面只读」改为「**双击落地页只读 + 写操作显式二次确认 + 服务端预检门**」，
 > 见本文 §9；[AGENTS.md](../AGENTS.md) 硬约束 9/15/21 与
 > [backup-deploy.md](backup-deploy.md) §2/§10 已同步。
+> **2026-11-06 追加「换电脑零手工」**：产物缺失由 `启动运维.cmd` 自动补齐（§3、
+> [one-click-launch.md](one-click-launch.md) §4.1）；配置 / 清单读不出来时**照常返回 SPA**，
+> 落地页给可操作引导，配置页可直接新增第一台服务器（§12.6）。
 > 未实现的 P2/P3 视图按本文件 §7 的触发条件再加。
 
 # 界面（`ops ui`）
@@ -99,7 +102,11 @@ webdist.go                       //go:embed all:web/dist（根包，package main
   不重建的话它永远提交不上去（`wsl-manager` 那边踩过）。
 - **未构建时仍然能 `go build`**：`distFS()` 发现 `index.html` 不在就返回 nil，
   页面回 **503 + 构建命令**（不是 500、不是白屏），CLI 启动时也打一行 `WARN`。
-  这是全新 clone 之后最可能看到的第一个状态，所以必须是一页能照做的说明。
+  这一页是最后的兜底，**正常路径不该走到它**：`启动运维.cmd` 双击时先用内部命令
+  `ops.exe __dist-check` 看**二进制里**有没有 `index.html` 与 `assets/` —— 有就零构建
+  直接放行（磁盘 `web/dist` 被手删也无所谓）；只有没页面才自动 `npm run build` +
+  `go build`（顺序本身是红线，见 [one-click-launch.md](one-click-launch.md) §4.1），
+  见 [one-click-launch.md](one-click-launch.md) §4.1 / [AGENTS.md](../AGENTS.md) 硬约束 26。
 - 🔴 **`/assets/*` 长缓存、`index.html` 不缓存**：产物文件名带内容哈希，
   `Cache-Control: immutable` 是安全的；而 `index.html` 决定引用哪一组哈希文件名，
   缓存住它就会在重新构建后继续引用已经不存在的旧文件。
@@ -135,9 +142,13 @@ webdist.go                       //go:embed all:web/dist（根包，package main
   ⚠️ 例外：`__takeover`（重启接手）**复用** `ui.json` 里的 token，不换新 ——
   前端 token 没落盘，换掉之后页面轮询 `/api/health` 会一直 401，把成功的重启误报成失败。
   见 §11.4。
-- 配置 / 服务器清单读不出来时，页面回 **503 + 一页能照做的说明**（不是白屏、不是 500）：
-  `ops init` 生成的是空清单模板，而后台窗口是隐藏的，静默退出等于「双击没反应」。
-  每次请求都会重读配置，补完**刷新即可**；API 侧同样回 503 + 中文原因。
+- 🔴 配置 / 服务器清单读不出来时**照常返回 SPA**，不再回 503 说明页：界面里本来就有
+  「配置」页与「打开 servers.json」入口，把人挡在外面反而进不去能补配置的地方。
+  `GET /api/servers` 回 200 + `setup_error` + 空数组 + 默认 `servers_file`，落地页据此给
+  「去配置页 / 打开清单 / 重新加载」引导；需要清单的写操作（check / apply-sudo / 部署）
+  仍各自 503。每次请求重读配置，补完**刷新即可**；本机配置编辑走
+  `shared.FallbackConfig()`（`ops.env` 缺失也不挡），远端动作仍严格 `LoadConfig`。
+  详见 §12.6。
 - 旧的 `__OPS_TOKEN__` 占位符已删除。以前 favicon 也要 token，只能在 HTML 里拼占位符
   再由 Go 替换；favicon 公开之后这条链路整段消失了。
 
@@ -477,17 +488,19 @@ sudo 包装层，于是「配置了 cql，日志却说 root」看起来像配置
 | 接口 | 作用 | 写哪里 |
 |---|---|---|
 | `GET /api/config` | 清单字段 + 两份 env 字段 + `exec_chain` | 只读 |
-| `POST /api/config/servers` | 保存清单里的白名单字段 | 本机 `servers.json` |
+| `POST /api/config/servers` | 保存清单里的白名单字段；`mode=add` 时**追加一台服务器**（§12.6） | 本机 `servers.json` |
 | `POST /api/config/backup-env` | 保存一份本机备份配置 | 本机 `backup/*.env` |
 | `POST /api/config/sync-env` | 显式同步到远端 | 远端 `<组件>/backup.env` |
 
 六道门（服务端 enforce，前端只是交互，对应 AGENTS.md 硬约束 23）：
 
 1. 凭证字段（含 `PASSWORD|SECRET|TOKEN|KEY`）**只回显 `configured` 标记**；提交时
-   空值 = 保持不变，填新值才覆盖。三个写接口都要 `confirm=="yes"`，`POST` + token + Origin。
+   空值 = 保持不变，填新值才覆盖。四个写动作（`servers` / `add` / `backup-env` /
+   `sync-env`）都要 `confirm=="yes"`，`POST` + token + Origin。
 2. 路径全部由服务端从 `ops.env` / 配置目录解析，**接口不接收任何路径**；`name` 只认清单，
    组件只认 `pg|minio|all`。
-3. 字段白名单：清单不改 `name`（主键，`servers.state.json` 与 default 都按它索引）；
+3. 字段白名单：编辑已有清单时不改 `name`（主键，`servers.state.json` 与 default 都按它
+   索引）；`mode=add` 时 `name` 必填、不许重名，其余字段仍只认同一份白名单；
    env 只改「模板定义过或文件里已有」的键，注释与未知行原样保留。
 4. 🔴 **值按 shell 字面量转义**：env 会被远端 `install.sh` / 备份脚本 `source`，
    `$(...)`、反引号、双引号、反斜杠不转义就是命令注入。`quoteEnvValue` 统一处理。
@@ -524,7 +537,9 @@ ops backup sync-env [pg|minio|all] --server <name>
   crontab（`crontab -u`）、日志/备份目录属主、preflight 与首跑全部归 `servers.json.user`。
   所以**仍不做**「让 install.sh 整体以普通用户跑」：那会让它内部的目录 `chown` 依赖
   免密 sudo，只配 `sudo.password` 的机器会回归失败。见 [backup-deploy.md](backup-deploy.md) §4.4。
-- **新增 / 删除服务器**：仍只编辑已有条目，避免引入主键与状态缓存的一致性处理。
+- **删除服务器**：仍不做（主键与 `servers.state.json` / default 的一致性处理没必要为
+  低频动作引入）。**新增服务器已于 2026-11-06 补上**（§12.6）：空清单是首次使用的
+  必然状态，只让编辑已有条目等于半个功能。
 - **不把脚本内置默认值自动写进本机 env**：`PG_SSH_OPTS` 没配时，页面只在 placeholder
   提示脚本兜底值（`-o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new`），
   留空 = 用脚本默认，**不是**「没有 SSH 选项」。要写进文件必须人在输入框里填一次并保存。
@@ -569,8 +584,48 @@ ops backup sync-env [pg|minio|all] --server <name>
 实现以 `web/src/features/config/` 与本节判据为准；原型与判据不一致时以本节为准，
 原型不再维护时直接删除，不另建归档目录。
 
-### 12.6 回归要点
+### 12.6 配置不全不挡路 + 在界面里加第一台服务器（2026-11-06 追加）
 
+**为什么**：换电脑后 `ops init` 生成的是空 `servers.json`，原来的 `serveIndex` 会回一页
+503「配置还没准备好」把人挡在界面外 —— 可界面里恰好就有「配置」页和「打开清单」的入口。
+而配置页当时只能**编辑已有**服务器，空清单时保存按钮是灰的，最后还得去编辑器手敲 JSON。
+两处叠起来，等于「为了省事做的工具，第一次用反而最费事」。
+
+**服务端**：
+
+- `serveIndex` 一律返回 SPA；`setupErr` 只用于启动日志，不再拦页面。
+- `GET /api/servers` 配置缺失时回 **200 + `setup_error` + `servers: []` + 默认
+  `servers_file`**（不是 503），前端才拿得到路径去给「打开清单」按钮；真正需要清单的
+  写操作（check / apply-sudo / 部署）仍各自回 503。
+- 本机配置编辑走 `shared.FallbackConfig()`（与 `LoadConfig` 同一套路径规则，不要求
+  `ops.env` 存在）：`GET /api/config`、`POST /api/config/backup-env`、
+  `POST /api/open-servers-file`、`ui.reload()` 都走它。
+  🔴 **远端动作（sync-env / compare / CLI）仍严格 `LoadConfig`**，不许拿默认路径冒充目标机。
+- 新增 `POST /api/config/servers` 的 `mode=add`：字段白名单多一个必填 `name`、不许重名；
+  `addServersFile()` 与编辑模式共用 `.tmp` 全量校验 + `.bak` + 原子替换（0600），
+  **不新增第二条写入路径**；同样要 `confirm=="yes"`，同样受备份任务在跑时 409 的门。
+
+**前端**：
+
+- 落地页把 `setup_error` 渲染成一条**可操作**的引导卡片：「去配置页新增服务器」、
+  「打开 servers.json」、「重新加载」，而不是一条红色报错 + 一张空表。
+- 配置页在 `servers: []` 时自动进「新增」模式（表单多一个 `name` 输入框），顶部显示
+  `setup_error`；保存成功后 `onServersChanged()` 让一直挂载着的服务器管理页重新取数，
+  不用刷新、不用重启界面。
+- 页面间只传一个 `version` 计数，不引状态库 / 路由（§7 的触发条件仍未达到）。
+
+**没变**：双击落地页仍只读；新增服务器是**本机写操作**，不连任何远端；四个写动作一律
+`POST` + token + Origin + `confirm=="yes"`。
+
+### 12.7 回归要点
+
+- 配置缺失 / 空清单：`TestIndexServedWithoutConfig`（页面仍回 SPA）、
+  `TestConfigViewWorksWithoutConfig`（配置页 200 + `setup_error` + 两份 env）、
+  `TestConfigEnvSaveWorksWithoutConfig`、`TestAddServerIntoEmptyList` /
+  `TestAddServerCreatesMissingList` / `TestAddServerRejectsBadFields`、
+  `TestConfigRecoversAfterConfigFixed`（补完刷新即可）；
+  前端 `config.test.ts` 的 `newServerInitial` 与 `setup_error` 归一化；
+  端到端记录见 [one-click-launch.md](one-click-launch.md) §8；
 - `go test ./internal/ui ./internal/backup .`：凭证脱敏、值转义（含 `$(id)`）、
   未知键 / 换行拒绝、清单保留未知字段、非法 `sudo.mode` 不落盘、`.bak`、二次确认、
   未知 name 404、任务忙 409、占位符拒绝同步、runner 参数 `sync-env pg --server <name>`、
@@ -585,4 +640,47 @@ ops backup sync-env [pg|minio|all] --server <name>
 - 真机：临时配置目录起实例 → 点「配置」→ 改一项非凭证值保存，核对文件与 `.bak` →
   改 `user` 后确认提示重新免密 sudo → 点「同步到远端」后到目标机核对 `backup.env`
   内容与 0600 权限，且 crontab / 脚本 mtime 没变。
+
+## 13. 环境组件页（2026-11-06）
+
+第 3 个导航项「环境组件」，一个**组件目录 + 选中详情**页（`web/src/features/components/`）。
+判据与完整设计见 [components.md](components.md)；这里只记界面相关的边界。
+交互原型 [minio-bootstrap-prototype.html](minio-bootstrap-prototype.html) 是设计稿，不维护。
+
+**为什么是一个页而不是两个**：Docker → MinIO → mc mirror 是同一条引导链路，
+依赖门、任务锁、增量日志都是同一份状态；拆成两个导航页会第一次引入跨页共享状态，
+且以后每加一个组件就多一项，窄屏退化成横向 Menu 时先撑不住（§7）。
+新增组件只加一条后端注册表声明，目录自动多一行。
+
+**接口**：
+
+| 方法与路径 | 作用 |
+|---|---|
+| `GET /api/components/status?name=` | 只读体检：所有组件状态、按组件 `preflight`、`images`、`local`（本机凭证标记） |
+| `POST /api/components/run` | `{verb:"install", component, name, confirm:"yes", password?}` |
+| `POST /api/components/image` | multipart：`verb=image-load` + `component=minio` + `name` + `confirm=yes` + `password?` + `image`（.tar） |
+| `GET /api/components/task?after=` | 与备份部署共用同一个后台任务 / 增量日志 |
+
+- 全部要 token；写操作 `POST` + `Origin` 校验（§4）。
+- `/api/components/image` **不接收任何本机路径**：临时 tar 由服务端 `os.CreateTemp`
+  生成、multipart 文件名只用于提示；任务结束（含预检失败 / 409）一律删除。
+- 失败响应的数组仍是 `[]` 不是 `null`（§11.4 的同款坑），前端
+  `normalizeStatusView` 再兜一层。
+
+**六道门**（照抄 §9，安装与导入各一套，见 `components.md` §6）：
+`confirm=="yes"` → 服务端先跑 `--dry-run` → `name` 只认清单、组件/动词只认注册表
+（`Runnable` / `SupportsImage`）→ 密码只经 runner 的 stdin → 任务脱离请求、单任务
+409、增量日志 → 界面不开放 `--force` / 更新 / 卸载 / 删数据。
+
+**页面判定**：`canInstall` 同时看「组件已接入 + 采到状态 + `missing` +
+上游 `depends` 就绪 + **服务端按组件算好的 `preflight.ready`**」。
+MinIO 没有离线镜像 / 缺本机 `DEST_KEY`+`DEST_SECRET` / Docker 没 active 时按钮直接禁用，
+不再由前端拼第二套判据。详情里的检查项与阻塞项随选中组件切换（选中 MinIO 不会
+显示 Docker 的 apt 检查结论）。
+
+**回归**：`go test ./internal/ui ./internal/component .` 的组件接口用例、
+`web/test/components.test.ts`、`cd web && npm test && npm run typecheck && npm run build`。
+真机只读验证：`ops component list --server k1 --json`、
+`ops component install minio --server k1 --dry-run`、
+`ops component image-load minio --server k1 --image-tar <本机 .tar> --dry-run`。
 

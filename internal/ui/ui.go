@@ -15,7 +15,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"html"
 	"io"
 	"io/fs"
 	"net"
@@ -54,9 +53,10 @@ type uiState struct {
 	origin string
 	// files 是 web/dist 的子 FS；前端未构建时为 nil（页面会明确说明，而不是白屏）。
 	files fs.FS
-	// setupErr 非空表示配置或服务器清单还读不出来。界面**照样起来**，只是页面
-	// 回一页「配置还没准备好」的说明：首次双击时 ops init 生成的是空清单模板，
-	// 若在这里直接退出，隐藏窗口里就是一次无声失败，表现为「双击没反应」。
+	// setupErr 只用来记「配置还读不出来」这个事实（启动日志 / 引导用），
+	// 🔴 **不再拦页面**：界面本身就有「配置」页和「打开 servers.json」入口，
+	// 把人挡在一页 503 说明上，反而让他没法在界面里把配置补齐。
+	// 配置缺失时各 API 仍按自己的语义回 503，前端把它渲染成可操作的引导卡片。
 	setupErr error
 	// createShortcut 由 main.go 注入：真正的实现在 launcher（它要用 ui.IconBytes
 	// 写图标），而 ui 不能反向 import launcher。nil = 这个构建没有该能力。
@@ -265,10 +265,11 @@ func CmdUI(args []string, static fs.FS, createShortcut func() (shared.ShortcutIn
 	}
 	fmt.Printf("服务器管理界面：%s\n", uiURL(actual, token))
 	if setupErr != nil {
-		fmt.Printf("△ 配置还没准备好：%v\n   页面会显示怎么补；补完刷新即可，不用重启界面。\n", setupErr)
+		fmt.Printf("△ 配置还没准备好：%v\n   界面照常打开，可直接在「配置」页补齐；补完刷新即可，不用重启界面。\n", setupErr)
 	}
 	if u.files == nil {
-		fmt.Println("WARN: 前端产物未嵌入（web/dist 为空）。先构建：cd web && npm install && npm run build，再重新 go build。")
+		fmt.Println("WARN: 前端产物未嵌入（web/dist 为空）。重新双击 启动运维.cmd 会自动补齐；" +
+			"手动则 cd web && npm install && npm run build，再重新 go build。")
 	}
 	fmt.Println("退出：Ctrl+C，或点页面上的「关闭界面」")
 
@@ -325,7 +326,8 @@ func uiUsage() {
 默认端口 7788，**被占用时自动往后递增**（同机其它工具也可能用 7788）；
 显式写了 --port 则严格绑定，被占直接报错，不偷偷换端口。
 --no-open 不自动打开浏览器（验收 / 脚本用）。
-页面来自 web/dist（构建：cd web && npm install && npm run build）。
+页面来自 web/dist。产物没构建时，重新双击 启动运维.cmd 会自动补齐；
+手动构建则是 cd web && npm install && npm run build，再 go build -o ops.exe .。
 `)
 }
 
@@ -422,6 +424,8 @@ func (u *uiState) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		u.handleComponentStatus(w, r)
 	case r.Method == http.MethodPost && r.URL.Path == "/api/components/run":
 		u.handleComponentRun(w, r)
+	case r.Method == http.MethodPost && r.URL.Path == "/api/components/image":
+		u.handleComponentImage(w, r)
 	case r.Method == http.MethodGet && r.URL.Path == "/api/components/task":
 		u.handleComponentTask(w, r)
 	case r.Method == http.MethodGet && r.URL.Path == "/api/config":
@@ -469,22 +473,17 @@ func (u *uiState) serveIndex(w http.ResponseWriter) {
 	// 缓存住它就会在重新构建之后继续引用已经不存在的旧文件名。
 	w.Header().Set("Cache-Control", "no-store")
 
-	// 配置还没准备好时，每次请求都重读一次：补完之后刷新就能进正常页面，
-	// 不必重启界面（首次双击最需要这条——那时窗口是隐藏的，没人能去重启）。
+	// 🔴 配置缺失不拦页面：界面里本来就有「配置」页（能编辑清单与 env）
+	// 和「点清单路径用编辑器打开」的本机入口。以前这里回一页 503 说明，
+	// 人反而进不去那个能补配置的地方，只能去手敲命令 —— 与「省事」正相反。
+	//
+	// 每次请求顺手重读一次配置：补完之后刷新即可，不用重启界面
+	// （首次双击最需要这条，那时窗口是隐藏的，没人能去重启）。
 	u.mu.Lock()
-	setupErr := u.setupErr
+	pending := u.setupErr != nil
 	u.mu.Unlock()
-	if setupErr != nil {
-		// reload 成功时会把 setupErr 清掉，下次请求直接走正常页面。
-		if err := u.reload(); err != nil {
-			setupErr = err
-		} else {
-			setupErr = nil
-		}
-	}
-	if setupErr != nil {
-		u.writeSetupHint(w, setupErr)
-		return
+	if pending {
+		_ = u.reload()
 	}
 
 	if u.files == nil {
@@ -500,7 +499,7 @@ func (u *uiState) serveIndex(w http.ResponseWriter) {
 	_, _ = w.Write(idx)
 }
 
-const buildHint = "cd web && npm install && npm run build，然后重新 go build -o ops.exe ."
+const buildHint = "重新双击 启动运维.cmd 会自动补齐；也可手动：cd web && npm install && npm run build，然后 go build -o ops.exe ."
 
 // writeNotBuilt 是「前端没构建」的唯一出口。
 // 它必须是**一页能看懂的 HTML**，而不是 500 或白屏 —— 这是全新 clone 之后
@@ -513,41 +512,10 @@ func (u *uiState) writeNotBuilt(w http.ResponseWriter) {
 <body style="font:14px/1.6 -apple-system,'Segoe UI','Microsoft YaHei',sans-serif;padding:32px;max-width:720px">
 <h1 style="font-size:18px">前端产物未嵌入</h1>
 <p>这个 ops.exe 是在前端构建之前编出来的，所以二进制里没有页面。</p>
-<p>构建一次再重新编译：</p>
+<p><b>最省事：关掉本界面，重新双击 启动运维.cmd</b> —— 启动器会自动构建前端并重新编译 exe。</p>
+<p>也可以手动构建一次：</p>
 <pre style="background:#f2f3f5;padding:12px;border-radius:8px">`+buildHint+`</pre>
 <p style="color:#6b7280">后端接口本身是好的：<code>/api/servers</code> 仍然可用。</p>
-</body></html>`)
-}
-
-// writeSetupHint 是「配置 / 服务器清单还读不出来」时的一页说明。
-//
-// 它不是错误页：界面已经好好地在 127.0.0.1 上跑着，只是没有数据可显示。
-// 必须给出**能照做的下一步**，否则首次双击（ops init 生成空清单模板）时，
-// 用户看到的是一个隐藏窗口里起不来的服务 + 一个白屏标签页。
-func (u *uiState) writeSetupHint(w http.ResponseWriter, err error) {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.WriteHeader(http.StatusServiceUnavailable)
-	extra := ""
-	if u.files == nil {
-		extra = `<p>另外，这个 ops.exe 里还没有前端产物，构建一次再重新编译：</p><pre>` +
-			html.EscapeString(buildHint) + `</pre>`
-	}
-	_, _ = io.WriteString(w, `<!doctype html><html lang="zh-CN"><meta charset="utf-8">
-<title>ops ui：配置还没准备好</title>
-<body style="font:14px/1.6 -apple-system,'Segoe UI','Microsoft YaHei',sans-serif;padding:32px;max-width:720px">
-<h1 style="font-size:18px">网页面板已启动，但配置还没准备好</h1>
-<p>界面本身是好的，只是读不到 <code>ops.env</code> / <code>servers.json</code>：</p>
-<pre style="background:#f2f3f5;padding:12px;border-radius:8px;white-space:pre-wrap">`+
-		html.EscapeString(err.Error())+`</pre>
-<p>按顺序补：</p>
-<ol>
-  <li>没有配置模板就先跑 <code>ops init</code>（生成 <code>ops.env</code> 与空 <code>servers.json</code>）；</li>
-  <li>按 <code>docs/servers.md</code> §3 往 <code>servers.json</code> 里加至少一台服务器；</li>
-  <li>回来点下面的按钮，不用重启界面。</li>
-</ol>
-<button onclick="location.reload()" style="padding:8px 16px;font-size:14px;cursor:pointer">补好了，重新加载</button>
-`+extra+`
-<p style="color:#6b7280">配置目录可用 <code>`+html.EscapeString(shared.ConfigDirEnv)+`</code> 指定。</p>
 </body></html>`)
 }
 
@@ -578,9 +546,13 @@ func (u *uiState) tokenOK(r *http.Request) bool {
 }
 
 func (u *uiState) reload() error {
+	// 🔴 ops.env 缺失（或暂时写坏）不该让整个界面「什么都没有」：启动器首次
+	// 会生成它，但人也可能手工删掉，那时 servers.json 仍在同一个默认路径上。
+	// 用 shared.FallbackConfig 取同一套路径规则继续读清单。
+	// 要连远端的动作仍走严格 LoadConfig（见 handleConfigSyncEnv / CLI）。
 	cfg, err := shared.LoadConfig()
 	if err != nil {
-		return err
+		cfg = shared.FallbackConfig()
 	}
 	list, err := shared.LoadServers(cfg)
 	if err != nil {
@@ -607,23 +579,38 @@ func writeAPI(w http.ResponseWriter, code int, v apiResponse) {
 	json.NewEncoder(w).Encode(v)
 }
 
+// serversView 是落地页的唯一数据契约。配置缺失时它也回 200（空清单 + 原因），
+// 而不是 503 —— 前端要拿得到 servers_file 才能给「打开清单 / 去配置页」的入口。
+type serversView struct {
+	ServersFile string              `json:"servers_file"`
+	Default     string              `json:"default,omitempty"`
+	Servers     []shared.ServerInfo `json:"servers"`
+	SetupError  string              `json:"setup_error,omitempty"`
+}
+
 func (u *uiState) handleServers(w http.ResponseWriter) {
 	u.opMu.Lock()
 	defer u.opMu.Unlock()
 	if err := u.reload(); err != nil {
-		// 503 而不是 500：这不是服务坏了，是「还差一份配置」，页面会据此
-		// 显示那页能照做的说明（见 writeSetupHint）。
-		writeAPI(w, http.StatusServiceUnavailable, apiResponse{Error: "配置还没准备好：" + err.Error()})
+		// 🔴 配置缺失不再是「请求失败」：界面里本来就有能补配置的那一页。
+		// 回空清单 + 原因 + 默认路径，让前端把它渲染成可操作的引导卡片；
+		// 真正需要清单的写操作（check / apply-sudo / 备份部署）仍各自回 503。
+		cfg, _ := configForEditing()
+		writeAPI(w, http.StatusOK, apiResponse{OK: true, Data: serversView{
+			ServersFile: cfg.ServersFile,
+			Servers:     []shared.ServerInfo{},
+			SetupError:  err.Error(),
+		}})
 		return
 	}
 	u.mu.Lock()
 	list, states := u.list, u.states
 	u.mu.Unlock()
-	writeAPI(w, http.StatusOK, apiResponse{OK: true, Data: struct {
-		ServersFile string              `json:"servers_file"`
-		Default     string              `json:"default,omitempty"`
-		Servers     []shared.ServerInfo `json:"servers"`
-	}{list.Path, list.Default, servers.ServerInfos(list, states)}})
+	writeAPI(w, http.StatusOK, apiResponse{OK: true, Data: serversView{
+		ServersFile: list.Path,
+		Default:     list.Default,
+		Servers:     servers.ServerInfos(list, states),
+	}})
 }
 
 type checkRequest struct {

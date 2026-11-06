@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Alert, Button, Input, Modal, Popconfirm, Typography } from 'antd'
+import { Alert, Button, Input, Modal, Popconfirm, Space, Typography } from 'antd'
 
 import { serversApi } from '../api.ts'
 import { ServersTable } from '../components/ServersTable.tsx'
@@ -7,11 +7,21 @@ import { applySudo, checkAll, checkOne, errText } from '../service.ts'
 import type { FlowHooks, Notice } from '../service.ts'
 import type { CheckRow, ServerInfo, ServersResponse, ServerStatus } from '../types.ts'
 
+interface ServersPageProps {
+  /** 配置缺失时把人直接送到能补配置的那一页。 */
+  onGoConfig: () => void
+  /** 配置页保存了 servers.json 时 +1，触发这里重新取数（本页一直挂载着）。 */
+  version: number
+}
+
 /**
  * 页面只做三件事：**取数、拼装、UI 状态**（loading / busy / 弹窗）。
  * 「先检查再配置」这类分支在 `service.ts`，判定在 `utils/`。
+ *
+ * 🔴 后端在配置缺失时仍回 200（空清单 + setup_error），不是把页面挡在门外：
+ * 这里把它渲染成一条能点、能跳转的引导，而不是一条红色报错加一张空表。
  */
-export function ServersPage() {
+export function ServersPage({ onGoConfig, version }: ServersPageProps) {
   const [data, setData] = useState<ServersResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [notice, setNotice] = useState<Notice | null>(null)
@@ -29,6 +39,7 @@ export function ServersPage() {
   const pwResolve = useRef<((v: string | null) => void) | null>(null)
 
   const servers = data?.servers ?? []
+  const setupError = data?.setup_error ?? ''
 
   const mergeRows = useCallback((rows: CheckRow[]) => {
     const byName = new Map(rows.map((r) => [r.name, r]))
@@ -82,9 +93,10 @@ export function ServersPage() {
     }
   }, [])
 
+  // 配置页新增 / 保存了清单之后，本页（一直挂载着）也要跟着刷新。
   useEffect(() => {
     void load()
-  }, [load])
+  }, [load, version])
 
   const withBusy = useCallback(async (name: string, fn: () => Promise<void>) => {
     setBusy((b) => ({ ...b, [name]: true }))
@@ -226,15 +238,44 @@ export function ServersPage() {
         />
       )}
 
-      <div className="card">
-        <ServersTable
-          servers={servers}
-          loading={loading}
-          busy={busy}
-          onCheck={onCheck}
-          onApply={onApply}
+      {setupError && (
+        <Alert
+          style={{ marginBottom: 12 }}
+          type="warning"
+          showIcon
+          message="服务器清单还没准备好"
+          description={
+            <div>
+              <p style={{ margin: '0 0 8px' }}>{setupError}</p>
+              <p style={{ margin: '0 0 8px' }}>
+                不用回到命令行：直接在「配置」页新增一台服务器，或点开下面的清单用编辑器填写。
+                补齐后本页会自动刷新。
+              </p>
+              <Space wrap>
+                <Button size="small" type="primary" onClick={onGoConfig}>
+                  去配置页新增服务器
+                </Button>
+                <Button size="small" loading={opening} onClick={() => void onOpenServersFile()}>
+                  打开 servers.json
+                </Button>
+                <Button size="small" onClick={() => void load()}>重新加载</Button>
+              </Space>
+            </div>
+          }
         />
-      </div>
+      )}
+
+      {!setupError && (
+        <div className="card">
+          <ServersTable
+            servers={servers}
+            loading={loading}
+            busy={busy}
+            onCheck={onCheck}
+            onApply={onApply}
+          />
+        </div>
+      )}
 
       <Typography.Paragraph type="secondary" style={{ marginTop: 12, fontSize: 12 }}>
         检查是只读的；「一键免密 sudo」会写 <code>/etc/sudoers.d/90-&lt;user&gt;-nopasswd</code>，

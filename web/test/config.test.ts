@@ -17,6 +17,7 @@ import {
   envInitial,
   envInputPlaceholder,
   envPlaceholder,
+  newServerInitial,
   normalizeCompareView,
   normalizeConfigView,
   serverInitial,
@@ -93,6 +94,35 @@ test('确认文案点明「保存本机 ≠ 同步远端」', () => {
   assert.match(confirmHint('env', { component: 'pg', count: 2 }), /远端 backup.env 不会变/)
   assert.match(confirmHint('sync', { component: 'minio', server: 'k1' }), /远端写操作/)
   assert.match(confirmHint('servers', { server: 'k1', count: 1 }), /一键免密 sudo/)
+})
+
+test('新增服务器的确认文案与表单初值', () => {
+  assert.match(confirmTitle('add'), /新增/)
+  assert.match(confirmHint('add', { count: 3 }), /不会连任何远端/)
+  const initial = newServerInitial()
+  assert.equal(initial.port, '22')
+  assert.equal(initial.role, 'backup')
+  assert.equal(initial.sudo_mode, 'nopasswd')
+  assert.equal(initial.host, '')
+  assert.equal(initial.key, '')
+  // 新增模式的 base 是空对象：默认值也要一起提交，后端才好按同一套规则全量校验。
+  assert.deepEqual(changedFields({}, initial), {
+    port: '22', role: 'backup', sudo_mode: 'nopasswd',
+  })
+})
+
+test('配置视图保留 setup_error：配置缺失时页面要能给出可操作的引导', () => {
+  const raw = {
+    servers_file: 'C:/cfg/servers.json',
+    servers: null,
+    envs: null,
+    setup_error: '服务器清单为空',
+  } as unknown as ConfigView
+  const got = normalizeConfigView(raw)
+  assert.equal(got.setup_error, '服务器清单为空')
+  assert.deepEqual(got.servers, [])
+  assert.deepEqual(got.envs, [])
+  assert.equal(normalizeConfigView({} as ConfigView).setup_error, undefined)
 })
 
 const compareFields: CompareField[] = [

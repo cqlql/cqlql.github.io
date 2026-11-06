@@ -21,7 +21,9 @@ import (
 //	web/dist/index.html —— 它被 //go:embed 编进 ops.exe，前端重建了但没重编 Go，
 //	                       界面看着变了、其实跑的还是旧 Go；
 //	deploy/backup/**    —— 备份脚本整目录 embed 进二进制，改了 .sh / .example /
-//	                       .logrotate 不重新 go build，部署出去的还是旧脚本。
+//	                       .logrotate 不重新 go build，部署出去的还是旧脚本；
+//	deploy/component/** —— 环境组件（Docker / MinIO）的 check.sh / install.sh
+//	                       同样整目录 embed，漏掉它会「重启了却是旧脚本」。
 //
 // ⚠️ 判定只有这一份（Rebuild 与 GET /api/restart 共用），不能长出第二套
 // 「重启时说要重建、手工构建时说不用」的分叉。
@@ -99,9 +101,10 @@ func isGoInput(rel string, d fs.DirEntry) bool {
 	case ".go", ".mod", ".sum":
 		return true
 	}
-	// deploy/backup 整目录 embed，脚本与配置模板都算输入；运行态产物不算。
+	// deploy/backup 与 deploy/component 都整目录 embed，脚本与配置模板都算输入；
+	// 运行态产物不算（component 目录里本来就不许有凭证 / 日志，见硬约束 25）。
 	clean := filepath.ToSlash(rel)
-	if strings.HasPrefix(clean, "deploy/backup/") {
+	if strings.HasPrefix(clean, "deploy/backup/") || strings.HasPrefix(clean, "deploy/component/") {
 		switch name {
 		case "backup.env", "sync.env", "last_success.txt":
 			return false

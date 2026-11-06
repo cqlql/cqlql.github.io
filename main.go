@@ -88,6 +88,11 @@ func run(args []string) int {
 	if args[0] == restart.Subcommand {
 		return runRestartChild(args[1:])
 	}
+	// 启动器自检：这个二进制里到底有没有嵌进前端页面（换电脑 / 全新 clone 时为空）。
+	// 同样是内部命令，只回退出码，不做任何写操作。
+	if args[0] == distCheckCommand {
+		return cmdDistCheck()
+	}
 	if h, ok := commandHandler(args[0]); ok {
 		return h(args[1:])
 	}
@@ -114,12 +119,15 @@ func usage() {
   ops backup verify [组件] --server <name>
                                          只跑远端 preflight 自检
   ops backup env [组件]                  生成本机备份配置模板（backup/*.env）
-  ops component list --server <name>     只读查看环境组件状态（--json 给界面）
-  ops component install docker --server <name> [--dry-run]
-                                         按官方 apt 仓库安装 Docker 引擎（写操作）
+  ops component list --server <name> [--json]
+                                         只读查看环境组件状态（--json 给界面）
+  ops component install docker|minio --server <name> [--dry-run]
+                                         安装 Docker 引擎 / 拉起 MinIO 服务（写操作）
+  ops component image-load minio --server <name> --image-tar <本机 .tar> [--dry-run]
+                                         导入 MinIO 离线镜像（写操作；不 docker pull）
 
 组件: pg | minio | all（默认 all）
-环境组件: docker（minio 尚未接入，install 会拒绝）
+环境组件: docker | minio（minio 依赖 docker；镜像走离线 tar，凭证走 backup/minio.env）
 
 运行 ops servers --help / ops backup deploy --help / ops component help 查看选项。
 `)

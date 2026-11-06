@@ -13,10 +13,18 @@ import { normalizeStatusView } from './utils/format.ts'
  * 🔴 与备份部署共用同一个后台任务锁，所以两边的日志端点读的是同一份状态。
  */
 
-export interface ComponentApi {
+export interface TaskApi {
+  task: (after: number) => Promise<ComponentTask>
+}
+
+export interface ComponentApi extends TaskApi {
   status: (name: string) => Promise<ComponentsStatusView>
   run: (req: ComponentRunRequest) => Promise<{ started: boolean }>
-  task: (after: number) => Promise<ComponentTask>
+}
+
+/** 离线镜像导入也走同一个任务端点 / 同一把后台任务锁。 */
+export interface ImageUploadApi extends TaskApi {
+  uploadImage: (form: FormData) => Promise<{ started: boolean }>
 }
 
 export interface WatchHooks {
@@ -36,7 +44,7 @@ export async function fetchStatus(api: ComponentApi, name: string): Promise<Comp
 }
 
 export async function watchComponentTask(
-  api: ComponentApi,
+  api: TaskApi,
   hooks: WatchHooks,
   after = 0,
 ): Promise<ComponentTask> {
@@ -63,9 +71,19 @@ export async function startComponentInstall(
   return watchComponentTask(api, hooks, 0)
 }
 
+/** 选好本机 .tar 后：上传 → 服务端 dry-run → docker load，日志增量回同一份任务。 */
+export async function startImageLoad(
+  api: ImageUploadApi,
+  form: FormData,
+  hooks: WatchHooks,
+): Promise<ComponentTask> {
+  await api.uploadImage(form)
+  return watchComponentTask(api, hooks, 0)
+}
+
 /** 重新挂载时接回一个已经在跑的任务；首包 after=0 拿全量历史。 */
 export async function resumeComponentTask(
-  api: ComponentApi,
+  api: TaskApi,
   hooks: WatchHooks,
 ): Promise<ComponentTask | null> {
   const first = await api.task(0)

@@ -44,6 +44,23 @@ type configView struct {
 	Servers     []serverConfigView `json:"servers"`
 	Envs        []envView          `json:"envs"`
 	SyncEnabled bool               `json:"sync_enabled"`
+	// SetupError 非空 = ops.env / servers.json 还读不出来。🔴 这不是错误响应：
+	// 配置页必须照样能打开，否则「配置不全」时人恰恰进不去能补配置的那一页。
+	SetupError string `json:"setup_error,omitempty"`
+}
+
+// configForEditing 让本机配置编辑不依赖「配置已经配好了」这个前提。
+// 路径规则与 LoadConfig 完全一致（同在 shared 包里），只是文件不存在或
+// 格式暂错时退回默认值，并把原因带回去给页面显示。
+//
+// 🔴 只用于读写**本机文件**。任何要连远端的动作（sync-env / compare / 备份部署）
+// 仍走 shared.LoadConfig 的严格校验，不许拿默认路径去冒充一台目标机。
+func configForEditing() (*shared.Config, string) {
+	cfg, err := shared.LoadConfig()
+	if err != nil {
+		return shared.FallbackConfig(), err.Error()
+	}
+	return cfg, ""
 }
 
 // execChain 把「远端执行身份」讲清楚：现在分两层，别再混成一个人。
@@ -62,32 +79,38 @@ func execChain(s *shared.Server) string {
 }
 
 func (u *uiState) handleConfigView(w http.ResponseWriter) {
-	cfg, err := shared.LoadConfig()
-	if err != nil {
-		writeAPI(w, http.StatusServiceUnavailable, apiResponse{Error: "配置还没准备好：" + err.Error()})
-		return
-	}
-	list, err := shared.LoadServers(cfg)
-	if err != nil {
-		writeAPI(w, http.StatusServiceUnavailable, apiResponse{Error: "配置还没准备好：" + err.Error()})
-		return
+	// 🔴 配置不全时这里**不能**回 503：那一页正是用来补配置的。
+	// ops.env 缺失 → 用同一套路径规则给默认值；servers.json 为空 / 不存在 →
+	// servers 回空数组，并在 setup_error 里说清原因；两份 env 照常可编辑。
+	cfg, setupErr := configForEditing()
+	// 两份文件各自独立：ops.env 缺失但 servers.json 已经写好时，清单照样要显示，
+	// 只在 setup_error 里把还差的那份讲清楚。
+	list, listErr := shared.LoadServers(cfg)
+	if listErr != nil {
+		if setupErr == "" {
+			setupErr = listErr.Error()
+		} else {
+			setupErr += "；" + listErr.Error()
+		}
 	}
 	u.mu.Lock()
 	states := u.states
 	u.mu.Unlock()
 
-	infos := servers.ServerInfos(list, states)
-	rows := make([]serverConfigView, 0, len(list.Servers))
-	for i := range list.Servers {
-		s := &list.Servers[i]
-		var mine shared.ServerInfo
-		for _, r := range infos {
-			if r.Name == s.Name {
-				mine = r
-				break
+	rows := make([]serverConfigView, 0)
+	if list != nil {
+		infos := servers.ServerInfos(list, states)
+		for i := range list.Servers {
+			s := &list.Servers[i]
+			var mine shared.ServerInfo
+			for _, r := range infos {
+				if r.Name == s.Name {
+					mine = r
+					break
+				}
 			}
+			rows = append(rows, serverConfigView{ServerInfo: mine, ExecChain: execChain(s)})
 		}
-		rows = append(rows, serverConfigView{ServerInfo: mine, ExecChain: execChain(s)})
 	}
 
 	envs := make([]envView, 0, 2)
@@ -109,6 +132,7 @@ func (u *uiState) handleConfigView(w http.ResponseWriter) {
 		Servers:     rows,
 		Envs:        envs,
 		SyncEnabled: u.runner != nil,
+		SetupError:  setupErr,
 	}})
 }
 
@@ -137,6 +161,7 @@ func (u *uiState) configWriteBlocked(w http.ResponseWriter) bool {
 
 type configServersRequest struct {
 	Name    string            `json:"name"`
+	Mode    string            `json:"mode"` // "" = 编辑已有；"add" = 新增一台
 	Confirm string            `json:"confirm"`
 	Fields  map[string]string `json:"fields"`
 }
@@ -146,11 +171,16 @@ func (u *uiState) handleConfigServers(w http.ResponseWriter, r *http.Request) {
 	if !readConfigBody(w, r, &req) {
 		return
 	}
+	if req.Mode != "" && req.Mode != "add" {
+		writeAPI(w, http.StatusBadRequest, apiResponse{Error: "未知的保存模式（可选 edit / add）"})
+		return
+	}
 	if req.Confirm != "yes" {
 		writeAPI(w, http.StatusBadRequest, apiResponse{Error: "保存配置是写操作：请输入 yes 确认"})
 		return
 	}
-	if strings.TrimSpace(req.Name) == "" {
+	adding := req.Mode == "add"
+	if !adding && strings.TrimSpace(req.Name) == "" {
 		writeAPI(w, http.StatusBadRequest, apiResponse{Error: "请先选择服务器"})
 		return
 	}
@@ -159,6 +189,25 @@ func (u *uiState) handleConfigServers(w http.ResponseWriter, r *http.Request) {
 	}
 	u.opMu.Lock()
 	defer u.opMu.Unlock()
+
+	if adding {
+		// 🔴 新增特意允许「配置还没准备好」：ops.env 缺失 / 清单为空时，
+		// 这一页正是把第一台服务器写进去的地方。路径按默认规则取，
+		// 写入本身仍过 confirm=yes、字段白名单与全量校验（见 config_edit.go）。
+		cfg, _ := configForEditing()
+		res, err := addServersFile(cfg.ServersFile, req.Fields)
+		if err != nil {
+			writeAPI(w, http.StatusBadRequest, apiResponse{Error: err.Error()})
+			return
+		}
+		if err := u.reload(); err != nil {
+			writeAPI(w, http.StatusInternalServerError, apiResponse{Error: "已保存，但重新加载失败：" + err.Error()})
+			return
+		}
+		writeAPI(w, http.StatusOK, apiResponse{OK: true, Data: res})
+		return
+	}
+
 	cfg, err := shared.LoadConfig()
 	if err != nil {
 		writeAPI(w, http.StatusServiceUnavailable, apiResponse{Error: "配置还没准备好：" + err.Error()})
@@ -217,11 +266,9 @@ func (u *uiState) handleConfigBackupEnv(w http.ResponseWriter, r *http.Request) 
 	}
 	u.opMu.Lock()
 	defer u.opMu.Unlock()
-	cfg, err := shared.LoadConfig()
-	if err != nil {
-		writeAPI(w, http.StatusServiceUnavailable, apiResponse{Error: "配置还没准备好：" + err.Error()})
-		return
-	}
+	// 与 GET /api/config 同一套路径规则：ops.env 还没生成时，也应该能把
+	// 备份配置写出来。这里只写本机文件，远端同步仍走严格 LoadConfig。
+	cfg, _ := configForEditing()
 	path := cfg.PGEnvFile
 	if req.Component == "minio" {
 		path = cfg.MinioEnvFile

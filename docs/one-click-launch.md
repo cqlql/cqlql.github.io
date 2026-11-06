@@ -3,7 +3,13 @@
 > 单实例 + 日志轮转；页面上有「关闭界面」。
 > **2026-11-06 界面新增「重启」**（顶部工具栏，可选先重建 + 换 exe + 同端口同 token 接手）：
 > 源码改动不必再手动 build，见 [ui.md](ui.md) §11。**退出码 75 / `ops.exe.new` / cmd 守护
-> 换身仍不做**，改走 detached 接手进程，`.cmd` 一行未改，见 §4.2。
+> 换身仍不做**，改走 detached 接手进程；当时 `.cmd` 一行未改，见 §4.2。
+> **2026-11-06 换电脑零手工**：`.cmd` 现已加上前端产物自检与自动构建 —— 缺
+> `web/dist/index.html` 就 `npm install` + `npm run build`，`ops.exe` 里没嵌页面
+> （内部命令 `__dist-check`）就 `go build -o ops.exe .`；只在缺失时构建，
+> 隐藏守护 `--bg` 不做构建。同时「配置不全」不再用一页 503 把人挡在界面外：
+> 服务器管理页给「去配置页 / 打开清单」引导，配置页还能直接新增第一台服务器。
+> 见 §4.1 / §4.4 / [AGENTS.md](../AGENTS.md) 硬约束 26。
 > **2026-11-05 改红线**：界面新增「备份能力部署」页（显式安装，见 [ui.md](ui.md) §9）。
 > 本文的「双击不写」红线不变，但「界面只读」的旧表述已作废。
 
@@ -239,19 +245,40 @@ strings.TrimSpace(name) == ""           // 空名
 cd /d "%~dp0" + chcp 65001
   → 剥启动器自己的开关（--bg / --fg / --menu），其余留作透传
   → --bg（隐藏守护专用）：直接 ops ui，不构建不 init，所有 pause 都跳过
-  → 定位 ops.exe；缺 exe：找 Go（PATH → %USERPROFILE%\go\bin → %ProgramFiles%\Go\bin）→ go build
-  → 缺配置模板：ops init（首次才占窗口，且不覆盖已有配置）
-  → 分流：显式子命令 → 原样转发；--menu → 菜单；首次 / --fg → 前台 ops ui
+  → 🔴 先问 ops.exe __dist-check：二进制里已有页面 → 直接跳到配置检查，什么都不构建。
+        磁盘 web/dist 被手删**不算**「要构建」；只补回目录 + .gitkeep 给以后 go build 用。
+  → exe 不存在 / 自检非零 → 才需要磁盘产物：
+        缺 web/dist/index.html → 绝对路径调用 node.exe + npm-cli.js 跑 npm run build
+        （只有 node_modules\.bin\vite.cmd 不在时才先 npm install；build 失败则修复一次再重试）
+  → 定位 ops.exe；缺 exe / 刚构建过前端 / 自检说没页面：
+        找 Go（PATH → %USERPROFILE%\go\bin → %ProgramFiles%\Go\bin）→ go build -o ops.exe .
+  → 缺配置模板：ops init（不覆盖已有配置）
+  → 分流：显式子命令 → 原样转发；--menu → 菜单；--fg → 前台 ops ui
   → 日常：ops ui --background --launcher "%~f0" [透传参数]
           Go 侧用命名互斥体判单实例：已有实例只把浏览器指过去
           否则 spawn 一条隐藏 cmd（--bg），前台 exit 0，黑窗口立刻消失
   → 退出码：0 正常；非 0 报错（后台不 pause）；后台启动失败则回退前台
 ```
 
-> **本仓现状（S5）**：`chcp 65001` → 定位 / 构建 exe → 首次写配置模板 → 上面那条分流
-> → 退出码。单实例、隐藏守护、日志轮转、自动开浏览器全在 Go 侧（见 §4.4）。
-> `ops.exe` 已存在时直接复用：Windows 不允许覆盖正在运行的 exe，所以界面的「重建」
-> 落在 `ops.next.exe`，旧进程退出后由接手进程改名换上去（见 [ui.md](ui.md) §11）。
+> **本仓现状（S5 + 2026-11-06 自动补齐）**：`chcp 65001` → 前端产物自检 / 构建
+> → 定位或重编 exe → 首次写配置模板 → 上面那条分流 → 退出码。
+> 单实例、隐藏守护、日志轮转、自动开浏览器全在 Go 侧（见 §4.4）。
+>
+> 🔴 **判据是「二进制里有没有页面」，不是「磁盘上有没有 dist」**：`ops.exe __dist-check`
+> 查嵌入 FS 里的 `web/dist/index.html` + `assets/`，非零就重编。全新 clone 时 dist 里只有
+> `.gitkeep`；而「磁盘 dist 已经构建过、exe 却是更早编的」是换电脑时最常见的坏状态，
+> 只看磁盘会漏掉它。旧 exe 不认识这个内部命令会退 2，同样按「缺」处理，正好把旧二进制
+> 自动升级掉。它是只读自检，不进 usage / 菜单（与 `__restart` 同类）。
+>
+> 🔴 **顺序也是判据的一部分（2026-11-06 真机踩过）**：曾经写成「先看磁盘 dist 在不在」，
+> 于是人手工删掉 `web/dist` 后双击，明明 exe 里嵌着完整页面，启动器还是去跑 npm，
+> 还撞上项目里的 npm shim 报错。现在**只问 exe**：自检为 0 就直接放行，连 npm 都不启动；
+> 顺手补回 `web/dist` 目录与 `.gitkeep` 占位（只为保证以后 `go build` 的 embed 目录还在），
+> 这不算构建。
+>
+> `ops.exe` 已存在且自检通过时直接复用：Windows 不允许覆盖正在运行的 exe，所以界面的
+> 「重建」落在 `ops.next.exe`，旧进程退出后由接手进程改名换上去（见 [ui.md](ui.md) §11）。
+> 启动器这边若真碰到「exe 正在跑又要重编」，会明确提示先点页面「关闭界面」再双击。
 > 退出码 75 那套启动器循环换身**本仓不做**；源码改动也可以在界面上勾「先重建」
 > 一键完成，手动构建仍是 `cd web && npm test && npm run typecheck && npm run build`
 > → `go build -o ops.exe .`。
@@ -268,6 +295,12 @@ cd /d "%~dp0" + chcp 65001
 | 重启后点「检查」弹黑窗口 | 🔴 **隐藏守护有隐藏控制台，detached 接手进程没有控制台**。后者拉起 `ssh.exe` / `ops.exe` / `powershell` 这类控制台子程序时，Windows 会逐一新建**可见**控制台（每台机器两次 ssh：`id -u`、`sudo -n true`）。统一在 `shared.HideConsole`（`CREATE_NO_WINDOW + SW_HIDE`）里挡掉：ssh、备份子进程、建快捷方式的 PowerShell、重建命令都走它；`openfile.go` 早就避开 `cmd.exe` 是同一个理由。见 `internal/shared/console_windows.go` 与 [ui.md](ui.md) §11.4-5 |
 | 守护交给 cmd，不交给 Go | Windows 上双击 .cmd 必开控制台，用隐藏 cmd 重新执行启动器是最小改动；cmd 不持有 `ops.exe` 句柄，将来要做换身也不会把自己锁死 |
 | Go 的中文横幅在 GBK 控制台乱码 | 启动器开头 `chcp 65001 >nul`；`.cmd` 正文全是 ASCII，切代码页不影响批处理解析 |
+| 换电脑后 exe 里嵌的是空 `web/dist`，页面只回 503 | 🔴 判**二进制**（`ops.exe __dist-check`），不是磁盘目录：缺了自动 `npm install` + `npm run build` + `go build`；只看磁盘会漏掉「dist 新、exe 旧」这种最常见的坏状态 |
+| `if (...)` 块里写了 `echo (details: ...)` | 未转义的 `)` 会提前闭合块，后面的 `pause` 变成**无条件**执行 —— 隐藏守护退出后挂成隐形僵尸；块内不写括号，注释也放块外（2026-11-06 已修） |
+| 重编时 exe 正在运行 | Windows 可以重命名、不能覆盖运行中的 exe；`go build` 失败要提示先点页面「关闭界面」，别把它报成「Go 没装」 |
+| 手删 `web/dist` 后双击却去跑 npm，还报 `Cannot find module ...\npm\bin\npm-cli.js` | 🔴 两个坑叠在一起：① 顺序写成「先判磁盘」，exe 里明明有页面也被拽去构建（已改为 `__dist-check` 优先）；② `call "npm.cmd"` 在 `cd web` 之后会命中项目级/pnpm shim，其 `%~dp0` 指到 `web\node_modules\npm`，而那里没有 npm 包。现在用 `where node.exe` 取**绝对路径**，直接 `node.exe npm-cli.js`，不经 npm.cmd / PATH / `npm-prefix.js` 探测 |
+| pnpm 风格的 `node_modules` 被 `npm install` 重写 | 只在 `.bin\vite.cmd` 缺失、或首次 `npm run build` 失败时才 install 修复一次并重试；依赖齐全时直接 build（实测 6.7s → 0.4s，且不碰包管理器布局） |
+| 从 `.cmd` 调另一个 `.cmd` 不返回 | 需要 `call`；但本仓已改为直接调 `node.exe`（可执行文件），这条坑随之消失 |
 
 > **退出码 75 / `.new` 换身 / 启动器循环（参考项目有，本仓不做）**：那套是「界面上点
 > 重启 → 本进程重建自己 → 退出 75 → 启动器换 exe 再用同端口同 token 拉起」，
@@ -275,8 +308,9 @@ cd /d "%~dp0" + chcp 65001
 > 本仓 2026-11-06 改用 **detached 接手进程**：界面 `POST /api/restart` 先重建到
 > `ops.next.exe`，拉起 `__restart`（独立进程、输出进 `ops-ui.log`），旧进程优雅收尾退 0，
 > 隐藏守护随之结束；接手进程等端口空出来 → 把 next.exe 换到 `ops.exe` →
-> `ops ui __takeover` 同端口同 token 起服务。`启动运维.cmd` **一行未改**。
-> 完整链路与五条坑见 [ui.md](ui.md) §11，决策记录见 §9。
+> `ops ui __takeover` 同端口同 token 起服务。**当时** `启动运维.cmd` 一行未改；
+> 2026-11-06 为「换电脑自动补齐前端产物」改过 `:ensure` 段（§4.1），但**换身机制
+> 仍没做**，两条改动互不相关。完整链路与五条坑见 [ui.md](ui.md) §11，决策记录见 §9。
 
 ### 4.3 参数透传
 
@@ -316,6 +350,13 @@ cd /d "%~dp0" + chcp 65001
   → 前台 exit 0，黑窗口消失
 ```
 
+- 🔴 **产物缺失自动补齐，双击不需要先开终端**：`web/dist` 不进 Git，但**先问 exe**：
+  `ops.exe __dist-check` 返回 0 就直接放行（哪怕磁盘 `web/dist` 被人删了，也只补回目录 +
+  `.gitkeep` 占位，不构建）。只有 exe 里真的没有页面（全新 clone / 旧 exe）时，
+  才在**前台可见窗口**里用绝对路径 `node.exe npm-cli.js run build` 构建前端，
+  再 `go build -o ops.exe .`；依赖 shim 缺失或 build 失败会先 `npm install` 修复一次并重试。
+  失败停在这里给提示，成功照常交给隐藏守护（窗口消失，不再因为「首次」留一个黑窗口）。
+  隐藏守护 `--bg` 永远不做构建，避免隐藏窗口里 npm 卡住变成无声失败。
 - 🔴 **单实例靠命名互斥体**（`internal/shared/singleton_windows.go`），不靠 `tasklist`：
   后者会把 `servers check` 这类短命进程也算成「界面在跑」。互斥体由内核持有，
   进程被强杀也自动释放，不存在残留锁文件。`ops menu` 用的是**另一个名字**，两者互不干扰。
@@ -330,10 +371,15 @@ cd /d "%~dp0" + chcp 65001
   后台分支没有窗口，所有 `pause` 都包了 `if not defined BG`，否则会变成隐形僵尸。
 - 页面右上角「关闭界面」→ `POST /api/shutdown`（token + Origin 校验）→ 进程以 **0** 退出，
   隐藏 cmd 随之结束。这是隐藏模式下唯一的体面停止方式。
-- 🔴 **配置不全也照样起界面**：`ops init` 生成的 `servers.json` 是空模板，而
-  `shared.LoadServers` 对空清单会报错。若 `ops ui` 因此直接退出，隐藏窗口里就是一次
-  无声失败。现在 `uiState.setupErr` 记住这个错误，页面回一页「怎么补配置」的说明；
-  每次请求都重读配置，补完**刷新即可**，不用重启界面。API 侧同样回 503 + 中文原因。
+- 🔴 **配置不全也照样起界面，而且不许挡在门外**：`ops init` 生成的 `servers.json` 是空
+  模板，`shared.LoadServers` 对空清单会报错；若 `ops ui` 因此直接退出，隐藏窗口里就是一次
+  无声失败。`uiState.setupErr` 记住这个事实供启动日志用，但 `serveIndex` **一律返回 SPA**
+  —— 界面里本来就有「配置」页和「打开清单」入口，回一页 503 说明反而让人进不去能补
+  配置的地方。`/api/servers` 回 200 + `setup_error` + 空数组 + 默认 `servers_file`，落地页
+  把它渲染成「去配置页 / 打开 servers.json / 重新加载」的可操作引导；需要清单的写操作
+  （check / apply-sudo / 备份部署）仍各自回 503。本机配置编辑走 `shared.FallbackConfig()`
+  （`ops.env` 缺失也不挡），**远端动作仍严格 `LoadConfig`**。每次请求都重读配置，
+  补完**刷新即可**，不用重启界面；配置页还能直接新增第一台服务器（见 [ui.md](ui.md) §12）。
 - 🔴 **双击绝不触发写操作**：落地页是只读的服务器清单。页面里的两个写动作都要显式点击：
   「一键免密 sudo」要点按钮 + 输密码；「安装 / 升级备份能力」要切到左侧导航的「备份能力部署」页
   + 手输 `yes`，服务端还会先跑一遍 `--dry-run`，预检不过就不装。规则与测试见 [ui.md](ui.md) §9。
@@ -364,8 +410,19 @@ cd /d "%~dp0" + chcp 65001
 9. 🔴 私钥与 sudo 密码不出现在命令行、输出、日志（本仓 AGENTS.md 硬约束 8/9）。
 10. 🔴 后台分支不 `pause`；日志有轮转上限；隐藏窗口里的失败只能靠日志排查。
 11. 🔴 单实例只认命名互斥体（不靠 `tasklist`）；`ui.json` 权限 0600，只存 port + token。
-12. 🔴 配置 / 清单读不出来也**必须把界面起起来**，给一页能照做的说明；
+12. 🔴 配置 / 清单读不出来也**必须把界面起起来**，而且不许用 503 说明页挡在门外：
+    页面照常返回 SPA，落地页给「去配置页 / 打开清单」的可操作引导；
     在隐藏窗口里静默退出等于「双击没反应」。
+13. 🔴 换电脑 / 全新 clone 不许要求人手敲构建命令：**先** `__dist-check` 判二进制，
+    已有页面就零构建（磁盘 `web/dist` 被删也只补回目录 + `.gitkeep` 占位）；
+    只有 exe 没页面才自动 `npm run build` + `go build`。npm 一律走 `node.exe` +
+    `npm-cli.js` 的**绝对路径**，不 `call npm.cmd`；隐藏守护 `--bg` 不构建，
+    失败要停在可见窗口给提示。
+14. 🔴 本机配置编辑用 `shared.FallbackConfig()`（不要求 `ops.env` 存在），
+    **远端动作仍严格 `LoadConfig`**；配置页新增服务器也要过 `confirm=="yes"`
+    + 全量校验 + `.bak`，不许另开一条写入路径。
+15. 🔴 `.cmd` 的 `if (...)` 块里不许出现未转义的 `)`，否则块提前闭合、
+    `pause` 变成无条件执行，隐藏守护退出后会挂成隐形僵尸。
 
 ---
 
@@ -395,7 +452,8 @@ cd /d "%~dp0" + chcp 65001
 
 ```
 <仓库根>/
-  启动运维.cmd                                启动器（CRLF、英文注释、chcp 65001）
+  启动运维.cmd                                启动器（CRLF、英文注释、chcp 65001；含前端产物自检与自动构建）
+  distcheck.go / distcheck_test.go          __dist-check 内部自检：判**二进制里**有没有页面（MapFS 可测）
   ops.exe                                 本机二进制（构建产物，不入 Git）
   internal/shared/singleton_windows.go     跨进程命名互斥体（menu / ui 共用一份）
   internal/shared/singleton_other.go       非 Windows 空实现 + 单测
@@ -405,7 +463,7 @@ cd /d "%~dp0" + chcp 65001
   internal/launcher/menu.go               交互菜单（--menu 入口）
   internal/launcher/menu_windows.go       菜单单实例薄包装（调 shared）
   internal/launcher/menu_test.go          菜单默认只读与二次确认
-  internal/ui/ui.go                       静态产物托管、token、/api/shutdown、配置降级页
+  internal/ui/ui.go                       静态产物托管、token、/api/shutdown、配置缺失仍回 SPA
   internal/ui/background.go               --background 调度、ui.json、日志轮转、openBrowser
   internal/ui/background_windows.go       隐藏 cmd 守护（CREATE_NO_WINDOW + CmdLine）
   internal/ui/background_other.go         非 Windows 明确报错
@@ -434,9 +492,28 @@ cd /d "%~dp0" + chcp 65001
 
 **自动**（Go：`go vet ./...` / `go test ./...` / `go build ./...`；前端：`npm test` /
 `npm run typecheck` / `npm run build`）：§3.6 六项 + 后台链路（`ui.json`、日志轮转、
-`quoteArg`、单实例冲突、`shutdown`、配置降级页）+ 32 个前端用例
-（含 4 个 `restartFlow` 判定用例）+ `internal/restart` 的交接 / 重建 / 过期判定用例；
-不写真桌面、不连真 SSH、不真的 spawn 隐藏进程。2026-11-06 已全绿。
+`quoteArg`、单实例冲突、`shutdown`、配置缺失仍返回 SPA）+ `distcheck_test.go` 的四种
+embed 状态 + 配置页空清单 / 文件不存在 / 重名 / 非法字段 / 保存后立刻可读
++ 55 个前端用例（含 `newServerInitial` 与 `setup_error` 归一化、4 个 `restartFlow` 用例）
++ `internal/restart` 的交接 / 重建 / 过期判定用例；不写真桌面、不连真 SSH、
+不真的 spawn 隐藏进程。2026-11-06 已全绿。
+
+**2026-11-06 端到端（临时配置目录 + 7799，真 `ops.exe`）**：`ops.env` / `servers.json`
+都不存在时依次验证 —— 页面 200 且返回 SPA、`/api/servers` 200 + `setup_error`、
+`/api/config` 200 且两份 env 可编辑、`mode=add` 新增服务器 200、再取 `/api/servers`
+拿到新服务器且 `setup_error` 消失、`/api/config` 列出它。全绿。
+另核对新旧二进制的自检：新 `ops.exe __dist-check` 退 0，旧 exe 不认识该命令退 2
+（启动器据此自动重编）。`启动运维.cmd --fg help` 退出码 0、无残留 `pause`。
+
+**2026-11-06 补验（真机：手删 `web/dist` + 造一个无页面 exe）**：
+
+1. exe 有页面、磁盘 `web/dist` 不存在 → 双击输出只有「starting the UI in the background」，
+   grep 不到任何 npm / go build 行；`web/dist/.gitkeep` 被自动补回（保证以后 `go build` 不炸）。
+2. 用只有 `.gitkeep` 的 dist 编出无页面 exe（`__dist-check` 退 1）→ 双击自动
+   `npm run build`（0.4s，不跑 `npm install`）→ `go build -o ops.exe .` → 界面起；
+   新 exe `__dist-check` 退 0，`web/dist/index.html` + `assets/` 齐全。
+3. `node.exe npm-cli.js --version` / `run build` 在 pnpm 风格 `node_modules` 上直接可用，
+   不再出现 `Cannot find module ...\npm-cli.js`。
 
 **覆盖变量下的真机核对**（已做，未写真桌面）：
 
@@ -452,7 +529,12 @@ cd /d "%~dp0" + chcp 65001
 
 - [ ] `ops shortcut` 后桌面出现带正确图标的入口，名称是 §6 表里的项目名；
 - [ ] 双击 → 浏览器自动打开带 token 的网页面板，桌面**不留**黑窗口；
-- [ ] 首次运行（缺 exe / 缺配置）→ 可见窗口里构建 / 写模板，页面显示「配置还没准备好」说明；
+- [ ] 换电脑 / 全新 clone（删掉 `web/dist` 里的产物与 `ops.exe`）双击 → 可见窗口自动
+      `npm install` + `npm run build` + `go build`，浏览器直接开出完整界面，不用手敲命令；
+- [ ] 首次运行（缺 exe / 缺配置）→ 可见窗口里构建 / 写模板，页面**正常进 SPA**，
+      落地页显示「服务器清单还没准备好」的可操作引导（不是一页 503）；
+- [ ] 空 `servers.json` 时点「去配置页新增服务器」→ 填 name / host / user → 输 `yes`
+      保存 → 回到服务器管理页，这台机器已经出现（不用刷新、不用重启界面）；
 - [ ] 删掉 exe 再双击 → 自动 `go build` 起来；Go 不在 PATH 时三处回退能命中；
 - [ ] 已有实例时再双击 → 不启第二个进程，只把浏览器指回同一个实例；
 - [ ] 点页面「关闭界面」→ 本页显示「已关闭」，进程退出；再双击能重新打开；
@@ -494,11 +576,18 @@ cd /d "%~dp0" + chcp 65001
 | 参数透传而非写死 | 每种用法一个 `.cmd` | 一个入口覆盖 `--port` / `--no-open` / 任意子命令，不再长出一堆批处理 |
 | `--menu` 仍保留前台窗口 | 让菜单也走隐藏守护 | 菜单要读 stdin，隐藏窗口等于「双击没反应」；日常双击已不走菜单 |
 | 单实例用命名互斥体 | `tasklist` / pid 文件 / 端口探测 | 内核持有、进程被杀自动释放；`tasklist` 会把短命子进程算成「界面在跑」 |
-| 配置不全仍起界面 + 降级页 | 直接退出 / 白屏 | `ops init` 生成的是空 `servers.json`，隐藏窗口里退出就是「双击没反应」；降级页每次请求重读，补完刷新即可 |
+| 配置不全仍起界面，但**不挡 SPA** | 直接退出 / 白屏 / 一页 503 说明 | `ops init` 生成的是空 `servers.json`，隐藏窗口里退出就是「双击没反应」；而 503 说明页会把人挡在界面外，恰恰进不去能补配置的那一页。现在照常回 SPA，由落地页给引导 |
 | 「关闭界面」按钮（退出 0） | 只给 `--fg` / 让用户去任务管理器杀 | 后台窗口隐藏，页面上必须有一个体面的停止方式 |
 | **2026-11-06 起做界面「重启」，但不用 75 / `.new` 换身** | 照搬参考项目的启动器循环 / 继续手动 build | 当初「重建链路长且出错时无人看见」已被「重建失败就地停 + 输出回响应/落日志 + 新进程输出有落点」解决；而改 `.cmd` 要动 CRLF / ASCII 注释 / 隐藏窗口 `pause` 三条红线，代价更高。见 [ui.md](ui.md) §11 |
 | 静态产物不过 token | 每个请求都校验 token | `<script src>` 带不上自定义头、也拿不到 `?token=`；真正的边界是 API（见 [ui.md](ui.md) §4） |
 | `chcp 65001` 放在启动器开头 | 让 Go 只输出 ASCII / 改终端字体 | 一行解决中文横幅乱码；`.cmd` 正文全 ASCII，切代码页不影响批处理解析 |
+| **产物缺失时启动器自动 `npm` + `go build`** | 页面回一页「请手动构建」的说明 | 这个项目的目的就是减少繁琐手工；换电脑时那一页说明等于把人推回命令行，而「这台机器能不能跑」本来就是启动器的职责 |
+| **用 `__dist-check` 判二进制，不判磁盘** | 检查 `web/dist/index.html` 是否存在 | 「dist 已构建、exe 是更早编的」正是换电脑最常见的坏状态，只判磁盘会漏掉；旧 exe 不认识该命令退 2，正好一起升级掉 |
+| **空清单时配置页直接进「新增」模式** | 只让点清单路径去 VSCode 手改 JSON | 首次使用必然是空清单；`mode=add` 复用同一套白名单 / 全量校验 / 二次确认 / `.bak`，不新增第二条写入路径 |
+| **构建完仍走隐藏守护，不因「首次」留前台窗口** | 首次一律前台 `ops ui` | 构建进度已在可见窗口打印完；成功之后没有理由再留一个黑窗口，失败才 `pause` 让人看见原因 |
+| **`__dist-check` 必须排在磁盘检查之前** | 先判 `web/dist/index.html` 在不在 | 手删 dist 时 exe 里仍有页面；先判磁盘会白白触发一次 npm 构建（真机还因此撞上坏 shim）。「二进制为源」要体现在顺序上，不只是判据上 |
+| **直接 `node.exe npm-cli.js`，不 `call npm.cmd`** | `call "npm.cmd" run build` | `cd web` 之后项目级 / pnpm shim 的 `%~dp0` 会指到 `web\node_modules\npm`，报 `Cannot find module ...\npm-cli.js`；绝对路径绕开 PATH 与 `npm-prefix.js` 探测 |
+| **依赖齐全时跳过 `npm install`** | 每次构建都 install | pnpm 布局会被 npm 重写且白等几十秒；只在 `.bin\vite.cmd` 缺失或首次 build 失败时修复一次并重试 |
 
 ---
 

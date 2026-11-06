@@ -1,10 +1,6 @@
 package ui
 
 import (
-	"pass-up/ops/internal/shared"
-)
-
-import (
 	"fmt"
 	"net/http"
 	"os"
@@ -38,12 +34,9 @@ const (
 // 不进 opMu：它与「检查 / 一键免密 sudo / 备份部署」不共享任何状态，
 // 排队只会让人以为点一下路径要等 SSH 跑完。
 func (u *uiState) handleOpenServersFile(w http.ResponseWriter) {
-	cfg, err := shared.LoadConfig()
-	if err != nil {
-		// 与 /api/servers 一致：503 表示「还差一份配置」，不是服务坏了。
-		writeAPI(w, http.StatusServiceUnavailable, apiResponse{Error: "配置还没准备好：" + err.Error()})
-		return
-	}
+	// 配置还没准备好时这个按钮尤其有用（它就是补齐清单的入口之一）：
+	// 路径按与 LoadConfig 相同的规则取默认值，不会因为 ops.env 缺失而 503。
+	cfg, _ := configForEditing()
 	path := cfg.ServersFile
 	st, err := os.Stat(path)
 	if err != nil {

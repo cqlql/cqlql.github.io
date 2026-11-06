@@ -39,6 +39,11 @@ export interface ServersResponse {
   servers_file: string
   default?: string
   servers: ServerInfo[]
+  /**
+   * 非空 = 配置 / 清单还读不出来。🔴 后端仍回 200（不是 503）：
+   * 界面里本来就有「配置」页，页面要给出去补齐的入口，而不是一条红色报错。
+   */
+  setup_error?: string
 }
 
 /** POST /api/check 返回的一行：CLI 表格与界面共用同一份展示模型。 */

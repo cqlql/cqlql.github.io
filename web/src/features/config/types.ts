@@ -40,6 +40,8 @@ export interface ConfigView {
   servers: ConfigServer[]
   envs: EnvView[]
   sync_enabled: boolean
+  /** 非空 = ops.env / servers.json 还读不出来；配置页仍要能打开并新增服务器。 */
+  setup_error?: string
 }
 
 export interface ServerSaveResult {

@@ -115,6 +115,16 @@ func BackupEnvDir() string {
 	return filepath.Join(UserConfigDir(), "backup")
 }
 
+// FallbackConfig 给「配置还没准备好」时的本机编辑用：路径规则与 LoadConfig
+// 完全一致，只是不要求 ops.env 存在、也不因它格式错而失败。
+//
+// 🔴 只用于**本机文件编辑**（配置页读写 servers.json / backup/*.env）。
+// 任何要连远端的动作仍必须走 LoadConfig 的严格校验 —— 拿默认路径去 ssh，
+// 等于把「配置没读到」伪装成「目标机不可达」。
+func FallbackConfig() *Config {
+	return defaultConfig(configPath())
+}
+
 func LoadConfig() (*Config, error) {
 	path := configPath()
 	c := defaultConfig(path)

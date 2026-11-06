@@ -1,4 +1,4 @@
-import { request } from '../../shared/api/http.ts'
+import { request, requestForm } from '../../shared/api/http.ts'
 import type {
   ComponentRunRequest,
   ComponentTask,
@@ -23,4 +23,8 @@ export const componentsApi = {
 
   /** 与备份部署共用后台任务锁；这里只读增量日志。 */
   task: (after: number) => request<ComponentTask>(`/api/components/task?after=${after}`),
+
+  /** 离线镜像 tar：服务端自己生成临时路径，接口不接收任何本机路径。 */
+  uploadImage: (form: FormData) =>
+    requestForm<{ started: boolean }>('/api/components/image', form),
 }

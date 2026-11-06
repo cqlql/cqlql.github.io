@@ -19,6 +19,13 @@ deploy/backup/**/sync.env
 deploy/backup/**/*.log
 deploy/backup/**/last_success.txt
 
+# 环境组件脚本（deploy/component）同样整目录 embed 进 exe：
+# MinIO root 凭证只从本机 backup/minio.env 运行时注入，绝不落进这个目录。
+deploy/component/**/*.env
+deploy/component/**/*.key
+deploy/component/**/*.pem
+deploy/component/**/*.log
+
 # 系统杂项
 .DS_Store
 Thumbs.db

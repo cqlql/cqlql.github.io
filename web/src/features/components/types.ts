@@ -22,23 +22,43 @@ export interface ComponentCheck {
   state: CheckState
 }
 
+export interface Preflight {
+  ready: boolean
+  blockers: string[]
+  warnings: string[]
+}
+
+/** 目标机上已导入的离线镜像（只读体检采集）。 */
+export interface ImageInfo {
+  reference: string
+  id: string
+  size: string
+  created: string
+}
+
+/** 本机 backup/minio.env 的事实：只回布尔标记与非凭证的 URL，绝不回显凭证值。 */
+export interface LocalFacts {
+  minio_root_user_set: boolean
+  minio_root_secret_set: boolean
+  dest_url?: string
+  dest_url_port?: string
+}
+
 export interface ComponentStatus {
   id: string
   name: string
   kind: string
   depends?: string
   phase: 'ready' | 'planned'
+  /** 只有声明了离线镜像的组件（minio）才显示导入区与导入按钮。 */
+  offline_image?: boolean
   state: ComponentState
   version: string
   checks: ComponentCheck[]
   collected: boolean
   error?: string
-}
-
-export interface Preflight {
-  ready: boolean
-  blockers: string[]
-  warnings: string[]
+  /** 后端按组件算好的安装预检结论，前端不再自己拼一套判据。 */
+  preflight?: Preflight
 }
 
 /** GET /api/components/status 的数据。失败时 ok=true + data.error，不抛 HTTP 错误。 */
@@ -50,9 +70,13 @@ export interface ComponentsStatusView {
   checks: ComponentCheck[]
   raw: Record<string, string>
   preflight: Preflight
+  /** 按组件 id 的预检；旧后端没有这个字段时回退到上面的 preflight。 */
+  preflights?: Record<string, Preflight>
+  images: ImageInfo[]
+  local?: LocalFacts
 }
 
-/** 本轮只开放 install；update / uninstall 尚未接入。 */
+/** 本轮写动作只开放 install；update / uninstall 尚未接入。 */
 export interface ComponentRunRequest {
   verb: 'install'
   component: string

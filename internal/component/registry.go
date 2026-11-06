@@ -16,11 +16,14 @@ type Component struct {
 	Kind    string `json:"kind"`
 	Depends string `json:"depends,omitempty"`
 	Phase   string `json:"phase"`
+	// OfflineImage 表示这个组件的镜像不能在线 pull（k1 目标机拉不到 Docker Hub /
+	// quay.io / dl.min.io），必须先由人从本机导入离线 tar。界面据此显示导入区。
+	OfflineImage bool `json:"offline_image,omitempty"`
 }
 
 var registry = []Component{
 	{ID: "docker", Name: "Docker 引擎", Kind: "基础设施", Phase: PhaseReady},
-	{ID: "minio", Name: "MinIO 服务", Kind: "备份存储", Depends: "docker", Phase: PhasePlanned},
+	{ID: "minio", Name: "MinIO 服务", Kind: "备份存储", Depends: "docker", Phase: PhaseReady, OfflineImage: true},
 }
 
 // All 返回副本，调用方改不动注册表。
@@ -45,6 +48,13 @@ func Lookup(id string) (Component, bool) {
 func Runnable(id string) bool {
 	c, ok := Lookup(id)
 	return ok && c.Phase == PhaseReady
+}
+
+// SupportsImage 是 image-load 的白名单：只有声明了离线镜像的组件才允许导入 tar，
+// 免得「上传任意本机文件到远端」变成一个通用后门。
+func SupportsImage(id string) bool {
+	c, ok := Lookup(id)
+	return ok && c.Phase == PhaseReady && c.OfflineImage
 }
 
 // DependsReady 按注册表里的依赖声明推导上游是否就绪。

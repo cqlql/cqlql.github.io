@@ -19,6 +19,7 @@ import {
   envInitial,
   envInputPlaceholder,
   envPlaceholder,
+  newServerInitial,
   serverInitial,
   splitCompare,
 } from '../utils/draft.ts'
@@ -31,8 +32,17 @@ import type { CompareTone, ConfirmKind } from '../utils/draft.ts'
  *   - 「编辑本机配置」（默认）：每个输入框下方就地显示远端值 + 状态；
  *   - 「对比远端配置」（次入口）：完整表格，含「仅远端有」的键（表单里没有输入框）。
  * 保存只写本机文件，**不会碰远端**；远端 backup.env 必须再点「同步到远端」。
+ *
+ * 🔴 配置不全时这页必须能打开：它是把第一台服务器写进 servers.json 的地方。
+ * 空清单自动切到「新增」模式，不必再去编辑器手敲 JSON；两种模式共用同一套
+ * 字段白名单与 confirm=yes 二次确认（服务端 addServersFile 还会全量校验）。
  */
-export function ConfigPage() {
+interface ConfigPageProps {
+  /** 保存了 servers.json 时通知 App，让一直挂载着的服务器管理页重新取数。 */
+  onServersChanged: () => void
+}
+
+export function ConfigPage({ onServersChanged }: ConfigPageProps) {
   const [data, setData] = useState<ConfigView | null>(null)
   const [serverName, setServerName] = useState('')
   const [serverDraft, setServerDraft] = useState<Record<string, string>>({})
@@ -50,12 +60,16 @@ export function ConfigPage() {
   const [confirmText, setConfirmText] = useState('')
   const [envDirty, setEnvDirty] = useState(false)
   const [syncLog, setSyncLog] = useState('')
+  // 新增模式：空清单（换电脑第一次用）直接进这一态，别让人对着灰掉的保存按钮发呆。
+  const [adding, setAdding] = useState(false)
+  const [newName, setNewName] = useState('')
 
   const load = useCallback(async () => {
     try {
       const v = await configApi.view()
       setData(v)
       setServerName((prev) => prev || v.servers[0]?.name || '')
+      if (v.servers.length === 0) setAdding(true)
     } catch (e) {
       setNotice({ kind: 'error', text: errText(e) })
     }
@@ -65,15 +79,22 @@ export function ConfigPage() {
     void load()
   }, [load])
 
-  const currentServer = data?.servers.find((s) => s.name === serverName)
+  const currentServer = adding ? undefined : data?.servers.find((s) => s.name === serverName)
   const currentEnv = data?.envs.find((e) => e.component === envComponent)
 
   useEffect(() => {
+    if (adding) {
+      // base 为空 => changedFields 会把所有非空字段（含默认 role/port/sudo_mode）
+      // 一起提交，服务端再按同一套规则全量校验。
+      setServerBase({})
+      setServerDraft(newServerInitial())
+      return
+    }
     if (!currentServer) return
     const base = serverInitial(currentServer)
     setServerBase(base)
     setServerDraft(base)
-  }, [currentServer])
+  }, [adding, currentServer])
 
   useEffect(() => {
     if (!currentEnv) return
@@ -118,9 +139,12 @@ export function ConfigPage() {
 
   const pendingCount = useMemo(() => {
     if (pending === 'servers') return Object.keys(changedFields(serverBase, serverDraft)).length
+    if (pending === 'add') {
+      return Object.keys(changedFields(serverBase, serverDraft)).length + (newName.trim() ? 1 : 0)
+    }
     if (pending === 'env') return Object.keys(changedFields(envBase, envDraft)).length
     return 0
-  }, [pending, serverBase, serverDraft, envBase, envDraft])
+  }, [pending, serverBase, serverDraft, envBase, envDraft, newName])
 
   const setServerField = (key: string, value: string) =>
     setServerDraft((prev) => ({ ...prev, [key]: value }))
@@ -142,7 +166,19 @@ export function ConfigPage() {
     closeConfirm()
     setBusy(true)
     try {
-      if (kind === 'servers') {
+      if (kind === 'add') {
+        const fields = { ...changedFields(serverBase, serverDraft), name: newName.trim() }
+        const r = await configApi.addServer(fields)
+        setNotice({
+          kind: 'success',
+          text: `已新增服务器（${r.changed.length} 项配置，0600 并留 .bak）。服务器管理页会自动刷新；这一步只写本机，没有连任何远端。`,
+        })
+        setAdding(false)
+        setNewName('')
+        onServersChanged()
+        await load()
+        void fetchCompare()
+      } else if (kind === 'servers') {
         const fields = changedFields(serverBase, serverDraft)
         if (!Object.keys(fields).length) {
           setNotice({ kind: 'info', text: '没有需要保存的修改。' })
@@ -156,6 +192,7 @@ export function ConfigPage() {
               ? '登录账号或 sudo 模式变了，请到服务器管理页重新执行「一键免密 sudo」。'
               : ''),
         })
+        onServersChanged()
         await load()
         void fetchCompare()
       } else if (kind === 'env') {
@@ -222,6 +259,16 @@ export function ConfigPage() {
         />
       )}
 
+      {data?.setup_error && (
+        <Alert
+          style={{ marginBottom: 12 }}
+          type="warning"
+          showIcon
+          message="配置还没齐全"
+          description={`${data.setup_error}。可以直接在下面新增一台服务器；保存只写本机文件，不会连任何远端。`}
+        />
+      )}
+
       <Alert
         style={{ marginBottom: 12 }}
         type="info"
@@ -231,16 +278,33 @@ export function ConfigPage() {
       />
 
       <div className="card config-panel">
-        <h3>服务器清单</h3>
+        <h3>服务器清单{adding ? ' · 新增一台' : ''}</h3>
+        {adding && (
+          <Alert
+            style={{ marginBottom: 12 }}
+            type="info"
+            showIcon
+            message="填名称、主机、登录账号即可"
+            description="端口 / 角色 / sudo 模式已给默认值。保存会先把整份清单做一次全量校验，校验不通过原文件一字不动；这一步只写本机，不连远端。"
+          />
+        )}
         <div className="config-grid">
           <label className="config-field">
-            <span>服务器</span>
-            <Select
-              value={serverName || undefined}
-              placeholder="从 servers.json 选择"
-              options={(data?.servers ?? []).map((s) => ({ label: `${s.name}（${s.role}）`, value: s.name }))}
-              onChange={(v: string) => setServerName(v)}
-            />
+            <span>{adding ? '名称（name）' : '服务器'}</span>
+            {adding ? (
+              <Input
+                value={newName}
+                placeholder="例如 backup-1（字母数字与 . _ -）"
+                onChange={(e) => setNewName(e.target.value)}
+              />
+            ) : (
+              <Select
+                value={serverName || undefined}
+                placeholder="从 servers.json 选择"
+                options={(data?.servers ?? []).map((s) => ({ label: `${s.name}（${s.role}）`, value: s.name }))}
+                onChange={(v: string) => setServerName(v)}
+              />
+            )}
           </label>
           <label className="config-field">
             <span>主机</span>
@@ -304,11 +368,27 @@ export function ConfigPage() {
         </div>
 
         <div className="config-actions">
-          <Button type="primary" loading={busy} disabled={!currentServer} onClick={() => askConfirm('servers')}>
-            保存服务器清单
+          <Button
+            type="primary"
+            loading={busy}
+            disabled={adding ? !newName.trim() : !currentServer}
+            onClick={() => askConfirm(adding ? 'add' : 'servers')}
+          >
+            {adding ? '新增这台服务器' : '保存服务器清单'}
+          </Button>
+          <Button
+            disabled={busy || (adding && (data?.servers.length ?? 0) === 0)}
+            onClick={() => {
+              setAdding((v) => !v)
+              setNewName('')
+            }}
+          >
+            {adding ? '改为编辑已有服务器' : '新增服务器'}
           </Button>
           <Typography.Text type="secondary" style={{ fontSize: 12, flexBasis: '100%' }}>
-            改了登录账号 / sudo 模式后，免密 sudo 的 drop-in 是按用户名写的，需重新配置。
+            {adding
+              ? '名称是主键，新增后不能改；主机与登录账号按 docs/servers.md §3 填写。'
+              : '改了登录账号 / sudo 模式后，免密 sudo 的 drop-in 是按用户名写的，需重新配置。'}
           </Typography.Text>
         </div>
       </div>

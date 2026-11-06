@@ -116,21 +116,28 @@ func TestOpenServersFileIgnoresClientPath(t *testing.T) {
 	}
 }
 
+// ops.env 还没生成时，「点清单路径打开编辑器」正是补齐配置的入口之一：
+// 不能因为配置缺失就 503 —— 路径按与 LoadConfig 相同的默认规则解析，照常打开。
 func TestOpenServersFileWithoutConfig(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv(shared.ConfigDirEnv, dir)
 	t.Setenv("PASS_UP_OPS_ENV", "")
-	withFakeOpener(t, func(string) (string, error) {
-		t.Fatal("配置缺失时不该拉起编辑器")
-		return "", nil
+	want := filepath.Join(dir, "servers.json")
+	if err := os.WriteFile(want, []byte(`{"servers":[]}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	var gotPath string
+	withFakeOpener(t, func(p string) (string, error) {
+		gotPath = p
+		return "测试编辑器", nil
 	})
 
 	w := serve(newState(t, fakeDist(t)), http.MethodPost, "/api/open-servers-file?token=tok", nil)
-	if w.Code != http.StatusServiceUnavailable {
-		t.Fatalf("配置缺失的状态码 = %d，想要 503", w.Code)
+	if w.Code != http.StatusOK {
+		t.Fatalf("配置缺失时不该挡住打开清单，实得 %d：%s", w.Code, w.Body.String())
 	}
-	if !strings.Contains(w.Body.String(), "配置还没准备好") {
-		t.Fatalf("没给出能照做的原因：%q", w.Body.String())
+	if gotPath != want {
+		t.Fatalf("编辑器收到的路径 = %q，想要默认路径 %q", gotPath, want)
 	}
 }
 
