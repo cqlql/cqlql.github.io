@@ -17,6 +17,7 @@ import {
   confirmTitle,
   diffCount,
   envInitial,
+  envInputPlaceholder,
   envPlaceholder,
   serverInitial,
   splitCompare,
@@ -366,7 +367,7 @@ export function ConfigPage() {
                         ) : (
                           <Input
                             value={envDraft[f.key] ?? ''}
-                            placeholder={f.configured ? '' : '未配置'}
+                            placeholder={envInputPlaceholder(f)}
                             onChange={(e) => setEnvField(f.key, e.target.value)}
                           />
                         )}

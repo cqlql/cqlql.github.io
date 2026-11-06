@@ -93,6 +93,23 @@ export function envPlaceholder(f: EnvField): string {
   return f.configured ? '已配置，留空保持不变' : '未配置，可在此填写'
 }
 
+/**
+ * 非凭证输入框的占位文案。
+ *
+ * 🔴 只提示、不自动写文件：本机 env 里没写 PG_SSH_OPTS 时，备份脚本会用内置默认值，
+ * 页面留空不等于「没有 SSH 选项」。这串必须与
+ * deploy/backup/postgres/{pg_backup.sh,pg_restore.sh,backup.env.example} 的兜底默认值一致；
+ * backupdist_test.go 会挡住脚本侧漂移，改默认值时两边一起改。
+ */
+export const PG_SSH_OPTS_DEFAULT =
+  '-o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new'
+
+export function envInputPlaceholder(f: EnvField): string {
+  if (f.configured) return ''
+  if (f.key === 'PG_SSH_OPTS') return `未配置（脚本默认：${PG_SSH_OPTS_DEFAULT}）`
+  return '未配置'
+}
+
 // ---- 远端值对照 ----
 
 export type CompareTone = 'muted' | 'warning' | 'info' | 'success'

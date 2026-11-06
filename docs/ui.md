@@ -515,6 +515,11 @@ ops backup sync-env [pg|minio|all] --server <name>
 - **非 root 安装**：`install.sh` Step 0 硬性要求 `id -u = 0`（写 `/etc/logrotate.d` 与
   crontab）。真要去掉 root 得改脚本架构（用户级 crontab + 日志轮转换方案），另立方案。
 - **新增 / 删除服务器**：仍只编辑已有条目，避免引入主键与状态缓存的一致性处理。
+- **不把脚本内置默认值自动写进本机 env**：`PG_SSH_OPTS` 没配时，页面只在 placeholder
+  提示脚本兜底值（`-o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new`），
+  留空 = 用脚本默认，**不是**「没有 SSH 选项」。要写进文件必须人在输入框里填一次并保存。
+  这条默认值与 `pg_backup.sh` / `pg_restore.sh` / `backup.env.example` 逐字一致，
+  口径见 [backup-monitor.md](backup-monitor.md) §3.3。
 
 ### 12.5 远端值对照（2026-11-06 追加）
 
@@ -560,8 +565,12 @@ ops backup sync-env [pg|minio|all] --server <name>
   未知键 / 换行拒绝、清单保留未知字段、非法 `sudo.mode` 不落盘、`.bak`、二次确认、
   未知 name 404、任务忙 409、占位符拒绝同步、runner 参数 `sync-env pg --server <name>`、
   **对照接口失败/解析失败时数组仍是 `[]`**、**`resolveBackupExe` 换身后落到正式 exe**；
+- `go test ./...` 的 `TestEmbeddedBackupSSHDefaultsAligned`：锁住 `pg_backup.sh` /
+  `pg_restore.sh` / `backup.env.example` 与界面 placeholder 的 `PG_SSH_OPTS` 默认值
+  逐字一致（含 `accept-new`），防止三处漂移；
 - `cd web && npm test && npm run typecheck && npm run build`：`config.test.ts` 的
-  「空值 = 保持不变」「只提交改动字段」「保存本机 ≠ 同步远端」
+  「空值 = 保持不变」「只提交改动字段」「保存本机 ≠ 同步远端」、
+  「`PG_SSH_OPTS` 未配置时只提示默认值、不写进表单」
   与「`components: null` / `fields: null` 不白屏」；
 - 真机：临时配置目录起实例 → 点「配置」→ 改一项非凭证值保存，核对文件与 `.bak` →
   改 `user` 后确认提示重新免密 sudo → 点「同步到远端」后到目标机核对 `backup.env`

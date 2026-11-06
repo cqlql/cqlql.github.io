@@ -15,6 +15,7 @@ import {
   confirmTitle,
   diffCount,
   envInitial,
+  envInputPlaceholder,
   envPlaceholder,
   normalizeCompareView,
   normalizeConfigView,
@@ -69,6 +70,22 @@ test('secret 占位文案区分已配置与未配置', () => {
   assert.equal(envPlaceholder(fields[1]), '已配置，留空保持不变')
   assert.equal(envPlaceholder(fields[2]), '未配置，可在此填写')
   assert.equal(envPlaceholder(fields[0]), '')
+})
+
+test('PG_SSH_OPTS 未配置时提示脚本内置默认值（含 accept-new），但不写进表单', () => {
+  const opts: EnvField = {
+    key: 'PG_SSH_OPTS', label: 'SSH 额外选项', group: '连接',
+    value: '', secret: false, configured: false,
+  }
+  const hint = envInputPlaceholder(opts)
+  assert.match(hint, /BatchMode=yes/)
+  assert.match(hint, /ConnectTimeout=10/)
+  assert.match(hint, /StrictHostKeyChecking=accept-new/)
+  assert.doesNotMatch(hint, /StrictHostKeyChecking=no/)
+  // 提示只改变 placeholder：envInitial 依旧拿到空值，保存时不会被误写。
+  assert.equal(envInitial([opts]).PG_SSH_OPTS, '')
+  assert.equal(envInputPlaceholder({ ...opts, configured: true }), '')
+  assert.equal(envInputPlaceholder({ ...opts, key: 'PG_SSH_HOST' }), '未配置')
 })
 
 test('确认文案点明「保存本机 ≠ 同步远端」', () => {

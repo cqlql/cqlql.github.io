@@ -34,7 +34,8 @@ SSH_HOST="${PG_SSH_HOST:-}"
 SSH_PORT="${PG_SSH_PORT:-22}"
 SSH_USER="${PG_SSH_USER:-root}"
 SSH_KEY="${PG_SSH_KEY:-}"
-SSH_OPTS="${PG_SSH_OPTS:--o BatchMode=yes -o ConnectTimeout=10}"
+# 兜底默认与 pg_backup.sh / backup.env.example 保持一致（含 accept-new）。
+SSH_OPTS="${PG_SSH_OPTS:--o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new}"
 
 # ---------- 参数解析 ----------
 RESTORE_FILE=""       # 指定文件路径（可选）
@@ -60,7 +61,8 @@ SSH_CMD=(ssh -p "$SSH_PORT")
 if [ -n "$SSH_KEY" ]; then
     SSH_CMD+=(-i "$SSH_KEY")
 fi
-# 拆解 SSH_OPTS 为数组（支持额外选项如 -o StrictHostKeyChecking=no）
+# 拆解 SSH_OPTS 为数组（可追加额外选项，如 -o ServerAliveInterval=5；
+# 默认的 accept-new 不要替换成 no）
 # shellcheck disable=SC2206
 SSH_OPTS_ARR=($SSH_OPTS)
 SSH_CMD+=("${SSH_OPTS_ARR[@]}" "${SSH_USER}@${SSH_HOST}")

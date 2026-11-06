@@ -261,7 +261,7 @@ const PG_REMOTE = {
   PG_CONTAINER_NAME:'postgres', PG_DB_USER:'postgres', PG_DB_NAME:'pass_up_dev',
   PG_SSH_HOST:'127.0.0.1', PG_SSH_PORT:'22', PG_SSH_USER:'root',
   PG_SSH_KEY:'/root/.ssh/id_passup_test',
-  PG_SSH_OPTS:'-o BatchMode=yes -o ConnectTimeout=10',
+  PG_SSH_OPTS:'-o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new',
   PG_BACKUP_ROOT:'/data/backups/postgres', PG_BACKUP_LOG_DIR:'/var/log/pg-backup',
   PG_LOCAL_RETENTION_DAYS:'7',
   CRON_SCHEDULE_BACKUP:'0 3 * * *', CRON_SCHEDULE_HEALTH:'0 9 * * *'

@@ -2,6 +2,7 @@ package main
 
 import (
 	"io/fs"
+	"os"
 	"strings"
 	"testing"
 )
@@ -57,13 +58,16 @@ func TestEmbeddedBackupScriptsHaveNoCredentials(t *testing.T) {
 //
 // 🔴 CR 那条不是洁癖：这些文件跑在 Linux 上，CRLF 会让 bash 报
 // `$'\r': command not found`，而本机（Windows）跑得好好的，极难定位。
-// .gitattributes 管的是 checkout，管不住「有人用会存 CRLF 的编辑器改脚本」。
+// `.env.example` 也要查：它被 `source` 时 CRLF 会让变量值末尾带 \r，
+// 例如 PG_SSH_OPTS 多出一个坏参数。.gitattributes 管的是 checkout，
+// 管不住「有人用会存 CRLF 的编辑器改文件」或属性生效前就 checkout 的旧工作区。
 func TestEmbeddedShellScriptsLookSane(t *testing.T) {
 	err := fs.WalkDir(backupScripts, "deploy/backup", func(p string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
 			return err
 		}
-		if !strings.HasSuffix(p, ".sh") && !strings.HasSuffix(p, ".logrotate") {
+		if !strings.HasSuffix(p, ".sh") && !strings.HasSuffix(p, ".logrotate") &&
+			!strings.HasSuffix(p, ".env.example") {
 			return nil
 		}
 		data, err := fs.ReadFile(backupScripts, p)
@@ -93,5 +97,31 @@ func TestEmbeddedBackupScriptsDroppedRsyncSync(t *testing.T) {
 		if _, err := fs.Stat(backupScripts, n); err == nil {
 			t.Errorf("%s 应已删除（同步由 ops backup deploy 负责）", n)
 		}
+	}
+}
+
+// PG_SSH_OPTS 的兜底默认值散在三个文件里，任一处漏掉 accept-new，
+// cron 首次连一台没进 known_hosts 的主机就会在 BatchMode=yes 下直接失败。
+// 从**嵌入产物**读，顺带挡住「改了脚本没重新 build」的口径漂移；
+// 界面 placeholder 用的是同一串，也一起锁住（web 源码不在时跳过）。
+func TestEmbeddedBackupSSHDefaultsAligned(t *testing.T) {
+	const want = "-o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new"
+	files := []string{
+		"deploy/backup/postgres/pg_backup.sh",
+		"deploy/backup/postgres/pg_restore.sh",
+		"deploy/backup/postgres/backup.env.example",
+	}
+	for _, n := range files {
+		data, err := fs.ReadFile(backupScripts, n)
+		if err != nil {
+			t.Fatalf("读取嵌入产物 %s 失败：%v", n, err)
+		}
+		if !strings.Contains(string(data), want) {
+			t.Errorf("%s 缺少统一的 SSH 默认值 %q", n, want)
+		}
+	}
+	ui, err := os.ReadFile("web/src/features/config/utils/draft.ts")
+	if err == nil && !strings.Contains(string(ui), want) {
+		t.Errorf("web/src/features/config/utils/draft.ts 的 PG_SSH_OPTS_DEFAULT 与脚本默认值不一致")
 	}
 }

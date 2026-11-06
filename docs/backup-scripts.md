@@ -51,6 +51,12 @@ deploy/backup/
   注入成远端的 `<组件>/backup.env`。
 - 🔴 `deploy/backup/` 里**不许出现真实 `backup.env`**：`//go:embed all:deploy/backup`
   会把整个目录编进二进制。`.gitignore` 已挡，`backupdist_test.go` 会在 `go test` 时再挡一次。
+- PG 的 `PG_SSH_OPTS` 不写也有兜底默认值，`pg_backup.sh` / `pg_restore.sh` /
+  `backup.env.example` 三处逐字一致：
+  `-o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new`。
+  与 `ops` 自身 ssh 封装、`install.sh` 的连通性预检同口径；别改成
+  `StrictHostKeyChecking=no`（关掉主机密钥校验），改默认值要连同界面 placeholder 一起改，
+  `TestEmbeddedBackupSSHDefaultsAligned` 会挡住漂移。见 [backup-monitor.md](backup-monitor.md) §3.3。
 - 日志目录：MinIO 读 `BACKUP_LOG_DIR`；PostgreSQL 读 `PG_BACKUP_LOG_DIR`（默认 `/var/log/pg-backup`）。
 
 ## 4. 部署自检（preflight）

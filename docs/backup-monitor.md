@@ -78,6 +78,19 @@
 - **绝不在中途等密码**：缺密钥立刻失败，错误里只说 `user@host`，不打印私钥路径；
 - 主机密钥 `StrictHostKeyChecking=accept-new`（首次收录，变化即拒绝）。
 
+**注意：还有另一条 ssh 链路。** 上面说的是 `ops` 自己连服务器做只读采集
+（`internal/shared/remote.go`）；备份脚本每天从**备份端连主服务器拉 dump** 走的是
+`pg_backup.sh` / `pg_restore.sh` 里的 `${PG_SSH_OPTS:-...}`，不受前者管。这条链路的
+默认值也必须含 `accept-new`，三处逐字一致：
+
+```
+-o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new
+```
+
+`BatchMode=yes` 禁掉了交互提示，不带 `accept-new` 时 cron 首次连一台没进 `known_hosts`
+的主机必然失败；换成 `no` 又等于关掉主机密钥校验。`accept-new` 要求远端 OpenSSH ≥ 7.6。
+三处默认值由 `go test` 的 `TestEmbeddedBackupSSHDefaultsAligned` 锁住（含界面 placeholder）。
+
 ## 4. 状态结构与判定
 
 CLI 表格、`--json`、网页用的都是这一份（**不许前端自己再算一套指标**）：

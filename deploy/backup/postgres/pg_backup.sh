@@ -56,7 +56,11 @@ SSH_HOST="${PG_SSH_HOST:-}"
 SSH_PORT="${PG_SSH_PORT:-22}"
 SSH_USER="${PG_SSH_USER:-root}"
 SSH_KEY="${PG_SSH_KEY:-}"
-SSH_OPTS="${PG_SSH_OPTS:--o BatchMode=yes -o ConnectTimeout=10}"
+# 兜底默认与 backup.env.example、ops 自身 ssh 封装（internal/shared/remote.go）同口径：
+# BatchMode 禁交互、10s 连接超时、accept-new 首次收录主机密钥（变化即拒绝）。
+# 注意：BatchMode=yes 下不带 accept-new，cron 首次连一台没进 known_hosts 的主机必然失败；
+# 也不要改成 StrictHostKeyChecking=no，那等于关掉主机密钥校验。
+SSH_OPTS="${PG_SSH_OPTS:--o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new}"
 
 # ---------- 日志 & 锁文件 ----------
 # 所有日志（备份 + 巡检 + Cron）统一写入 pg_backup.log，便于集中排查
@@ -107,7 +111,8 @@ SSH_CMD=(ssh -p "$SSH_PORT")
 if [ -n "$SSH_KEY" ]; then
     SSH_CMD+=(-i "$SSH_KEY")
 fi
-# 拆解 SSH_OPTS 为数组（支持额外选项如 -o StrictHostKeyChecking=no）
+# 拆解 SSH_OPTS 为数组（可追加额外选项，如 -o ServerAliveInterval=5；
+# 默认的 accept-new 不要替换成 no）
 # shellcheck disable=SC2206
 SSH_OPTS_ARR=($SSH_OPTS)
 SSH_CMD+=("${SSH_OPTS_ARR[@]}" "${SSH_USER}@${SSH_HOST}")

@@ -66,7 +66,7 @@ ops backup sync-env [pg|minio|all] --server <name>
 ops backup compare-env [pg|minio|all] --server <name>
     只读：一条 cat 抓远端 backup.env，输出脱敏后的键值（JSON）
     凭证只给掩码 + 指纹（shared.EnvFingerprint），明文不进 stdout；失败如实回原因
-    界面「配置」页的远端值对照走这条，见 ui.md §12.6
+    界面「配置」页的远端值对照走这条，见 ui.md §12.5
 ```
 
 ## 4. 部署流程
