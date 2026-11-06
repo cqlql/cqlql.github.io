@@ -598,11 +598,12 @@ ops backup sync-env [pg|minio|all] --server <name>
    顺带把 `ErrorBoundary` 下沉到每个页面：一页崩了顶部工具栏（重启 / 关闭界面 /
    快捷方式）还在，白屏时才有自救的入口。
 
-**交互原型**：[config-compare.html](config-compare.html) 是本节设计阶段的**静态交互原型**
-（单文件 HTML，双击即可打开，无需构建）。它用假数据演示四种 `state`、输入框下方的就地对照
-与「仅远端有」折叠区，可切换组件、场景与视图。**它是设计稿，不是实现**：
-实现以 `web/src/features/config/` 与本节判据为准；原型与判据不一致时以本节为准，
-原型不再维护时直接删除，不另建归档目录。
+**交互原型**：[config-compare.html](config-compare.html) 是本节设计阶段的静态交互原型
+（单文件 HTML，双击即可打开，无需构建），用假数据演示四种 `state`、输入框下方的就地对照
+与「仅远端有」折叠区，可切换组件、场景与视图。**保留并同步维护**：原型读起来比文档快，
+改了实现或判据时一起回改；**它是设计稿不是实现**——以 `web/src/features/config/` 与本节
+判据为准，原型与判据不一致时一律以本节为准。环境组件页的同款处置见 §13 /
+[components.md](components.md) §8。
 
 ### 12.6 配置不全不挡路 + 在界面里加第一台服务器（2026-11-06 追加）
 
@@ -664,8 +665,11 @@ ops backup sync-env [pg|minio|all] --server <name>
 ## 13. 环境组件页（2026-11-06）
 
 第 3 个导航项「环境组件」，一个**组件目录 + 选中详情**页（`web/src/features/components/`）。
-判据与完整设计见 [components.md](components.md)；这里只记界面相关的边界。
-交互原型 [minio-bootstrap-prototype.html](minio-bootstrap-prototype.html) 是设计稿，不维护。
+判据与完整设计见 [components.md](components.md)（含 §8 尚未接入的更新 / 卸载判据）；
+这里只记界面相关的边界。交互原型
+[components-prototype.html](components-prototype.html) 按 §12 的约定**保留并同步维护**
+（2026-11-07 已按实现回改 CLI / 注册表 / 接口 / 代理 / `/data` / 设计态标注），
+读的时候以本节与 `components.md` 的判据为准。
 
 **为什么是一个页而不是两个**：Docker → MinIO → mc mirror 是同一条引导链路，
 依赖门、任务锁、增量日志都是同一份状态；拆成两个导航页会第一次引入跨页共享状态，

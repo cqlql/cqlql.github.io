@@ -166,7 +166,11 @@ td.status{width:120px}
         <button class="chip" data-scene="same">两端一致</button>
         <button class="chip" data-scene="missing">远端未安装</button>
         <button class="chip" data-scene="fail">抓取失败</button>
-        <span class="badge">静态数据 · 不连真实远端</span>
+        <span class="badge">与实现同步 · 2026-11-07</span>
+      </div>
+      <div class="hintline" style="margin:0 0 16px">
+        <b>设计稿，不是实现</b>：静态数据、不连真实远端。本页与 <code>docs/ui.md §12</code>
+        <b>同步维护</b>，冲突时以文档判据为准；配置页实现见 <code>web/src/features/config/</code>。
       </div>
 
       <div class="page-head">
@@ -187,7 +191,9 @@ td.status{width:120px}
         </div>
         <div class="chain">
           执行方式（只读推导，不是可配项）
-          <code>cql 登录 → 免密 sudo 提权 → 脚本以 root 执行</code>
+          <code>cql 登录 → 只读抓远端 backup.env（不提权、不写远端）</code><br>
+          <small>备份脚本运行身份是清单里的 user，只有安装期才 sudo 提权到 root；
+          抓取失败时对照数组仍是 []（不白屏）。见 docs/ui.md §12.4 / §12.5。</small>
         </div>
       </div>
 
@@ -530,7 +536,7 @@ document.addEventListener('click', (e) => {
   if (e.target.id === 'btnFetch' || e.target.id === 'btnRefetch'){ fetchRemote(); return; }
   if (e.target.id === 'btnSync' || e.target.id === 'btnSyncEdit'){
     const n = state.view === 'edit' ? diffKeys().filter(k => !state.synced.has(k)).length : state.selected.size;
-    $('modalHint').textContent = '将把 ' + n + ' 项本机值写入 k1 的远端 backup.env。这是远端写操作，脚本与定时任务不会改动。';
+    $('modalHint').textContent = '将把本机 env 整份同步到 k1 的远端 backup.env（' + n + ' 项有差异）。仅远端有的键会随整份覆盖消失；脚本、crontab 与定时任务不会改动。';
     $('confirmInput').value = ''; $('btnConfirm').disabled = true;
     $('modal').hidden = false; return;
   }
