@@ -463,3 +463,140 @@ pre {
   font-size: 11px;
   color: var(--ops-muted);
 }
+
+/* ---- 环境组件 ----
+   这一页最早整页写 inline style，与另外三页脱节：.card 本身不带内边距，
+   5 个 section 直接塞内容就贴着边框、彼此还连成一条白条；日志用了深色底，
+   跟全站 light 主题（见 .backup-log）冲突。重复的表格 / 日志 / 说明统一收在这里。 */
+.component-panel {
+  padding: 16px;
+  margin-bottom: 12px;
+}
+
+.component-title {
+  margin: 0 0 10px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.component-title .sub {
+  margin-left: 4px;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--ops-muted);
+}
+
+/* .hint 自带 12px 下外边距：块级说明放最后会把卡片底部撑得不对称，
+   行内说明作为 flex item 更会把同一行的按钮 / Select 挤歪。 */
+.component-note {
+  margin: 10px 0 0;
+  color: var(--ops-muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.component-hint {
+  color: var(--ops-muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.component-table-wrap {
+  border: 1px solid #e5e9f0;
+  border-radius: 8px;
+  overflow-x: auto;
+}
+
+.component-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.component-table th,
+.component-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid #e5e9f0;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.component-table th {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ops-muted);
+  background: #fafbfc;
+}
+
+/* 外层 wrap 已有边框，最后一行再来一条会成双线。 */
+.component-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.component-table .mono {
+  font-family: ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace;
+  font-size: 12px;
+}
+
+.component-table .muted,
+.component-table .sub {
+  color: var(--ops-muted);
+}
+
+.component-table .sub {
+  font-size: 11px;
+}
+
+.component-table .empty {
+  color: #9aa3af;
+}
+
+/* 目录行是「点一行切换详情」的入口：hover / 选中 / 键盘焦点都得有反馈，
+   只靠 cursor:pointer 的话键盘用户根本看不出这行能点。 */
+.component-table tr.selectable {
+  cursor: pointer;
+}
+
+.component-table tr.selectable:hover td {
+  background: #f5f9ff;
+}
+
+.component-table tr.selectable:focus-visible {
+  outline: 2px solid var(--ops-link);
+  outline-offset: -2px;
+}
+
+.component-table tr.selected td,
+.component-table tr.selected:hover td {
+  background: #e6f4ff;
+}
+
+/* 与备份页同款浅底，不在这页单独开一块深色终端。 */
+.component-log {
+  margin: 0;
+  padding: 12px 16px;
+  height: 200px;
+  overflow: auto;
+  background: #fbfcfd;
+  color: var(--ops-text);
+  border-radius: 8px;
+  white-space: pre-wrap;
+  word-break: break-all;
+  line-height: 1.6;
+  font-size: 12px;
+}
+
+.component-file-name {
+  font-size: 12px;
+  color: var(--ops-text);
+  word-break: break-all;
+}
+
+/* 确认弹窗里的可选代理块（Modal 挂在 body 上，样式仍来自全局 index.css）。 */
+.component-box {
+  margin-top: 12px;
+  padding: 10px;
+  border: 1px solid #e5e9f0;
+  border-radius: 8px;
+  background: #fafbfc;
+}

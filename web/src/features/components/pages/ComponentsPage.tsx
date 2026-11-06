@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { CSSProperties } from 'react'
 import { Alert, Button, Checkbox, Input, Modal, Select, Tag } from 'antd'
 
 import { componentsApi } from '../api.ts'
@@ -45,14 +44,6 @@ const PROXY_STORAGE_KEY = 'passup.component.aptProxy'
 
 type Notice = { kind: 'success' | 'error' | 'info' | 'warning'; text: string } | null
 
-const thStyle: CSSProperties = {
-  textAlign: 'left', padding: '8px 10px', borderBottom: '1px solid #e5e9f0',
-  fontSize: 12, color: '#6b7280', fontWeight: 500, background: '#fafbfc',
-}
-const tdStyle: CSSProperties = {
-  padding: '8px 10px', borderBottom: '1px solid #e5e9f0', verticalAlign: 'middle',
-}
-
 export function ComponentsPage() {
   const [targets, setTargets] = useState<ServerOption[]>([])
   const [name, setName] = useState('')
@@ -82,6 +73,7 @@ export function ComponentsPage() {
   const alive = useRef(true)
   const pollId = useRef(0)
   const logRef = useRef<HTMLPreElement>(null)
+  const fileRef = useRef<HTMLInputElement>(null)
 
   const makeHooks = useCallback((id: number): WatchHooks => ({
     onChunk: (chunk) => setLog((prev) => prev + chunk),
@@ -268,14 +260,23 @@ export function ComponentsPage() {
             默认只读体检；安装 / 导入镜像会写远端，需输入 yes 二次确认并由服务端先跑预检
           </div>
         </div>
-        <Tag color="blue">一个导航项 · 可扩展目录</Tag>
+        <Tag color="blue">{view.components.length} 个组件</Tag>
       </header>
 
-      {notice && <Alert type={notice.kind} message={notice.text} showIcon style={{ marginBottom: 14 }} />}
+      {notice && (
+        <Alert
+          type={notice.kind}
+          message={notice.text}
+          showIcon
+          closable
+          onClose={() => setNotice(null)}
+          style={{ marginBottom: 12 }}
+        />
+      )}
 
-      <section className="card">
+      <section className="card component-panel">
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
-          <span style={{ fontSize: 12, color: '#6b7280' }}>目标服务器</span>
+          <span className="component-hint">目标服务器</span>
           <Select
             value={name || undefined}
             onChange={(v) => setName(v)}
@@ -289,7 +290,7 @@ export function ComponentsPage() {
           <Button onClick={() => void refresh(name)} loading={loading} disabled={!name || busy}>
             重新检查（只读）
           </Button>
-          <span className="hint">
+          <span className="component-hint">
             {view.collected ? `已采集 · ${view.server}` : '未采集到状态（连不上时是「未知」，不是「未安装」）'}
           </span>
         </div>
@@ -302,59 +303,68 @@ export function ComponentsPage() {
         )}
       </section>
 
-      <section className="card">
-        <h2 style={{ fontSize: 14, fontWeight: 600, margin: '0 0 10px' }}>
-          组件目录 <span style={{ fontWeight: 400, fontSize: 12, color: '#6b7280' }}>
-            （点一行切换详情；新增组件只加一条后端注册表声明）
-          </span>
+      <section className="card component-panel">
+        <h2 className="component-title">
+          组件目录 <span className="sub">（点一行切换详情；新增组件只加一条后端注册表声明）</span>
         </h2>
-        <div style={{ border: '1px solid #e5e9f0', borderRadius: 8, overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+        <div className="component-table-wrap">
+          <table className="component-table">
             <thead>
               <tr>
-                <th style={thStyle}>组件</th>
-                <th style={thStyle}>状态</th>
-                <th style={thStyle}>版本</th>
-                <th style={thStyle}>依赖</th>
-                <th style={thStyle}>接入</th>
+                <th>组件</th>
+                <th>状态</th>
+                <th>版本</th>
+                <th>依赖</th>
+                <th>接入</th>
               </tr>
             </thead>
             <tbody>
               {view.components.length === 0 && (
-                <tr><td colSpan={5} style={{ ...tdStyle, color: '#9aa3af' }}>尚未采集到组件列表</td></tr>
+                <tr><td colSpan={5} className="empty">尚未采集到组件列表</td></tr>
               )}
               {view.components.map((c) => (
                 <tr
                   key={c.id}
+                  className={`selectable${selected === c.id ? ' selected' : ''}`}
+                  tabIndex={0}
+                  aria-current={selected === c.id ? 'true' : undefined}
+                  title={`查看 ${c.name} 详情`}
                   onClick={() => setSelected(c.id)}
-                  style={{ cursor: 'pointer', background: selected === c.id ? '#e6f4ff' : undefined }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault()
+                      setSelected(c.id)
+                    }
+                  }}
                 >
-                  <td style={tdStyle}>
+                  <td>
                     <b>{c.name}</b>
-                    <div style={{ fontSize: 11, color: '#6b7280' }}>{c.kind}</div>
+                    <div className="sub">{c.kind}</div>
                   </td>
-                  <td style={tdStyle}><Tag color={stateColor(c.state)}>{stateLabel(c.state)}</Tag></td>
-                  <td style={{ ...tdStyle, fontFamily: 'monospace', fontSize: 12 }}>{c.version || '—'}</td>
-                  <td style={tdStyle}>{c.depends || '—'}</td>
-                  <td style={tdStyle}>{c.phase === 'ready' ? '已接入' : '待接入'}</td>
+                  <td><Tag color={stateColor(c.state)}>{stateLabel(c.state)}</Tag></td>
+                  <td className="mono">{c.version || '—'}</td>
+                  <td>{c.depends || '—'}</td>
+                  <td>{c.phase === 'ready' ? '已接入' : '待接入'}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-        <div className="hint" style={{ marginTop: 10 }}>
+        <div className="component-note">
           依赖链：① Docker 引擎 → ② MinIO 服务 → ③ mc mirror 备份链路；上游没就绪时下游写动作一律禁用。
         </div>
       </section>
 
-      <section className="card">
+      <section className="card component-panel">
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
           <b style={{ fontSize: 14 }}>{current?.name ?? '组件详情'}</b>
           {current && <Tag color={stateColor(current.state)}>{stateLabel(current.state)}</Tag>}
         </div>
-        <div className="hint" style={{ marginBottom: 10 }}>
-          {current?.version || installHint(current, view, dependenciesReady)}
-        </div>
+        {current?.version && (
+          <div className="component-hint" style={{ marginBottom: 10 }}>
+            当前版本：<code>{current.version}</code>
+          </div>
+        )}
         <Alert
           type={pre.ready ? 'info' : 'warning'}
           showIcon
@@ -374,20 +384,20 @@ export function ComponentsPage() {
           <Alert type="info" showIcon message="该组件尚未接入，本轮只做目录占位；后续按同一注册表加脚本与动作即可。" />
         ) : (
           <>
-            <div style={{ border: '1px solid #e5e9f0', borderRadius: 8, overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+            <div className="component-table-wrap">
+              <table className="component-table">
                 <thead>
-                  <tr><th style={thStyle}>体检项</th><th style={thStyle}>实测值</th><th style={thStyle}>状态</th></tr>
+                  <tr><th>体检项</th><th>实测值</th><th>状态</th></tr>
                 </thead>
                 <tbody>
                   {(current?.checks ?? []).length === 0 && (
-                    <tr><td colSpan={3} style={{ ...tdStyle, color: '#9aa3af' }}>未采集到体检项</td></tr>
+                    <tr><td colSpan={3} className="empty">未采集到体检项</td></tr>
                   )}
                   {(current?.checks ?? []).map((it) => (
                     <tr key={it.key}>
-                      <td style={{ ...tdStyle, color: '#6b7280' }}>{it.label}</td>
-                      <td style={tdStyle}>{it.value}</td>
-                      <td style={tdStyle}><Tag color={checkColor(it.state)}>{it.state}</Tag></td>
+                      <td className="muted">{it.label}</td>
+                      <td>{it.value}</td>
+                      <td><Tag color={checkColor(it.state)}>{it.state}</Tag></td>
                     </tr>
                   ))}
                 </tbody>
@@ -399,80 +409,89 @@ export function ComponentsPage() {
               </Button>
               <Button disabled title="后续接入">更新</Button>
               <Button disabled danger title="后续接入">卸载</Button>
-              <span className="hint">更新 / 卸载尚未接入；安装不会删数据、不动引擎与已有镜像。</span>
+              <span className="component-hint">更新 / 卸载尚未接入；安装不会删数据、不动引擎与已有镜像。</span>
             </div>
           </>
         )}
       </section>
 
       {current?.offline_image && (
-        <section className="card">
+        <section className="card component-panel">
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
             <b style={{ fontSize: 14 }}>MinIO 离线镜像</b>
             <Tag color="orange">不走外网</Tag>
-            <span className="hint">只属于 MinIO；Docker 引擎走官方 apt 仓库，不需要 tar</span>
+            <span className="component-hint">只属于 MinIO；Docker 引擎走官方 apt 仓库，不需要 tar</span>
           </div>
-          <div style={{ border: '1px solid #e5e9f0', borderRadius: 8, overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+          <div className="component-table-wrap">
+            <table className="component-table">
               <thead>
                 <tr>
-                  <th style={thStyle}>镜像 : 标签</th>
-                  <th style={thStyle}>镜像 ID</th>
-                  <th style={thStyle}>大小</th>
-                  <th style={thStyle}>导入时间</th>
+                  <th>镜像 : 标签</th>
+                  <th>镜像 ID</th>
+                  <th>大小</th>
+                  <th>导入时间</th>
                 </tr>
               </thead>
               <tbody>
                 {view.images.length === 0 && (
-                  <tr><td colSpan={4} style={{ ...tdStyle, color: '#9aa3af' }}>目标机尚无已导入的 MinIO 镜像</td></tr>
+                  <tr><td colSpan={4} className="empty">目标机尚无已导入的 MinIO 镜像</td></tr>
                 )}
                 {view.images.map((img) => (
                   <tr key={`${img.reference}-${img.id}`}>
-                    <td style={{ ...tdStyle, fontFamily: 'monospace', fontSize: 12 }}>{img.reference}</td>
-                    <td style={tdStyle}>{img.id}</td>
-                    <td style={tdStyle}>{img.size}</td>
-                    <td style={tdStyle}>{img.created}</td>
+                    <td className="mono">{img.reference}</td>
+                    <td>{img.id}</td>
+                    <td>{img.size}</td>
+                    <td>{img.created}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-          <div className="hint" style={{ marginTop: 10 }}>{imageHint(view, dockerReady)}</div>
+          <div className="component-note">{imageHint(view, dockerReady)}</div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center', marginTop: 10 }}>
             <input
+              ref={fileRef}
               type="file"
               accept=".tar"
+              hidden
               disabled={busy}
-              onChange={(e) => setImageFile(e.target.files?.[0] ?? null)}
+              onChange={(e) => {
+                setImageFile(e.target.files?.[0] ?? null)
+                // 清空 value，允许重复选同一个文件（否则第二次不触发 change）。
+                e.target.value = ''
+              }}
             />
+            <Button disabled={busy} onClick={() => fileRef.current?.click()}>
+              选择 .tar 镜像包
+            </Button>
+            <span className="component-file-name">
+              {imageFile ? `已选：${imageFile.name}` : '尚未选择文件'}
+            </span>
             <Button
+              type="primary"
               disabled={!imageEnabled || !imageFile}
               onClick={() => setImageOpen(true)}
             >
               导入到远端
             </Button>
-            <span className="hint">
-              选择本机 docker save 导出的 .tar；服务端校验后才上传，接口不接受任意本机路径。
-            </span>
+          </div>
+          <div className="component-note">
+            选择本机 docker save 导出的 .tar；服务端校验后才上传，接口不接受任意本机路径。
           </div>
         </section>
       )}
 
-      <section className="card">
+      <section className="card component-panel">
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
           <b style={{ fontSize: 14 }}>任务日志</b>
-          <span className="hint">
+          <span className="component-hint">
             {busy ? '运行中（与备份部署共用后台任务锁）' : task ? `结束 · 退出码 ${task.exit_code}` : '空闲'}
           </span>
         </div>
-        <pre ref={logRef} style={{
-          margin: 0, background: '#1f2329', color: '#d7dce5', borderRadius: 8,
-          padding: 12, height: 190, overflow: 'auto', whiteSpace: 'pre-wrap',
-          wordBreak: 'break-all', font: '12px/1.7 ui-monospace, Consolas, monospace',
-        }}>
+        <pre ref={logRef} className="component-log" aria-live="polite">
           {log || '（暂无日志）'}
         </pre>
-        <div className="hint" style={{ marginTop: 8 }}>
+        <div className="component-note" style={{ marginTop: 8 }}>
           增量轮询、日志按行脱敏、凭证显示为 ***；任务脱离 HTTP 请求，刷新页面不打断。
         </div>
       </section>
@@ -495,17 +514,14 @@ export function ComponentsPage() {
         <ul style={{ paddingLeft: 18, margin: '0 0 12px', fontSize: 13, lineHeight: 1.9 }}>
           {copy.items.map((it) => <li key={it}>{it}</li>)}
         </ul>
-        <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 4 }}>请输入 yes 确认：</div>
+        <div className="component-hint" style={{ marginBottom: 4 }}>请输入 yes 确认：</div>
         <Input value={confirmText} onChange={(e) => setConfirmText(e.target.value)} placeholder="yes" autoComplete="off" />
-        <div style={{ fontSize: 12, color: '#6b7280', margin: '10px 0 4px' }}>
+        <div className="component-hint" style={{ margin: '10px 0 4px' }}>
           一次性 sudo 密码（目标机已配免密 sudo 可留空）：
         </div>
         <Input.Password value={password} onChange={(e) => setPassword(e.target.value)} placeholder="留空则用免密 sudo" autoComplete="new-password" />
         {current?.id === 'docker' && (
-          <div style={{
-            marginTop: 12, padding: 10, background: '#fafbfc',
-            border: '1px solid #e5e9f0', borderRadius: 8,
-          }}>
+          <div className="component-box">
             <Checkbox checked={useProxy} onChange={(e) => setUseProxy(e.target.checked)}>
               本次安装走代理（目标机直连 download.docker.com 很慢 / 被重置时勾选）
             </Checkbox>
@@ -519,7 +535,7 @@ export function ComponentsPage() {
                 style={{ marginTop: 8 }}
               />
             )}
-            <div className="hint" style={{ marginTop: 6 }}>
+            <div className="component-hint" style={{ marginTop: 6 }}>
               格式 http://host:port；只作用于本次 apt / curl，不写远端 /etc/apt/apt.conf.d/ 配置。
               服务端会再校验一次，留空则直连。
             </div>
@@ -547,11 +563,11 @@ export function ComponentsPage() {
           <li>绝不执行 docker pull（目标机拉不到 Docker Hub / quay.io / dl.min.io）。</li>
           <li>临时镜像包由服务端生成路径、任务结束即删；接口不接受任意本机路径。</li>
         </ul>
-        <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 4 }}>
+        <div className="component-hint" style={{ marginBottom: 4 }}>
           已选：{imageFile?.name ?? '（未选择）'}。请输入 yes 确认：
         </div>
         <Input value={imageConfirmText} onChange={(e) => setImageConfirmText(e.target.value)} placeholder="yes" autoComplete="off" />
-        <div style={{ fontSize: 12, color: '#6b7280', margin: '10px 0 4px' }}>
+        <div className="component-hint" style={{ margin: '10px 0 4px' }}>
           一次性 sudo 密码（目标机已配免密 sudo 可留空）：
         </div>
         <Input.Password value={imagePassword} onChange={(e) => setImagePassword(e.target.value)} placeholder="留空则用免密 sudo" autoComplete="new-password" />

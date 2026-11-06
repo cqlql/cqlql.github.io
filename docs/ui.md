@@ -683,6 +683,19 @@ MinIO 没有离线镜像 / 缺本机 `DEST_KEY`+`DEST_SECRET` / Docker 没 activ
 不再由前端拼第二套判据。详情里的检查项与阻塞项随选中组件切换（选中 MinIO 不会
 显示 Docker 的 apt 检查结论）。
 
+**界面样式**（2026-11-06 修）：本页最早整页写 inline style，跟另外三页脱节：
+`.card` 本身没有内边距，5 个 `section` 直接塞内容会贴边、彼此还连成一条白条；
+日志用了深色底，与全站 light 主题（`.backup-log`）冲突；`.hint` 自带 12px
+下外边距，作为 flex item 会把同一行的按钮 / Select 挤歪；表格末行与外层边框
+叠成双线，目录行只有 `cursor:pointer` 而没有 hover / 键盘反馈；详情区在
+「没采到版本」时会把 `installHint` 同一句话显示两遍。
+现在统一收敛到 `src/index.css` 的 `.component-*`：面板内边距与卡片间距、
+表格（选中 / hover / 焦点）、浅底日志、行内与块级说明、可选代理块；
+原生 file input 换成 antd 按钮 + 隐藏 input（重复选同一个文件也能触发）。
+新增区块照抄这套 class，不要再写整页 inline；目录行是 `tabIndex` +
+Enter/Space 键盘可达的，不只靠鼠标。改完 `web/` 仍需 `npm run build`，
+且**只有重建 `ops.exe` 后界面才吃到新产物**（见 §11 / 硬约束 26）。
+
 **回归**：`go test ./internal/ui ./internal/component .` 的组件接口用例、
 `web/test/components.test.ts`、`cd web && npm test && npm run typecheck && npm run build`。
 真机只读验证：`ops component list --server k1 --json`、
