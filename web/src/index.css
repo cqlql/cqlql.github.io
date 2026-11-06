@@ -165,13 +165,6 @@ pre {
   line-height: normal;
 }
 
-.app-toolbar-title {
-  font-size: 15px;
-  font-weight: 500;
-  color: var(--ops-text);
-  white-space: nowrap;
-}
-
 .app-toolbar-actions {
   display: flex;
   align-items: center;

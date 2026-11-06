@@ -19,12 +19,6 @@ const NAV_ITEMS: MenuProps['items'] = [
   { key: 'config', icon: <SettingOutlined />, label: '配置' },
 ]
 
-const PAGE_TITLE: Record<PageKey, string> = {
-  servers: '服务器管理',
-  backup: '备份能力部署',
-  config: '配置',
-}
-
 // 窄窗口放不下 200px 侧栏，退化成顶部横向菜单；只是布局变化，不增加一次点击。
 const NARROW_QUERY = '(max-width: 860px)'
 
@@ -54,6 +48,9 @@ function useNarrow() {
  * 「重启」放在**全局顶部工具栏**（宽屏在内容区顶部、窄屏与横向导航同一条），
  * 因为它是「对服务本身」的动作，与现在看哪一页无关；改完前端就该在当前页
  * 直接重启，不必先切走。工具栏不随页面卸载，重启轮询不会被切页打断。
+ *
+ * 顶栏**不放当前页标题**：每页的 `page-head` 已有 h1（还连着清单路径 / 操作按钮），
+ * 侧栏选中项也已经指名了当前页，再来一份就是三重复。宽屏顶栏只留右侧的「重启」。
  */
 export default function App() {
   const [page, setPage] = useState<PageKey>('servers')
@@ -96,13 +93,11 @@ export default function App() {
             )}
             <Layout className="app-main">
               <Layout.Header className={narrow ? 'app-header' : 'app-toolbar'}>
-                {narrow ? (
+                {narrow && (
                   <>
                     <span className="app-brand">PassUp 运维</span>
                     {nav}
                   </>
-                ) : (
-                  <span className="app-toolbar-title">{PAGE_TITLE[page]}</span>
                 )}
                 {actions}
               </Layout.Header>
