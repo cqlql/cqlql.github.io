@@ -1,7 +1,13 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
-import type { CompareField, ConfigServer, EnvField } from '../src/features/config/types.ts'
+import type {
+  CompareField,
+  CompareView,
+  ConfigServer,
+  ConfigView,
+  EnvField,
+} from '../src/features/config/types.ts'
 import {
   changedFields,
   compareTag,
@@ -10,6 +16,8 @@ import {
   diffCount,
   envInitial,
   envPlaceholder,
+  normalizeCompareView,
+  normalizeConfigView,
   serverInitial,
   splitCompare,
 } from '../src/features/config/utils/draft.ts'
@@ -92,4 +100,52 @@ test('splitCompare 把远端独有项拆出去（表单里没有输入框）', (
 
 test('diffCount 不计一致项', () => {
   assert.equal(diffCount(compareFields), 3)
+})
+
+// 真机踩过：后端抓取失败时 components 是 nil slice → JSON null → 页面 .find 白屏。
+test('远端值对照失败（components:null）不炸页面，失败原因要留着', () => {
+  const raw = {
+    components: null,
+    error: 'ERROR: 启动 backup 子进程失败：找不到 ops.next.exe',
+  } as unknown as CompareView
+  const got = normalizeCompareView(raw)
+  assert.deepEqual(got.components, [])
+  assert.match(got.error ?? '', /找不到 ops\.next\.exe/)
+  // 页面里就是这么取的：之前的 TypeError 出在这一行。
+  assert.equal(got.components.find((c) => c.component === 'pg'), undefined)
+})
+
+test('对比结果里 fields:null 也要归一成空数组', () => {
+  const raw = {
+    components: [{ component: 'pg', fields: null }],
+    fetched_at: '12:00:00',
+  } as unknown as CompareView
+  const got = normalizeCompareView(raw)
+  assert.deepEqual(got.components[0].fields, [])
+  assert.equal(got.fetched_at, '12:00:00')
+  assert.deepEqual(splitCompare(got.components[0].fields), { form: [], extra: [] })
+})
+
+test('配置视图的 servers/envs/fields 为 null 时不炸，且能安全取数', () => {
+  const raw = { servers: null, envs: [{ component: 'pg', fields: null }] } as unknown as ConfigView
+  const got = normalizeConfigView(raw)
+  assert.deepEqual(got.servers, [])
+  assert.equal(got.servers.find((s) => s.name === 'k1'), undefined)
+  assert.deepEqual(got.envs[0].fields, [])
+  assert.equal(got.sync_enabled, false)
+  assert.deepEqual(normalizeConfigView(null).envs, [])
+  assert.deepEqual(normalizeCompareView(undefined).components, [])
+})
+
+test('正常响应归一化后字段不变', () => {
+  const view: ConfigView = {
+    servers_file: 'servers.json',
+    sync_enabled: true,
+    servers: [server],
+    envs: [{ component: 'pg', path: 'pg.env', exists: true, fields }],
+  }
+  const got = normalizeConfigView(view)
+  assert.equal(got.servers[0].name, 'k1')
+  assert.equal(got.envs[0].fields.length, fields.length)
+  assert.equal(got.sync_enabled, true)
 })

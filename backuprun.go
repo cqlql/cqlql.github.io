@@ -16,6 +16,11 @@ package main
 // 部署进程独立于 HTTP 请求：刷新页面、关掉标签页都不会打断已经开始的远端安装。
 
 import (
+	"pass-up/ops/internal/restart"
+	"pass-up/ops/internal/shared"
+)
+
+import (
 	"context"
 	"errors"
 	"fmt"
@@ -39,10 +44,14 @@ func runBackupSubprocess(args []string, password string, out io.Writer) int {
 		fmt.Fprintf(out, "ERROR: 找不到当前可执行文件：%v\n", err)
 		return 1
 	}
+	exe = resolveBackupExe(exe)
 	ctx, cancel := context.WithTimeout(context.Background(), backupSubprocessTimeout)
 	defer cancel()
 
 	cmd := exec.CommandContext(ctx, exe, backupSubprocessArgs(args, password != "")...)
+	// 界面进程（隐藏守护 / detached 接手进程）没有控制台，ops.exe 也是控制台程序：
+	// 不隐藏的话，预检 / 同步 / 远端值对照每次都会弹一个黑窗口。
+	shared.HideConsole(cmd)
 	cmd.Stdout = out
 	cmd.Stderr = out
 	if password != "" {
@@ -62,6 +71,31 @@ func runBackupSubprocess(args []string, password string, out io.Writer) int {
 	}
 	fmt.Fprintf(out, "ERROR: 启动 backup 子进程失败：%v\n", err)
 	return 1
+}
+
+// resolveBackupExe 决定子进程到底跑哪个二进制。
+//
+// 🔴 Windows 上 os.Executable() 返回的是**进程映像加载时**的路径。带重建的重启会让
+// 接手进程「从 ops.next.exe 起来、随后被 ReplaceBinary 改名成 ops.exe」，此后它仍
+// 返回那个已经不存在的 next.exe。直接用它的后果是 compare-env / deploy / verify /
+// sync-env 全部以 "fork/exec ...: The system cannot find the file specified" 失败
+// （2026-11-06 真机：配置页的「远端值对照」就是这样挂的）。
+// 判据与 restart.TargetExe 一致：按 .next.exe 后缀归一化，但**优先用仍在的原路径** ——
+// next.exe 还在时它才是当前版本，别急着退回可能更旧的正式 exe。
+// 两个都不存在就原样返回，交给 exec 报出真实错误，不猜一个位置。
+func resolveBackupExe(exe string) string {
+	if exe == "" {
+		return exe
+	}
+	if _, err := os.Stat(exe); err == nil {
+		return exe
+	}
+	if normalized := restart.NormalizeExePath(exe); normalized != exe {
+		if _, err := os.Stat(normalized); err == nil {
+			return normalized
+		}
+	}
+	return exe
 }
 
 // backupSubprocessArgs 把界面选好的参数原样补成 CLI 参数。

@@ -256,7 +256,7 @@ cd /d "%~dp0" + chcp 65001
 > 一键完成，手动构建仍是 `cd web && npm test && npm run typecheck && npm run build`
 > → `go build -o ops.exe .`。
 
-### 4.2 七个已踩过的坑
+### 4.2 八个已踩过的坑
 
 | 坑 | 对策 |
 | :--- | :--- |
@@ -265,6 +265,7 @@ cd /d "%~dp0" + chcp 65001
 | 子进程 stdout 丢 | 后台 stdout/stderr 接到配置目录的日志，配轮转上限 |
 | `cmd /c` 剥引号 | 整行用 `/s /c ""<launcher>" --bg <args>"`，且必须走 `SysProcAttr.CmdLine`；`os/exec` 默认的 `\"` 转义 cmd 不认 |
 | 隐藏窗口 ≠ 无控制台 | `CREATE_NO_WINDOW (0x08000000)` 是「有控制台、没窗口」，cmd 与其子进程仍需能写 stdout |
+| 重启后点「检查」弹黑窗口 | 🔴 **隐藏守护有隐藏控制台，detached 接手进程没有控制台**。后者拉起 `ssh.exe` / `ops.exe` / `powershell` 这类控制台子程序时，Windows 会逐一新建**可见**控制台（每台机器两次 ssh：`id -u`、`sudo -n true`）。统一在 `shared.HideConsole`（`CREATE_NO_WINDOW + SW_HIDE`）里挡掉：ssh、备份子进程、建快捷方式的 PowerShell、重建命令都走它；`openfile.go` 早就避开 `cmd.exe` 是同一个理由。见 `internal/shared/console_windows.go` 与 [ui.md](ui.md) §11.4-5 |
 | 守护交给 cmd，不交给 Go | Windows 上双击 .cmd 必开控制台，用隐藏 cmd 重新执行启动器是最小改动；cmd 不持有 `ops.exe` 句柄，将来要做换身也不会把自己锁死 |
 | Go 的中文横幅在 GBK 控制台乱码 | 启动器开头 `chcp 65001 >nul`；`.cmd` 正文全是 ASCII，切代码页不影响批处理解析 |
 

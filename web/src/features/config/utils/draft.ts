@@ -1,19 +1,60 @@
 import type {
   BackupComponent,
+  CompareComponent,
   CompareField,
   CompareState,
+  CompareView,
   ConfigServer,
+  ConfigView,
   EnvField,
+  EnvView,
 } from '../types.ts'
 
 /**
- * 判定层：不碰 React / DOM，便于 node --test 直接跑。
+ * 判定层 + 响应归一化：不碰 React / DOM，便于 node --test 直接跑。
  *
  * 🔴 空值一律表示「保持不变」——凭证字段在页面上不回显明文，
  * 留空才不会把已配好的密码/私钥清空。想清空请直接改文件。
  */
 
 export type ConfirmKind = 'servers' | 'env' | 'sync'
+
+// ---- 后端响应归一化 ----
+
+/**
+ * 🔴 Go 的 encoding/json 把 **nil slice 编成 `null`**，不是 `[]`。
+ * 「远端值对照」抓取失败时后端只填 error、components 是 nil，页面直接
+ * `compare.components.find(...)` 会抛 "Cannot read properties of null (reading 'find')"，
+ * 整个界面被 ErrorBoundary 接成白屏（2026-11-06 真机）。
+ *
+ * 后端已改成恒回 `[]`；这里在**请求边界**再挡一层：浏览器可能还挂着旧 dist、
+ * 服务端可能是旧 exe，两边版本不一致时同样不许白屏。失败原因（error / fetched_at）
+ * 必须原样保留，页面要拿它显示「远端值暂不可用」。
+ */
+function list<T>(v: unknown): T[] {
+  return Array.isArray(v) ? (v as T[]) : []
+}
+
+export function normalizeConfigView(v: ConfigView | null | undefined): ConfigView {
+  const raw = (v ?? {}) as Partial<ConfigView>
+  return {
+    servers_file: raw.servers_file ?? '',
+    sync_enabled: raw.sync_enabled ?? false,
+    servers: list<ConfigServer>(raw.servers),
+    envs: list<EnvView>(raw.envs).map((e) => ({ ...e, fields: list<EnvField>(e.fields) })),
+  }
+}
+
+export function normalizeCompareView(v: CompareView | null | undefined): CompareView {
+  const raw = (v ?? {}) as Partial<CompareView>
+  return {
+    ...raw,
+    components: list<CompareComponent>(raw.components).map((c) => ({
+      ...c,
+      fields: list<CompareField>(c.fields),
+    })),
+  }
+}
 
 export function serverInitial(s: ConfigServer): Record<string, string> {
   return {

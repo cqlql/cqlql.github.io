@@ -3,6 +3,10 @@
 package restart
 
 import (
+	"pass-up/ops/internal/shared"
+)
+
+import (
 	"fmt"
 	"os"
 	"os/exec"
@@ -17,9 +21,9 @@ import (
 // 「重启成功了，活了两秒又没了」，而那时人已经离开现场了。
 const detachProcess = 0x00000008
 
-// createNoWindow 给构建命令一个**看不见**的控制台：有控制台、没窗口。
-// npm / go 都要能写 stdout（我们接进构建输出），但重启那几十秒里不该弹黑框。
-const createNoWindow = 0x08000000
+// 隐藏窗口的 CREATE_NO_WINDOW 口径统一放在 shared.HideConsole（见 console_windows.go），
+// 构建命令与 ssh / ops.exe 子进程都走它。隐藏守护要同时设 CmdLine，仍按同一口径
+// 在 ui/background_windows.go 里单独设置，别把两件事混成一个函数。
 
 // Spawn 拉起「接手进程」：exe 带 argv，且**不与本进程共享控制台**。
 //
@@ -48,8 +52,5 @@ func Spawn(exe string, argv []string, log *os.File) error {
 
 // Hide 让构建命令不弹窗口。非 Windows 上是空实现。
 func Hide(cmd *exec.Cmd) {
-	cmd.SysProcAttr = &syscall.SysProcAttr{
-		HideWindow:    true,
-		CreationFlags: createNoWindow,
-	}
+	shared.HideConsole(cmd)
 }

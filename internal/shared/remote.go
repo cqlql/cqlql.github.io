@@ -86,10 +86,18 @@ func (t *SSHTarget) sudoStdin(root bool) io.Reader {
 // 把排查方向带到了 sudoers 上，实际是网络/sshd 的问题。
 const sshExitTransport = 255
 
+// sshCommand 只构造、不执行：所有 ssh 子进程都从这一个出口走，
+// 「后台界面不弹黑窗口」的口径才不会漏掉某一条路径。见 HideConsole。
+func (t *SSHTarget) sshCommand(ctx context.Context, cmd string, root bool) *exec.Cmd {
+	c := exec.CommandContext(ctx, "ssh", t.sshArgs(t.rootWrap(cmd, root))...)
+	HideConsole(c)
+	return c
+}
+
 // Capture 用于只读检查：返回输出与退出码。非零退出码不算 Go 错误，
 // **但 255 例外**——那是 ssh 自身失败，不是远端命令的结论。
 func (t *SSHTarget) Capture(ctx context.Context, cmd string, root bool) (string, int, error) {
-	c := exec.CommandContext(ctx, "ssh", t.sshArgs(t.rootWrap(cmd, root))...)
+	c := t.sshCommand(ctx, cmd, root)
 	c.Stdin = t.sudoStdin(root)
 	out, err := c.CombinedOutput()
 	code := 0
@@ -111,7 +119,7 @@ func (t *SSHTarget) Capture(ctx context.Context, cmd string, root bool) (string,
 
 // Stream 用于安装 / 自检 / 首跑：输出直接给人看，stdin 可接 tar 流。
 func (t *SSHTarget) Stream(ctx context.Context, cmd string, root bool, stdin io.Reader) (int, error) {
-	c := exec.CommandContext(ctx, "ssh", t.sshArgs(t.rootWrap(cmd, root))...)
+	c := t.sshCommand(ctx, cmd, root)
 	if p := t.sudoStdin(root); p != nil {
 		c.Stdin = p
 	} else {

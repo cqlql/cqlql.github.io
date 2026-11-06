@@ -260,7 +260,8 @@ type envField struct {
 // 文件不存在时按模板返回一组空字段，让人可以直接在页面填出一份新配置。
 func readEnvFields(path string, defs []envKeyDef) ([]envField, map[string]bool, error) {
 	existing := map[string]bool{}
-	var fields []envField
+	// 恒非 nil：JSON 里的 null 会被前端当数组用（env.fields.map），契约见 config_compare.go。
+	fields := make([]envField, 0, len(defs))
 	raw, err := os.ReadFile(path)
 	if err != nil && !os.IsNotExist(err) {
 		return nil, nil, fmt.Errorf("读取备份配置失败：%w", err)

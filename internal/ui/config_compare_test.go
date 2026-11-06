@@ -115,6 +115,81 @@ func TestConfigCompareAPI(t *testing.T) {
 	}
 }
 
+// 契约测试：不管抓没抓到远端，响应里的数组字段都必须是 JSON 数组而不是 null。
+// 前端在请求边界也归一化了一层，但「后端给出 null」本身不该发生 —— 否则
+// 任何新加的字段/页面都可能再踩一次 "Cannot read properties of null"。
+func TestConfigCompareArrayContract(t *testing.T) {
+	cases := []struct {
+		name string
+		out  string
+		code int
+	}{
+		{"抓取失败", "ERROR: 远端连不上\n", 1},
+		{"结果无法解析", "not json at all", 0},
+		{"成功但组件没有字段", `{"components":[{"component":"pg","path":"/opt/backup.env","fields":[]}]}`, 0},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			u, _ := configState(t)
+			u.runner = func(_ []string, _ string, out io.Writer) int {
+				_, _ = io.WriteString(out, tc.out)
+				return tc.code
+			}
+			w := serve(u, http.MethodGet, "/api/config/compare?component=pg&name=bk&token=tok", nil)
+			if w.Code != http.StatusOK {
+				t.Fatalf("compare = %d：%s", w.Code, w.Body.String())
+			}
+			var envelope struct {
+				Data map[string]json.RawMessage `json:"data"`
+			}
+			if err := json.Unmarshal(w.Body.Bytes(), &envelope); err != nil {
+				t.Fatal(err)
+			}
+			assertJSONArray(t, envelope.Data["components"], "data.components")
+			var comps []map[string]json.RawMessage
+			if err := json.Unmarshal(envelope.Data["components"], &comps); err != nil {
+				t.Fatal(err)
+			}
+			for _, c := range comps {
+				assertJSONArray(t, c["fields"], "components[i].fields")
+			}
+			if tc.code != 0 && len(envelope.Data["error"]) == 0 {
+				t.Error("失败原因没回给页面")
+			}
+		})
+	}
+}
+
+func TestConfigViewArrayContract(t *testing.T) {
+	u, _ := configState(t)
+	w := serve(u, http.MethodGet, "/api/config?token=tok", nil)
+	if w.Code != http.StatusOK {
+		t.Fatalf("view = %d：%s", w.Code, w.Body.String())
+	}
+	var envelope struct {
+		Data map[string]json.RawMessage `json:"data"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &envelope); err != nil {
+		t.Fatal(err)
+	}
+	assertJSONArray(t, envelope.Data["servers"], "data.servers")
+	assertJSONArray(t, envelope.Data["envs"], "data.envs")
+	var envs []map[string]json.RawMessage
+	if err := json.Unmarshal(envelope.Data["envs"], &envs); err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range envs {
+		assertJSONArray(t, e["fields"], "envs[i].fields")
+	}
+}
+
+func assertJSONArray(t *testing.T, raw json.RawMessage, field string) {
+	t.Helper()
+	if len(raw) == 0 || raw[0] != '[' {
+		t.Errorf("%s 必须是 JSON 数组，实际是 %q", field, string(raw))
+	}
+}
+
 func TestConfigCompareFailures(t *testing.T) {
 	u, _ := configState(t)
 	u.runner = func(_ []string, _ string, out io.Writer) int {

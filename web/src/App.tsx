@@ -107,14 +107,17 @@ export default function App() {
                 {actions}
               </Layout.Header>
               <Layout.Content className="app-content">
+                {/* 每页一个错误边界：某一页渲染炸了只换掉那一页，
+                    顶部工具栏（尤其「重启」）和另外两页还得留着，否则白屏后没法自救。
+                    外层那个 ErrorBoundary 是兜底，正常情况轮不到它。 */}
                 <div className="app-pane" hidden={page !== 'servers'}>
-                  <ServersPage />
+                  <ErrorBoundary><ServersPage /></ErrorBoundary>
                 </div>
                 <div className="app-pane" hidden={page !== 'backup'}>
-                  {visited.includes('backup') && <BackupPage />}
+                  {visited.includes('backup') && <ErrorBoundary><BackupPage /></ErrorBoundary>}
                 </div>
                 <div className="app-pane" hidden={page !== 'config'}>
-                  {visited.includes('config') && <ConfigPage />}
+                  {visited.includes('config') && <ErrorBoundary><ConfigPage /></ErrorBoundary>}
                 </div>
               </Layout.Content>
             </Layout>

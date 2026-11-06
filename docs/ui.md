@@ -427,6 +427,15 @@ POST /api/restart           → {"rebuild":bool,"confirm":"sha256:…"}
    另外 `os.Executable()` 在 Windows 上返回**进程映像加载时**的路径：一个「从 next.exe
    起来、再改名成 ops.exe」的进程仍返回 next.exe，所以 `TargetExe()` 必须走
    `NormalizeExePath`（按 `.next.exe` 后缀判，不靠探测文件在不在）。
+   ⚠️ 同一个坑不止影响重启自己：`backuprun.go` 的 `runBackupSubprocess` 也按
+   `os.Executable()` 起 CLI 子进程，换身后不归一化就会让 `compare-env` /
+   `deploy` / `verify` / `sync-env` 全部报「找不到 ops.next.exe」（2026-11-06 真机，
+   症状是配置页白屏）。现在由    `resolveBackupExe` 优先用仍在的原路径、原路径没了
+   才按后缀落到正式 exe；单测在 `backuprun_test.go`。
+   ⚠️ 同一个接手进程还是 `DETACHED_PROCESS`，**没有控制台**：它拉起的 ssh / ops.exe /
+   powershell 都会各自新建一个可见黑窗口（点「检查」时最明显，一台机器闪两次）。
+   现在所有后台子命令统一走 `shared.HideConsole`（`CREATE_NO_WINDOW + SW_HIDE`），
+   口径与隐藏守护一致，判据见 [one-click-launch.md](one-click-launch.md) §4.2。
 
 ### 11.5 回归要点
 
@@ -529,6 +538,15 @@ ops backup sync-env [pg|minio|all] --server <name>
 1. 「仅远端有」的键在编辑表单里**没有输入框**（如 `PG_LOCAL_RETENTION_DAYS`），
    收进底部折叠区；且 `sync-env` 是**整份覆盖**，这些项会随同步从远端消失。
 2. 凭证只能看出「变了」，看不出「变成了什么」——私钥路径/密码永远不回显。
+3. 🔴 **失败响应的数组字段必须是 `[]`，不能是 `null`**。Go 把 nil slice 编成 `null`，
+   而抓取失败时视图只填了 `error`、`components` 还是 nil；页面一句
+   `compare.components.find(...)` 就抛 `Cannot read properties of null (reading 'find')`，
+   配置页整个白屏（2026-11-06 真机，正是「远端抓不到」时最容易撞上）。
+   所有返回路径都从 `emptyCompareView()` 起，`component.fields` 同理；前端在
+   `configApi` 的请求边界再用 `normalize*View` 挡一层（旧 dist / 旧 exe 混跑时也要活着）。
+   失败原因照旧放 `data.error`，页面显示「远端值暂不可用」而不是白屏。
+   顺带把 `ErrorBoundary` 下沉到每个页面：一页崩了顶部工具栏（尤其「重启」）还在，
+   白屏时才有自救的入口。
 
 **交互原型**：[config-compare.html](config-compare.html) 是本节设计阶段的**静态交互原型**
 （单文件 HTML，双击即可打开，无需构建）。它用假数据演示四种 `state`、输入框下方的就地对照
@@ -538,11 +556,13 @@ ops backup sync-env [pg|minio|all] --server <name>
 
 ### 12.6 回归要点
 
-- `go test ./internal/ui ./internal/backup`：凭证脱敏、值转义（含 `$(id)`）、
+- `go test ./internal/ui ./internal/backup .`：凭证脱敏、值转义（含 `$(id)`）、
   未知键 / 换行拒绝、清单保留未知字段、非法 `sudo.mode` 不落盘、`.bak`、二次确认、
-  未知 name 404、任务忙 409、占位符拒绝同步、runner 参数 `sync-env pg --server <name>`；
+  未知 name 404、任务忙 409、占位符拒绝同步、runner 参数 `sync-env pg --server <name>`、
+  **对照接口失败/解析失败时数组仍是 `[]`**、**`resolveBackupExe` 换身后落到正式 exe**；
 - `cd web && npm test && npm run typecheck && npm run build`：`config.test.ts` 的
-  「空值 = 保持不变」「只提交改动字段」「保存本机 ≠ 同步远端」；
+  「空值 = 保持不变」「只提交改动字段」「保存本机 ≠ 同步远端」
+  与「`components: null` / `fields: null` 不白屏」；
 - 真机：临时配置目录起实例 → 点「配置」→ 改一项非凭证值保存，核对文件与 `.bak` →
   改 `user` 后确认提示重新免密 sudo → 点「同步到远端」后到目标机核对 `backup.env`
   内容与 0600 权限，且 crontab / 脚本 mtime 没变。

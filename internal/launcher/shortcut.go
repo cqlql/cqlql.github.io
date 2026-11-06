@@ -273,6 +273,8 @@ func runPowerShell(script string) (string, error) {
 		exe = "pwsh"
 	}
 	cmd := exec.Command(exe, "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", script)
+	// 界面上点「创建桌面快捷方式」时，后台进程拉起的 PowerShell 不该弹黑窗口。
+	shared.HideConsole(cmd)
 	var out, errOut strings.Builder
 	cmd.Stdout = &out
 	cmd.Stderr = &errOut

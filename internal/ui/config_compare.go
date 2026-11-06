@@ -48,6 +48,14 @@ type configCompareView struct {
 	FetchedAt  string                 `json:"fetched_at,omitempty"`
 }
 
+// 🔴 数组字段恒为**非 nil**：Go 把 nil slice 编成 JSON `null`，而前端按数组取
+// （compare.components.find / component.fields.filter），抓不到远端时只填 Error
+// 就会把配置页整个炸成白屏（2026-11-06 真机："Cannot read properties of null
+// (reading 'find')"）。所有返回路径——包括各种失败——都从 emptyCompareView 起。
+func emptyCompareView() configCompareView {
+	return configCompareView{Components: make([]componentCompareView, 0, 2)}
+}
+
 // 与 internal/backup/compareenv.go 的输出逐字对应。
 type cliEnvField struct {
 	Key         string `json:"key"`
@@ -105,9 +113,9 @@ func (u *uiState) handleConfigCompare(w http.ResponseWriter, r *http.Request) {
 	}
 	// 失败也回 200：抓不到远端是**业务结果**，页面要显示原因而不是一句 HTTP 错误。
 	if code != 0 {
-		writeAPI(w, http.StatusOK, apiResponse{OK: true, Data: configCompareView{
-			Error: strings.TrimSpace(raw),
-		}})
+		view := emptyCompareView()
+		view.Error = strings.TrimSpace(raw)
+		writeAPI(w, http.StatusOK, apiResponse{OK: true, Data: view})
 		return
 	}
 	// CLI 理论上只输出一行 JSON；保险起见从第一个 { 截起。
@@ -116,13 +124,14 @@ func (u *uiState) handleConfigCompare(w http.ResponseWriter, r *http.Request) {
 	}
 	var snap cliEnvSnapshot
 	if err := json.Unmarshal([]byte(raw), &snap); err != nil {
-		writeAPI(w, http.StatusOK, apiResponse{OK: true, Data: configCompareView{
-			Error: "抓取结果无法解析（界面与 CLI 版本可能不一致）",
-		}})
+		view := emptyCompareView()
+		view.Error = "抓取结果无法解析（界面与 CLI 版本可能不一致）"
+		writeAPI(w, http.StatusOK, apiResponse{OK: true, Data: view})
 		return
 	}
 
-	view := configCompareView{FetchedAt: time.Now().Format("15:04:05")}
+	view := emptyCompareView()
+	view.FetchedAt = time.Now().Format("15:04:05")
 	for _, cs := range snap.Components {
 		localPath := cfg.PGEnvFile
 		if cs.Component == "minio" {
@@ -182,7 +191,12 @@ func mergeCompare(cs cliEnvComponent, localPath string, localRaw map[string]stri
 	sort.Strings(extra)
 	keys = append(keys, extra...)
 
-	out := componentCompareView{Component: cs.Component, RemotePath: cs.Path, LocalPath: localPath}
+	out := componentCompareView{
+		Component:  cs.Component,
+		RemotePath: cs.Path,
+		LocalPath:  localPath,
+		Fields:     make([]compareFieldView, 0, len(keys)),
+	}
 	for _, k := range keys {
 		label, group := k, "其它"
 		for _, d := range defs {
