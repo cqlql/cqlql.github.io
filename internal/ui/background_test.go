@@ -65,7 +65,7 @@ func TestCmdUIRoutesBackgroundBeforeFlagParsing(t *testing.T) {
 	s := stubSideEffects(t)
 	stubSingleton(t, true)
 	launcher := `D:\_work\pass-up\pass-up.ops\启动运维.cmd`
-	if rc := CmdUI([]string{"--background", "--launcher", launcher}, fstest.MapFS{}, nil); rc != 0 {
+	if rc := CmdUI([]string{"--background", "--launcher", launcher}, fstest.MapFS{}, nil, nil); rc != 0 {
 		t.Fatalf("CmdUI --background = %d，想要 0", rc)
 	}
 	if len(s.spawned) != 1 {

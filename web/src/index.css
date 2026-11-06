@@ -70,3 +70,135 @@ pre {
 .ant-table-cell code {
   word-break: break-all;
 }
+
+/* ---- 左侧导航外壳：侧栏全高、内容区独立滚动，内边距仍归 .page 管 ---- */
+.app-shell {
+  display: flex;
+  flex-direction: row;
+  height: 100%;
+  min-height: 100vh;
+  background: var(--ops-bg);
+}
+
+/* 高度必须按视口给：antd Sider 自己不撑满，只按内容高，白底会在菜单下方断掉。 */
+.app-sider {
+  flex-shrink: 0;
+  height: 100vh;
+  position: sticky;
+  top: 0;
+  background: #fff !important;
+  border-right: 1px solid #e3e6ea;
+}
+
+.app-brand {
+  padding: 20px 20px 16px;
+  font-size: 15px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* 侧栏已有右边框，别再让 inline Menu 自带一条。 */
+.app-sider .app-menu {
+  border-inline-end: 0 !important;
+  background: transparent;
+}
+
+.app-sider .app-menu .ant-menu-item {
+  margin: 4px 8px;
+  width: calc(100% - 16px);
+  border-radius: 8px;
+}
+
+.app-content {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 100%;
+  overflow: auto;
+}
+
+.app-pane[hidden] {
+  display: none;
+}
+
+/* 窄窗口：侧栏变顶部横条，两项菜单仍是一次点击可达。 */
+@media (max-width: 860px) {
+  .app-shell {
+    flex-direction: column;
+  }
+
+  .app-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    height: 52px;
+    padding: 0 12px;
+    background: #fff;
+    border-bottom: 1px solid #e3e6ea;
+    line-height: normal;
+  }
+
+  .app-header .app-brand {
+    padding: 0;
+  }
+
+  .app-header .app-menu {
+    flex: 1 1 auto;
+    min-width: 0;
+    border-bottom: 0 !important;
+    background: transparent;
+  }
+
+  .app-content {
+    height: auto;
+  }
+}
+
+/* ---- 备份能力部署 ---- */
+.backup-panel {
+  padding: 16px;
+  margin-bottom: 12px;
+}
+
+.backup-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px 28px;
+}
+
+.backup-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--ops-text);
+}
+
+.backup-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.backup-status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin: 0 0 12px;
+  color: var(--ops-muted);
+  font-size: 12px;
+}
+
+/* 日志是等宽文本；浅底 + 保留空白，跟整站 light 主题一致。 */
+.backup-log {
+  margin: 0;
+  padding: 12px 16px;
+  height: 320px;
+  overflow: auto;
+  background: #fbfcfd;
+  color: var(--ops-text);
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.6;
+}

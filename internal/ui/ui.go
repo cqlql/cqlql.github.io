@@ -60,15 +60,19 @@ type uiState struct {
 	// createShortcut 由 main.go 注入：真正的实现在 launcher（它要用 ui.IconBytes
 	// 写图标），而 ui 不能反向 import launcher。nil = 这个构建没有该能力。
 	createShortcut func() (shared.ShortcutInfo, error)
+	// runner 同样由 main.go 注入：备份部署的真正实现在 backup 包，ui 不能 import 它。
+	// task 是界面里唯一一个长任务的状态与日志（预检 / 安装 / 自检共用），见 backup.go。
+	runner BackupRunner
+	task   *backupTask
 }
 
 // exitProcess 是 /api/shutdown 的测试缝：生产环境就是 os.Exit。
 var exitProcess = os.Exit
 
-// CmdUI 启动只读界面。static 通常是根包的 webDist；createShortcut 由 main.go
-// 注入（实现是 launcher.CreateShortcutOnDesktop，ui 不能反向依赖它）。
-// 测试可以传 fstest.MapFS 与假的 createShortcut，不依赖「前端构建了没有」与真桌面。
-func CmdUI(args []string, static fs.FS, createShortcut func() (shared.ShortcutInfo, error)) int {
+// CmdUI 启动本机界面。static 通常是根包的 webDist；createShortcut 与 runner 由
+// main.go 注入（实现分别在 launcher / 根包，ui 不能反向依赖它们）。
+// 测试可以传 fstest.MapFS 与假实现，不依赖「前端构建了没有」、真桌面或真 SSH。
+func CmdUI(args []string, static fs.FS, createShortcut func() (shared.ShortcutInfo, error), runner BackupRunner) int {
 	// --background 必须在 flag 解析**之前**拦下：它要把后面的参数原样交给
 	// 隐藏守护，自己不参与 ui 的参数解析（也只活几百毫秒）。
 	if len(args) > 0 && args[0] == "--background" {
@@ -193,6 +197,8 @@ func CmdUI(args []string, static fs.FS, createShortcut func() (shared.ShortcutIn
 		files:          distFS(static),
 		setupErr:       setupErr,
 		createShortcut: createShortcut,
+		runner:         runner,
+		task:           &backupTask{},
 	}
 	fmt.Printf("服务器管理界面：%s\n", uiURL(actual, token))
 	if setupErr != nil {
@@ -250,7 +256,8 @@ func uiUsage() {
 第二种只由启动器调用：把界面交给隐藏的后台 cmd，自己立刻返回。
 已有实例时这两种都只会把浏览器指过去，不启第二个进程。
 
-只监听 127.0.0.1；地址带随机 token；写操作只接受清单里的 name。
+只监听 127.0.0.1；地址带随机 token；目标机只接受清单里的 name。
+页面上的备份部署要显式输入 yes，服务端先跑 --dry-run 预检；sudo 密码只经子进程 stdin。
 默认端口 7788，**被占用时自动往后递增**（同机其它工具也可能用 7788）；
 显式写了 --port 则严格绑定，被占直接报错，不偷偷换端口。
 --no-open 不自动打开浏览器（验收 / 脚本用）。
@@ -343,6 +350,10 @@ func (u *uiState) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		u.handleCheck(w, r)
 	case r.Method == http.MethodPost && r.URL.Path == "/api/apply-sudo":
 		u.handleApplySudo(w, r)
+	case r.Method == http.MethodPost && r.URL.Path == "/api/backup/run":
+		u.handleBackupRun(w, r)
+	case r.Method == http.MethodGet && r.URL.Path == "/api/backup/task":
+		u.handleBackupTask(w, r)
 	case r.Method == http.MethodPost && r.URL.Path == "/api/shortcut":
 		u.handleShortcut(w)
 	case r.Method == http.MethodPost && r.URL.Path == "/api/shutdown":
@@ -596,6 +607,12 @@ type applyRequest struct {
 func (u *uiState) handleApplySudo(w http.ResponseWriter, r *http.Request) {
 	u.opMu.Lock()
 	defer u.opMu.Unlock()
+	// 两个会改远端的动作不许并发：部署正在写 crontab / 目录时改 sudoers，
+	// 失败时根本分不清是哪一边把机器弄坏的。检查是只读，不受此限。
+	if u.backupBusy() {
+		writeAPI(w, http.StatusConflict, apiResponse{Error: "备份部署任务正在运行，等它结束再配置免密 sudo"})
+		return
+	}
 	var req applyRequest
 	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 1<<20))
 	if err != nil {

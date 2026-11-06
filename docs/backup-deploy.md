@@ -23,13 +23,18 @@
 
 ## 2. 与监控的边界
 
-| | 备份监控 | 本文 |
+| | 备份监控（只读） | 本文（安装） |
 | :--- | :--- | :--- |
 | 动作 | 只读采集 | 写目录 / crontab / logrotate |
 | 账号 | 清单的 `monitor`（只读） | 清单的 `user` + `sudo`（安装账号） |
-| 命令 | `status` / `ui` | `backup deploy` / `backup verify` |
+| 入口 | `status`（P2 规划）、界面默认视图、预检 `--dry-run`、`backup verify` | `ops backup deploy`、界面「备份能力部署」里输过 `yes` 的安装 |
 
-🔴 **`status` / `ui` 绝不触发安装**；安装只走显式的 `ops backup deploy`。
+🔴 **绝不自动触发安装**：双击落地页只读、`status` 只读；界面安装要人点按钮 + 输 `yes`
++ 服务端预检通过。**安装账号与只读账号绝不复用**。
+
+> **2026-11-05 改红线**：旧表述「`status` / `ui` 绝不触发安装」已作废 ——
+> `ui` 现在有**显式**安装入口（见 §10），但「绝不自动触发」这条不变。
+> 判据与新边界见 [ui.md](ui.md) §9 与 [AGENTS.md](../AGENTS.md) 硬约束 9/15/21。
 
 ## 3. 命令
 
@@ -42,8 +47,11 @@ ops backup deploy [pg|minio|all] [--server <name>] [--dry-run] [--force] [--run-
     --run-now       安装成功后立刻跑一次备份（默认关闭：这是写操作，且可能很重）
     --install-deps  安装缺失依赖（apt/dnf/yum；mc 官方下载失效时从本机 minio 镜像提取）；
                     --dry-run 下只报告不安装
+    --password-stdin
+                    从 stdin 读初始 sudo 密码（**没有 --password 参数**）；
+                    清单里已配 sudo.password 时以清单为准，界面部署走这条
 
-ops backup verify [pg|minio|all] [--server <name>]
+ops backup verify [pg|minio|all] [--server <name>] [--password-stdin]
     只跑远端 preflight_check.sh，不安装、不备份
 
 ops backup env [pg|minio|all]
@@ -161,6 +169,9 @@ P1 先于监控：装好后 `last_success.txt` 才会出现，`status` 才有东
 | 凭证泄露 | `backup.env` 只上传不回显；权限 `600`；私钥不搬运 |
 | 装完立刻跑全量备份 | `--run-now` 默认关闭；只在大盘/低峰时显式开启 |
 | 依赖缺失 | 默认只报告；显式 `--install-deps` 才 apt/dnf/yum 安装；`--dry-run` 永不安装 |
+| 界面误触安装 | 双击落地页只读；安装要切到「备份能力部署」页 + 输 `yes` + 服务端预检门（§10） |
+| 界面日志回显密码 | 只经子进程 stdin；任务日志按行脱敏、上限 256 KB；`ops-ui.log` 不记请求体 |
+| 刷新页面掐断远端安装 | 任务在后台 goroutine，不绑 `r.Context()`；页面回来后接着轮询日志 |
 | 卸载误删历史备份 | 本期不提供卸载命令，只给人工步骤 |
 
 ## 9. 决策与备选
@@ -172,3 +183,33 @@ P1 先于监控：装好后 `last_success.txt` 才会出现，`status` 才有东
 | tar 流上传 | 本机 `rsync` | Windows 开发机不一定有 rsync；tar 走 ssh stdin 更稳 |
 | 配置默认保留 | 每次都用本机配置覆盖 | 远端可能已人工修过；默认覆盖会造成静默变更 |
 | 依赖只报告 | 自动 apt/yum 安装 | 发行版与网络不确定；改为**显式 `--install-deps`** 才动包管理器 |
+| 界面复用 CLI 命令（起子进程） | 在 `ui` 里重写部署、或临时替换全局 `os.Stdout` | 一套逻辑不漂移；输出隔离；密码走 stdin；`ui` 不必反向 import `backup`（§10） |
+| 界面写操作要 `yes` + 服务端预检 | 只在前端弹窗确认 | 直接调 API 绕不过去；与 `--menu` 第 3 项同一条规则 |
+
+## 10. 从界面部署（2026-11-05 改红线）
+
+`ops ui` 的「备份能力部署」页与 CLI 走**同一条命令**，不是第二套实现：
+界面 → `POST /api/backup/run` → 根包 `backuprun.go` 再起一个自己执行
+`ops.exe backup deploy <组件> --server <name> [--dry-run] [--password-stdin]`，
+stdout/stderr 汇成任务日志，页面用 `GET /api/backup/task?after=N` 轮询增量。
+
+三个按钮：**备份部署预检**（`--dry-run`，只读）、**远端自检**（`verify`）、
+**安装 / 升级备份能力**（`deploy`，红色 + 二次确认）。
+
+🔴 六道门（[AGENTS.md](../AGENTS.md) 硬约束 21）：
+
+1. `mode=deploy` 必须带 `confirm:"yes"`，前端要手输 `yes`；
+2. 服务端先自己跑一遍 `--dry-run`，非 0 就不安装 —— 前端有没有点过预检都一样；
+3. `name` 只认 `servers.json`（未知返回 404），`component` 白名单 `all|pg|minio`；
+4. 初始 sudo 密码只在单次请求内存，经子进程 stdin 交给 CLI；日志按行脱敏成 `***`，任务结束清空；
+5. 任务脱离 HTTP 请求（**不用 `r.Context()`**）：刷新 / 关标签页不会掐断已开始的远端安装；
+   单任务互斥（并发 409），日志上限 256 KB；
+6. 界面不开放 `--force` / `--run-now` / `--install-deps`，需要时仍走 CLI 或 `--menu`。
+
+**为什么用子进程**：`CmdBackup` 的输出全是 `fmt.Print*` 打到 `os.Stdout`，
+网页要拿日志就得改 30 多处输出、或临时替换全局 stdout（并发不安全）。
+再起一个自己既隔离了输出、又让密码天然走 stdin，还保住了依赖方向
+（执行器 `BackupRunner` 由 `main.go` 注入，`ui` 不 import `backup`）。见 [ui.md](ui.md) §9。
+
+**验收要点**：预检失败时日志里必须有「预检没过」且**只调用了一次**命令；
+日志里搜不到明文密码；安装途中刷新页面，回来仍能接着看日志直到完成。

@@ -96,7 +96,7 @@ func CmdMenu(args []string, exec func([]string) int, probe func(string) bool) in
 
 func runMenu(m *menu, probe func(string) bool) int {
 	for {
-		fmt.Fprintln(m.out, "\nPass-up 本地运维菜单（双击不会触发写操作）")
+		fmt.Fprintln(m.out, "\nPassUp 本地运维菜单（双击不会触发写操作）")
 		for _, item := range menuItems(probe) {
 			fmt.Fprintf(m.out, "  %s. %s\n", item.Key, item.label)
 		}

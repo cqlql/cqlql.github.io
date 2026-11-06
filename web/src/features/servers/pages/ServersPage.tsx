@@ -163,7 +163,7 @@ export function ServersPage() {
     <div className="page">
       <header className="page-head">
         <div>
-          <h1>Pass-up 服务器管理</h1>
+          <h1>服务器管理</h1>
           <div className="page-meta">
             清单：<span>{data?.servers_file ?? (loading ? '加载中…' : '加载失败')}</span>
           </div>

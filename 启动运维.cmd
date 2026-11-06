@@ -1,7 +1,7 @@
 @echo off
 setlocal
 rem ============================================================================
-rem  Pass-up ops launcher -- double-click this file.
+rem  PassUp ops launcher -- double-click this file.
 rem
 rem  No args  -> start the WEB UI in the background: a HIDDEN cmd keeps
 rem              `ops ui` alive, the browser opens with a fresh token, and this
@@ -31,7 +31,7 @@ rem Go prints UTF-8; the default Windows console codepage (936) shows it as
 rem mojibake. All comments and echoes in this file are ASCII, so switching the
 rem codepage here is safe for the batch parser itself.
 chcp 65001 >nul
-title Pass-up ops
+title PassUp ops
 cd /d "%~dp0"
 
 set "OPS_EXE=%~dp0ops.exe"

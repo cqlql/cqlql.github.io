@@ -26,14 +26,17 @@ func commandHandler(name string) (func([]string) int, bool) {
 	case "servers":
 		return servers.CmdServers, true
 	case "ui":
-		// 前端产物在根包（webdist.go）嵌入，注入给 ui 包 —— embed 路径不能有 `..`，
-		// 而 ui 包拿到的是 fs.FS，测试因此可以塞 fstest.MapFS。
-		// 桌面快捷方式的实现在 launcher（它要用 ui.IconBytes），这里注入：
-		// 让 ui 反向 import launcher 会成环。
+		// 三样东西从根包注入，ui 自己一个都不 import（依赖方向见 AGENTS.md）：
+		//   - webDist：前端产物（embed 路径不能有 `..`，ui 收 fs.FS 便于测试塞 MapFS）；
+		//   - 快捷方式实现：真正代码在 launcher（它要用 ui.IconBytes），反向引用会成环；
+		//   - 备份部署执行器：ui 不能 import backup，函数值由这里递进去。
 		return func(a []string) int {
-			return ui.CmdUI(a, webDist, func() (shared.ShortcutInfo, error) {
-				return launcher.CreateShortcutOnDesktop(launcher.DefaultShortcutName)
-			})
+			return ui.CmdUI(a, webDist,
+				func() (shared.ShortcutInfo, error) {
+					return launcher.CreateShortcutOnDesktop(launcher.DefaultShortcutName)
+				},
+				runBackupSubprocess,
+			)
 		}, true
 	case "backup":
 		// 备份脚本（deploy/backup）在根包（backupdist.go）嵌入，注入给 backup 包 ——
@@ -75,7 +78,7 @@ func run(args []string) int {
 }
 
 func usage() {
-	fmt.Print(`Pass-up 本地运维工具
+	fmt.Print(`PassUp 本地运维工具
 
 用法:
   ops init                               生成 ops.env / servers.json 模板
@@ -83,6 +86,7 @@ func usage() {
   ops servers check [name|all] [--json]  只读检查 SSH 与免密 sudo
   ops servers apply-sudo <name>          一键配置免密 sudo（写操作）
   ops ui [--port 7788] [--no-open]       本机界面（只监听 127.0.0.1；端口被占自动递增）
+                                         服务器清单 / 检查只读；备份部署需显式二次确认
   ops shortcut [--name <名字>] [--remove]
                                          创建/删除桌面快捷方式（仅 Windows）
   ops menu                               交互菜单（启动器双击入口）

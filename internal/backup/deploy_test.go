@@ -17,6 +17,41 @@ import (
 	"testing/fstest"
 )
 
+// 界面部署把 sudo 密码经 stdin 喂给 --password-stdin；
+// 🔴 不存在 --password 这种会把密码写进命令行 / ps 的参数。
+func TestParseDeployArgsPasswordStdin(t *testing.T) {
+	opt, err := parseDeployArgs([]string{"pg", "--server", "bk", "--dry-run", "--password-stdin"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !opt.passwordStdin || !opt.dryRun || opt.Server != "bk" {
+		t.Errorf("选项解析不对：%+v", opt)
+	}
+	if _, err := parseDeployArgs([]string{"--password", "secret"}); err == nil {
+		t.Error("不该存在 --password 参数")
+	}
+}
+
+func TestReadSudoPasswordFromStdin(t *testing.T) {
+	old := os.Stdin
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	os.Stdin = r
+	t.Cleanup(func() { os.Stdin = old })
+	defer r.Close()
+	if _, err := io.WriteString(w, "hunter2\n"); err != nil {
+		t.Fatal(err)
+	}
+	_ = w.Close()
+
+	pw, err := readSudoPassword()
+	if err != nil || pw != "hunter2" {
+		t.Errorf("readSudoPassword() = %q, %v，想要 hunter2", pw, err)
+	}
+}
+
 // 默认（未配 SRC_DIR）必须用嵌入的脚本树，ops.exe 才能单独拷走使用。
 func TestScriptFSDefaultsToEmbedded(t *testing.T) {
 	emb := fstest.MapFS{

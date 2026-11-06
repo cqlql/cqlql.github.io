@@ -6,11 +6,13 @@ import (
 
 import (
 	"archive/tar"
+	"bufio"
 	"bytes"
 	"compress/gzip"
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path"
@@ -116,12 +118,36 @@ func (c component) envFile(cfg *shared.Config) string {
 }
 
 type deployOptions struct {
-	comps       []component
-	Server      string
-	dryRun      bool
-	force       bool
-	runNow      bool
-	installDeps bool
+	comps         []component
+	Server        string
+	dryRun        bool
+	force         bool
+	runNow        bool
+	installDeps   bool
+	passwordStdin bool
+}
+
+// readSudoPassword 从 stdin 读一行初始 sudo 密码。
+//
+// 🔴 只有 `--password-stdin`，**没有 `--password`**：密码不能出现在命令行 / ps / 日志里。
+// 网页部署走的也是这条路（界面把密码喂给子进程的 stdin，见 docs/ui.md §9）。
+// 清单里已经配了 sudo.password 时以清单为准，避免手输错覆盖掉能用的凭据。
+func readSudoPassword() (string, error) {
+	line, err := bufio.NewReader(os.Stdin).ReadString('\n')
+	if err != nil && !errors.Is(err, io.EOF) {
+		return "", fmt.Errorf("读取密码失败：%w", err)
+	}
+	pw := strings.TrimRight(line, "\r\n")
+	if pw == "" {
+		return "", fmt.Errorf("stdin 没有读到 sudo 密码")
+	}
+	return pw, nil
+}
+
+func applySudoPassword(t *shared.SSHTarget, stdinPassword string) {
+	if t.SudoPassword == "" {
+		t.SudoPassword = stdinPassword
+	}
 }
 
 func parseDeployArgs(args []string) (deployOptions, error) {
@@ -138,6 +164,8 @@ func parseDeployArgs(args []string) (deployOptions, error) {
 			opt.runNow = true
 		case a == "--install-deps":
 			opt.installDeps = true
+		case a == "--password-stdin":
+			opt.passwordStdin = true
 		case a == "--server":
 			if i+1 >= len(args) {
 				return opt, fmt.Errorf("--server 缺少参数")
@@ -217,6 +245,14 @@ func runBackupDeploy(args []string, embedded fs.FS) int {
 	}
 
 	t := shared.NewSSHTarget(srv)
+	if opt.passwordStdin {
+		pw, err := readSudoPassword()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
+			return 1
+		}
+		applySudoPassword(t, pw)
+	}
 	root := context.Background()
 
 	ctx, cancel := context.WithTimeout(root, timeoutPrecheck)
@@ -557,7 +593,8 @@ func checkAccess(t *shared.SSHTarget, ctx context.Context) error {
 	}
 	if code != 0 {
 		return fmt.Errorf("sudo 不可用（exit %d）：%s\n"+
-			"先运行 ops servers apply-sudo <name> 配置免密 sudo，或在清单里填 sudo.password",
+			"先运行 ops servers apply-sudo <name> 配置免密 sudo，"+
+			"或在清单里填 sudo.password，或加 --password-stdin",
 			code, strings.TrimSpace(sudoOut))
 	}
 	return nil
@@ -1024,6 +1061,7 @@ func excludedBackupFile(base string) bool {
 func runBackupVerify(args []string) int {
 	comps := []component{compPG, compMinio}
 	serverName := ""
+	passwordStdin := false
 	for i := 0; i < len(args); i++ {
 		a := args[i]
 		switch {
@@ -1039,6 +1077,8 @@ func runBackupVerify(args []string) int {
 			serverName = args[i]
 		case strings.HasPrefix(a, "--server="):
 			serverName = strings.TrimPrefix(a, "--server=")
+		case a == "--password-stdin":
+			passwordStdin = true
 		case strings.HasPrefix(a, "-"):
 			fmt.Fprintf(os.Stderr, "ERROR: 未知参数：%s\n", a)
 			return 2
@@ -1067,6 +1107,14 @@ func runBackupVerify(args []string) int {
 		return 1
 	}
 	t := shared.NewSSHTarget(srv)
+	if passwordStdin {
+		pw, err := readSudoPassword()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
+			return 1
+		}
+		applySudoPassword(t, pw)
+	}
 	root := context.Background()
 
 	ctx, cancel := context.WithTimeout(root, timeoutPrecheck)
@@ -1193,5 +1241,8 @@ PASS_UP_OPS_BACKUP_SRC_DIR 覆盖成本机目录。
   --force         用本机 backup.env 覆盖远端已有配置（旧配置随 .old 目录保留）
   --run-now       安装成功后立即跑一次备份（写操作，可能较长时间）
   --install-deps  自动安装缺失依赖（apt/dnf/yum；mc 从官方地址下载）
+  --password-stdin
+                  从 stdin 读初始 sudo 密码（没有 --password 参数）；
+                  清单里已配 sudo.password 时以清单为准，界面部署走这条
 `)
 }

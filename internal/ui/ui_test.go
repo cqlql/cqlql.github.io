@@ -253,7 +253,7 @@ func TestShortcutReturnsPaths(t *testing.T) {
 	u := newState(t, fakeDist(t))
 	u.createShortcut = func() (shared.ShortcutInfo, error) {
 		return shared.ShortcutInfo{
-			Path:     `C:\Users\x\Desktop\Pass-up · 运维.lnk`,
+			Path:     `C:\Users\x\Desktop\PassUp · 运维.lnk`,
 			Launcher: `D:\_work\pass-up\pass-up.ops\启动运维.cmd`,
 			Icon:     `C:\Users\x\AppData\Roaming\pass-up\ops.ico`,
 		}, nil

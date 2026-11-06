@@ -1,12 +1,17 @@
-> 状态：**现行**（2026-11-05 起）。界面已从「单文件 `index.html` + 原生 JS」迁到
-> Vite + TypeScript + React + antd，产物构建后嵌入二进制；鉴权模型没变。
+> 状态：**现行**（2026-11-05 起；2026-11-06 导航由顶部 Tabs 改为左侧 Sider + Menu）。界面已从
+> 「单文件 `index.html` + 原生 JS」迁到 Vite + TypeScript + React + antd，产物构建后嵌入二进制；鉴权模型没变。
 > 同日起双击 `启动运维.cmd` 直接开这个页面（隐藏后台守护 + 单实例），形态见
 > [one-click-launch.md](one-click-launch.md) §4.4，本文只讲界面与接口。
-> 未实现的 P2/P3 页面按本文件 §7 的触发条件再加。
+> **同日新增「备份能力部署」页（第二个 feature）**：预检 / 安装 / 自检。
+> 🔴 红线由「界面只读」改为「**双击落地页只读 + 写操作显式二次确认 + 服务端预检门**」，
+> 见本文 §9；[AGENTS.md](../AGENTS.md) 硬约束 9/15/21 与
+> [backup-deploy.md](backup-deploy.md) §2/§10 已同步。
+> 未实现的 P2/P3 视图按本文件 §7 的触发条件再加。
 
 # 界面（`ops ui`）
 
-只读查看服务器清单与检查结果；会改远端的写操作只有「一键免密 sudo」一个，
+默认只读查看服务器清单与检查结果；会改远端的写操作有**两个**：「一键免密 sudo」与
+「安装 / 升级备份能力」（后者要输 `yes` 且过服务端预检门，见 §9）。
 另有 `POST /api/shutdown` 只关本机界面进程、不碰远端。
 接口、清单与 sudo 的规则分别见 [servers.md](servers.md) 与 [config.md](config.md)，本文只讲界面本身。
 
@@ -18,13 +23,15 @@ P3 的 `ops deploy`（步骤进度 + 实时日志）一定会来，届时这个�
 而它既没有类型、也没有一处可测的判定逻辑。
 
 迁移的判断是**成本随时间上升**：现在搬是搬一张表，晚点搬是搬一张表加两个复杂视图。
+P1 的「备份能力部署」比 P2/P3 先落地，正好验证了这个判断：第二个 feature 直接按同一套
+`api / service / utils / components / pages` 长出来，`node --test` 当天就多了 7 个用例。
 
 | 被否的方案 | 为什么不选 |
 | :--- | :--- |
 | 继续单文件，拆成 `index.html` + `app.js` + `app.css` | 零构建，但 P3 的步骤表格 / 日志流仍要手写，判定逻辑依旧没有测试 |
 | 服务端 `html/template` 渲染 | 模板只能出静态 HTML，弹窗与行内 loading 仍要 JS，等于两套渲染 |
 | Svelte / Vue（体积更小） | 与同机另一个本地工具 `wsl-manager/web` 技术栈不一致，跨项目复用的收益归零 |
-| 立刻加 `react-router` + `zustand` | 现在只有一页。加了只会多一个「刷新时 URL 上没有 token」的问题（见 §7） |
+| 立刻加 `react-router` + `zustand` | 当时只有一页。加了只会多一个「刷新时 URL 上没有 token」的问题（见 §7；两页后仍只用一个选中态外壳） |
 
 ## 2. 目录
 
@@ -40,10 +47,10 @@ web/                             前端源码（不在 internal/ 下，见 §3 �
   dist/                          构建产物：**不进 Git**，仓库里只有 .gitkeep
   src/
     main.tsx                     先接令牌，再挂载（顺序反了会先闪一次 401）
-    App.tsx                      ConfigProvider(zhCN) + ErrorBoundary + 页面
+    App.tsx                      ConfigProvider + ErrorBoundary + 左侧 Sider/Menu 导航外壳
     index.css                    全局样式（只此一份，没建 styles/ 目录）
     features/
-      servers/                   一个能力一个目录（将来 P2/P3 各一个兄弟目录）
+      servers/                   服务器管理（P0）
         api.ts                   只发请求：list / check / applySudo
         service.ts               编排：先检查 → 问密码 → apply → 失败回查
         types.ts                 与 Go 的 ServerInfo / ServerStatus 逐字对齐
@@ -52,6 +59,14 @@ web/                             前端源码（不在 internal/ 下，见 §3 �
         components/ServersTable.tsx   表格（只渲染，判定全在 utils/）
         pages/ServersPage.tsx    取数 + 拼装 + UI 状态（loading / busy / 弹窗）
         index.ts                 对外只导出 ServersPage
+      backup/                    备份能力部署（P1，同构的第二个 feature）
+        api.ts                   run / task / targets
+        service.ts               启动任务 + 增量日志轮询 + 页面重载后接回
+        types.ts                 与 Go 的 backupRunRequest / backupTaskView 对齐
+        utils/format.ts          阶段 → {text, tone}；组件中文；能否开始
+        components/BackupLog.tsx 日志容器（只渲染 + 自动滚动）
+        pages/BackupPage.tsx     表单 + yes/密码弹窗 + 任务状态
+        index.ts                 对外只导出 BackupPage
     shared/
       api/http.ts                唯一请求底座：令牌、信封、401、ApiError
       ui/ErrorBoundary.tsx       跨能力的渲染兜底
@@ -61,8 +76,9 @@ webdist.go                       //go:embed all:web/dist（根包，package main
 ```
 
 🔴 **没有 `router/`、顶层 `pages/`、`shared/domain/`、`hooks/`、`store/`** ——
-不是漏了，是母本第二节那条「目录是长出来的」：现在只有一页、一个能力、
-零个跨页面共享状态。出现第二个文件时才建目录，别为了结构完整先铺空壳。
+不是漏了，是母本第二节那条「目录是长出来的」：两个 feature 各管各的状态、
+零个跨页面共享状态，第二页用 `Sider + Menu` 的选中态切换即可（判据见 §7）。
+出现跨页面共享状态时才建目录，别为了结构完整先铺空壳。
 
 `features/servers/` 里为什么有 `service.ts`：`applySudo` 是「先检查 → 判断是否已配好 →
 问密码 → apply → 失败回查」的五步编排，属业务细节，不该写在页面里；
@@ -72,7 +88,7 @@ webdist.go                       //go:embed all:web/dist（根包，package main
 
 - 🔴 **`//go:embed` 的路径不能出现 `..`**，所以嵌 `web/dist` 的 Go 文件必须和 `web/` 同级 ——
   那就是仓库根的 `webdist.go`。`internal/ui/` 拿不到它，只能**接收**一个 `fs.FS`
-  （`ui.CmdUI(args, static)`）。副作用是好的：测试可以塞 `fstest.MapFS`，
+  （`ui.CmdUI` 的 `static fs.FS` 参数，另有两项能力注入见下）。副作用是好的：测试可以塞 `fstest.MapFS`，
   `go test ./...` 因此在全新 clone 上也绿，不依赖「前端构建了没有」。
 - 🔴 **`web/dist` 的真实产物不进 Git**，仓库里只有 `web/dist/.gitkeep`。
   原因有二：产物是构建输出（review 噪声、冲突无意义）；而目录**必须存在**，
@@ -94,13 +110,16 @@ webdist.go                       //go:embed all:web/dist（根包，package main
 | `/favicon.ico` | **否** | 图标字节与桌面快捷方式同源（`ui.IconBytes`），不含任何信息 |
 | 其它 `GET`（页面） | 是 | 401 回**中文说明页**：该用 CLI 打印的带 `?token=` 的地址打开 |
 | `/api/*` | 是 | 401 回 JSON 信封 `{"ok":false,"error":"token 无效"}` |
+| `/api/backup/run` | 是 | `POST`，额外校验 `Origin`；`mode=deploy` 必须带 `confirm:"yes"` 且过服务端预检门；只认清单 name（见 §9） |
+| `/api/backup/task` | 是 | `GET`，只读任务状态与增量日志；日志已脱敏，不含密码 |
 | `/api/shortcut` | 是 | `POST`，额外校验 `Origin`；只碰本机桌面（建 `.lnk`），**不依赖配置是否齐全** |
 | `/api/shutdown` | 是 | `POST`，额外校验 `Origin`；只结束**本机**界面进程（退出码 0），不改远端 |
 
 - 静态产物不过 token 是**有意的**：真正的边界是 API —— 拿不到 token 就调不通任何接口，
   页面本身只是空壳。服务只监听 `127.0.0.1`，见 AGENTS.md 硬约束 14。
 - 写操作额外校验 `Origin`：有 `Origin` 头且不等于本服务源 → 403（挡别的网页借浏览器打本机）。
-  `POST /api/shutdown` 也走这条，所以别的网页关不掉这个面板。
+  `POST /api/backup/run` / `POST /api/apply-sudo` / `POST /api/shortcut` / `POST /api/shutdown`
+  都走这条，所以别的网页既关不掉这个面板、也借它装不了备份能力。
 - token 只活在**内存 + 地址栏 + 配置目录的 `ui.json`（0600）**，不写 `localStorage`：
   `ops ui` 每次启动都换新 token，存进 localStorage 只会让人分不清「当前这个后端」和「上一个」。
   `ui.json` 是给第二次双击「把浏览器指回已有实例」用的，见 [config.md](config.md) §1。
@@ -132,11 +151,11 @@ cd web && npm install
 npm test && npm run typecheck && npm run build
 cd .. && go build -o ops.exe .
 
-ops ui                    # 前台：打印带 token 的地址并自动开浏览器
+ops ui                    # 前台：打印带 token 的地址并自动开浏览器（默认服务器管理页）
 ops ui --no-open          # 不自动开浏览器（验收 / 脚本）
 启动运维.cmd               # 双击：隐藏后台托管 + 自动开浏览器 + 单实例
 启动运维.cmd --fg         # 前台跑 ops ui，保留窗口看 stdout
-启动运维.cmd --menu       # 交互菜单（只读预检 / 远端自检等入口）
+启动运维.cmd --menu       # 交互菜单（预检 / 安装 / 自检；与界面同一条 CLI 命令）
 
 npm run dev        # 5175；/api 代理到 127.0.0.1:7788（先起 ops ui）
 ```
@@ -177,16 +196,102 @@ npm run dev        # 5175；/api 代理到 127.0.0.1:7788（先起 ops ui）
 
 | 加什么 | 触发条件 | 现在为什么没有 |
 | :--- | :--- | :--- |
-| `react-router` | 出现**第二页**，且需要「刷新后停在那页」或「把链接发给别人」 | 一页用不上；而路由会带来「刷新时 URL 丢了 token」的额外问题 |
-| `zustand`（或别的 store） | 三个以上视图共享异步状态 | 一个视图里 `useState` + `useCallback` 就够 |
+| `react-router` | 出现**第二页**，且需要「刷新后停在那页」或「把链接发给别人」 | 第二页（备份能力部署）已出现，但两个条件都不满足：本机回环 + 地址栏带一次性 token，链接发给别人也用不了；「刷新后停在哪个导航项」没有业务价值。用 `Sider + Menu` 的选中态切换，还顺带躲开「刷新时 URL 丢了 token」 |
+| `zustand`（或别的 store） | 三个以上视图共享异步状态 | 两个 feature 各管各的 `useState` + `useCallback`；任务日志是单视图内部状态，没有跨视图共享 |
 
 单页回退已经在 Go 侧做好了（非 `/api`、非 `/assets` 的 GET 都回 `index.html`），
-加视图时**不用动 Go**。
+加视图、加导航项都**不用动 Go**。
+
+**2026-11-06 起导航放左侧**：`Layout.Sider + Menu`（窗口 < 860px 退化成顶部横向 Menu）。
+两个视图是导航项，以后 P2 监控 / P3 部署加视图不用再往顶部标签栏里挤；
+窄窗口只是布局变化，切换仍是一次点击。访问过的页面保持挂载、非当前页用 `hidden` 藏起来，
+语义与原 `Tabs` 一致：切回来不重新取数，检查结果和备份任务日志都不丢。
+仍是**零路由**：选中态只在内存里，刷新回默认的服务器管理页。
 
 ## 8. 已知代价
 
-- 二进制约 +950 KB（gzip 后 303 KB），几乎全来自 antd。
+- 二进制约 +1007 KB（gzip 后 321 KB），几乎全来自 antd。
 - 构建从 1 步变 2 步；全新 clone 未构建时页面是「怎么构建」的说明页。
 - 多了一条 npm 依赖链，需要偶尔 `npm audit`。
+- 界面进程多了一份**内存里的任务日志**（上限 256 KB，不落盘、不进 `ops-ui.log`）；
+  一个界面同时只跑一个备份任务。
 - 换来的是：类型约束、组件现成、P3 的 `Steps` / `Progress` / 日志容器不用手写，
-  以及**判定与编排第一次有了测试**（`test/` 21 个用例，含 7 个走 service 流程的）。
+  以及**判定与编排第一次有了测试**（`test/` 28 个用例，其中 7 个覆盖 backup 的编排与判定）。
+
+---
+
+## 9. 备份能力部署（界面里的第二个写操作）
+
+> 2026-11-05 改红线。旧表述「`ops ui` 只读 / 安装只走 CLI 或 `--menu`」**已作废**；
+> 新边界是「**双击落地页只读，写操作必须显式二次确认 + 服务端门**」。
+> 同步改过的还有 [AGENTS.md](../AGENTS.md) 硬约束 9/15/21、
+> [backup-deploy.md](backup-deploy.md) §2/§10、[one-click-launch.md](one-click-launch.md) §1/§4.4/§5。
+
+### 9.1 为什么改，以及没改什么
+
+P1 的 `ops backup deploy` 早已实现并真机验证，却只能从命令行 / `--menu` 触发；
+双击打开的页面只能看清单，装机时还得另开一个窗口。把入口搬进页面是可用性问题，
+不是权限模型问题——只要**入口依旧是显式的**，就不该拦着。
+
+没改的三条：① 双击**不自动**触发任何写操作，落地页仍是服务器管理（只读）页；
+② 安装账号与只读账号不复用；③ 主机只来自 `servers.json`。
+变的只有一条：界面**允许**有安装入口，但它必须比 CLI 更严，而不是更松。
+
+### 9.2 六道门（服务端 enforce，前端只是交互）
+
+| # | 门 | 在哪 | 绕过会怎样 |
+| :--- | :--- | :--- | :--- |
+| 1 | `mode=deploy` 必须 `confirm:"yes"` | `handleBackupRun` | 直接调 API 返回 400，一次命令都不跑 |
+| 2 | 服务端先跑 `--dry-run`，非 0 不安装 | `runBackupTask` | 前端没点预检也拦得住；日志写「预检没过」 |
+| 3 | `name` 只认清单、`component` 只认 `all/pg/minio` | `handleBackupRun` | 未知 name → 404；不代理任意主机 |
+| 4 | 密码单次内存 → 子进程 stdin；日志按行脱敏 | `BackupRunner` / `backupLogWriter` | 明文不进命令行、不落盘、不进 `ops-ui.log` |
+| 5 | 任务脱离 `r.Context()`，单任务互斥，日志上限 256 KB | `backupTask` | 刷新页面不打断远端安装；并发 409 |
+| 6 | 不发 `--force` / `--run-now` / `--install-deps` | `backupCommandArgs` | 这几个仍是 CLI 专属 |
+
+另外所有写 `POST` 都过 token + `Origin`（§4）；部署期间点「一键免密 sudo」返回 409，
+避免两个写动作同时改远端、出事分不清是谁。
+
+### 9.3 接口与任务模型
+
+```
+POST /api/backup/run
+  { mode: "preflight"|"deploy"|"verify", name, component, password?, confirm? }
+  → { started, mode, server, component }        立刻返回，任务在后台 goroutine
+
+GET  /api/backup/task?after=N
+  → { running, done, mode, server, component, exit_code, log, next, started_at?, ended_at? }
+    log 是 after 之后的**增量**，next 原样喂给下一次请求（字节偏移，中文不会切坏）
+```
+
+`preflight` = `backup deploy --dry-run`（只读）、`verify` = `backup verify`，
+`deploy` = 服务端先 `--dry-run` 再 `backup deploy`。
+任务状态只在**内存**里，进程一退就没了；不做取消接口——杀本机进程不等于远端会回滚，
+给一个「取消」按钮只会让人误以为远端停了。
+
+### 9.4 为什么不重写部署逻辑
+
+`CmdBackup` 的输出全是 `fmt.Print*` 打到 `os.Stdout`。网页要日志，可选路径只有三条：
+
+| 方案 | 判定 |
+| :--- | :--- |
+| 给 `backup` 包加可注入 `io.Writer`，改 30 多处输出 | 侵入太大，动的是已真机验证的部署代码 |
+| 临时替换全局 `os.Stdout` 为 pipe | HTTP 并发下不安全，且会污染后台日志 |
+| **再起一个自己执行同一条 CLI 命令**（选中） | 输出天然隔离成任务日志；密码走 stdin；`ui` 不必 import `backup` |
+
+依赖方向仍是 `main → {ui, backup} → shared`：`main.go` 把
+`runBackupSubprocess`（根包 `backuprun.go`）作为 `BackupRunner` 函数值注入 `ui.CmdUI`，
+`ui` 只持有签名 `(args, password, out) → int`，测试塞假实现即可，不连 SSH、不起进程。
+
+### 9.5 刷新页面不会打断远端安装
+
+任务 goroutine 不绑 `r.Context()`：浏览器关标签页、切导航项、刷新，服务端照跑。
+页面重新挂载时 `resumeBackupTask` 先 `?after=0` 拿全量历史，发现 `running`
+就从 `next` 继续追增量（`web/src/features/backup/service.ts`）。
+StrictMode 下 effect 会跑两次，用递增的 `pollId` 让旧轮询自己退出，不会双份日志。
+
+### 9.6 验收 / 回归要点
+
+- `go test ./internal/ui`：确认门、预检门、未知 name 404、密码脱敏、并发 409、
+  apply-sudo 与部署互斥、增量日志；
+- `npm test`：`watchTask` 按 `next` 续传、`shouldStop` 只停轮询不停任务、重载后接回；
+- 真机：预检失败时远端文件没变；日志里搜不到明文密码；安装途中刷新，回来能看到完成。

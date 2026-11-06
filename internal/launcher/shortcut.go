@@ -20,7 +20,7 @@ import (
 const (
 	// DefaultShortcutName 是桌面快捷方式的默认名字：多项目共存时必须不同，
 	// 否则互相覆盖（见 docs/one-click-launch.md §6）。
-	DefaultShortcutName = "Pass-up · 运维"
+	DefaultShortcutName = "PassUp · 运维"
 	launcherName        = "启动运维.cmd"
 
 	desktopDirEnv = "PASS_UP_OPS_DESKTOP_DIR"
@@ -87,7 +87,7 @@ func shortcutUsage() {
   ops shortcut [--name <名字>] [--remove]
 
 在 Windows 桌面建一个指向仓库根 启动运维.cmd 的快捷方式。
---name   快捷方式名（默认 Pass-up · 运维），不含 .lnk
+--name   快捷方式名（默认 PassUp · 运维），不含 .lnk
 --remove 删除；本来就不存在不算错误
 非 Windows 平台明确报错，不假装创建了文件。
 `)

@@ -26,7 +26,7 @@ type Config struct {
 	MinioEnvFile string
 }
 
-const configTemplate = `# Pass-up 本地运维工具配置
+const configTemplate = `# PassUp 本地运维工具配置
 # 服务器清单（主机 / 用户 / 私钥 / sudo 凭据只写在这里指向的 JSON）
 # 留空使用默认路径：Windows %AppData%\pass-up\servers.json，其它 ~/.config/pass-up/servers.json
 PASS_UP_OPS_SERVERS_FILE=

@@ -14,7 +14,7 @@ import (
 )
 
 func TestValidateShortcutName(t *testing.T) {
-	valid := []string{"Pass-up · 运维", "中文 空格·中点", "O'Neil", "ops.ico.lnk"}
+	valid := []string{"PassUp · 运维", "中文 空格·中点", "O'Neil", "ops.ico.lnk"}
 	for _, name := range valid {
 		if err := validateShortcutName(name); err != nil {
 			t.Errorf("合法名字 %q 被拒绝：%v", name, err)
@@ -56,7 +56,7 @@ func TestFindUp(t *testing.T) {
 }
 
 func TestShortcutScriptEscaping(t *testing.T) {
-	lnk := `C:\Users\O'Neil\Desktop\Pass-up · 运维.lnk`
+	lnk := `C:\Users\O'Neil\Desktop\PassUp · 运维.lnk`
 	launcher := `D:\_work\pass-up\ops\` + launcherName
 	workdir := `D:\_work\pass-up\ops`
 	icon := `C:\Users\O'Neil\AppData\Roaming\pass-up\ops.ico`

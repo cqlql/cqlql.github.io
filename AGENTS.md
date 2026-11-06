@@ -7,6 +7,8 @@
 > S5 未做退出码 75 自重建与 `.new` 换身，源码改动仍要手动 `go build`（见 `docs/one-click-launch.md`）。
 > **2026-11-05 已按能力竖切 Go 包**：`main.go` 薄入口 + `internal/{shared,servers,backup,ui,launcher}`。
 > **2026-11-05 界面迁到 Vite + TS + React + antd**：源码在 `web/`，产物嵌进二进制（见 `docs/ui.md`）。
+> **2026-11-05 界面新增「备份能力部署」页（预检 / 安装 / 自检）**：红线已从
+> 「`ui` 只读」改为「**双击落地页只读，写操作必须显式二次确认**」，见 `docs/ui.md` §9。
 > **2026-11-05 备份脚本迁入本仓**：`deploy/backup/**` 从 `pass-up.backend` 整体搬来并
 > `//go:embed` 进二进制，`ops.exe` 不再依赖兄弟仓（见 `docs/backup-scripts.md`）。
 > 只放「每次动代码都要遵守」的红线：一句结论 + 一个指针。判据、流程、踩坑都在 `docs/`。
@@ -17,7 +19,8 @@
 - 本地单二进制运维工具，**已实现**：`ops servers list/check/apply-sudo` 管服务器与免密 sudo；
   `ops backup deploy/verify/env` 安装、升级、预检备份能力并生成配置模板
   （备份脚本本体就在本仓 `deploy/backup/`，编进二进制）；
-  `ops ui` 只读查看服务器清单与检查结果
+  `ops ui` 默认只读查看服务器清单与检查结果；「备份能力部署」页另有预检 / 安装 / 自检
+  三个显式入口（安装要输 yes，服务端先跑 `--dry-run`，见 `docs/ui.md` §9）
   （前端是 React 工程，源码 `web/`，构建后嵌入二进制）；
   双击 `启动运维.cmd` 直接开这个网页面板（后台隐藏守护 + 自动开浏览器 + 单实例）；
   `ops menu` 是显式的交互菜单入口，`ops shortcut` 建桌面 `.lnk`。见 `docs/one-click-launch.md`。
@@ -48,12 +51,14 @@
 7. 🔴 **Flyway 单向**：镜像可回滚，数据库不回滚；回滚后起不来要如实说明。
    详见 `docs/deploy.md`。
 8. 🔴 **私钥路径不打印**：可以写进配置，但不出现在任何输出、错误与日志。
-9. 🔴 **安装与监控分离**：只读命令（`ui`，以及 P2 规划中的 `status`）只看与检查；写 crontab /
-   logrotate / 目录 / sudoers 只走 `ops backup deploy` 或 `ops servers apply-sudo`，
-   **不复用只读账号**。
-   sudo 密码只经 **stdin**（CLI `--password-stdin` / 界面单次请求内存），
+9. 🔴 **安装账号与只读账号分离**：`status`（P2 规划）与界面**默认视图**只看与检查；
+   写 crontab / logrotate / 目录 / sudoers 只走显式动作（`ops backup deploy`、`ops servers apply-sudo`、
+   或界面「备份能力部署」里输过 yes 的安装），**不复用只读账号**。
+   🔴 界面**不会自动**触发安装：双击落地页仍是只读的，安装必须是人点按钮 + 二次确认
+   + 服务端预检门（判据见硬约束 21）。
+   sudo 密码只经 **stdin**（CLI `--password-stdin` / 界面单次请求内存 → 子进程 stdin），
    清单可选的 `sudo.password` 用完建议删除；**禁止 `--password` 参数**。
-   详见 `docs/backup-deploy.md`、`docs/servers.md`。
+   详见 `docs/backup-deploy.md` §2、`docs/servers.md`。
 10. 🔴 **`--dry-run` 不改远端**：即使同时给 `--install-deps` 也不安装，只报告缺失项。
 11. 🔴 **整目录切换必须保留未部署组件的 `backup.env`**：只部署 `pg` 时，`minio/backup.env`
     也要从旧目录搬进 `.new`，否则重部署单组件会丢另一组件配置（已踩过）。
@@ -67,11 +72,14 @@
     静态产物（`/assets/*`、`/favicon.ico`）**不过 token**（是代码不是数据，
     浏览器也带不上自定义头），真正的边界是 API；写操作必须 `POST`，
     且只接受清单里的 `name`（未知 name 返回 404，不代理任意主机）；
+    `POST /api/backup/run` 启动备份任务、`GET /api/backup/task` 轮询增量日志，两者同样要 token；
     `POST /api/shutdown` 是例外中的例外——纯本机动作，不涉及清单，只结束界面进程。
-    详见 `docs/ui.md` §4。
-15. 🔴 **双击不触发写操作**：双击直接开**只读**网页面板；唯一写（一键免密 sudo）要显式
-    点击 + 输密码，安装类动作仍走 `启动运维.cmd --menu` 的「预检通过 + 输入 yes」或命令行
-    显式调用。`.lnk` 只指启动器，图标是独立 `.ico`，名字必校验。详见 `docs/one-click-launch.md`。
+    详见 `docs/ui.md` §4 / §9。
+15. 🔴 **双击不触发写操作，写操作一律显式确认**：双击直接开**只读落地页**（服务器管理页）；
+    页面里的两个写动作——一键免密 sudo、安装 / 升级备份能力——都要人点按钮，
+    后者还要输 `yes` 且过服务端预检门（硬约束 21）。
+    命令行与 `启动运维.cmd --menu` 仍是等价入口，菜单第 3 项的「预检通过 + 输入 yes」不变。
+    `.lnk` 只指启动器，图标是独立 `.ico`，名字必校验。详见 `docs/one-click-launch.md`。
 16. 🔴 **前端产物不进 Git，但 `web/dist/.gitkeep` 必须进**：`//go:embed all:web/dist`
     在目录不存在时直接编译失败；真实产物由 `npm run build` 生成，`vite.config.ts`
     用 `emitFile` 重建那个占位（`emptyOutDir` 会删它）。详见 `docs/ui.md` §3。
@@ -92,6 +100,16 @@
     二进制，`backup.env` 一旦放回去就等于把数据库/MinIO 密码打进 exe。真实配置在配置目录
     `backup/{postgres,minio}.env`（模板 `ops backup env` 生成），打包时以 0600 单独注入；
     `.gitignore` 与 `backupdist_test.go` 各挡一道。
+21. 🔴 **界面备份部署必须过六道门**（2026-11-05 改红线后新增）：
+    ① `POST /api/backup/run` 的 `mode=deploy` 必须带 `confirm=="yes"`；
+    ② 服务端自己先跑一遍 `--dry-run`，非 0 就不安装（前端点了不算数）；
+    ③ `name` 只认 `servers.json`、`component` 只认 `all|pg|minio`；
+    ④ sudo 密码只在单次请求内存 → 子进程 stdin（`--password-stdin`），日志按行脱敏、任务结束清空；
+    ⑤ 任务**脱离 HTTP 请求**（禁用 `r.Context()`），刷新页面不打断已开始的远端安装；
+       单任务互斥（并发 409）、日志 `?after=` 增量轮询、上限 256 KB；
+    ⑥ 界面不开放 `--force` / `--run-now` / `--install-deps`，这些仍走 CLI。
+    `ui` **不 import `backup`**：执行器 `BackupRunner` 由 `main.go` 注入，根包 `backuprun.go`
+    再起一个自己执行同一条 CLI 命令（输出接任务日志）。详见 `docs/ui.md` §9。
 
 ## 命令与验证
 
@@ -111,6 +129,7 @@ ops servers check all
 ops servers apply-sudo <name> --password-stdin
 ops backup deploy --server <name> --dry-run
 ops backup deploy --server <name> --install-deps
+ops backup deploy --server <name> --password-stdin   # 初始 sudo 密码从 stdin 读（界面走这条）
 ops backup env
 ops backup verify --server <name>
 ops ui [--port 7788] [--no-open]
@@ -151,7 +170,7 @@ ops menu --help
   `func(n string) bool { _, ok := commandHandler(n); return ok }`；不要再抄一份动词表。
 - 🔴 **前端在 `web/`，不在 `internal/ui/`**：`//go:embed` 的路径不能出现 `..`，
   所以嵌 `web/dist` 的文件只能是仓库根的 `webdist.go`（`package main`），
-  `ui.CmdUI(args, static fs.FS)` **接收**它 —— `internal/ui/` 不再嵌页面。
+  `ui.CmdUI(args, static fs.FS, createShortcut, runner)` **接收**它 —— `internal/ui/` 不再嵌页面。
   别为了「放得整齐」把 `web/` 挪进 `internal/`：那样 `main.go` 就得反向依赖 `ui` 的私有目录。
 - 🔴 **备份脚本在 `deploy/backup/`，同样靠根包注入**：嵌入点是仓库根 `backupdist.go`
   （`//go:embed all:deploy/backup`），`backup.CmdBackup(args, scripts fs.FS)` 接收它。
@@ -159,17 +178,22 @@ ops menu --help
   `component.remoteDir()` / `installPath()` / `logrotateSrc()` 都按这个相对布局拼远端路径。
   脚本本体说明见 `docs/backup-scripts.md`，安装流程见 `docs/backup-deploy.md`。
 - `internal/ui/`：`ui.go`（服务端、token、`/api/shutdown`、配置降级页）、
+  `backup.go`（备份任务状态、`/api/backup/*`、预检门、日志脱敏）、
   `background.go`（`--background` 调度、`ui.json`、日志轮转、开浏览器）、
   `background_{windows,other}.go`（隐藏 cmd 守护，靠 build tag 切平台）、`ops.ico`；
   图标字节经 `ui.IconBytes` 导出给 `launcher` 写快捷方式，两处同源。
   `/favicon.ico` 直接读内存，不走 `dist`。
   🔴 **后台调度放 `ui` 包、不放 `launcher`**：`launcher → ui` 已有依赖，反过来会成环。
-  🔴 **创建快捷方式靠注入**：`ui.CmdUI(args, static, createShortcut)` 的第三参由 `main.go`
-  传 `launcher.CreateShortcutOnDesktop`；别让 ui 直接 import launcher。
+  🔴 **跨能力一律靠注入**：`ui.CmdUI(args, static, createShortcut, runner)` 的后两参由
+  `main.go` 传 `launcher.CreateShortcutOnDesktop` 与 `runBackupSubprocess`；
+  别让 ui 直接 import launcher / backup。执行器实现在根包 `backuprun.go`
+  （`exec.CommandContext(os.Executable(), "backup", ...)`，密码走 stdin、输出接任务日志）。
 - `web/` 按母本 `cqlql-notes/docs/工程/目录结构规范.md` 与 `前端/前端目录结构规划.md` §二 排：
   `features/<能力>/`（`api.ts` / `service.ts` / `types.ts` / `utils/` / `components/` / `pages/` /
-  `index.ts`）+ `shared/{api,ui,utils}`。🔴 **没有 `router/`、顶层 `pages/`、`src/api/`、`src/lib/`**
-  —— 不是漏了，是只有一页时不该有（母本 §2「目录是长出来的」）。
+  `index.ts`）+ `shared/{api,ui,utils}`。现在两个 feature：`servers/` 与 `backup/`，
+  用左侧 `Sider + Menu` 导航切换（窄窗口退化成顶部横向 Menu）。🔴 **没有 `router/`、顶层 `pages/`、`src/api/`、`src/lib/`**
+  —— 两页仍不引路由：本机回环 + 地址栏带一次性 token，深链接没有意义，
+  而路由会带来「刷新丢 token」（判据见 `docs/ui.md` §7）。
   约定（相对 import 必须写扩展名、`test/` 不在 tsconfig include、端口 5175、产物不进 Git）
   见 `docs/ui.md`；**不要在前端算指标**，那是 Go 侧的唯一真源。
 - `internal/launcher/` 的 `menu_windows.go` / `menu_other.go` 靠 build tag 切平台，
@@ -194,12 +218,12 @@ ops menu --help
 | 能力 / 模块 | 文档 | 最硬的那条红线 |
 | :--- | :--- | :--- |
 | 服务器管理 + 一键免密 sudo（P0 先做） | `docs/servers.md` | 主机只来自清单；只写一个 sudoers drop-in；验证用 `runuser` |
-| 界面（`ops ui` · Vite + React + antd） | `docs/ui.md` | 静态产物不过 token、API 才是边界；产物不进 Git 但 `.gitkeep` 必进；未构建要回说明页；单实例 + 配置不全也起页面 |
+| 界面（`ops ui` · Vite + React + antd，左侧两项导航） | `docs/ui.md` | 静态产物不过 token、API 才是边界；产物不进 Git 但 `.gitkeep` 必进；未构建要回说明页；单实例 + 配置不全也起页面；界面安装要过六道门（§9） |
 | 备份脚本（`deploy/backup/**`，已迁入本仓） | `docs/backup-scripts.md` | 脚本编在二进制里，改了必须 `go build`；目录里不许有真实凭证；恢复脚本禁止入 Crontab |
-| 备份能力部署（P1 ✅，监控的前置） | `docs/backup-deploy.md` | 复用 `install.sh`；不覆盖 `backup.env`；不静默迁移目录；logrotate 由工具落盘 |
+| 备份能力部署（P1 ✅，监控的前置；CLI + 界面） | `docs/backup-deploy.md` | 复用 `install.sh`；不覆盖 `backup.env`；不静默迁移目录；logrotate 由工具落盘；界面安装必须 yes + 服务端预检门 |
 | 备份监控（P2 · 方案，未实现） | `docs/backup-monitor.md` | 只读采集；时间差在远端算；`-` 不是 0 |
 | 单机一键 Docker 部署（P3–P4 · 方案，未实现） | `docs/deploy.md` | `.env` 去 CRLF；镜像前缀必须等于 compose；Flyway 单向 |
-| 一键启动与桌面快捷方式（S2/S3/S5 ✅，S4 人工验收待做） | `docs/one-click-launch.md` | 双击直达网页面板（隐藏守护 + 单实例）；`.lnk` 只指启动器；图标用独立 `.ico`；名字校验挡路径穿越；双击绝不触发写操作 |
+| 一键启动与桌面快捷方式（S2/S3/S5 ✅，S4 人工验收待做） | `docs/one-click-launch.md` | 双击直达网页面板（隐藏守护 + 单实例）；`.lnk` 只指启动器；图标用独立 `.ico`；名字校验挡路径穿越；双击绝不触发写操作，页面写操作要显式确认 |
 | 配置（唯一维护处） | `docs/config.md` | 所有 `PASS_UP_OPS_*` 只在这里定义一次 |
 | 文档治理 | `cqlql-notes/docs/工程/文档约定.md` | 新加文档前先过 4 问；索引只有一份 |
 | 目录与依赖 | `cqlql-notes/docs/工程/目录结构规范.md` + 本文「目录与边界」 | 依赖单向；`shared` 不得反向 import 能力包；跨包符号必须导出 |
