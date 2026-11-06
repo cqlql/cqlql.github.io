@@ -158,8 +158,23 @@ export function confirmCopy(id: string | undefined): ConfirmCopy {
       '不跑 hello-world（会拉 Docker Hub 镜像），不动容器 / 镜像 / /var/lib/docker。',
       '不修改 crontab、backup.env；不改 DEST_URL（仍需在「配置」页把 8007 改成 9000）。',
       '组变更需重新登录才在当前会话生效。',
+      '如下方勾选代理，只作用于本次 apt / curl，不写远端 /etc/apt/apt.conf.d/ 配置。',
     ],
   }
+}
+
+/**
+ * 代理输入的**体验层**校验：与 Go 侧 `component.ValidProxy` 同一条规则。
+ * 服务端仍会再校验一次——前端只用来在格式错时禁用「确认安装」，不作为安全边界。
+ */
+export function normalizeProxyInput(raw: string): string | null {
+  const s = raw.trim()
+  if (!s) return null
+  const m = /^http:\/\/([A-Za-z0-9][A-Za-z0-9.-]*):(\d{1,5})$/.exec(s)
+  if (!m) return null
+  const port = Number(m[2])
+  if (!Number.isInteger(port) || port < 1 || port > 65535) return null
+  return s
 }
 
 /** 离线镜像区的说明文字：没有镜像时明确告诉人下一步做什么。 */

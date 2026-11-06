@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
-import { Alert, Button, Input, Modal, Select, Tag } from 'antd'
+import { Alert, Button, Checkbox, Input, Modal, Select, Tag } from 'antd'
 
 import { componentsApi } from '../api.ts'
 import {
@@ -23,6 +23,7 @@ import {
   imageHint,
   installHint,
   installLabel,
+  normalizeProxyInput,
   normalizeStatusView,
   preflightOf,
   stateColor,
@@ -37,6 +38,10 @@ import {
  * 双击落地页仍是服务器管理页；这一页默认只做只读体检，写动作要显式确认。
  */
 const EMPTY_VIEW: ComponentsStatusView = normalizeStatusView(null)
+
+// 代理地址只是普通网络偏好，不是凭据（访问令牌仍只在内存 + 地址栏，绝不落盘）。
+// 记住它，换机/重装时不用每次手填；格式仍由前端 normalizeProxyInput 与服务端各卡一道。
+const PROXY_STORAGE_KEY = 'passup.component.aptProxy'
 
 type Notice = { kind: 'success' | 'error' | 'info' | 'warning'; text: string } | null
 
@@ -63,6 +68,10 @@ export function ComponentsPage() {
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [confirmText, setConfirmText] = useState('')
   const [password, setPassword] = useState('')
+
+  // 安装 Docker 时可选的 apt 代理（勾选才生效；地址可记住，勾选状态不落盘）。
+  const [useProxy, setUseProxy] = useState(false)
+  const [proxyUrl, setProxyUrl] = useState('')
 
   // 离线镜像导入：另一个写动作，也走 yes + 服务端 dry-run 门 + 同一个任务锁。
   const [imageFile, setImageFile] = useState<File | null>(null)
@@ -99,6 +108,15 @@ export function ComponentsPage() {
   useEffect(() => {
     alive.current = true
     let cancelled = false
+    try {
+      const saved = localStorage.getItem(PROXY_STORAGE_KEY)
+      if (saved) {
+        setUseProxy(true)
+        setProxyUrl(saved)
+      }
+    } catch {
+      // 隐私模式 / 禁用存储：当作没记住即可，不影响安装。
+    }
     void (async () => {
       try {
         const res = await componentsApi.targets()
@@ -151,6 +169,11 @@ export function ComponentsPage() {
   const copy = confirmCopy(current?.id)
   const imageEnabled = !!current?.offline_image && !busy && !loading && view.collected && dockerReady
 
+  // 代理只在 Docker 安装弹窗里出现；格式错了就禁用确认，不让用户白跑一次预检。
+  const proxyApplies = current?.id === 'docker'
+  const proxyValue = proxyApplies && useProxy ? normalizeProxyInput(proxyUrl) : null
+  const confirmOk = confirmText === 'yes' && (!proxyApplies || !useProxy || proxyValue !== null)
+
   const closeConfirm = useCallback(() => {
     setConfirmOpen(false)
     setConfirmText('')
@@ -159,10 +182,17 @@ export function ComponentsPage() {
 
   const submitConfirm = useCallback(() => {
     const id = current?.id
-    if (confirmText !== 'yes' || !name || !id || !installable) return
+    if (!confirmOk || !name || !id || !installable) return
     const pw = password
+    const proxy = id === 'docker' && useProxy ? proxyValue : null
     const poll = ++pollId.current
     closeConfirm()
+    try {
+      if (proxy) localStorage.setItem(PROXY_STORAGE_KEY, proxy)
+      else if (!useProxy) localStorage.removeItem(PROXY_STORAGE_KEY)
+    } catch {
+      // 存储不可用时只是记不住，不影响本次安装。
+    }
     setBusy(true)
     setLog('')
     setTask(null)
@@ -171,7 +201,11 @@ export function ComponentsPage() {
       try {
         const t = await startComponentInstall(
           componentsApi,
-          { verb: 'install', component: id, name, confirm: 'yes', ...(pw ? { password: pw } : {}) },
+          {
+            verb: 'install', component: id, name, confirm: 'yes',
+            ...(pw ? { password: pw } : {}),
+            ...(proxy ? { proxy } : {}),
+          },
           makeHooks(poll),
         )
         setTask(t)
@@ -185,7 +219,7 @@ export function ComponentsPage() {
         void refresh(name)
       }
     })()
-  }, [confirmText, password, name, current, installable, closeConfirm, makeHooks, refresh])
+  }, [confirmOk, password, name, current, installable, useProxy, proxyValue, closeConfirm, makeHooks, refresh])
 
   const closeImage = useCallback(() => {
     setImageOpen(false)
@@ -450,7 +484,7 @@ export function ComponentsPage() {
         onOk={submitConfirm}
         okText="确认安装"
         cancelText="取消"
-        okButtonProps={{ disabled: confirmText !== 'yes', danger: true }}
+        okButtonProps={{ disabled: !confirmOk, danger: true }}
         destroyOnClose
       >
         <Alert
@@ -467,6 +501,30 @@ export function ComponentsPage() {
           一次性 sudo 密码（目标机已配免密 sudo 可留空）：
         </div>
         <Input.Password value={password} onChange={(e) => setPassword(e.target.value)} placeholder="留空则用免密 sudo" autoComplete="new-password" />
+        {current?.id === 'docker' && (
+          <div style={{
+            marginTop: 12, padding: 10, background: '#fafbfc',
+            border: '1px solid #e5e9f0', borderRadius: 8,
+          }}>
+            <Checkbox checked={useProxy} onChange={(e) => setUseProxy(e.target.checked)}>
+              本次安装走代理（目标机直连 download.docker.com 很慢 / 被重置时勾选）
+            </Checkbox>
+            {useProxy && (
+              <Input
+                value={proxyUrl}
+                onChange={(e) => setProxyUrl(e.target.value)}
+                placeholder="http://proxy.example:7890"
+                status={proxyValue === null ? 'warning' : undefined}
+                autoComplete="off"
+                style={{ marginTop: 8 }}
+              />
+            )}
+            <div className="hint" style={{ marginTop: 6 }}>
+              格式 http://host:port；只作用于本次 apt / curl，不写远端 /etc/apt/apt.conf.d/ 配置。
+              服务端会再校验一次，留空则直连。
+            </div>
+          </div>
+        )}
       </Modal>
 
       <Modal

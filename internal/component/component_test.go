@@ -72,6 +72,56 @@ func TestParseArgs(t *testing.T) {
 	if _, err := parseArgs([]string{"list", "--server=k1", "--json"}); err != nil {
 		t.Errorf("list --json 应可用：%v", err)
 	}
+	if o, err := parseArgs([]string{"install", "docker", "--server", "k1", "--proxy=http://192.168.1.221:7897"}); err != nil || o.Proxy == "" {
+		t.Errorf("合法的 --proxy 应可用：%v / %+v", err, o)
+	}
+	for _, args := range [][]string{
+		{"install", "docker", "--server", "k1", "--proxy", "http://x;rm -rf /"},
+		{"install", "docker", "--server", "k1", "--proxy", "http://u:p@x:7897"},
+		{"install", "docker", "--server", "k1", "--proxy", "http://x:99999"},
+		{"install", "minio", "--server", "k1", "--proxy", "http://x:7897"},
+		{"list", "--server", "k1", "--proxy", "http://x:7897"},
+	} {
+		if _, err := parseArgs(args); err == nil {
+			t.Errorf("不该放行的代理参数组合：%v", args)
+		}
+	}
+}
+
+func TestValidProxy(t *testing.T) {
+	for _, good := range []string{
+		"", "http://192.168.1.221:7897", "http://localhost:8080", "http://proxy.example:1",
+	} {
+		if _, err := ValidProxy(good); err != nil {
+			t.Errorf("合法代理被拒 %q：%v", good, err)
+		}
+	}
+	for _, bad := range []string{
+		"http://x;rm -rf /", "http://u:p@x:7897", "https://x:7897", "http://x:0",
+		"http://x:65536", "http://x:7897/path", "x:7897", "http://x:7897 && echo hi",
+	} {
+		if _, err := ValidProxy(bad); err == nil {
+			t.Errorf("非法代理被放行 %q", bad)
+		}
+	}
+	if got, err := ValidProxy("  http://192.168.1.221:7897  "); err != nil || got != "http://192.168.1.221:7897" {
+		t.Errorf("应规范化首尾空格：%q / %v", got, err)
+	}
+}
+
+// 直接调包也要拦住非法代理（它会拼进远端命令字符串），不能只靠 CLI 边界。
+func TestInstallRejectsBadProxy(t *testing.T) {
+	view := emptyView("k1")
+	view.Collected = true
+	tgt := &shared.SSHTarget{Host: "127.0.0.1", Port: 1, User: "cql"}
+	for _, opt := range []InstallOptions{
+		{ID: "docker", DryRun: true, Proxy: "http://x;rm -rf /"},
+		{ID: "minio", DryRun: true, Proxy: "http://192.168.1.221:7897"},
+	} {
+		if code := Install(context.Background(), tgt, fstest.MapFS{}, view, opt); code == 0 {
+			t.Errorf("不该放行的安装选项：%+v", opt)
+		}
+	}
 }
 
 func TestParseKVIgnoresNoise(t *testing.T) {
@@ -188,6 +238,20 @@ func TestEvaluateMinioBlockers(t *testing.T) {
 	r["MINIO_IMAGE_COUNT"] = "0"
 	if p := EvaluateMinio(r, local, true); !p.Ready {
 		t.Errorf("已有容器时不该因镜像缺失拦住：%+v", p)
+	}
+	// k4（换电脑后的新目标机）没有独立数据盘、也没有 /data：
+	// 只警告「数据落在根分区」，不硬拦；安装脚本会 mkdir -p 自动建父目录。
+	noData := map[string]string{}
+	for k, v := range good {
+		noData[k] = v
+	}
+	noData["MINIO_DATA_PARENT"] = "no"
+	p = EvaluateMinio(noData, local, true)
+	if !p.Ready {
+		t.Errorf("没有 /data 时只警告、不硬拦：%+v", p.Blockers)
+	}
+	if !strings.Contains(strings.Join(p.Warnings, " "), "/data") {
+		t.Errorf("必须明确警告数据落在根分区：%+v", p.Warnings)
 	}
 }
 

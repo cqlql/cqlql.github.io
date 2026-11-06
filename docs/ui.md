@@ -657,7 +657,7 @@ ops backup sync-env [pg|minio|all] --server <name>
 | 方法与路径 | 作用 |
 |---|---|
 | `GET /api/components/status?name=` | 只读体检：所有组件状态、按组件 `preflight`、`images`、`local`（本机凭证标记） |
-| `POST /api/components/run` | `{verb:"install", component, name, confirm:"yes", password?}` |
+| `POST /api/components/run` | `{verb:"install", component, name, confirm:"yes", password?, proxy?}`（proxy 仅 docker，格式 `http://host:port`） |
 | `POST /api/components/image` | multipart：`verb=image-load` + `component=minio` + `name` + `confirm=yes` + `password?` + `image`（.tar） |
 | `GET /api/components/task?after=` | 与备份部署共用同一个后台任务 / 增量日志 |
 
@@ -671,6 +671,11 @@ ops backup sync-env [pg|minio|all] --server <name>
 `confirm=="yes"` → 服务端先跑 `--dry-run` → `name` 只认清单、组件/动词只认注册表
 （`Runnable` / `SupportsImage`）→ 密码只经 runner 的 stdin → 任务脱离请求、单任务
 409、增量日志 → 界面不开放 `--force` / 更新 / 卸载 / 删数据。
+
+**安装 Docker 的可选代理**：确认弹窗多一个「本次安装走代理」勾选 + 地址输入，
+只认 `http://host:port`，由服务端 `component.ValidProxy` 二次校验（前端仅用于禁用按钮）；
+`runComponentTask` 把 `--proxy` 同时加进预检与正式安装，临时作用于远端 apt/curl，
+**不落任何远端系统配置**。详见 `components.md` §3.1。
 
 **页面判定**：`canInstall` 同时看「组件已接入 + 采到状态 + `missing` +
 上游 `depends` 就绪 + **服务端按组件算好的 `preflight.ready`**」。

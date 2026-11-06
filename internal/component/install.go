@@ -48,6 +48,8 @@ type InstallOptions struct {
 	ID     string
 	DryRun bool
 	Minio  MinioCredentials
+	// Proxy 只给 Docker 安装用：本次 apt / curl 临时走代理，不写远端配置。
+	Proxy string
 }
 
 // Install 按组件 id 分派；注册表 Runnable 已在 parseArgs / 界面里挡过一遍，
@@ -55,6 +57,17 @@ type InstallOptions struct {
 func Install(ctx context.Context, t *shared.SSHTarget, scripts fs.FS, view StatusView, opt InstallOptions) int {
 	if !Runnable(opt.ID) {
 		fmt.Fprintln(os.Stderr, "ERROR: 组件未注册或尚未接入，拒绝写操作："+opt.ID)
+		return 1
+	}
+	// 🔴 直接调包也要再校验一次代理：它会拼进远端命令字符串。
+	proxy, err := ValidProxy(opt.Proxy)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "ERROR: "+err.Error())
+		return 1
+	}
+	opt.Proxy = proxy
+	if proxy != "" && opt.ID != "docker" {
+		fmt.Fprintln(os.Stderr, "ERROR: 代理只用于安装 Docker 引擎（apt / curl 下载）")
 		return 1
 	}
 	// 🔴 「连不上」不等于「未安装」：采不到状态时不放行任何写操作（硬约束 3）。
@@ -66,7 +79,7 @@ func Install(ctx context.Context, t *shared.SSHTarget, scripts fs.FS, view Statu
 	if opt.ID == "minio" {
 		return installMinio(ctx, t, scripts, view, opt)
 	}
-	return installDocker(ctx, t, scripts, view, opt.DryRun)
+	return installDocker(ctx, t, scripts, view, opt)
 }
 
 // probeSudoCapability 只读地确认「这台机器能不能拿到 root」。
@@ -92,11 +105,12 @@ func preflightFor(view StatusView, id string) Preflight {
 	return view.Preflight
 }
 
-func printPlan(t *shared.SSHTarget, view StatusView) {
+func printPlan(t *shared.SSHTarget, view StatusView, proxy string) {
 	raw := view.Raw
 	fmt.Println("")
 	fmt.Println("========== Docker 引擎安装计划 ==========")
 	fmt.Printf("目标机        ：%s（清单 user=%s）\n", view.Server, t.User)
+	fmt.Printf("apt 代理      ：%s\n", valueOr(proxy, "直连（未配置）"))
 	fmt.Printf("系统 / 架构   ：%s %s (%s) · %s\n",
 		valueOr(raw["OS_ID"], "?"), valueOr(raw["OS_VERSION_ID"], "?"),
 		valueOr(raw["OS_CODENAME"], "?"), valueOr(raw["ARCH"], "?"))
@@ -150,8 +164,8 @@ func sudoCapable(t *shared.SSHTarget, raw map[string]string) (bool, string) {
 	return false, "目标机没有免密 sudo，也没提供一次性 sudo 密码（界面可填，或先跑 ops servers apply-sudo）"
 }
 
-func installDocker(ctx context.Context, t *shared.SSHTarget, scripts fs.FS, view StatusView, dryRun bool) int {
-	printPlan(t, view)
+func installDocker(ctx context.Context, t *shared.SSHTarget, scripts fs.FS, view StatusView, opt InstallOptions) int {
+	printPlan(t, view, opt.Proxy)
 	blockers := append([]string{}, preflightFor(view, "docker").Blockers...)
 	if ok, why := sudoCapable(t, view.Raw); !ok {
 		blockers = append(blockers, why)
@@ -169,7 +183,7 @@ func installDocker(ctx context.Context, t *shared.SSHTarget, scripts fs.FS, view
 		return 1
 	}
 
-	if dryRun {
+	if opt.DryRun {
 		fmt.Println("--dry-run：预检通过，未上传脚本、未修改远端任何文件。")
 		return 0
 	}
@@ -190,9 +204,14 @@ func installDocker(ctx context.Context, t *shared.SSHTarget, scripts fs.FS, view
 	}
 
 	// 执行：root=true。脚本从文件读，stdin 留给 sudo -S 的密码，两者不冲突。
-	runCmd := fmt.Sprintf("COMPONENT_RUN_USER=%s COMPONENT_OS_CODENAME=%s bash %s",
-		shared.ShQuote(t.User), shared.ShQuote(view.Raw["OS_CODENAME"]),
-		shared.ShQuote(remoteInstallPath))
+	// 变量赋值是远端 sh -c 命令字符串的一部分（sudo 不重置它们），
+	// 因此代理不会落到 /etc/apt/apt.conf.d/，只在本次安装进程内生效。
+	env := fmt.Sprintf("COMPONENT_RUN_USER=%s COMPONENT_OS_CODENAME=%s",
+		shared.ShQuote(t.User), shared.ShQuote(view.Raw["OS_CODENAME"]))
+	if opt.Proxy != "" {
+		env += " COMPONENT_APT_PROXY=" + shared.ShQuote(opt.Proxy)
+	}
+	runCmd := env + " bash " + shared.ShQuote(remoteInstallPath)
 	fmt.Println("==> 远端执行安装脚本（安装期提权到 root）")
 	code, err = t.Stream(ctx, runCmd, true, nil)
 

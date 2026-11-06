@@ -15,6 +15,9 @@ set -euo pipefail
 
 RUN_USER="${COMPONENT_RUN_USER:-}"
 CODENAME="${COMPONENT_OS_CODENAME:-}"
+# 可选：本次 apt / curl 走代理（界面安装弹窗 / CLI --proxy 传入）。
+# 🔴 只在脚本进程内生效，绝不写 /etc/apt/apt.conf.d/ 等远端系统配置。
+PROXY="${COMPONENT_APT_PROXY:-}"
 
 ok()   { echo "  [OK]   $*"; }
 info() { echo "  [INFO] $*"; }
@@ -40,6 +43,16 @@ ARCH="$(dpkg --print-architecture)"
 
 ok "身份 root；运行用户 $RUN_USER；系统 ubuntu $CODENAME / $ARCH"
 
+# ---------- Step 0.5：可选代理（本次安装临时生效） ----------
+APT_PROXY_OPTS=()
+if [ -n "$PROXY" ]; then
+  [[ "$PROXY" =~ ^http://[A-Za-z0-9][A-Za-z0-9.-]*:[0-9]{1,5}$ ]] || die "代理地址格式非法：$PROXY"
+  # curl 读小写 https_proxy；apt 显式用 -o 指定，避免依赖 sudo 的环境继承行为。
+  export http_proxy="$PROXY" https_proxy="$PROXY" HTTP_PROXY="$PROXY" HTTPS_PROXY="$PROXY"
+  APT_PROXY_OPTS=(-o "Acquire::http::Proxy=$PROXY" -o "Acquire::https::Proxy=$PROXY")
+  ok "本次 apt / curl 走代理 $PROXY（仅这次安装生效，不写任何远端配置文件）"
+fi
+
 # ---------- Step 1：是否已装好官方版 ----------
 ALREADY=no
 if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then
@@ -58,7 +71,7 @@ if [ "$ALREADY" = "no" ]; then
   done
   if [ -n "$conflicts" ]; then
     info "卸载冲突包（/var/lib/docker 会保留）：$conflicts"
-    DEBIAN_FRONTEND=noninteractive apt-get remove -y $conflicts
+    DEBIAN_FRONTEND=noninteractive apt-get "${APT_PROXY_OPTS[@]}" remove -y $conflicts
     ok "冲突包已卸载"
   else
     ok "无冲突包"
@@ -66,9 +79,10 @@ if [ "$ALREADY" = "no" ]; then
 
   # ---------- Step 3：基础依赖 + 官方 GPG key ----------
   info "apt-get update / 安装 ca-certificates curl"
-  apt-get update -qq
-  DEBIAN_FRONTEND=noninteractive apt-get install -y -qq ca-certificates curl
+  apt-get "${APT_PROXY_OPTS[@]}" update -qq
+  DEBIAN_FRONTEND=noninteractive apt-get "${APT_PROXY_OPTS[@]}" install -y -qq ca-certificates curl
   install -m 0755 -d /etc/apt/keyrings
+  # 配了代理时 curl 由 https_proxy 自动走代理（不需要改命令）。
   curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
   chmod a+r /etc/apt/keyrings/docker.asc
   ok "GPG key 已写入 /etc/apt/keyrings/docker.asc"
@@ -83,11 +97,11 @@ Architectures: ${ARCH}
 Signed-By: /etc/apt/keyrings/docker.asc
 EOF
   ok "仓库源已写入 /etc/apt/sources.list.d/docker.sources（Suites=${CODENAME}）"
-  apt-get update -qq
+  apt-get "${APT_PROXY_OPTS[@]}" update -qq
 
   # ---------- Step 5：安装 Docker Engine ----------
   info "安装 docker-ce / docker-ce-cli / containerd.io / buildx / compose 插件"
-  DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
+  DEBIAN_FRONTEND=noninteractive apt-get "${APT_PROXY_OPTS[@]}" install -y -qq \
     docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
   ok "Docker Engine 包安装完成"
 fi
@@ -115,5 +129,5 @@ fi
 
 echo ""
 echo "Docker 引擎安装完成。"
-echo "下一步：单独部署 MinIO 服务（本能力尚未接入），并把 DEST_URL 端口改成 9000。"
+echo "下一步：导入 MinIO 离线镜像后单独安装 MinIO 服务；DEST_URL 需指向本机 9000。"
 exit 0

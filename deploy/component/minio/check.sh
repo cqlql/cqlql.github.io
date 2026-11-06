@@ -107,7 +107,10 @@ _dir=no
 [ -d /data/minio ] && _dir=yes
 kv MINIO_DATA_PARENT "$_parent"
 kv MINIO_DATA_DIR "$_dir"
-kv MINIO_DATA_FREE_MB "$(df -Pm /data 2>/dev/null | awk 'NR==2{print $4}')"
+# /data 还没建时退回根分区余量，页面才不会显示一个空值。
+_free="$(df -Pm /data 2>/dev/null | awk 'NR==2{print $4}')"
+[ -n "$_free" ] || _free="$(df -Pm / 2>/dev/null | awk 'NR==2{print $4}')"
+kv MINIO_DATA_FREE_MB "$_free"
 
 kv MINIO_API_PORT 9000
 kv MINIO_CONSOLE_PORT 9001

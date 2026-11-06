@@ -85,15 +85,18 @@ func TestComponentInstallFollowsOfficialDockerDocs(t *testing.T) {
 		"systemctl enable --now docker",
 		"usermod -aG docker",
 		"COMPONENT_RUN_USER",
+		"COMPONENT_APT_PROXY", "APT_PROXY_OPTS",
+		"Acquire::http::Proxy=", "Acquire::https::Proxy=", "https_proxy",
 	} {
 		if !strings.Contains(s, must) {
 			t.Errorf("安装脚本缺少官方流程关键片段 %q", must)
 		}
 	}
 	// 内网目标机 Docker Hub 超时：验证绝不能靠拉 hello-world 镜像。
-	for _, bad := range []string{"docker run", "docker pull"} {
+	// 代理只能临时生效，绝不写 /etc/apt/apt.conf.d/ 之类的远端系统配置。
+	for _, bad := range []string{"docker run", "docker pull", "/etc/apt/apt.conf.d"} {
 		if strings.Contains(codeLines(s), bad) {
-			t.Errorf("安装脚本不该出现 %q（会依赖外网镜像仓库）", bad)
+			t.Errorf("安装脚本不该出现 %q（会依赖外网镜像仓库 / 留下系统级改动）", bad)
 		}
 	}
 	if !strings.Contains(s, "docker info") {
@@ -107,7 +110,8 @@ func TestMinioInstallScriptNeverPullsOrDeletesData(t *testing.T) {
 	for _, must := range []string{
 		"docker image inspect", "docker run -d", "--restart unless-stopped",
 		"MINIO_ROOT_USER=", "MINIO_ROOT_PASSWORD=", "/data/minio",
-		"/minio/health/live", "COMPONENT_MINIO_IMAGE",
+		"/minio/health/live", "COMPONENT_MINIO_IMAGE", "mkdir -p \"$DATA_DIR\"",
+		"非独立数据盘",
 	} {
 		if !strings.Contains(s, must) {
 			t.Errorf("MinIO 安装脚本缺少关键片段 %q", must)
@@ -115,7 +119,7 @@ func TestMinioInstallScriptNeverPullsOrDeletesData(t *testing.T) {
 	}
 	for _, bad := range []string{
 		"docker pull", "docker rm ", "rm -rf", "crontab", "backup.env",
-		"docker rmi", "> /var/log",
+		"docker rmi", "> /var/log", "die \"目标机没有 /data",
 	} {
 		if strings.Contains(s, bad) {
 			t.Errorf("MinIO 安装脚本不该出现 %q", bad)

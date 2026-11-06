@@ -15,6 +15,14 @@
 | `/data` 存在（root:root），根分区剩 32 G | MinIO 数据落 `/data/minio`，保留已有 `/data/backups` |
 | 本机 `backup/minio.env` 的 `DEST_URL=http://127.0.0.1:8007` | 8007 是**生产端**端口；备份端本机 MinIO 是 9000，装完服务仍连不上，必须到「配置」页改并同步远端 |
 
+> **2026-11-06 晚换电脑后接 k4（192.168.1.204）**：同为 Ubuntu 24.04.2 `noble`、
+> 免密 sudo、Docker/MinIO 全缺，但**只有一块 22 G 系统盘、根分区剩约 16 G，
+> 既没有独立数据盘也没有 `/data`**。原来「`/data` 不存在」是硬 blocker，会把这类
+> 测试机永远挡在 MinIO 安装之外。现改为：预检给一条**明确警告**（数据落在根分区、
+> 非独立数据盘，生产环境应先挂载数据盘到 `/data`），安装脚本
+> `mkdir -p /data/minio` 连父目录一起创建；`check.sh` 在 `/data` 不存在时退回
+> 报告根分区余量，页面不再显示空值。k1 上 `/data` 已存在时行为不变。
+
 ## 2. 注册表是唯一声明
 
 `internal/component/registry.go` 的一张有序表就是全部声明：
@@ -38,7 +46,7 @@
 
 ```
 ops component list --server <name> [--json]        # 只读体检（界面状态源）
-ops component install docker --server <name> [--dry-run] [--password-stdin]
+ops component install docker --server <name> [--proxy <http://host:port>] [--dry-run] [--password-stdin]
 ops component install minio  --server <name> [--dry-run] [--password-stdin]
 ops component image-load minio --server <name> --image-tar <本机 .tar> [--dry-run]
 ```
@@ -52,6 +60,30 @@ ops component image-load minio --server <name> --image-tar <本机 .tar> [--dry-
   **不用 0 / 空值冒充「未安装」**（硬约束 3）。
 - `check.sh` 只读：不写文件、不提权、不装包、不拉镜像、不改容器
   （`componentdist_test.go` 的 `TestComponentCheckScriptIsReadOnly` 逐个挡回归）。
+
+### 3.1 安装 Docker 时的 apt 代理（可选，2026-11-06 追加）
+
+**背景**：换电脑后的 k4 直连 `download.docker.com` 会被 reset，一次 `apt-get install`
+空转 25 分钟；临时在远端写 `/etc/apt/apt.conf.d/` 虽然能加速（配好后 32 秒装完），
+但那是手工改系统配置，界面上无从选择，也不该由工具悄悄留下。
+
+**实现**：安装弹窗里勾选「本次安装走代理」并填 `http://host:port`，或 CLI 用
+`--proxy`。值经 `component.ValidProxy` 严格校验（只允许 `http://host:port`，
+**不含认证 / 路径 / 空格 / shell 元字符**，端口 1–65535），Go 侧作为
+`COMPONENT_APT_PROXY=<quoted>` 拼进远端 `sh -c` 命令字符串；脚本内
+`export http_proxy/https_proxy`（给 curl）并给每条 `apt-get` 加
+`-o Acquire::{http,https}::Proxy=`（不依赖 sudo 的环境继承）。
+
+🔴 **只在本次安装进程内生效，绝不写 `/etc/apt/apt.conf.d/` 等任何远端配置**，
+装完自动失效。代理只给 `install docker` 用（MinIO 不跑 apt/curl，传了直接 400）。
+服务端预检（`--dry-run`）与正式安装带**同一组** `--proxy` 参数，六道门其余不变。
+代理地址会打印在安装计划与任务日志里（它不是凭据；正因如此格式里禁止 `user:pass@`）。
+
+界面把上次成功的地址记在 `localStorage`（只是普通网络偏好；访问令牌仍只在
+内存 + 地址栏，绝不落盘）。锁死回归：`TestValidProxy`、
+`TestComponentRunProxyGates` / `TestComponentRunProxyPassedToBothCalls`、
+`TestComponentInstallFollowsOfficialDockerDocs` 的脚本级断言、
+`web/test/components.test.ts` 的 `normalizeProxyInput`。
 
 ## 4. MinIO 凭证与离线镜像（红线最密集的一段）
 
@@ -88,8 +120,9 @@ ops component image-load minio --server <name> --image-tar <本机 .tar> [--dry-
 | 提权 | 安装期 root（`sudo -n sh -c`） | 安装期 root |
 | 幂等 | 已装官方版就跳过 apt，只补服务与用户组 | 已有容器只做健康检查（stopped 则 `docker start`），**不重建、不换镜像** |
 | 验证 | `docker info`（不跑 hello-world） | `GET /minio/health/live` 20 次重试 |
-| 保留 | `/var/lib/docker`、容器 / 镜像、crontab | `/data/minio`、`/data/backups`、其它镜像、引擎、crontab、`backup.env` |
+| 保留 | `/var/lib/docker`、容器 / 镜像、crontab | `/data/minio`、`/data`、`/data/backups`、其它镜像、引擎、crontab、`backup.env` |
 | 不做 | `docker pull` / `docker run` | `docker pull` / `docker rm` / 删数据 / 跑备份 |
+| `/data` 不存在 | — | `mkdir -p` 自动创建并**警告数据落在根分区**；不自动挂载磁盘、不改已有挂载点 |
 
 ## 6. 界面：一个目录页，不拆导航
 

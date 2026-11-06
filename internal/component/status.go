@@ -394,7 +394,15 @@ func minioCheckItems(raw map[string]string, local LocalFacts) []CheckItem {
 			return "ok"
 		}())
 	add("MINIO_DATA_DIR", "数据目录 /data/minio",
-		boolText(yes(raw, "MINIO_DATA_DIR")), stateOf(yes(raw, "MINIO_DATA_DIR"), false))
+		func() string {
+			if yes(raw, "MINIO_DATA_DIR") {
+				return "已存在"
+			}
+			if !yes(raw, "MINIO_DATA_PARENT") {
+				return "将自动创建（根分区 " + valueOr(raw["MINIO_DATA_FREE_MB"], "?") + " MB 可用）"
+			}
+			return "待创建"
+		}(), stateOf(yes(raw, "MINIO_DATA_DIR"), false))
 	add("MINIO_IMAGE_COUNT", "离线镜像（已导入）",
 		valueOr(raw["MINIO_IMAGE_COUNT"], "0")+" 个 · "+valueOr(raw["MINIO_IMAGE_FIRST"], "无"),
 		func() string {
@@ -486,7 +494,7 @@ func Evaluate(raw map[string]string) Preflight {
 	//    apt-get update 给出，安装脚本 set -e 会在失败处如实停下，不会硬装坏东西。
 	if !yes(raw, "APT_REPO_REACHABLE") {
 		p.Warnings = append(p.Warnings,
-			"探测不到 download.docker.com：安装可能在 apt-get update 处失败；若目标机走代理或内网镜像源，请先配好 apt")
+			"探测不到 download.docker.com：安装可能在 apt-get update 处失败；可在安装弹窗勾选 apt 代理，或先给目标机配好内网镜像源")
 	}
 	if mb, err := strconv.Atoi(raw["DISK_FREE_MB"]); err == nil && mb < 1024 {
 		p.Blockers = append(p.Blockers, fmt.Sprintf("根分区剩余空间不足 1 GB（%d MB）", mb))
@@ -531,9 +539,6 @@ func EvaluateMinio(raw map[string]string, local LocalFacts, depReady bool) Prefl
 	if !depReady || !yes(raw, "DOCKER_INSTALLED") || raw["DOCKER_SERVICE"] != "active" {
 		p.Blockers = append(p.Blockers, "上游 Docker 引擎未就绪：请先在组件目录里安装 Docker 引擎")
 	}
-	if !yes(raw, "MINIO_DATA_PARENT") {
-		p.Blockers = append(p.Blockers, "目标机没有 /data 目录（MinIO 数据要落在这里）")
-	}
 	if mb, err := strconv.Atoi(raw["DISK_FREE_MB"]); err == nil && mb < 1024 {
 		p.Blockers = append(p.Blockers, fmt.Sprintf("根分区剩余空间不足 1 GB（%d MB）", mb))
 	}
@@ -553,6 +558,13 @@ func EvaluateMinio(raw map[string]string, local LocalFacts, depReady bool) Prefl
 	}
 	if installed {
 		p.Warnings = append(p.Warnings, "目标机已有 MinIO 容器：安装脚本只做健康检查与必要补齐，不会重建容器 / 不删数据")
+	}
+	// 🔴 /data 不存在不再硬拦：k4 这类只有一块系统盘的测试机上，安装脚本会
+	//    mkdir -p /data/minio 自动建父目录。但必须明确告诉人数据落在根分区、
+	//    而不是独立数据盘，免得生产环境悄悄把备份写满系统盘。
+	if !yes(raw, "MINIO_DATA_PARENT") {
+		p.Warnings = append(p.Warnings,
+			"目标机没有 /data 目录：安装会 mkdir -p /data/minio 自动创建，数据落在根分区（非独立数据盘）；生产环境请先挂载数据盘到 /data")
 	}
 	if local.DestURLPort != "" && local.DestURLPort != minioAPIPort {
 		p.Warnings = append(p.Warnings, fmt.Sprintf(

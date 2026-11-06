@@ -279,6 +279,53 @@ func TestComponentImageSingleTaskMutex(t *testing.T) {
 	waitBackupTask(t, u)
 }
 
+// 代理是可选的，但格式必须在服务端卡死：它会拼进远端命令字符串。
+func TestComponentRunProxyGates(t *testing.T) {
+	u := backupState(t, func([]string, string, io.Writer) int { return 0 })
+	cases := []struct {
+		name, body string
+		want       int
+	}{
+		{"非法代理", `{"verb":"install","component":"docker","name":"bk","confirm":"yes","proxy":"http://x;rm -rf /"}`, http.StatusBadRequest},
+		{"带认证信息", `{"verb":"install","component":"docker","name":"bk","confirm":"yes","proxy":"http://u:p@x:7897"}`, http.StatusBadRequest},
+		{"端口越界", `{"verb":"install","component":"docker","name":"bk","confirm":"yes","proxy":"http://x:99999"}`, http.StatusBadRequest},
+		{"非 docker 组件带代理", `{"verb":"install","component":"minio","name":"bk","confirm":"yes","proxy":"http://x:7897"}`, http.StatusBadRequest},
+	}
+	for _, c := range cases {
+		if w := serveComponentRun(u, c.body); w.Code != c.want {
+			t.Errorf("%s = %d，想要 %d；响应 %s", c.name, w.Code, c.want, w.Body.String())
+		}
+	}
+	if u.backupBusy() {
+		t.Error("被拒绝的代理请求不该启动后台任务")
+	}
+}
+
+// 预检与正式安装必须带同一组 --proxy 参数，否则「预检过了」不代表安装会这么跑。
+func TestComponentRunProxyPassedToBothCalls(t *testing.T) {
+	f := &fakeBackupRunner{}
+	u := backupState(t, f.run)
+	body := `{"verb":"install","component":"docker","name":"bk","confirm":"yes","proxy":"http://192.168.1.221:7897"}`
+	if w := serveComponentRun(u, body); w.Code != http.StatusOK {
+		t.Fatalf("启动失败：%s", w.Body.String())
+	}
+	waitBackupTask(t, u)
+	calls := f.snapshot()
+	if len(calls) != 2 {
+		t.Fatalf("应为 预检 + 安装 两次调用，得到 %d", len(calls))
+	}
+	for i, c := range calls {
+		joined := strings.Join(c.args, " ")
+		if !strings.Contains(joined, "--proxy http://192.168.1.221:7897") {
+			t.Errorf("第 %d 次调用必须带代理：%v", i+1, c.args)
+		}
+	}
+	if !strings.Contains(strings.Join(calls[0].args, " "), "--dry-run") ||
+		strings.Contains(strings.Join(calls[1].args, " "), "--dry-run") {
+		t.Errorf("第一次必须 dry-run、第二次不能带：%+v", calls)
+	}
+}
+
 func TestComponentStatusOnlyKnownName(t *testing.T) {
 	runner := func(args []string, _ string, out io.Writer) int {
 		fmt.Fprint(out, `{"server":"bk","collected":true,"components":[],"checks":[],"raw":{},"preflight":{"ready":true,"blockers":[],"warnings":[]}}`)

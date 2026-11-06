@@ -121,8 +121,8 @@ func usage() {
   ops backup env [组件]                  生成本机备份配置模板（backup/*.env）
   ops component list --server <name> [--json]
                                          只读查看环境组件状态（--json 给界面）
-  ops component install docker|minio --server <name> [--dry-run]
-                                         安装 Docker 引擎 / 拉起 MinIO 服务（写操作）
+  ops component install docker|minio --server <name> [--proxy <http://host:port>] [--dry-run]
+                                         安装 Docker 引擎 / 拉起 MinIO 服务（代理仅 docker 生效）
   ops component image-load minio --server <name> --image-tar <本机 .tar> [--dry-run]
                                          导入 MinIO 离线镜像（写操作；不 docker pull）
 

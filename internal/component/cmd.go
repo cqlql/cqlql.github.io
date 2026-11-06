@@ -36,6 +36,7 @@ type options struct {
 	ID            string
 	Server        string
 	ImageTar      string
+	Proxy         string
 	DryRun        bool
 	JSON          bool
 	PasswordStdin bool
@@ -78,6 +79,14 @@ func parseArgs(args []string) (options, error) {
 			opt.ImageTar = rest[i]
 		case strings.HasPrefix(a, "--image-tar="):
 			opt.ImageTar = strings.TrimPrefix(a, "--image-tar=")
+		case a == "--proxy":
+			if i+1 >= len(rest) {
+				return opt, fmt.Errorf("--proxy 缺少参数")
+			}
+			i++
+			opt.Proxy = rest[i]
+		case strings.HasPrefix(a, "--proxy="):
+			opt.Proxy = strings.TrimPrefix(a, "--proxy=")
 		case a == "--dry-run":
 			opt.DryRun = true
 		case a == "--json":
@@ -116,6 +125,15 @@ func parseArgs(args []string) (options, error) {
 	}
 	if opt.Verb == "list" && (opt.DryRun || opt.ImageTar != "") {
 		return opt, fmt.Errorf("list 本身就是只读的，不需要 --dry-run / --image-tar")
+	}
+	// 🔴 代理值会拼进远端命令字符串：格式必须在 CLI 边界就卡死。
+	proxy, err := ValidProxy(opt.Proxy)
+	if err != nil {
+		return opt, err
+	}
+	opt.Proxy = proxy
+	if proxy != "" && (opt.Verb != "install" || opt.ID != "docker") {
+		return opt, fmt.Errorf("--proxy 只用于 install docker（apt / curl 下载），其它动作不走网络")
 	}
 	return opt, nil
 }
@@ -237,7 +255,7 @@ func CmdComponent(args []string, scripts fs.FS) int {
 		return 0
 	}
 	return Install(ctx, t, scripts, view, InstallOptions{
-		ID: opt.ID, DryRun: opt.DryRun, Minio: creds,
+		ID: opt.ID, DryRun: opt.DryRun, Minio: creds, Proxy: opt.Proxy,
 	})
 }
 
@@ -280,7 +298,7 @@ func usage() {
 	fmt.Print(`用法:
   ops component list --server <name> [--json]
                                        只读体检：组件状态 + 检查项 + 已导入镜像
-  ops component install docker --server <name> [--dry-run] [--password-stdin]
+  ops component install docker --server <name> [--proxy <http://host:port>] [--dry-run] [--password-stdin]
                                        按 Docker 官方 apt 仓库安装引擎（写操作）
   ops component install minio --server <name> [--dry-run] [--password-stdin]
                                        用已导入的离线镜像拉起 MinIO 服务（写操作）
@@ -290,6 +308,9 @@ func usage() {
 --dry-run 只做只读预检与计划打印，绝不上传脚本 / 镜像、绝不修改远端。
 --server 只接受 servers.json 里的 name；不接受任意主机地址。
 --password-stdin 从 stdin 读一次性 sudo 密码（密码不进命令行 / 日志）。
+--proxy 只用于 install docker：本次 apt / curl 临时走该代理，只接受
+        http://host:port（不含认证 / 路径），不写 /etc/apt/apt.conf.d/ 等任何远端配置。
+        界面安装弹窗里也有同一个可选项；留空则直连。
 
 🔴 MinIO 不执行 docker pull：目标机拉不到 Docker Hub / quay.io / dl.min.io，
    镜像必须由人从本机导入。root 凭证取自本机 backup/minio.env 的

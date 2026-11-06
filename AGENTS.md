@@ -221,6 +221,8 @@
        远端没有镜像时预检直接拦下，不留半状态。
     ④ 安装幂等：Docker 已装就跳过 apt；MinIO 已有容器只做健康检查 / `docker start`，
        不重建、不删 `/data/minio`、不动引擎 / 其它镜像 / crontab / `backup.env`。
+       `/data` 不存在**不硬拦**（k4 只有系统盘）：安装脚本 `mkdir -p` 自动创建，
+       预检必须给「数据落在根分区、非独立数据盘」的明确警告，绝不自动挂盘。
     ⑤ `check.sh` 只读（不写文件 / 不提权 / 不装包 / 不拉镜像）；采不到就是 `unknown`，
        不用 0 兜底（硬约束 3）。
     ⑥ 界面写动作（install / image-load）照抄硬约束 21 的六道门，与备份部署共用
@@ -228,7 +230,11 @@
        临时 tar 由服务端生成、任务结束即删。
     ⑦ 改了 `deploy/component/**` 必须重编 Go（与 `deploy/backup/**`、`web/dist` 同理，
        `internal/restart/staleness.go` 已把它算作 Go 构建输入）。
-    详见 `docs/components.md` / `docs/ui.md` §13。
+    ⑧ **安装 Docker 的代理是可选入参，不是远端系统配置**：界面/CLI 只接受
+       `http://host:port`（`component.ValidProxy`，禁认证 / 路径 / shell 元字符），
+       只给 `install docker`，预检与正式安装带同一组 `--proxy`；脚本内 `export` +
+       `apt -o Acquire::...::Proxy` 让本次 apt/curl 生效，**绝不写 `/etc/apt/apt.conf.d/`**。
+    详见 `docs/components.md` §3.1 / `docs/ui.md` §13。
 26. 🔴 **换电脑零手工、配置不全不挡路**（2026-11-06 新增）：
     ① `启动运维.cmd` 的 `:ensure` 段负责「这台机器能不能跑」，🔴 **顺序是红线**：
        先用内部命令 `ops.exe __dist-check` 判**二进制里**有没有 `index.html` + `assets/`；

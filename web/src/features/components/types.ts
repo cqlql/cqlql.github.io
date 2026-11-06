@@ -83,6 +83,8 @@ export interface ComponentRunRequest {
   name: string
   confirm: 'yes'
   password?: string
+  /** 仅 install docker：本次 apt / curl 临时走代理，不写远端配置。 */
+  proxy?: string
 }
 
 export interface ComponentTask {

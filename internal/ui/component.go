@@ -42,6 +42,9 @@ type componentRunRequest struct {
 	Name      string `json:"name"`
 	Confirm   string `json:"confirm"`
 	Password  string `json:"password"`
+	// Proxy 只给 install docker 用：本次 apt / curl 临时走代理，不落远端配置。
+	// 格式由 component.ValidProxy 卡死，前端"可选"不等于服务端放行任意字符串。
+	Proxy string `json:"proxy,omitempty"`
 }
 
 // handleComponentStatus 跑一次**只读**体检给页面。
@@ -127,6 +130,16 @@ func (u *uiState) handleComponentRun(w http.ResponseWriter, r *http.Request) {
 		writeAPI(w, http.StatusBadRequest, apiResponse{Error: "安装是写操作：请输入 yes 确认"})
 		return
 	}
+	// 🔴 代理会拼进远端命令字符串：格式必须在服务端再卡一次（前端只是体验）。
+	proxy, err := component.ValidProxy(req.Proxy)
+	if err != nil {
+		writeAPI(w, http.StatusBadRequest, apiResponse{Error: err.Error()})
+		return
+	}
+	if proxy != "" && comp != "docker" {
+		writeAPI(w, http.StatusBadRequest, apiResponse{Error: "只有安装 Docker 引擎可以选择 apt 代理"})
+		return
+	}
 	if u.runner == nil {
 		writeAPI(w, http.StatusNotImplemented, apiResponse{Error: "这个构建没有组件能力"})
 		return
@@ -148,18 +161,29 @@ func (u *uiState) handleComponentRun(w http.ResponseWriter, r *http.Request) {
 		writeAPI(w, http.StatusConflict, apiResponse{Error: "已有远端任务在运行，等它结束再试"})
 		return
 	}
-	go u.runComponentTask(task, req.Name, comp, req.Password)
+	go u.runComponentTask(task, req.Name, comp, req.Password, proxy)
 	writeAPI(w, http.StatusOK, apiResponse{OK: true, Data: map[string]any{
 		"started": true, "verb": req.Verb, "component": comp, "server": req.Name,
 	}})
 }
 
 // runComponentTask 的 --dry-run 门放在服务端：前端不点预检、直接调 API 也绕不过。
-func (u *uiState) runComponentTask(t *backupTask, name, comp, password string) {
+func (u *uiState) runComponentTask(t *backupTask, name, comp, password, proxy string) {
 	lw := &backupLogWriter{task: t}
+	// 预检与正式安装必须带同一组参数，否则「预检过了」不能代表「安装会这么跑」。
+	installArgs := func(extra ...string) []string {
+		args := []string{"component", "install", comp, "--server", name}
+		if proxy != "" {
+			args = append(args, "--proxy", proxy)
+		}
+		return append(args, extra...)
+	}
 	fmt.Fprintf(lw, "==> 开始：安装 %s（目标：%s）\n", comp, name)
+	if proxy != "" {
+		fmt.Fprintf(lw, "==> 本次 apt / curl 走代理 %s（仅本次生效，不改远端配置）\n", proxy)
+	}
 	fmt.Fprintln(lw, "==> 服务端预检（--dry-run，不改远端）")
-	pre := []string{"component", "install", comp, "--server", name, "--dry-run"}
+	pre := installArgs("--dry-run")
 	code := u.runner(pre, password, lw)
 	if code != 0 {
 		fmt.Fprintln(lw, "预检没过，不执行安装；远端没有被修改。")
@@ -172,7 +196,7 @@ func (u *uiState) runComponentTask(t *backupTask, name, comp, password string) {
 	} else {
 		fmt.Fprintln(lw, "==> 预检通过，开始安装（会写远端 apt 源 / 系统包 / docker 服务）")
 	}
-	code = u.runner([]string{"component", "install", comp, "--server", name}, password, lw)
+	code = u.runner(installArgs(), password, lw)
 	if code == 0 {
 		fmt.Fprintln(lw, "==> 完成。请点「重新检查」复核组件状态。")
 	} else {

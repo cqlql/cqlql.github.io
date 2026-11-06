@@ -74,9 +74,13 @@ if [ "$_existing" = "no" ]; then
   else
     info "未找到 ss，跳过端口探测；docker run 会在端口冲突时如实失败"
   fi
-  [ -d /data ] || die "目标机没有 /data 目录（MinIO 数据要落在这里）"
+  # k4 这类没有独立数据盘的测试机上 /data 可能压根不存在：mkdir -p 会连父目录
+  # 一起创建。如实说清「数据落在根分区」，生产环境仍应先挂数据盘到 /data。
+  if [ ! -d /data ]; then
+    info "目标机没有 /data：将创建在根分区（非独立数据盘）；生产环境建议先挂载数据盘到 /data"
+  fi
   mkdir -p "$DATA_DIR"
-  ok "数据目录 $DATA_DIR 就绪（/data/backups 等既有目录不动）"
+  ok "数据目录 $DATA_DIR 就绪（/data 及 /data/backups 等既有目录不动）"
 
   # ---------- Step 3：启动容器 ----------
   info "docker run -d --name $CONTAINER（9000 API / 9001 Console，--restart unless-stopped）"

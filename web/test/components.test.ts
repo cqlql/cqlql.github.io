@@ -7,6 +7,7 @@ import {
   imageHint,
   installHint,
   installLabel,
+  normalizeProxyInput,
   normalizeStatusView,
   preflightOf,
 } from '../src/features/components/utils/format.ts'
@@ -120,6 +121,19 @@ test('installHint / installLabel / confirmCopy 按组件分开', () => {
   assert.match(confirmCopy('minio').title, /MinIO/)
   assert.ok(confirmCopy('minio').items.some((s) => s.includes('DEST_KEY')))
   assert.match(confirmCopy('docker').description, /apt/)
+})
+
+test('normalizeProxyInput：只接受 http://host:port，服务端仍有第二道校验', () => {
+  assert.equal(normalizeProxyInput('  http://192.168.1.221:7897  '), 'http://192.168.1.221:7897')
+  assert.equal(normalizeProxyInput('http://localhost:8080'), 'http://localhost:8080')
+  assert.equal(normalizeProxyInput('http://proxy.example:1'), 'http://proxy.example:1')
+  for (const bad of [
+    '', 'http://x;rm -rf /', 'http://u:p@x:7897', 'https://x:7897',
+    'http://x:0', 'http://x:65536', 'http://x:7897/path', 'x:7897',
+    'http://x:7897 && echo hi',
+  ]) {
+    assert.equal(normalizeProxyInput(bad), null, `不该放行：${bad}`)
+  }
 })
 
 test('imageHint：没 Docker / 没镜像 / 已有镜像三种说法', () => {
