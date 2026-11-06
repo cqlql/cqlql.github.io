@@ -183,7 +183,7 @@ export function RestartPanel() {
     return (
       <Tooltip title={blocked}>
         <Button size="small" icon={<PoweroffOutlined />} disabled>
-          重启
+          <span className="toolbar-label">重启</span>
         </Button>
       </Tooltip>
     )
@@ -198,7 +198,7 @@ export function RestartPanel() {
         disabled={!info || busy}
         onClick={ask}
       >
-        重启
+        <span className="toolbar-label">重启</span>
       </Button>
     </Tooltip>
   )

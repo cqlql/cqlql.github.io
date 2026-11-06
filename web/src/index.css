@@ -143,7 +143,8 @@ pre {
 }
 
 /* 内容区：顶部工具栏 + 独立滚动的页面区。
-   「重启」是**对服务本身**的动作，放在全局工具栏，切页时不卸载、不中断轮询。 */
+   工具栏里的三个动作（快捷方式 / 重启 / 关闭界面）都是**对这个工具本身**的
+   全局本机动作，放在这里切页不卸载、不中断重启轮询，也不受配置齐全与否影响。 */
 .app-main {
   display: flex;
   flex-direction: column;
@@ -207,6 +208,12 @@ pre {
 
   .app-header {
     padding: 0 12px;
+  }
+
+  /* 工具栏与横向导航合成同一条：三个按钮只留图标，文字交给 Tooltip / Popconfirm，
+     否则 4 个菜单项加 3 个长按钮会把这一条挤换行。 */
+  .app-toolbar-actions .toolbar-label {
+    display: none;
   }
 }
 

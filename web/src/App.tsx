@@ -8,7 +8,7 @@ import { BackupPage } from './features/backup/index.ts'
 import { ComponentsPage } from './features/components/index.ts'
 import { ConfigPage } from './features/config/index.ts'
 import { ServersPage } from './features/servers/index.ts'
-import { RestartPanel } from './features/system/index.ts'
+import { StoppedNotice, ToolbarActions } from './features/system/index.ts'
 import { ErrorBoundary } from './shared/ui/ErrorBoundary.tsx'
 
 type PageKey = 'servers' | 'backup' | 'components' | 'config'
@@ -48,12 +48,16 @@ function useNarrow() {
  * 非当前页用 hidden 藏起来，语义与原先的 Tabs 一致：切回来不重新取数，
  * 检查结果和备份任务日志都还在。
  *
- * 「重启」放在**全局顶部工具栏**（宽屏在内容区顶部、窄屏与横向导航同一条），
- * 因为它是「对服务本身」的动作，与现在看哪一页无关；改完前端就该在当前页
- * 直接重启，不必先切走。工具栏不随页面卸载，重启轮询不会被切页打断。
+ * 「重启 / 创建桌面快捷方式 / 关闭界面」放在**全局顶部工具栏**（宽屏在内容区顶部、
+ * 窄屏与横向导航同一条），因为它们都是「对这个工具本身」的纯本机动作，与现在看
+ * 哪一页无关：改完前端就该在当前页直接重启；后台模式的窗口是隐藏的，从配置页
+ * 也得能关界面。工具栏不随页面卸载，重启轮询不会被切页打断。
+ * 反过来「检查全部」只作用于服务器清单，留在那一页的 `page-head`。
  *
  * 顶栏**不放当前页标题**：每页的 `page-head` 已有 h1（还连着清单路径 / 操作按钮），
- * 侧栏选中项也已经指名了当前页，再来一份就是三重复。宽屏顶栏只留右侧的「重启」。
+ * 侧栏选中项也已经指名了当前页，再来一份就是三重复。宽屏顶栏只留右侧那组全局动作。
+ *
+ * 关掉界面后整个外壳换成一张静态说明页：服务已经不在了，留一屏能点的按钮只会骗人。
  */
 export default function App() {
   const [page, setPage] = useState<PageKey>('servers')
@@ -61,6 +65,7 @@ export default function App() {
   // 配置页改了 servers.json 后，服务器管理页要重新取数：它一直挂载着，
   // 切回来不会重新挂载，光靠「切页」刷新不到新加的那台机器。
   const [serversVersion, setServersVersion] = useState(0)
+  const [stopped, setStopped] = useState(false)
   const narrow = useNarrow()
 
   const openPage = useCallback((next: PageKey) => {
@@ -73,6 +78,7 @@ export default function App() {
   }, [openPage])
 
   const bumpServers = useCallback(() => setServersVersion((v) => v + 1), [])
+  const onStopped = useCallback(() => setStopped(true), [])
 
   const nav = (
     <Menu
@@ -86,56 +92,60 @@ export default function App() {
 
   const actions = (
     <div className="app-toolbar-actions">
-      <RestartPanel />
+      <ToolbarActions onStopped={onStopped} />
     </div>
+  )
+
+  const shell = stopped ? (
+    <StoppedNotice />
+  ) : (
+    <Layout className="app-shell">
+      {!narrow && (
+        <Layout.Sider className="app-sider" width={200} theme="light">
+          <div className="app-brand">PassUp 运维</div>
+          {nav}
+        </Layout.Sider>
+      )}
+      <Layout className="app-main">
+        <Layout.Header className={narrow ? 'app-header' : 'app-toolbar'}>
+          {narrow && (
+            <>
+              <span className="app-brand">PassUp 运维</span>
+              {nav}
+            </>
+          )}
+          {actions}
+        </Layout.Header>
+        <Layout.Content className="app-content">
+          {/* 每页一个错误边界：某一页渲染炸了只换掉那一页，
+              顶部工具栏（重启 / 关闭界面 / 快捷方式）和别的页还得留着，否则白屏后没法自救。
+              外层那个 ErrorBoundary 是兜底，正常情况轮不到它。 */}
+          <div className="app-pane" hidden={page !== 'servers'}>
+            <ErrorBoundary>
+              <ServersPage onGoConfig={() => openPage('config')} version={serversVersion} />
+            </ErrorBoundary>
+          </div>
+          <div className="app-pane" hidden={page !== 'backup'}>
+            {visited.includes('backup') && <ErrorBoundary><BackupPage /></ErrorBoundary>}
+          </div>
+          <div className="app-pane" hidden={page !== 'components'}>
+            {visited.includes('components') && <ErrorBoundary><ComponentsPage /></ErrorBoundary>}
+          </div>
+          <div className="app-pane" hidden={page !== 'config'}>
+            {visited.includes('config') && (
+              <ErrorBoundary><ConfigPage onServersChanged={bumpServers} /></ErrorBoundary>
+            )}
+          </div>
+        </Layout.Content>
+      </Layout>
+    </Layout>
   )
 
   return (
     <ConfigProvider locale={zhCN}>
       {/* AntApp 提供 message/modal 的上下文，避免 antd 的静态方法在 React 19 下拿不到主题 */}
       <AntApp>
-        <ErrorBoundary>
-          <Layout className="app-shell">
-            {!narrow && (
-              <Layout.Sider className="app-sider" width={200} theme="light">
-                <div className="app-brand">PassUp 运维</div>
-                {nav}
-              </Layout.Sider>
-            )}
-            <Layout className="app-main">
-              <Layout.Header className={narrow ? 'app-header' : 'app-toolbar'}>
-                {narrow && (
-                  <>
-                    <span className="app-brand">PassUp 运维</span>
-                    {nav}
-                  </>
-                )}
-                {actions}
-              </Layout.Header>
-              <Layout.Content className="app-content">
-                {/* 每页一个错误边界：某一页渲染炸了只换掉那一页，
-                    顶部工具栏（尤其「重启」）和另外两页还得留着，否则白屏后没法自救。
-                    外层那个 ErrorBoundary 是兜底，正常情况轮不到它。 */}
-                <div className="app-pane" hidden={page !== 'servers'}>
-                  <ErrorBoundary>
-                    <ServersPage onGoConfig={() => openPage('config')} version={serversVersion} />
-                  </ErrorBoundary>
-                </div>
-                <div className="app-pane" hidden={page !== 'backup'}>
-                  {visited.includes('backup') && <ErrorBoundary><BackupPage /></ErrorBoundary>}
-                </div>
-                <div className="app-pane" hidden={page !== 'components'}>
-                  {visited.includes('components') && <ErrorBoundary><ComponentsPage /></ErrorBoundary>}
-                </div>
-                <div className="app-pane" hidden={page !== 'config'}>
-                  {visited.includes('config') && (
-                    <ErrorBoundary><ConfigPage onServersChanged={bumpServers} /></ErrorBoundary>
-                  )}
-                </div>
-              </Layout.Content>
-            </Layout>
-          </Layout>
-        </ErrorBoundary>
+        <ErrorBoundary>{shell}</ErrorBoundary>
       </AntApp>
     </ConfigProvider>
   )

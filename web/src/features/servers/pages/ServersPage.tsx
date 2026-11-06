@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Alert, Button, Input, Modal, Popconfirm, Space, Typography } from 'antd'
+import { Alert, Button, Input, Modal, Space, Typography } from 'antd'
 
 import { serversApi } from '../api.ts'
 import { ServersTable } from '../components/ServersTable.tsx'
@@ -20,6 +20,9 @@ interface ServersPageProps {
  *
  * 🔴 后端在配置缺失时仍回 200（空清单 + setup_error），不是把页面挡在门外：
  * 这里把它渲染成一条能点、能跳转的引导，而不是一条红色报错加一张空表。
+ *
+ * 页头只放**本页**的动作（检查全部）。桌面快捷方式 / 重启 / 关闭界面是
+ * 「对这个工具本身」的全局本机动作，统一在顶部工具栏，见 `features/system/`。
  */
 export function ServersPage({ onGoConfig, version }: ServersPageProps) {
   const [data, setData] = useState<ServersResponse | null>(null)
@@ -27,10 +30,7 @@ export function ServersPage({ onGoConfig, version }: ServersPageProps) {
   const [notice, setNotice] = useState<Notice | null>(null)
   const [busy, setBusy] = useState<Record<string, boolean>>({})
   const [checkingAll, setCheckingAll] = useState(false)
-  const [shortcutting, setShortcutting] = useState(false)
   const [opening, setOpening] = useState(false)
-  const [stopping, setStopping] = useState(false)
-  const [stopped, setStopped] = useState(false)
 
   // 密码弹窗：用 Promise 把「等人输入」接到流程里，
   // 免得把 apply 拆成两个回调、状态散在四处。
@@ -132,20 +132,6 @@ export function ServersPage({ onGoConfig, version }: ServersPageProps) {
     void withBusy(server.name, () => applySudo(serversApi, server, hooks))
   }
 
-  // 建快捷方式只碰本机桌面：不进 busy、不依赖配置，失败原因原样显示
-  // （非 Windows 时后端会回「只对 Windows 有意义」）。
-  const onCreateShortcut = async () => {
-    setShortcutting(true)
-    try {
-      const r = await serversApi.shortcut()
-      setNotice({ kind: 'success', text: `已创建桌面快捷方式：${r.path}` })
-    } catch (e) {
-      setNotice({ kind: 'error', text: errText(e) })
-    } finally {
-      setShortcutting(false)
-    }
-  }
-
   // 点清单路径用编辑器打开：本机动作，不写清单、不碰远端。
   // 后端可能回退到系统默认程序，所以提示里用返回的 editor，不写死 VSCode。
   const onOpenServersFile = async () => {
@@ -158,32 +144,6 @@ export function ServersPage({ onGoConfig, version }: ServersPageProps) {
     } finally {
       setOpening(false)
     }
-  }
-
-  const onShutdown = async () => {
-    setStopping(true)
-    try {
-      await serversApi.shutdown()
-      setStopped(true)
-    } catch (e) {
-      setNotice({ kind: 'error', text: errText(e) })
-      setStopping(false)
-    }
-  }
-
-  // 后台模式的窗口是隐藏的，关掉之后得给一句「怎么再打开」，
-  // 否则用户面对的是一个连不上的标签页，只能去猜。
-  if (stopped) {
-    return (
-      <div className="page">
-        <Alert
-          type="success"
-          showIcon
-          message="网页面板已关闭"
-          description="本机界面进程已退出，可以关掉这个标签页。重新双击 启动运维.cmd 可再打开；这次操作没有改动任何远端服务器。"
-        />
-      </div>
-    )
   }
 
   return (
@@ -208,23 +168,9 @@ export function ServersPage({ onGoConfig, version }: ServersPageProps) {
             )}
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <Button loading={shortcutting} onClick={() => void onCreateShortcut()}>
-            创建桌面快捷方式
-          </Button>
-          <Button type="primary" loading={checkingAll} onClick={onCheckAll}>
-            检查全部
-          </Button>
-          <Popconfirm
-            title="关闭本机网页面板？"
-            description="只停掉这个本地界面，不改远端。重新双击 启动运维.cmd 可再打开。"
-            okText="关闭"
-            cancelText="取消"
-            onConfirm={() => void onShutdown()}
-          >
-            <Button loading={stopping}>关闭界面</Button>
-          </Popconfirm>
-        </div>
+        <Button type="primary" loading={checkingAll} onClick={onCheckAll}>
+          检查全部
+        </Button>
       </header>
 
       {notice && (

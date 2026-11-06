@@ -4,15 +4,15 @@ import type {
   CheckRow,
   OpenServersFileResult,
   ServersResponse,
-  ShortcutInfo,
 } from './types.ts'
 
 /**
- * 本能力的三个接口 —— 只发请求，不写业务判断、不弹提示。
+ * 本能力的接口 —— 只发请求，不写业务判断、不弹提示。
  * 编排（先检查再配置、失败回查）在 `service.ts`。
  *
- * 三个接口都打在同一个资源（服务器清单）上，所以是单文件 `api.ts`；
- * 出现第二个资源（比如 P2 的备份状态）才升级成 `api/<resource>.ts`。
+ * 四个接口都围着服务器清单这一个资源（连「用编辑器打开清单」也是），
+ * 所以是单文件 `api.ts`；出现第二个资源（比如 P2 的备份状态）才升级成
+ * `api/<resource>.ts`。桌面快捷方式 / 关闭界面已归到 `features/system/api.ts`。
  */
 export const serversApi = {
   /** 只读：清单 + 最近一次检查缓存。 */
@@ -38,12 +38,6 @@ export const serversApi = {
     }),
 
   /**
-   * 在桌面建一个指向启动器的快捷方式。
-   * 与 `ops shortcut` 是**同一份实现**（后端注入），界面不自己拼路径。
-   */
-  shortcut: () => request<ShortcutInfo>('/api/shortcut', { method: 'POST' }),
-
-  /**
    * 本机动作：用 VSCode（找不到则系统默认程序）打开 servers.json。
    *
    * 🔴 不带任何路径参数 —— 目标由服务端从 ops.env 解析，接口不能被当成
@@ -51,10 +45,4 @@ export const serversApi = {
    */
   openServersFile: () =>
     request<OpenServersFileResult>('/api/open-servers-file', { method: 'POST' }),
-
-  /**
-   * 关闭**本机**的 ops ui 进程（退出码 0）。不改远端、不写配置。
-   * 后台模式下启动器窗口是隐藏的，这个按钮就是唯一的停止方式。
-   */
-  shutdown: () => request<{ stopping: boolean }>('/api/shutdown', { method: 'POST' }),
 }

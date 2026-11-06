@@ -61,13 +61,6 @@ export interface ApplySudoResult {
   status: ServerStatus
 }
 
-/** POST /api/shortcut 的结果：与 Go 的 shared.ShortcutInfo 逐字对齐。 */
-export interface ShortcutInfo {
-  path: string
-  launcher: string
-  icon: string
-}
-
 /**
  * POST /api/open-servers-file 的结果：本机动作，用编辑器打开清单。
  * `editor` 是**实际**拉起的程序名（找不到 VSCode 会回退系统默认），别在界面上写死「已用 VSCode 打开」。
