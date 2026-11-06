@@ -1,4 +1,5 @@
-> 状态：**现行**（2026-11-05 起；2026-11-06 导航由顶部 Tabs 改为左侧 Sider + Menu）。界面已从
+> 状态：**现行**（2026-11-05 起；2026-11-06 导航由顶部 Tabs 改为左侧 Sider + Menu，
+> 同日新增全局顶部工具栏与「重启」能力，见 §11）。界面已从
 > 「单文件 `index.html` + 原生 JS」迁到 Vite + TypeScript + React + antd，产物构建后嵌入二进制；鉴权模型没变。
 > 同日起双击 `启动运维.cmd` 直接开这个页面（隐藏后台守护 + 单实例），形态见
 > [one-click-launch.md](one-click-launch.md) §4.4，本文只讲界面与接口。
@@ -12,7 +13,8 @@
 
 默认只读查看服务器清单与检查结果；会改远端的写操作有**两个**：「一键免密 sudo」与
 「安装 / 升级备份能力」（后者要输 `yes` 且过服务端预检门，见 §9）。
-另有 `POST /api/shutdown` 只关本机界面进程、不碰远端。
+另有 `GET /api/health` / `GET|POST /api/restart`（重启自己，见 §11）与
+`POST /api/shutdown`（只关本机界面进程）；三者都不碰远端。
 接口、清单与 sudo 的规则分别见 [servers.md](servers.md) 与 [config.md](config.md)，本文只讲界面本身。
 
 ## 1. 为什么不再用单文件 HTML
@@ -113,16 +115,26 @@ webdist.go                       //go:embed all:web/dist（根包，package main
 | `/api/backup/run` | 是 | `POST`，额外校验 `Origin`；`mode=deploy` 必须带 `confirm:"yes"` 且过服务端预检门；只认清单 name（见 §9） |
 | `/api/backup/task` | 是 | `GET`，只读任务状态与增量日志；日志已脱敏，不含密码 |
 | `/api/shortcut` | 是 | `POST`，额外校验 `Origin`；只碰本机桌面（建 `.lnk`），**不依赖配置是否齐全** |
+| `/api/open-servers-file` | 是 | `POST`，额外校验 `Origin`；本机动作：用 VSCode（找不到回退系统默认程序）打开 `servers.json`；**路径由服务端从 `ops.env` 解析，接口不读请求体** |
+| `/api/health` | 是 | `GET`，只回 `ok` + `boot_id`（**这个进程实例**的标识，重启判据，见 §11），不含任何数据 |
+| `/api/restart` | 是 | `GET` 回确认视图；`POST` 额外校验 `Origin` + `confirm_token`，重建失败就地停、备份任务在跑时 409（见 §11） |
 | `/api/shutdown` | 是 | `POST`，额外校验 `Origin`；只结束**本机**界面进程（退出码 0），不改远端 |
 
 - 静态产物不过 token 是**有意的**：真正的边界是 API —— 拿不到 token 就调不通任何接口，
   页面本身只是空壳。服务只监听 `127.0.0.1`，见 AGENTS.md 硬约束 14。
 - 写操作额外校验 `Origin`：有 `Origin` 头且不等于本服务源 → 403（挡别的网页借浏览器打本机）。
-  `POST /api/backup/run` / `POST /api/apply-sudo` / `POST /api/shortcut` / `POST /api/shutdown`
-  都走这条，所以别的网页既关不掉这个面板、也借它装不了备份能力。
+  `POST /api/backup/run` / `POST /api/apply-sudo` / `POST /api/shortcut` /
+  `POST /api/open-servers-file` / `POST /api/restart` / `POST /api/shutdown`
+  都走这条，所以别的网页既关不掉这个面板、也借它装不了备份能力、重启不了服务。
+- `POST /api/open-servers-file` 与 `/api/shortcut` 同属**本机动作**：只起一个进程，不写配置、不碰远端。
+  它不收任何路径参数，目标固定为服务端解析出的 `servers.json`，所以拿到 token 也借它打不开任意文件
+  （见 §10）；实际用的编辑器原样回给页面，找不到 VSCode 不冒充成功。
 - token 只活在**内存 + 地址栏 + 配置目录的 `ui.json`（0600）**，不写 `localStorage`：
-  `ops ui` 每次启动都换新 token，存进 localStorage 只会让人分不清「当前这个后端」和「上一个」。
+  `ops ui` 每次**常规启动**都换新 token，存进 localStorage 只会让人分不清「当前这个后端」和「上一个」。
   `ui.json` 是给第二次双击「把浏览器指回已有实例」用的，见 [config.md](config.md) §1。
+  ⚠️ 例外：`__takeover`（重启接手）**复用** `ui.json` 里的 token，不换新 ——
+  前端 token 没落盘，换掉之后页面轮询 `/api/health` 会一直 401，把成功的重启误报成失败。
+  见 §11.4。
 - 配置 / 服务器清单读不出来时，页面回 **503 + 一页能照做的说明**（不是白屏、不是 500）：
   `ops init` 生成的是空清单模板，而后台窗口是隐藏的，静默退出等于「双击没反应」。
   每次请求都会重读配置，补完**刷新即可**；API 侧同样回 503 + 中文原因。
@@ -176,8 +188,9 @@ npm run dev        # 5175；/api 代理到 127.0.0.1:7788（先起 ops ui）
   成功时把完整 `.lnk` 路径显示在页面上。
 - **停**：点页面右上角的「关闭界面」（`POST /api/shutdown` → 退出码 0），或前台模式下 Ctrl+C。
   后台模式的窗口是隐藏的，没有这个按钮就只能去任务管理器杀进程。
-- 🔴 **后台守护不给「重启」按钮**：本仓没做退出码 75 自重建 / `ops.exe.new` 换身，
-  源码改动请手动 `go build -o ops.exe .`（改了 `web/` 先 `npm run build`）。
+- 🔴 **顶部工具栏有「重启」**：全局头栏（宽屏在内容区顶部、窄屏与横向导航同一条），
+  不随页面卸载。它可选「先重建」并换掉 `ops.exe`，源码过期时复选框自动勾上；
+  详见 §11。后台守护本身**没有**换身逻辑，接手进程是独立的 detached 进程。
 
 - ⚠️ **改完 `web/` 一律 `npm test` 与 `npm run typecheck` 两个都跑**：
   `test/` 故意不在 `tsconfig.json` 的 `include` 里（不想为一个测试引 `@types/node`），
@@ -295,3 +308,132 @@ StrictMode 下 effect 会跑两次，用递增的 `pollId` 让旧轮询自己退
   apply-sudo 与部署互斥、增量日志；
 - `npm test`：`watchTask` 按 `next` 续传、`shouldStop` 只停轮询不停任务、重载后接回；
 - 真机：预检失败时远端文件没变；日志里搜不到明文密码；安装途中刷新，回来能看到完成。
+
+## 10. 点清单路径直接用 VSCode 打开（2026-11-06）
+
+服务器管理页页头那行 `清单：C:\...\servers.json` 本身就是链接：点一下打开编辑，
+不必再去 `%AppData%` 里翻路径。这是**低频辅助入口**，所以不加按钮、不给主路径添步骤。
+路径是蓝色虚线下划线，后面常驻一个编辑图标 +「点击用 VSCode 打开」——静态就能看出
+「能点、点了会怎样」，不靠 hover 才发现；图标与短提示同属那一个 button，仍是一次点击
+（打开中就地换成「正在打开…」）。
+
+### 10.1 为什么不让前端拼 `vscode://` / `file://` 链接
+
+| 方案 | 判定 |
+| :--- | :--- |
+| `file://` 链接 | 浏览器从 `http://127.0.0.1` 页面跳本地文件会被拦，直接不可行 |
+| 前端拼 `vscode://file/...` | 依赖 VSCode 注册协议、依赖浏览器放行外部协议；失败时页面无从得知，只能干等 |
+| **`POST` 让后端拉起进程**（选中） | 能返回「用的是哪个程序」，找不到 VSCode 还能回退系统默认程序；路径不用暴露给前端去拼 |
+
+### 10.2 边界
+
+- 接口**不读请求体**：路径只来自 `shared.LoadConfig()` 解析出的 `ServersFile`，
+  并先 `os.Stat` 确认是普通文件。前端塞 `{"path": ...}` 会被忽略（有单测挡着）。
+- 只起进程，不写文件、不碰远端；`POST` + token + `Origin` 与「创建桌面快捷方式」同级，
+  必须人点，双击落地页不会自己开编辑器。不进 `opMu`，不用等 SSH 检查跑完。
+- `openFileInEditor` 优先 VSCode（用户级 / 系统级 / `code.cmd` 同目录的 `Code.exe`），
+  找不到或起不来回退 `rundll32 url.dll,FileProtocolHandler`（其它平台 `open` / `xdg-open`）；
+  只拼 argv、不拼 shell 命令行，避免路径里的空格 / `&` / `^` 变成命令注入。
+  单测通过 `openInEditor` 这个测试缝，不会真弹一个 VSCode 窗口。
+- 🔴 **Windows 上不能直接 `Code.exe -r <file>`**：那是 Electron 主程序而非 CLI 入口，
+  `Start()` 会成功、进程也确实起来，但文件不会打开（真机验证：窗口标题不变）。
+  `bin/code.cmd` 的做法是 `ELECTRON_RUN_AS_NODE=1` + `Code.exe <版本目录>/resources/app/out/cli.js -r <file>`，
+  本实现照抄这条 argv，版本哈希目录用通配符找（升级会变，不能写死），从而避开
+  `cmd.exe` 黑窗口与额外一层转义。
+- 返回值 `editor` 是**实际**程序名，页面提示写「已用 X 打开」而不是写死 VSCode。
+
+### 10.3 回归要点
+
+- `go test ./internal/ui -run TestOpenServersFile`：401 / 403 / GET 404 / 请求体路径无效 /
+  配置缺失 503 / 清单缺失 404 / 拉起失败 500；
+- 真机：点路径后 VSCode 在当前窗口打开 `servers.json`；把 VSCode 挪走（或改环境变量）
+  再点，提示应变成「系统默认程序」而不是假装成功。
+
+---
+
+## 11. 重启自己（2026-11-06）
+
+> 判据与踩坑在这里，一句话结论在 [AGENTS.md](../AGENTS.md) 硬约束 22。
+> 启动器形态与「为什么不做退出码 75」见 [one-click-launch.md](one-click-launch.md) §4.2。
+
+### 11.1 为什么改了，以及没改什么
+
+开发时「改 Go / 改前端 / 改 `deploy/backup` → 重新构建 → 关界面 → 重新双击」是纯手工五步，
+漏掉任何一步的症状都是同一句「我明明改了，界面怎么没变」。
+[one-click-launch.md](one-click-launch.md) §9 当初否决「一键重启」的理由是
+「Vite 重建链路长且出错时无人看见」——现在这条被三条硬约定解决了：
+**重建失败就地停**（服务照旧在跑）、**构建输出回 HTTP 响应并进日志**、
+**新进程的输出写进 `ops-ui.log`**（detached 进程没有控制台，不重定向就静默丢掉）。
+
+仍然**不做**参考项目那套「退出码 75 → `.cmd` 守护把 `.new` 换身 → `--takeover` 重拉」：
+本仓改走 detached 接手进程，`启动运维.cmd` 一行未改（避开 CRLF / ASCII 注释 /
+隐藏窗口 `pause` 那些红线）。名字也叫 `__takeover`，但它是 `ops ui` 的**内部标记**，
+不是启动器的循环分支。
+
+### 11.2 接口与六道门
+
+```
+GET  /api/health            → {ok:true, boot_id:"<这个进程实例>"}
+GET  /api/restart           → 影响面 / confirm_token / binary_stale / build_command / log_path / note
+POST /api/restart           → {"rebuild":bool,"confirm":"sha256:…"}
+                            200 {restarting:true, build_output, boot_id}（显式 Content-Length）
+                            409 confirm_stale / 备份任务在跑 / ui.json 读不到
+                            500 重建失败（服务照旧在跑）
+```
+
+六道门见 AGENTS.md 硬约束 22。要点：确认令牌绑「进程实例 + 端口 + token」；
+**不要求输 `yes`**（重启是本机动作，二次确认弹窗已经把影响面逐条摊开）；
+备份任务在跑时硬拒绝（它正在写远端 crontab / 目录，拦腰截断会留半状态）。
+
+### 11.3 交接链路
+
+```
+页面点「重启」→ 二次确认（影响面 5 条 + 可选「先重建」）
+  → 服务端：可选重建到 ops.next.exe（失败就地停）
+  → 先回 200（显式 Content-Length）→ 拉起 __restart 接手进程（detached，输出进 ops-ui.log）
+  → 旧进程 srv.Shutdown（让出端口）→ exit 0（隐藏 cmd 守护随之结束）
+  → 接手进程：WaitPortFree → ReplaceBinary(next → ops.exe)
+  → ops ui __takeover --port <原端口>：从 ui.json 复用 token、带重试拿单例互斥体、不新开浏览器
+  → 前端轮询 /api/health，boot_id 变了才 location.reload()
+```
+
+⚠️ **判据只有 `boot_id`**。交接失败时旧进程会**原地活着**（刻意的 —— 用一次看不见的
+失败换掉整个服务更糟），那时「服务还在」与「重启成功」在界面上完全一样；
+同理服务端「先回 200 再退出」使传输层失败成为**预期形态**，不是失败。
+判定抽在 `web/src/features/system/restartFlow.ts`（单测 `web/test/restartFlow.test.ts`）。
+
+### 11.4 五条本仓特有的坑
+
+1. 🔴 **不能换新 token**。前端 token 只在内存 + 地址栏（`adoptTokenFromUrl`，见 §4），
+   每次 `ops ui` 启动都 `randomToken()`。换了之后页面轮询 `/api/health` 一直 401，
+   `boot_id` 永远拿不到，界面会把一次**成功**的重启误报成「没重启成」。
+   → `__takeover` 从 `ui.json`（0600）复用 port + token；令牌**不进命令行**（任务管理器看得到）。
+   `GET /api/restart` 会先确认 `ui.json` 可读且与当前进程一致，不一致就不给按钮。
+2. 🔴 **单实例互斥体要带重试拿**。旧进程 `srv.Shutdown`（关监听）在 `exit` 之前，
+   而命名互斥体是**进程退出时**由内核释放；接手进程的 `WaitPortFree` 看到端口空了，
+   锁可能还差几毫秒。不重试就会误判「已有界面在跑」，只开一个浏览器标签页、服务却没起来。
+3. 🔴 **构建顺序比一般 Vite 项目多两步**：`npm test` → `npm run typecheck` →
+   `npm run build` → `go build -o ops.next.exe .`。`test/` 不在 `tsconfig` 的 include 里，
+   类型错误只能靠跑一遍发现，少了它等于放行一个前端类型错误。
+   `go` 那条**直接 exec 不走 cmd.exe**：Go 按 CommandLineToArgvW 组装参数，cmd 不认那套，
+   含空格的 `go.exe` 路径必然坏掉（症状像「go 没装」）。只有 npm（`.cmd`）需要 `cmd.exe /d /c`。
+4. 🔴 **过期检测要算 `deploy/backup/**` 与 `web/dist/index.html`**：两者都 embed 进二进制，
+   漏掉就是「脚本改了但部署出去的还是旧的」/「界面看着变了、其实跑的是旧 Go」。
+   运行态文件（`ops.exe~` / `servers.json` / `*.log` / `backup.env`）一律不算输入，
+   否则「先重建」会永远勾着 —— 一个永远为真的告警等于没有告警。
+5. 🔴 **`ReplaceBinary` 同路径必须拒绝**。「从哪个文件起来」与「换到哪个文件」是两个值：
+   混填会变成 `next.exe → next.exe` 的空操作，表面成功、正式 exe 永远停在旧版本。
+   另外 `os.Executable()` 在 Windows 上返回**进程映像加载时**的路径：一个「从 next.exe
+   起来、再改名成 ops.exe」的进程仍返回 next.exe，所以 `TargetExe()` 必须走
+   `NormalizeExePath`（按 `.next.exe` 后缀判，不靠探测文件在不在）。
+
+### 11.5 回归要点
+
+- `go test ./internal/restart ./internal/ui .`：过期判定（含 embed 脚本）、重建顺序与失败停、
+  `ReplaceBinary` 同路径拒绝、确认令牌绑实例、409 拒绝任务、重建失败不交接、
+  响应 Content-Length、拉起失败不退出、单例重试；
+- `cd web && npm test && npm run typecheck && npm run build`：4 个 `restartFlow` 用例；
+- 真机（Windows）：起界面 → 点「重启」勾「先重建」→ 等页面自己回来 →
+  核对 `/api/health` 的 `boot_id` 变了、`ops.exe` 的 mtime 变了、`ops.next.exe` 不在了、
+  `ops-ui.log` 里有「新二进制已就位」；再点一次**不重建**的重启，确认同样能回来。
+

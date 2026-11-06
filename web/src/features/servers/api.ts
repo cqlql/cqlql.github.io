@@ -1,5 +1,11 @@
 import { request } from '../../shared/api/http.ts'
-import type { ApplySudoResult, CheckRow, ServersResponse, ShortcutInfo } from './types.ts'
+import type {
+  ApplySudoResult,
+  CheckRow,
+  OpenServersFileResult,
+  ServersResponse,
+  ShortcutInfo,
+} from './types.ts'
 
 /**
  * 本能力的三个接口 —— 只发请求，不写业务判断、不弹提示。
@@ -36,6 +42,15 @@ export const serversApi = {
    * 与 `ops shortcut` 是**同一份实现**（后端注入），界面不自己拼路径。
    */
   shortcut: () => request<ShortcutInfo>('/api/shortcut', { method: 'POST' }),
+
+  /**
+   * 本机动作：用 VSCode（找不到则系统默认程序）打开 servers.json。
+   *
+   * 🔴 不带任何路径参数 —— 目标由服务端从 ops.env 解析，接口不能被当成
+   * 「打开任意本机文件」的代理；人点了路径才会发这个 POST。
+   */
+  openServersFile: () =>
+    request<OpenServersFileResult>('/api/open-servers-file', { method: 'POST' }),
 
   /**
    * 关闭**本机**的 ops ui 进程（退出码 0）。不改远端、不写配置。

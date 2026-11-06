@@ -62,3 +62,12 @@ export interface ShortcutInfo {
   launcher: string
   icon: string
 }
+
+/**
+ * POST /api/open-servers-file 的结果：本机动作，用编辑器打开清单。
+ * `editor` 是**实际**拉起的程序名（找不到 VSCode 会回退系统默认），别在界面上写死「已用 VSCode 打开」。
+ */
+export interface OpenServersFileResult {
+  editor: string
+  path: string
+}

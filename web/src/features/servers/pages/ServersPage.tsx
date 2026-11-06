@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Alert, Button, Input, Modal, Popconfirm, Typography } from 'antd'
+import { EditOutlined } from '@ant-design/icons'
 
 import { serversApi } from '../api.ts'
 import { ServersTable } from '../components/ServersTable.tsx'
@@ -18,6 +19,7 @@ export function ServersPage() {
   const [busy, setBusy] = useState<Record<string, boolean>>({})
   const [checkingAll, setCheckingAll] = useState(false)
   const [shortcutting, setShortcutting] = useState(false)
+  const [opening, setOpening] = useState(false)
   const [stopping, setStopping] = useState(false)
   const [stopped, setStopped] = useState(false)
 
@@ -133,6 +135,20 @@ export function ServersPage() {
     }
   }
 
+  // 点清单路径用编辑器打开：本机动作，不写清单、不碰远端。
+  // 后端可能回退到系统默认程序，所以提示里用返回的 editor，不写死 VSCode。
+  const onOpenServersFile = async () => {
+    setOpening(true)
+    try {
+      const r = await serversApi.openServersFile()
+      setNotice({ kind: 'success', text: `已用 ${r.editor} 打开清单：${r.path}` })
+    } catch (e) {
+      setNotice({ kind: 'error', text: errText(e) })
+    } finally {
+      setOpening(false)
+    }
+  }
+
   const onShutdown = async () => {
     setStopping(true)
     try {
@@ -165,7 +181,30 @@ export function ServersPage() {
         <div>
           <h1>服务器管理</h1>
           <div className="page-meta">
-            清单：<span>{data?.servers_file ?? (loading ? '加载中…' : '加载失败')}</span>
+            清单：
+            {data?.servers_file ? (
+              <button
+                type="button"
+                className="meta-file-link"
+                title="用 VSCode 打开 servers.json"
+                disabled={opening}
+                onClick={() => void onOpenServersFile()}
+              >
+                <span className="meta-file-path">{data.servers_file}</span>
+                <span className="meta-file-action">
+                  {opening ? (
+                    '正在打开…'
+                  ) : (
+                    <>
+                      <EditOutlined aria-hidden style={{ marginRight: 4 }} />
+                      点击用 VSCode 打开
+                    </>
+                  )}
+                </span>
+              </button>
+            ) : (
+              <span>{loading ? '加载中…' : '加载失败'}</span>
+            )}
           </div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>

@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"pass-up/ops/internal/restart"
 	"pass-up/ops/internal/servers"
 	"pass-up/ops/internal/shared"
 )
@@ -64,6 +65,18 @@ type uiState struct {
 	// task 是界面里唯一一个长任务的状态与日志（预检 / 安装 / 自检共用），见 backup.go。
 	runner BackupRunner
 	task   *backupTask
+
+	// ---- 「重启自己」的事实（见 restart.go）----
+	// bootID 是**这个进程实例**的标识，/api/health 会带上它。不能用 PID 代替：
+	// 重启之后 PID 一定变，但「服务还在」与「重启成功了」必须能分开 —— 交接失败时
+	// 旧进程会原地活着，那时说「重启完成」就是假话。
+	bootID string
+	port   int
+	// configDir 只用来定位 ui.json（沿用令牌）与 ops-ui.log（接手进程的输出）。
+	configDir string
+	// srv 是优雅收尾的入口；重启时先关监听，端口才会让给接手进程。
+	srvMu sync.Mutex
+	srv   *http.Server
 }
 
 // exitProcess 是 /api/shutdown 的测试缝：生产环境就是 os.Exit。
@@ -77,6 +90,14 @@ func CmdUI(args []string, static fs.FS, createShortcut func() (shared.ShortcutIn
 	// 隐藏守护，自己不参与 ui 的参数解析（也只活几百毫秒）。
 	if len(args) > 0 && args[0] == "--background" {
 		return backgroundUI(args[1:])
+	}
+
+	// __takeover 只由「重启接手进程」使用（restart.TakeoverFlag）：同端口、同 token、
+	// 不新开浏览器。它和 --background 一样是内部标记，不进 usage，也不该被人手敲。
+	takeover := false
+	if len(args) > 0 && args[0] == restart.TakeoverFlag {
+		takeover = true
+		args = args[1:]
 	}
 
 	port := defaultUIPort
@@ -129,9 +150,54 @@ func CmdUI(args []string, static fs.FS, createShortcut func() (shared.ShortcutIn
 	// 界面启动就保证配置目录里的 ops.ico 与嵌入的图标一致；写失败不影响界面。
 	WriteIcon(dir)
 
+	// 令牌：重启接手时**必须复用** ui.json 里那一份。
+	// 前端的 token 只在内存 + 地址栏里（不落 localStorage），换一个新令牌的话
+	// 页面轮询 /api/health 会一直 401，boot_id 永远拿不到 —— 界面会把一次成功的
+	// 重启误报成「没重启成」。这就是「沿用当前这组参数」在本仓的确切含义。
+	var token string
+	if takeover {
+		info, ierr := readUIInfo(dir)
+		if ierr != nil {
+			fmt.Fprintf(os.Stderr, "ERROR: 接手失败，读不到 ui.json 里的端口/令牌：%v\n", ierr)
+			fmt.Fprintln(os.Stderr, "       详情见 ops-ui.log；原界面已经退出，请重新双击 启动运维.cmd。")
+			return 1
+		}
+		if explicitPort && port != info.Port {
+			fmt.Fprintf(os.Stderr, "ERROR: 接手进程被要求绑 %d，但 ui.json 记的是 %d —— 拒绝悄悄换端口\n", port, info.Port)
+			return 1
+		}
+		token = info.Token
+		port = info.Port
+		explicitPort = true // 严格绑同一个端口，绝不悄悄换
+		noOpen = true       // 页面已经在浏览器里，别再开一个标签页
+		fmt.Printf("· 重启接手：沿用 127.0.0.1:%d 与原访问令牌\n", port)
+	} else {
+		var err error
+		token, err = randomToken()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "ERROR: 生成访问令牌失败：%v\n", err)
+			return 1
+		}
+	}
+
 	// 单实例：第二次 `ops ui` 不启第二个进程，只把浏览器指到已有实例。
 	// 互斥体由内核持有，进程被强杀也会自动释放，不存在残留锁文件。
-	release, ok := acquireSingleton(uiSingletonKey(dir))
+	//
+	// ⚠️ 接手进程必须**带重试**：旧进程那把互斥体要等它真正 exit 才由内核释放，
+	// 而 WaitPortFree 只看端口（关监听发生在 exit 之前），两者之间有几毫秒差。
+	// 不重试的话接手进程会误判「已有界面在跑」，只开一个浏览器标签页，服务却没起来。
+	var release func()
+	var ok bool
+	if takeover {
+		release, ok = acquireSingletonRetry(uiSingletonKey(dir), takeoverLockTimeout)
+		if !ok {
+			fmt.Fprintf(os.Stderr, "ERROR: 等了 %s，旧界面进程的单实例互斥体仍没释放，接手失败。\n", takeoverLockTimeout)
+			fmt.Fprintln(os.Stderr, "       详情见 ops-ui.log；请重新双击 启动运维.cmd。")
+			return 1
+		}
+	} else {
+		release, ok = acquireSingleton(uiSingletonKey(dir))
+	}
 	if !ok {
 		info, ierr := readUIInfo(dir)
 		if ierr != nil {
@@ -163,12 +229,6 @@ func CmdUI(args []string, static fs.FS, createShortcut func() (shared.ShortcutIn
 	} else if list, err = shared.LoadServers(cfg); err != nil {
 		setupErr = err
 	}
-	token, err := randomToken()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "ERROR: 生成访问令牌失败：%v\n", err)
-		return 1
-	}
-
 	ln, actual, err := uiListen(port, explicitPort)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
@@ -199,6 +259,9 @@ func CmdUI(args []string, static fs.FS, createShortcut func() (shared.ShortcutIn
 		createShortcut: createShortcut,
 		runner:         runner,
 		task:           &backupTask{},
+		bootID:         newBootID(),
+		port:           actual,
+		configDir:      dir,
 	}
 	fmt.Printf("服务器管理界面：%s\n", uiURL(actual, token))
 	if setupErr != nil {
@@ -210,6 +273,7 @@ func CmdUI(args []string, static fs.FS, createShortcut func() (shared.ShortcutIn
 	fmt.Println("退出：Ctrl+C，或点页面上的「关闭界面」")
 
 	srv := &http.Server{Handler: u, ReadHeaderTimeout: 10 * time.Second}
+	u.setServer(srv)
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 	defer signal.Stop(stop)
@@ -356,6 +420,14 @@ func (u *uiState) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		u.handleBackupTask(w, r)
 	case r.Method == http.MethodPost && r.URL.Path == "/api/shortcut":
 		u.handleShortcut(w)
+	case r.Method == http.MethodPost && r.URL.Path == "/api/open-servers-file":
+		u.handleOpenServersFile(w)
+	case r.Method == http.MethodGet && r.URL.Path == "/api/health":
+		u.handleHealth(w)
+	case r.Method == http.MethodGet && r.URL.Path == "/api/restart":
+		u.handleRestartView(w)
+	case r.Method == http.MethodPost && r.URL.Path == "/api/restart":
+		u.handleRestart(w, r)
 	case r.Method == http.MethodPost && r.URL.Path == "/api/shutdown":
 		u.handleShutdown(w)
 	default:

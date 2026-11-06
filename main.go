@@ -3,6 +3,7 @@ package main
 import (
 	"pass-up/ops/internal/backup"
 	"pass-up/ops/internal/launcher"
+	"pass-up/ops/internal/restart"
 	"pass-up/ops/internal/servers"
 	"pass-up/ops/internal/shared"
 	"pass-up/ops/internal/ui"
@@ -26,18 +27,7 @@ func commandHandler(name string) (func([]string) int, bool) {
 	case "servers":
 		return servers.CmdServers, true
 	case "ui":
-		// 三样东西从根包注入，ui 自己一个都不 import（依赖方向见 AGENTS.md）：
-		//   - webDist：前端产物（embed 路径不能有 `..`，ui 收 fs.FS 便于测试塞 MapFS）；
-		//   - 快捷方式实现：真正代码在 launcher（它要用 ui.IconBytes），反向引用会成环；
-		//   - 备份部署执行器：ui 不能 import backup，函数值由这里递进去。
-		return func(a []string) int {
-			return ui.CmdUI(a, webDist,
-				func() (shared.ShortcutInfo, error) {
-					return launcher.CreateShortcutOnDesktop(launcher.DefaultShortcutName)
-				},
-				runBackupSubprocess,
-			)
-		}, true
+		return runUI, true
 	case "backup":
 		// 备份脚本（deploy/backup）在根包（backupdist.go）嵌入，注入给 backup 包 ——
 		// 与 ui 收 fs.FS 同理：embed 路径不能有 `..`，internal/backup 自己嵌不了。
@@ -59,6 +49,20 @@ func commandHandler(name string) (func([]string) int, bool) {
 	}
 }
 
+// runUI 是 `ops ui` 与「重启接手进程」共用的**唯一**入口。
+// 三样东西从根包注入，ui 自己一个都不 import（依赖方向见 AGENTS.md）：
+//   - webDist：前端产物（embed 路径不能有 `..`，ui 收 fs.FS 便于测试塞 MapFS）；
+//   - 快捷方式实现：真正代码在 launcher（它要用 ui.IconBytes），反向引用会成环；
+//   - 备份部署执行器：ui 不能 import backup，函数值由这里递进去。
+func runUI(a []string) int {
+	return ui.CmdUI(a, webDist,
+		func() (shared.ShortcutInfo, error) {
+			return launcher.CreateShortcutOnDesktop(launcher.DefaultShortcutName)
+		},
+		runBackupSubprocess,
+	)
+}
+
 func run(args []string) int {
 	if len(args) == 0 {
 		usage()
@@ -68,6 +72,12 @@ func run(args []string) int {
 	case "help", "-h", "--help":
 		usage()
 		return 0
+	}
+	// 接手进程：等旧进程把监听地址让出来 → 把新二进制换上去 → 同端口同 token 起服务。
+	// ⚠️ 刻意**不进** commandHandler：它不该出现在 usage / 菜单的能力探测里，
+	// 也不该被人手工敲。参数传错只能退出（它必须以服务身份起来，否则没人绑端口）。
+	if args[0] == restart.Subcommand {
+		return runRestartChild(args[1:])
 	}
 	if h, ok := commandHandler(args[0]); ok {
 		return h(args[1:])

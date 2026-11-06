@@ -45,6 +45,30 @@ const (
 // 「已有一个界面在跑」，而不必真的去起第二个进程。
 var acquireSingleton = shared.AcquireSingleton
 
+// takeoverLockTimeout 是「重启接手进程」等互斥体释放的上界。
+//
+// 旧进程在 srv.Shutdown（关监听）之后才 os.Exit，而命名互斥体是**进程退出时**
+// 由内核释放的 —— 接手进程的 WaitPortFree 看到端口空了，锁却可能还差几毫秒。
+// 所以接手要重试拿锁，而不是把一次「还没让出来」当成「已有界面在跑」。
+const takeoverLockTimeout = 8 * time.Second
+
+// acquireSingletonRetry 反复尝试拿锁，直到拿到或超时。
+// 与 backgroundUI 那条「拿不到就只开浏览器」的路不同：接手进程拿不到锁就是
+// **服务没起来**，必须如实报错退出，不能假装成功。
+func acquireSingletonRetry(key string, timeout time.Duration) (func(), bool) {
+	deadline := time.Now().Add(timeout)
+	for {
+		release, ok := acquireSingleton(key)
+		if ok {
+			return release, true
+		}
+		if time.Now().After(deadline) {
+			return func() {}, false
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+}
+
 // uiSingletonKey 把「按配置目录单实例」编成互斥体名。
 //
 // 🔴 必须带目录指纹。互斥体是**机器级**的，而配置目录可以被

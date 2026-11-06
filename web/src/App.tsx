@@ -6,6 +6,7 @@ import zhCN from 'antd/locale/zh_CN'
 
 import { BackupPage } from './features/backup/index.ts'
 import { ServersPage } from './features/servers/index.ts'
+import { RestartPanel } from './features/system/index.ts'
 import { ErrorBoundary } from './shared/ui/ErrorBoundary.tsx'
 
 type PageKey = 'servers' | 'backup'
@@ -14,6 +15,11 @@ const NAV_ITEMS: MenuProps['items'] = [
   { key: 'servers', icon: <CloudServerOutlined />, label: '服务器管理' },
   { key: 'backup', icon: <DatabaseOutlined />, label: '备份能力部署' },
 ]
+
+const PAGE_TITLE: Record<PageKey, string> = {
+  servers: '服务器管理',
+  backup: '备份能力部署',
+}
 
 // 窄窗口放不下 200px 侧栏，退化成顶部横向菜单；只是布局变化，不增加一次点击。
 const NARROW_QUERY = '(max-width: 860px)'
@@ -40,6 +46,10 @@ function useNarrow() {
  * 导航是左侧 `Sider + Menu`（窄窗口为顶部横向 Menu）。访问过的页面保持挂载、
  * 非当前页用 hidden 藏起来，语义与原先的 Tabs 一致：切回来不重新取数，
  * 检查结果和备份任务日志都还在。
+ *
+ * 「重启」放在**全局顶部工具栏**（宽屏在内容区顶部、窄屏与横向导航同一条），
+ * 因为它是「对服务本身」的动作，与现在看哪一页无关；改完前端就该在当前页
+ * 直接重启，不必先切走。工具栏不随页面卸载，重启轮询不会被切页打断。
  */
 export default function App() {
   const [page, setPage] = useState<PageKey>('servers')
@@ -62,31 +72,45 @@ export default function App() {
     />
   )
 
+  const actions = (
+    <div className="app-toolbar-actions">
+      <RestartPanel />
+    </div>
+  )
+
   return (
     <ConfigProvider locale={zhCN}>
       {/* AntApp 提供 message/modal 的上下文，避免 antd 的静态方法在 React 19 下拿不到主题 */}
       <AntApp>
         <ErrorBoundary>
           <Layout className="app-shell">
-            {narrow ? (
-              <Layout.Header className="app-header">
-                <span className="app-brand">PassUp 运维</span>
-                {nav}
-              </Layout.Header>
-            ) : (
+            {!narrow && (
               <Layout.Sider className="app-sider" width={200} theme="light">
                 <div className="app-brand">PassUp 运维</div>
                 {nav}
               </Layout.Sider>
             )}
-            <Layout.Content className="app-content">
-              <div className="app-pane" hidden={page !== 'servers'}>
-                <ServersPage />
-              </div>
-              <div className="app-pane" hidden={page !== 'backup'}>
-                {visited.includes('backup') && <BackupPage />}
-              </div>
-            </Layout.Content>
+            <Layout className="app-main">
+              <Layout.Header className={narrow ? 'app-header' : 'app-toolbar'}>
+                {narrow ? (
+                  <>
+                    <span className="app-brand">PassUp 运维</span>
+                    {nav}
+                  </>
+                ) : (
+                  <span className="app-toolbar-title">{PAGE_TITLE[page]}</span>
+                )}
+                {actions}
+              </Layout.Header>
+              <Layout.Content className="app-content">
+                <div className="app-pane" hidden={page !== 'servers'}>
+                  <ServersPage />
+                </div>
+                <div className="app-pane" hidden={page !== 'backup'}>
+                  {visited.includes('backup') && <BackupPage />}
+                </div>
+              </Layout.Content>
+            </Layout>
           </Layout>
         </ErrorBoundary>
       </AntApp>

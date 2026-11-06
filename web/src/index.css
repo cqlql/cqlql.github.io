@@ -2,6 +2,7 @@
   --ops-bg: #f6f7f9;
   --ops-text: #1f2328;
   --ops-muted: #6b7280;
+  --ops-link: #1677ff;
 }
 
 * {
@@ -51,6 +52,51 @@ pre {
   color: var(--ops-muted);
   font-size: 12px;
   word-break: break-all;
+}
+
+/* 清单路径本身就是「用 VSCode 打开」的入口。
+   🔴 常驻的图标 + 短提示说明「能点、点了会怎样」：只在 hover 才显形的话，
+   静态看就是一行灰字，等于没提示。图标与短提示同属那一个 button，
+   仍是一次点击、不新增控件；button 也保留了键盘可达性。 */
+.meta-file-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ops-link);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  word-break: normal;
+}
+
+/* 下划线只挂在路径 span 上：text-decoration 会向后代传播且无法被后代取消，
+   直接挂在 button 上会把图标和提示文字一起划上，很难看。 */
+.meta-file-path {
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+  word-break: break-all;
+}
+
+.meta-file-link:hover:not(:disabled) .meta-file-path,
+.meta-file-link:focus-visible .meta-file-path {
+  text-decoration: underline solid;
+}
+
+.meta-file-action {
+  margin-left: 8px;
+  white-space: nowrap;
+  word-break: normal;
+}
+
+.meta-file-link:focus-visible {
+  outline: 2px solid var(--ops-link);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+.meta-file-link:disabled {
+  cursor: wait;
+  opacity: 0.65;
 }
 
 .card {
@@ -109,10 +155,59 @@ pre {
   border-radius: 8px;
 }
 
+/* 内容区：顶部工具栏 + 独立滚动的页面区。
+   「重启」是**对服务本身**的动作，放在全局工具栏，切页时不卸载、不中断轮询。 */
+.app-main {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 100vh;
+}
+
+.app-toolbar,
+.app-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 0 0 auto;
+  height: 52px;
+  padding: 0 20px;
+  background: #fff;
+  border-bottom: 1px solid #e3e6ea;
+  line-height: normal;
+}
+
+.app-toolbar-title {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--ops-text);
+  white-space: nowrap;
+}
+
+.app-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
+.app-header .app-brand {
+  padding: 0;
+}
+
+.app-header .app-menu {
+  flex: 1 1 auto;
+  min-width: 0;
+  border-bottom: 0 !important;
+  background: transparent;
+}
+
 .app-content {
   flex: 1 1 auto;
   min-width: 0;
-  height: 100%;
+  min-height: 0;
   overflow: auto;
 }
 
@@ -120,36 +215,18 @@ pre {
   display: none;
 }
 
-/* 窄窗口：侧栏变顶部横条，两项菜单仍是一次点击可达。 */
+/* 窄窗口：侧栏变顶部横条，工具栏与横向导航合成同一条。 */
 @media (max-width: 860px) {
   .app-shell {
     flex-direction: column;
   }
 
-  .app-header {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    height: 52px;
-    padding: 0 12px;
-    background: #fff;
-    border-bottom: 1px solid #e3e6ea;
-    line-height: normal;
-  }
-
-  .app-header .app-brand {
-    padding: 0;
-  }
-
-  .app-header .app-menu {
-    flex: 1 1 auto;
-    min-width: 0;
-    border-bottom: 0 !important;
-    background: transparent;
-  }
-
-  .app-content {
+  .app-main {
     height: auto;
+  }
+
+  .app-header {
+    padding: 0 12px;
   }
 }
 

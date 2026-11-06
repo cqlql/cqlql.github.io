@@ -4,13 +4,21 @@
 > P1 备份能力部署已实现并真机验证；一键启动与桌面快捷方式（S2/S3/S5 + 图标同源）已实现，
 > **双击 `启动运维.cmd` 直接开网页面板**（隐藏守护 / 单实例 / 自动开浏览器 / 关闭界面），
 > S4 真机人工验收待做；P2 监控、P3–P4 应用部署仍为方案、代码未实现（2026-11-05）。
-> S5 未做退出码 75 自重建与 `.new` 换身，源码改动仍要手动 `go build`（见 `docs/one-click-launch.md`）。
+> **2026-11-06 界面新增「重启」**（顶部工具栏）：可选「先重建」（npm test / typecheck /
+> build → `go build -o ops.next.exe .`）、换 exe、同端口同 token 接手、`boot_id` 判定，
+> 见 `docs/ui.md` §11 / 硬约束 22。
+> **仍未做**退出码 75 / `ops.exe.new` / cmd 守护换身那套：改走 detached 接手进程，
+> `启动运维.cmd` 一行未改（见 `docs/one-click-launch.md` §4.2）。
 > **2026-11-05 已按能力竖切 Go 包**：`main.go` 薄入口 + `internal/{shared,servers,backup,ui,launcher}`。
 > **2026-11-05 界面迁到 Vite + TS + React + antd**：源码在 `web/`，产物嵌进二进制（见 `docs/ui.md`）。
 > **2026-11-05 界面新增「备份能力部署」页（预检 / 安装 / 自检）**：红线已从
 > 「`ui` 只读」改为「**双击落地页只读，写操作必须显式二次确认**」，见 `docs/ui.md` §9。
 > **2026-11-05 备份脚本迁入本仓**：`deploy/backup/**` 从 `pass-up.backend` 整体搬来并
 > `//go:embed` 进二进制，`ops.exe` 不再依赖兄弟仓（见 `docs/backup-scripts.md`）。
+> **2026-11-06 界面清单路径可直接点开 VSCode**：`POST /api/open-servers-file` 是纯本机动作，
+> 路径由服务端解析、接口不读请求体，见 `docs/ui.md` §10。
+> **2026-11-06 导航新增全局顶部工具栏**：左侧 Sider + Menu 不变，工具栏放「重启」，
+> 窄屏与横向导航合成同一条；访问过的页面仍保持挂载（见 `docs/ui.md` §7）。
 > 只放「每次动代码都要遵守」的红线：一句结论 + 一个指针。判据、流程、踩坑都在 `docs/`。
 > 通用文档规则以 `cqlql-notes/docs/工程/文档约定.md` 为准。
 
@@ -20,7 +28,8 @@
   `ops backup deploy/verify/env` 安装、升级、预检备份能力并生成配置模板
   （备份脚本本体就在本仓 `deploy/backup/`，编进二进制）；
   `ops ui` 默认只读查看服务器清单与检查结果；「备份能力部署」页另有预检 / 安装 / 自检
-  三个显式入口（安装要输 yes，服务端先跑 `--dry-run`，见 `docs/ui.md` §9）
+  三个显式入口（安装要输 yes，服务端先跑 `--dry-run`，见 `docs/ui.md` §9）；
+  顶部工具栏另有「重启」（本机动作，可选先重建 + 换 exe，见 `docs/ui.md` §11）
   （前端是 React 工程，源码 `web/`，构建后嵌入二进制）；
   双击 `启动运维.cmd` 直接开这个网页面板（后台隐藏守护 + 自动开浏览器 + 单实例）；
   `ops menu` 是显式的交互菜单入口，`ops shortcut` 建桌面 `.lnk`。见 `docs/one-click-launch.md`。
@@ -73,11 +82,17 @@
     浏览器也带不上自定义头），真正的边界是 API；写操作必须 `POST`，
     且只接受清单里的 `name`（未知 name 返回 404，不代理任意主机）；
     `POST /api/backup/run` 启动备份任务、`GET /api/backup/task` 轮询增量日志，两者同样要 token；
-    `POST /api/shutdown` 是例外中的例外——纯本机动作，不涉及清单，只结束界面进程。
-    详见 `docs/ui.md` §4 / §9。
+    `POST /api/shutdown`（只结束界面进程）与 `POST /api/open-servers-file`
+    （只起编辑器打开 `servers.json`）是纯本机动作，不涉及远端：后者**路径由服务端从
+    `ops.env` 解析、接口不读请求体**，不变成「打开任意本机文件」的代理。
+    详见 `docs/ui.md` §4 / §9 / §10。
 15. 🔴 **双击不触发写操作，写操作一律显式确认**：双击直接开**只读落地页**（服务器管理页）；
     页面里的两个写动作——一键免密 sudo、安装 / 升级备份能力——都要人点按钮，
     后者还要输 `yes` 且过服务端预检门（硬约束 21）。
+    点清单路径用编辑器打开是**本机动作**（不写清单、不碰远端），不算这里的写动作，
+    但同样要人点一下；见 `docs/ui.md` §10。
+    顶部工具栏的「重启」也是**本机动作**（只换本机的进程与 exe，不碰远端），
+    但仍要显式点击 + 二次确认；备份任务在跑时服务端直接 409 拒绝（硬约束 22）。
     命令行与 `启动运维.cmd --menu` 仍是等价入口，菜单第 3 项的「预检通过 + 输入 yes」不变。
     `.lnk` 只指启动器，图标是独立 `.ico`，名字必校验。详见 `docs/one-click-launch.md`。
 16. 🔴 **前端产物不进 Git，但 `web/dist/.gitkeep` 必须进**：`//go:embed all:web/dist`
@@ -110,6 +125,21 @@
     ⑥ 界面不开放 `--force` / `--run-now` / `--install-deps`，这些仍走 CLI。
     `ui` **不 import `backup`**：执行器 `BackupRunner` 由 `main.go` 注入，根包 `backuprun.go`
     再起一个自己执行同一条 CLI 命令（输出接任务日志）。详见 `docs/ui.md` §9。
+22. 🔴 **界面重启必须过六道门**（2026-11-06 新增）：
+    ① `POST /api/restart` 必须带绑「进程实例 + 端口 + token」的 `confirm_token`
+       （页面是上一个进程打开的就 409，必须刷新重确认）；
+    ② 备份预检 / 安装 / 自检在跑时 **409 拒绝**（远端正在写，拦腰截断会留半状态）；
+    ③ 勾「先重建」时服务端按 `npm test` → `npm run typecheck` → `npm run build` →
+       `go build -o ops.next.exe .` 重建，**失败就地停、服务照旧在跑**；过期检测要算
+       `deploy/backup/**` 与 `web/dist/index.html`（两者都 embed 进二进制）；
+    ④ 接手进程复用 `ui.json` 的 port+token（**不换新 token**，否则前端轮询
+       `/api/health` 会一直 401、把成功误报成失败；令牌也不进命令行）；
+       单实例互斥体带重试拿锁，新进程输出进 `ops-ui.log`；
+    ⑤ 响应必须显式 `Content-Length`（chunked 结束块在进程退出后永远发不出去），
+       先回 200 再 Shutdown + 退出；**拉起接手进程失败就不退出**；
+    ⑥ 判据只有 `/api/health` 的 `boot_id` 变了，传输层失败不是失败；
+       不重建时不跑 `ReplaceBinary`，同路径换二进制必须拒绝。
+    `__restart` / `__takeover` 是内部标记，不进 usage / 菜单；详见 `docs/ui.md` §11。
 
 ## 命令与验证
 
@@ -145,6 +175,8 @@ ops menu --help
 后台 stdout 在配置目录 `ops-ui.log`；停界面点页面「关闭界面」。
 🔴 **改了 `web/` 就必须重新 `npm run build` 再 `go build`**：产物是编进二进制的，
 只 `go build` 拿到的是上一次的页面（未构建过则是「怎么构建」的说明页）。
+改了 `web/` 或 `deploy/backup/**` 也可以点界面顶部「重启」并勾「先重建」一键完成：
+服务端按同样顺序构建，源码过期时复选框自动勾上（判据见 `internal/restart/staleness.go`）。
 
 ## 目录与边界
 
@@ -153,9 +185,14 @@ ops menu --help
   本次是按项目决定提前拆；代价是 41 个跨包符号导出、6 套测试归位与共用层下沉。
   `main.go` 只留 `main` / `commandHandler` / `run` / 全局 `usage`。
 - 🔴 **依赖方向只许单向**：
-  `main → {servers, backup, ui, launcher} → shared`，另有 `ui → servers`、`launcher → ui`。
+  `main → {servers, backup, ui, launcher} → shared`，`main → ui → restart → shared`，
+  另有 `ui → servers`、`launcher → ui`。
   `shared` **不得 import 任何能力包**，也不得引用能力专属类型；出现环时先把共享常量 / 模型
   下沉到 `internal/shared/`，不要在能力包之间打补丁。
+- `internal/restart/`（2026-11-06）：交接机制（`WaitPortFree` / `ReplaceBinary` / `Spawn`）、
+  重建（`Rebuild`）、源码过期判定（`Check`）。依赖方向 `main → ui → restart → shared`：
+  `restart` **不反向 import `ui`**，接手子命令的实现放根包 `restartchild.go`（它要调 `ui.CmdUI`）；
+  非 Windows 的 `Spawn` 明确报错，不假装能用。
 - `internal/shared/`：`config.go`（配置与 `ConfigDirEnv`）、`remote.go`（`SSHTarget` 与 ssh 封装）、
   `servers.go`（服务器清单、状态与 `CheckRow` 展示模型）、
   `singleton_{windows,other}.go`（跨进程命名互斥体 `AcquireSingleton`，菜单与界面共用一份，
