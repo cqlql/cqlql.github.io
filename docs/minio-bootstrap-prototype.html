@@ -1,0 +1,1013 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>环境组件 · 可扩展目录原型</title>
+<style>
+:root{
+  --bg:#f4f6f9; --surface:#fff; --border:#e5e9f0; --text:#1f2329;
+  --muted:#6b7280; --primary:#1677ff; --primary-bg:#e6f4ff;
+  --warn-bg:#fff7e6; --warn:#d46b08; --ok-bg:#f6ffed; --ok:#389e0d;
+  --info-bg:#e6f4ff; --info:#0958d9; --err-bg:#fff2f0; --err:#cf1322;
+  --code-bg:#f6f8fa;
+}
+*{box-sizing:border-box}
+[hidden]{display:none !important}
+body{margin:0;background:var(--bg);color:var(--text);
+  font:14px/1.6 system-ui,"Segoe UI","Microsoft YaHei",sans-serif}
+code,.mono{font-family:ui-monospace,Consolas,"Courier New",monospace;font-size:12px}
+.shell{display:flex;min-height:100vh}
+.sider{width:200px;flex:none;background:#fff;border-right:1px solid var(--border);
+  position:sticky;top:0;height:100vh;padding:0 8px}
+.brand{font-weight:600;font-size:15px;padding:18px 12px 14px}
+.nav-item{display:flex;align-items:center;gap:9px;padding:9px 12px;margin:2px 0;
+  border-radius:8px;color:var(--muted);cursor:default;font-size:13px}
+.nav-item .dot{width:14px;height:14px;border:1.5px solid currentColor;border-radius:3px;flex:none}
+.nav-item.active{background:var(--primary-bg);color:var(--primary);font-weight:500}
+.nav-item.new::after{content:"NEW";margin-left:auto;font-size:9px;letter-spacing:.5px;
+  background:var(--primary);color:#fff;border-radius:3px;padding:0 4px}
+.main{flex:1;min-width:0}
+.toolbar{height:56px;background:#fff;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;padding:0 24px}
+.toolbar .env-mark{font-size:12px;color:#9aa3af}
+.ghost{border:1px solid var(--border);background:#fff;border-radius:6px;
+  padding:5px 12px;color:var(--muted);font-size:12px;cursor:default}
+.content{padding:20px 24px 48px;max-width:1180px}
+.proto-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;
+  border:1px dashed #b7c9e2;background:#fbfdff;border-radius:10px;padding:10px 14px;margin-bottom:16px}
+.proto-bar .lead{font-size:12px;color:var(--info);margin-right:6px}
+.proto-bar .badge{margin-left:auto;font-size:11px;color:var(--muted);
+  background:#fff;border:1px solid var(--border);border-radius:20px;padding:2px 10px}
+.chip{border:1px solid var(--border);background:#fff;border-radius:20px;
+  padding:4px 12px;font-size:12px;color:var(--muted);cursor:pointer}
+.chip:hover{border-color:var(--primary);color:var(--primary)}
+.chip.active{background:var(--primary);border-color:var(--primary);color:#fff}
+.page-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:14px}
+.page-head h1{margin:0;font-size:20px;font-weight:600}
+.page-head .meta{color:var(--muted);font-size:13px;margin-top:2px}
+.tag{display:inline-flex;align-items:center;border-radius:4px;padding:1px 8px;
+  font-size:12px;white-space:nowrap;border:1px solid transparent}
+.tag.neutral{background:#f3f4f6;color:var(--muted);border-color:var(--border)}
+.tag.ok{background:var(--ok-bg);color:var(--ok);border-color:#b7eb8f}
+.tag.warn{background:var(--warn-bg);color:var(--warn);border-color:#ffd591}
+.tag.err{background:var(--err-bg);color:var(--err);border-color:#ffccc7}
+.tag.info{background:var(--info-bg);color:var(--info);border-color:#91caff}
+.tag.off{background:#f3f4f6;color:#9aa3af;border-color:var(--border)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;
+  padding:16px;margin-bottom:14px}
+.card h2{margin:0 0 12px;font-size:14px;font-weight:600;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.card h2 small{font-weight:400;color:var(--muted);font-size:12px}
+.target-row{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.target-row label{font-size:12px;color:var(--muted)}
+select{border:1px solid var(--border);border-radius:6px;padding:6px 9px;
+  font-size:13px;font-family:inherit;color:var(--text);background:#fff}
+.chain{margin-top:12px;padding:10px 12px;background:var(--code-bg);border-radius:8px;
+  font-size:12px;color:var(--muted)}
+.chain code{color:var(--text);margin-left:6px}
+.banner{margin-top:14px;border-radius:8px;padding:11px 13px;font-size:13px;
+  display:flex;gap:9px;align-items:flex-start;line-height:1.65}
+.banner .ico{flex:none;font-weight:700}
+.banner.err{background:var(--err-bg);border:1px solid #ffccc7;color:var(--err)}
+.banner.warn{background:var(--warn-bg);border:1px solid #ffd591;color:var(--warn)}
+.banner.ok{background:var(--ok-bg);border:1px solid #b7eb8f;color:var(--ok)}
+.banner.info{background:var(--info-bg);border:1px solid #91caff;color:var(--info)}
+.banner b{font-weight:600}
+.global-strip{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px}
+.global-strip .cell{flex:1;min-width:170px;border:1px solid var(--border);border-radius:8px;
+  padding:9px 11px;background:#fff}
+.global-strip .k{font-size:11px;color:var(--muted)}
+.global-strip .v{font-size:13px;font-weight:500;margin-top:2px}
+.global-strip .cell.busy{background:var(--err-bg);border-color:#ffccc7;color:var(--err)}
+.dep-chain{display:flex;flex-wrap:wrap;align-items:center;gap:8px;background:var(--code-bg);
+  border-radius:8px;padding:10px 12px;margin-top:12px;font-size:12px}
+.dep-node{border:1px solid var(--border);background:#fff;border-radius:20px;padding:3px 11px;font-weight:500}
+.dep-node.ok{border-color:#b7eb8f;background:var(--ok-bg);color:var(--ok)}
+.dep-node.err{border-color:#ffccc7;background:var(--err-bg);color:var(--err)}
+.dep-node.off{color:var(--muted)}
+.dep-node.warn{border-color:#ffd591;background:var(--warn-bg);color:var(--warn)}
+.dep-arrow{color:var(--muted)}
+.dep-note{margin-left:auto;color:var(--muted)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--border);vertical-align:middle}
+th{font-size:12px;color:var(--muted);font-weight:500;background:#fafbfc}
+tr.group td{background:#fafbfc;color:var(--muted);font-size:12px;padding:5px 10px}
+td.k{width:190px;color:var(--muted)}
+td.v{word-break:break-all}
+td.s{width:112px}
+.table-wrap{border:1px solid var(--border);border-radius:8px;overflow-x:auto}
+.catalog-row{cursor:pointer}
+.catalog-row:hover{background:#fafcff}
+.catalog-row.sel{background:var(--primary-bg)}
+.catalog-row.sel td{border-bottom-color:#91caff}
+.cell-sub{font-size:11px;color:var(--muted);margin-top:1px}
+.slot{margin-top:10px;border:1.5px dashed #b7c9e2;background:#fbfdff;border-radius:8px;
+  padding:10px 12px;font-size:12px;color:var(--muted);display:flex;gap:10px;align-items:flex-start}
+.slot .plus{color:var(--info);font-size:15px;font-weight:600;flex:none}
+.slot b{color:var(--info);font-weight:500}
+.detail-head{display:flex;flex-wrap:wrap;align-items:center;gap:9px;margin-bottom:8px}
+.detail-head b{font-size:14px}
+.detail-ver{font-size:12px;color:var(--muted);margin-bottom:10px;word-break:break-all}
+.dep-line{font-size:12px;color:var(--info);background:var(--info-bg);
+  border-radius:6px;padding:7px 10px;margin:10px 0}
+.dep-line.bad{color:var(--err);background:var(--err-bg)}
+.btn-row{display:flex;flex-wrap:wrap;gap:8px}
+.comp-hint{font-size:12px;color:var(--muted);margin-top:10px;line-height:1.7}
+button.act{border:1px solid var(--border);background:#fff;border-radius:6px;
+  padding:7px 14px;font-size:13px;cursor:pointer;color:var(--text)}
+button.act:hover{border-color:var(--primary);color:var(--primary)}
+button.act.primary{background:var(--primary);border-color:var(--primary);color:#fff}
+button.act.primary:hover{opacity:.9;color:#fff}
+button.act.danger{background:#fff;border-color:#ffccc7;color:var(--err)}
+button.act.danger:hover{background:var(--err);color:#fff}
+button.act:disabled{opacity:.45;cursor:not-allowed}
+button.act.mini{padding:4px 10px;font-size:12px}
+.image-section{margin-top:16px;border-top:1px solid var(--border);padding-top:14px}
+.drop{border:1.5px dashed #b7c9e2;background:#fbfdff;border-radius:9px;padding:14px;
+  display:flex;flex-wrap:wrap;align-items:center;gap:12px}
+.drop .dz-ico{width:32px;height:32px;border-radius:8px;background:var(--primary-bg);
+  color:var(--primary);display:flex;align-items:center;justify-content:center;font-size:17px;flex:none}
+.drop .dz-txt{flex:1;min-width:210px;font-size:13px}
+.drop .dz-txt small{display:block;color:var(--muted);font-size:12px;margin-top:2px}
+.file-pill{margin-top:10px;background:var(--code-bg);border:1px solid var(--border);
+  border-radius:7px;padding:8px 11px;font-size:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.hintline{font-size:12px;color:var(--muted);margin-top:12px}
+.busy-line{margin-top:10px;font-size:12px;color:var(--err);background:var(--err-bg);
+  border:1px solid #ffccc7;border-radius:7px;padding:8px 11px}
+.kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(255px,1fr));gap:10px 24px}
+.kv .item{min-width:0}
+.kv .k{font-size:12px;color:var(--muted)}
+.kv .v{font-size:13px;word-break:break-all}
+.kv .v .bad{color:var(--err)}
+.kv .v small{color:var(--muted)}
+.phases{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.phase{border:1px solid var(--border);border-radius:20px;padding:3px 11px;font-size:11px;color:var(--muted);background:#fff}
+.phase.done{background:var(--ok-bg);border-color:#b7eb8f;color:var(--ok)}
+.phase.run{background:var(--primary-bg);border-color:#91caff;color:var(--info);font-weight:600}
+pre.log{margin:0;background:#1f2329;color:#d7dce5;border-radius:8px;padding:12px 14px;
+  font:12px/1.75 ui-monospace,Consolas,"Courier New",monospace;height:180px;overflow:auto;
+  white-space:pre-wrap;word-break:break-all}
+pre.log .ok{color:#95de64}
+pre.log .warn{color:#ffc53d}
+pre.log .sec{color:#ffa940}
+.footnote{font-size:12px;color:var(--muted);line-height:1.85}
+details.card summary{cursor:pointer;font-size:13px;font-weight:600;color:var(--info)}
+details.card ul{margin:8px 0 0;padding-left:20px;font-size:12px;color:var(--muted);line-height:1.9}
+details.card code{background:var(--code-bg);padding:1px 5px;border-radius:4px;color:var(--text)}
+details.card pre{background:var(--code-bg);border-radius:8px;padding:10px 12px;
+  font:12px/1.7 ui-monospace,Consolas,monospace;color:var(--text);overflow:auto;margin:8px 0}
+.modal-mask{position:fixed;inset:0;background:rgba(0,0,0,.32);
+  display:flex;align-items:flex-start;justify-content:center;padding-top:9vh;z-index:20;overflow:auto}
+.modal{width:520px;max-width:calc(100vw - 32px);background:#fff;border-radius:10px;
+  padding:18px 20px;box-shadow:0 10px 36px rgba(0,0,0,.16);margin-bottom:40px}
+.modal h3{margin:0 0 4px;font-size:16px}
+.modal .sub{font-size:12px;color:var(--muted);margin-bottom:12px}
+.modal .warn{background:var(--warn-bg);border:1px solid #ffd591;color:var(--warn);
+  border-radius:8px;padding:10px 12px;font-size:12px;margin-bottom:12px}
+.modal .danger{background:var(--err-bg);border:1px solid #ffccc7;color:var(--err);
+  border-radius:8px;padding:10px 12px;font-size:12px;margin-bottom:12px}
+.modal ul.impact{margin:0 0 12px;padding-left:19px;font-size:12.5px;line-height:1.85}
+.modal .opt{display:flex;gap:8px;align-items:flex-start;font-size:12.5px;
+  border:1px solid var(--border);border-radius:7px;padding:8px 10px;margin-bottom:7px;cursor:pointer}
+.modal .opt input{margin-top:4px;flex:none}
+.modal .opt small{display:block;color:var(--muted);font-size:11.5px}
+.modal .opt.risk{border-color:#ffccc7;background:#fffafa}
+.modal .yes-label{font-size:12px;color:var(--muted);display:block;margin:12px 0 5px}
+.modal input.yes{width:100%;border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:13px}
+.modal .foot{display:flex;justify-content:flex-end;gap:8px;margin-top:16px;align-items:center}
+.modal .foot .note{margin-right:auto;font-size:11px;color:var(--muted)}
+.toast{position:fixed;right:24px;top:70px;z-index:30;background:#fff;
+  border:1px solid #b7eb8f;border-left:4px solid var(--ok);border-radius:8px;
+  padding:10px 16px;font-size:13px;box-shadow:0 4px 16px rgba(0,0,0,.08)}
+.toast.warn{border-color:#ffd591;border-left-color:var(--warn)}
+@media (max-width:860px){
+  .shell{display:block}.sider{width:auto;height:auto;position:static;display:flex;
+    align-items:center;gap:4px;padding:6px 10px;flex-wrap:wrap}.brand{padding:6px 8px}
+  .nav-item{padding:6px 8px}.nav-item.new::after{display:none}
+  .toolbar{padding:0 12px}.content{padding:14px}.dep-note{margin-left:0;width:100%}
+}
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="sider">
+    <div class="brand">PassUp 运维</div>
+    <div class="nav-item"><span class="dot"></span>服务器管理</div>
+    <div class="nav-item"><span class="dot"></span>备份能力部署</div>
+    <div class="nav-item active new"><span class="dot"></span>环境组件</div>
+    <div class="nav-item"><span class="dot"></span>配置</div>
+  </aside>
+  <main class="main">
+    <header class="toolbar">
+      <span class="env-mark">本机面板 · 127.0.0.1:7788</span>
+      <button class="ghost">重启</button>
+    </header>
+    <div class="content">
+      <div class="proto-bar">
+        <span class="lead">原型演示 · 切换场景：</span>
+        <button class="chip active" data-scene="absent">都未装（k1 实测）</button>
+        <button class="chip" data-scene="dockerOnly">仅 Docker 已装</button>
+        <button class="chip" data-scene="healthy">两者正常</button>
+        <button class="chip" data-scene="minioUpdate">MinIO 可更新</button>
+        <button class="chip" data-scene="dockerUpdate">引擎可升级</button>
+        <button class="chip" data-scene="failed">检查失败 / SSH 不通</button>
+        <span class="badge">静态数据 · 不连真实远端 · 不执行任何动作</span>
+      </div>
+
+      <div class="page-head">
+        <div>
+          <h1>环境组件</h1>
+          <div class="meta"><b>可扩展的组件目录</b>：新增组件只加一条注册表声明，页面自动多一行；默认只读，写操作要输 <code>yes</code></div>
+        </div>
+        <span class="tag neutral">一个导航项 · 零跨页状态</span>
+      </div>
+
+      <!-- 全局状态条（常驻，不随选中组件变化） -->
+      <div class="card">
+        <div class="target-row">
+          <label>目标服务器</label>
+          <select id="serverSel">
+            <option value="k1">k1 · 172.16.0.211（备份端）</option>
+            <option value="k2">k2 · 172.16.0.212（备份端）</option>
+          </select>
+          <span class="tag off">只认 servers.json 的 name</span>
+          <span style="flex:1"></span>
+          <button class="act" id="btnCheck">重新检查（只读）</button>
+        </div>
+        <div id="banner" class="banner err"></div>
+        <div class="global-strip">
+          <div class="cell"><div class="k">已接入组件</div><div class="v" id="compCount">2 个 · 目录可增长</div></div>
+          <div class="cell" id="lockCell"><div class="k">后台任务锁（全局一份）</div><div class="v" id="lockState">空闲 · 单任务互斥</div></div>
+          <div class="cell"><div class="k">预检门</div><div class="v">服务端先跑 --dry-run，失败就地停</div></div>
+        </div>
+        <div class="dep-chain">
+          <span class="dep-node err" id="depDocker">① Docker 引擎</span>
+          <span class="dep-arrow">→</span>
+          <span class="dep-node err" id="depMinio">② MinIO 容器</span>
+          <span class="dep-arrow">→</span>
+          <span class="dep-node off">③ mc mirror 备份链路</span>
+          <span class="dep-note">拓扑由注册表 depends 推导；新增组件自动接在链上</span>
+        </div>
+        <div class="chain">
+          远端执行身份（推导结果，不可配）：<code>cql</code> + <code>sudo.mode=nopasswd</code> →
+          安装期 <code>sudo -n sh -c</code> 提权，运行期仍是 <code>cql</code>；体检只读走一条 <code>ssh</code>，不写任何远端文件。
+        </div>
+      </div>
+
+      <!-- 组件目录 -->
+      <div class="card">
+        <h2>组件目录 <small id="checkMeta">—</small></h2>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th style="width:210px">组件</th><th style="width:100px">状态</th><th>当前版本</th><th style="width:130px">依赖</th><th style="width:100px">可用动作</th><th style="width:96px">详情</th></tr></thead>
+            <tbody id="catalogRows"></tbody>
+          </table>
+        </div>
+        <div class="slot">
+          <span class="plus">+</span>
+          <span><b>未来组件位</b> —— 例如 PostgreSQL 客户端 / 监控 agent / Nginx。<br>
+            新增组件 = 在注册表加一条 <code>{ id, name, kind, depends, actions }</code>：目录自动多一行，
+            <b>导航项与页面数都不变</b>，任务日志仍共用全局一份。这一行只是占位说明，不是已实现功能。</span>
+        </div>
+        <div class="hintline">点任意一行切换下方详情；状态与可用动作由组件状态 + 依赖拓扑实时推导，不是硬编码两张卡。</div>
+      </div>
+
+      <!-- 选中组件详情 -->
+      <div class="card">
+        <div class="detail-head">
+          <b id="detailTitle">—</b><span id="detailTag"></span>
+        </div>
+        <div class="detail-ver" id="detailVer"></div>
+        <div class="dep-line" id="detailDep"></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th style="width:190px">体检项</th><th>实测值 / 期望</th><th style="width:112px">状态</th></tr></thead>
+            <tbody id="detailRows"></tbody>
+          </table>
+        </div>
+        <div class="btn-row" style="margin-top:12px">
+          <button class="act primary" id="btnActInstall">安装</button>
+          <button class="act" id="btnActUpdate">更新</button>
+          <button class="act danger" id="btnActUninstall">卸载</button>
+        </div>
+        <div class="comp-hint" id="detailHint"></div>
+        <div class="image-section" id="imageSection" hidden>
+          <h2 style="margin-bottom:9px">MinIO 离线镜像 <span class="tag warn">不走外网</span> <small>只属于本组件；Docker 引擎走 apt 仓库</small></h2>
+          <div class="drop">
+            <div class="dz-ico">↓</div>
+            <div class="dz-txt">
+              选择本机 <code>.tar</code> 镜像包 → 上传到目标机 <code>docker load</code>
+              <small>纯本机选文件；服务端校验 tar 与镜像名后才上传，接口不接受任意远端路径。不执行 docker pull。</small>
+            </div>
+            <input type="file" id="fileInput" accept=".tar" hidden>
+            <button class="act" id="btnPick">选择镜像 tar</button>
+          </div>
+          <div class="file-pill" id="filePill" hidden>
+            <span class="tag info">待导入</span>
+            <code id="fileName"></code>
+            <span style="flex:1"></span>
+            <button class="act mini" id="btnLoad">导入到远端…</button>
+          </div>
+          <div style="margin-top:12px">
+            <div class="hintline" style="margin:0 0 6px">目标机已导入镜像</div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>镜像 : 标签</th><th style="width:140px">镜像 ID</th><th style="width:86px">大小</th><th style="width:160px">导入时间</th></tr></thead>
+                <tbody id="imageRows"></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="chain">MinIO 的安装 / 更新预检门会确认「远端已有可用镜像」；没有就原地失败并提示先导入 tar。Docker 引擎的安装与更新<b>不检查</b>镜像。</div>
+        </div>
+        <div class="busy-line" id="busyLine" hidden>任务进行中：新的写请求会被服务端以 <b>409</b> 拒绝；刷新页面不打断已在跑的远端任务。</div>
+      </div>
+
+      <!-- 全量体检（默认折叠） -->
+      <details class="card">
+        <summary>全量环境体检（默认折叠 · 跨组件原始检查项）</summary>
+        <div class="table-wrap" style="margin-top:12px">
+          <table>
+            <thead><tr><th style="width:190px">检查项</th><th>实测值 / 期望</th><th style="width:112px">状态</th></tr></thead>
+            <tbody id="checkRows"></tbody>
+          </table>
+        </div>
+        <div class="chain">「连不上」不等于「未安装」：ssh 自身失败（exit 255）单独归类，不会误报成组件缺失。离线模式下不探测外网镜像源。</div>
+      </details>
+
+      <!-- 任务日志（全局一份） -->
+      <div class="card">
+        <h2>任务日志 <small id="taskState">空闲</small></h2>
+        <div class="phases" id="phases"></div>
+        <pre class="log" id="log"></pre>
+        <div class="hintline">全局单任务互斥、增量轮询（<code>?after=</code>）、上限 256 KB、凭证一律打成 <code>***</code>；任务脱离 HTTP 请求。</div>
+      </div>
+
+      <!-- 配置摘要（全局共享） -->
+      <div class="card">
+        <h2>配置摘要 <small>跨组件共享上下文；改配置请去「配置」页，那里有独立的确认门</small></h2>
+        <div class="kv">
+          <div class="item"><div class="k">DEST_URL（本机 minio.env）</div>
+            <div class="v"><span class="bad">http://127.0.0.1:8007</span>
+              <span class="tag err" style="margin-left:6px">疑似误填</span>
+              <div><small>8007 是生产端 MinIO 端口；备份端本机 API 应为 9000。装完服务仍连不上。</small></div>
+            </div>
+          </div>
+          <div class="item"><div class="k">MinIO 端口 / 数据目录</div>
+            <div class="v">9000 API · 9001 Console<br><code>/data/minio</code> <small>（保留已有 /data/backups）</small></div>
+          </div>
+          <div class="item"><div class="k">root 凭证来源</div>
+            <div class="v"><code>backup/minio.env</code> → <code>DEST_KEY</code> / <code>DEST_SECRET</code>
+              <div><small>已配置 · 不回显明文；运行时注入远端，日志按行脱敏，任务结束清空。</small></div>
+            </div>
+          </div>
+          <div class="item"><div class="k">容器 / 重启策略</div>
+            <div class="v"><code>minio</code> · <code>--restart unless-stopped</code><br><small>幂等：不 docker rm -v、不重建数据卷</small></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 设计注记 -->
+      <details class="card">
+        <summary>设计注记 · 为什么是「目录 + 详情」、实现时要守的红线（点开）</summary>
+        <ul>
+          <li><b>本轮改动回应的是扩展性</b>：以后还会加别的安装项，全塞一页会装不下；但<b>拆成 N 个导航页同样不解决</b> ——
+            4 项变 N 项，窄屏横向 Menu 先撑不住，每个新页还得重复一套任务轮询。改用「一个组件目录 + 选中详情」：
+            目录天然可增长，每屏只展开一个组件，导航项与页面数永远不变。</li>
+          <li><b>新增组件的接入成本 = 一条注册表声明</b>，目录、依赖链、动作按钮、详情表都由它推导（原型里的 <code>COMPONENTS</code> 就是这份声明）：
+<pre>COMPONENTS = [
+  { id:'docker', name:'Docker 引擎', kind:'基础设施', depends:null,   actions:{install, update, uninstall} },
+  { id:'minio',  name:'MinIO 服务',  kind:'备份存储', depends:'docker', actions:{install, update, uninstall} },
+  // 加一行即可：目录多一行、依赖链自动延伸、导航与页面数不变
+]</pre>
+            组件专属区块（如 MinIO 的离线镜像）按 <code>id</code> 条件渲染，不污染其它组件。</li>
+          <li><b>依赖由拓扑推导</b>：预检门按 <code>depends</code> 做拓扑排序，上游未就绪时下游写动作一律禁用；
+            卸载上游（Docker）会连带影响下游（MinIO），弹窗强警示并要求额外勾选。新增组件只要声明 depends，门自动生效。</li>
+          <li><b>零跨页共享状态</b>：目录、详情、依赖链、任务日志、配置摘要都在同一个页面组件内；
+            后台任务单实例互斥（并发 409）与 <code>/api/minio/task?after=</code> 增量日志全局只有一份。
+            符合 <code>docs/ui.md §7</code>「不引路由、零跨页状态，三个以上视图共享异步状态才上 store」。</li>
+          <li><b>六道门照抄现有备份任务</b>：<code>POST</code> + <code>confirm=="yes"</code> + 页面输 <code>yes</code>；服务端自己先跑 <code>--dry-run</code>，非 0 不安装；<code>name</code> 只认 <code>servers.json</code>（未知 404）；任务脱离请求、按行脱敏、结束清空。</li>
+          <li><b>凭证绝不进二进制</b>：<code>deploy/**</code> 会被 <code>//go:embed</code> 整目录编进 exe；root 凭证只从本机 <code>backup/minio.env</code> 读，运行时经 stdin/env 注入，不落脚本、不进日志。</li>
+          <li><b>卸载分别守两条底线</b>：卸 MinIO 默认只移除容器，不删 <code>/data/minio</code>、不删镜像；卸 Docker 默认保留 <code>/var/lib/docker</code> 与已导入镜像。删数据是独立勾选项且默认不勾。</li>
+          <li><b>CLI 草案（按组件拆，命名待定）</b>：<code>ops component list --server &lt;name&gt;</code>（只读）、
+            <code>ops component &lt;id&gt; install|update|uninstall --server &lt;name&gt; [--dry-run]</code>、
+            <code>ops component minio image-load --server &lt;name&gt; --image-tar &lt;path&gt;</code>；
+            <code>&lt;id&gt;</code> 白名单来自注册表，界面不开放 <code>--force</code> / 删数据选项。</li>
+          <li><b>接口草案</b>：<code>GET /api/components/status?name=</code>（一次回全部组件状态）、
+            <code>POST /api/components/run</code> 的 <code>{component, verb}</code> 白名单来自注册表、
+            <code>GET /api/components/task?after=</code>（脱敏增量日志）、<code>POST /api/components/image</code>（本机选 tar → 服务端句柄）。</li>
+          <li><b>构建顺序</b>：改了 <code>web/</code> 与 <code>deploy/**</code> 都要 <code>npm test &amp;&amp; npm run typecheck &amp;&amp; npm run build</code> → <code>go build -o ops.exe .</code>；或点界面「重启」勾「先重建」。</li>
+          <li><b>本轮只改原型</b>：不写 Go / React 代码、不真装远端、不改 k1 任何状态。</li>
+        </ul>
+      </details>
+      <div class="footnote" style="margin-top:10px">
+        原型数据取自 2026-11-06 对 k1（172.16.0.211）的一次<b>只读</b>体检：Ubuntu 24.04.2 LTS noble x86_64；
+        无 docker 二进制 / 服务 / 用户组 / 相关 dpkg 包；无 minio 二进制与容器；9000 / 9001 / 8007 均未监听；
+        <code>mc</code> 已装；<code>sudo -n</code> 可用；<code>download.docker.com</code> 可达但 Docker Hub 超时。
+      </div>
+    </div>
+  </main>
+</div>
+
+<div class="modal-mask" id="mask" hidden>
+  <div class="modal">
+    <h3 id="mTitle"></h3>
+    <div class="sub" id="mSub"></div>
+    <div id="mAlert"></div>
+    <ul class="impact" id="mImpact"></ul>
+    <div id="mOptions"></div>
+    <label class="yes-label">请输入 <code>yes</code> 确认（服务端还会再校验一次）：</label>
+    <input class="yes mono" id="mYes" placeholder="yes" autocomplete="off">
+    <div class="foot">
+      <span class="note">服务端先跑 --dry-run 预检，失败就地停、不改远端</span>
+      <button class="act" id="mCancel">取消</button>
+      <button class="act primary" id="mOk" disabled>确定</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" hidden></div>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+
+const tag = (tone, text) => `<span class="tag ${tone}">${text}</span>`;
+const row = (k, v, tone, label) => `<tr><td class="k">${k}</td><td class="v">${v}</td><td class="s">${tag(tone,label)}</td></tr>`;
+const group = t => `<tr class="group"><td colspan="3">${t}</td></tr>`;
+const STATE_TAG = { missing:["err","未安装"], ok:["ok","正常"], update:["warn","有新版"], unknown:["off","未知"] };
+const compTag = st => { const x = STATE_TAG[st] || STATE_TAG.unknown; return tag(x[0], x[1]); };
+
+// 组件注册表：新增组件只加一条声明。目录、依赖链、动作、详情都由它推导。
+const COMPONENTS = [
+  { id:"docker", no:"①", name:"Docker 引擎", kind:"基础设施", depends:null,
+    actions:["installDocker","updateDocker","uninstallDocker"] },
+  { id:"minio",  no:"②", name:"MinIO 服务",  kind:"备份存储", depends:"docker",
+    actions:["installMinio","updateMinio","uninstallMinio"] }
+];
+
+const SCENES = {
+  absent: {
+    docker:"missing", minio:"missing",
+    dockerVer:"未安装 · 期望 Docker Engine 29.x（官方 apt 仓库）",
+    minioVer:"未安装 · 期望 minio:RELEASE.*（离线 tar 导入）",
+    checkMeta:"最近一次：只读体检完成 · 2026-11-06 16:50（k1 实测数据）",
+    banner:["err","⛔","<b>两个组件都未安装，备份链路未打通。</b> Docker 引擎与 MinIO 容器都不存在；minio 备份脚本只是 S3 客户端，它假定服务端已就绪。"],
+    rows:[
+      group("主机"),
+      row("系统 / 架构","Ubuntu 24.04.2 LTS <code>noble</code> · x86_64","ok","符合"),
+      row("免密 sudo","<code>sudo -n true</code> 通过（cql）","ok","可用"),
+      row("目标机在线","ssh 22 端口连通","ok","正常"),
+      group("① Docker 引擎"),
+      row("docker 二进制","未找到 <code>docker</code>","err","未安装"),
+      row("compose 插件","未找到 <code>docker compose</code>","off","未安装"),
+      row("docker 服务","无 <code>docker.service</code>","err","未安装"),
+      row("docker 用户组","组不存在；cql 不在组内","off","未安装"),
+      row("冲突包","dpkg 无 docker.io / containerd / podman","ok","干净"),
+      group("② MinIO 服务"),
+      row("MinIO 容器","无容器","err","未安装"),
+      row("API 9000 / Console 9001","均未监听","err","未监听"),
+      row("9000 健康检查","<code>/minio/health/live</code> 无响应","err","不可用"),
+      row("数据目录","<code>/data</code> 存在（root:root），<code>/data/minio</code> 未建","warn","待创建"),
+      row("可用离线镜像","远端无任何已导入镜像","err","缺镜像"),
+      group("网络（离线模式不参与安装判定）"),
+      row("download.docker.com","HTTP 200 · apt 仓库可达","ok","可达"),
+      row("Docker Hub / quay.io / dl.min.io","超时 / 401 / 410 → 不走在线 pull","warn","不可依赖")
+    ],
+    images:[],
+    log:["[k1] 只读体检完成：Docker 与 MinIO 均未安装。","[提示] 按依赖顺序操作：先装 Docker 引擎，再导入镜像并装 MinIO。"]
+  },
+  dockerOnly: {
+    docker:"ok", minio:"missing",
+    dockerVer:"Docker 29.9.3 · compose v2.x · active (running)",
+    minioVer:"未安装 · 依赖已就绪，还差离线镜像",
+    checkMeta:"最近一次：只读体检完成 · 刚刚",
+    banner:["warn","⚠️","<b>Docker 引擎已就绪，MinIO 服务还没装。</b> 组件目录可以同时看到两者状态；点 MinIO 那一行进入详情，单独安装即可，不必重装引擎。"],
+    rows:[
+      group("① Docker 引擎"),
+      row("docker 二进制","Docker version 29.9.3","ok","正常"),
+      row("compose 插件","Docker Compose v2.x","ok","正常"),
+      row("docker 服务","active (running) · enabled","ok","正常"),
+      row("docker 用户组","docker 组存在；cql 已加入","ok","正常"),
+      row("apt 仓库","<code>docker.sources</code> 已配置","ok","正常"),
+      group("② MinIO 服务"),
+      row("MinIO 容器","无容器","err","未安装"),
+      row("API 9000 / Console 9001","均未监听","err","未监听"),
+      row("可用离线镜像","远端无任何已导入镜像","err","缺镜像"),
+      row("数据目录","<code>/data</code> 存在，<code>/data/minio</code> 未建","warn","待创建"),
+      row("root 凭证","<code>DEST_KEY</code> / <code>DEST_SECRET</code> 已配置 · 不回显","ok","已配置")
+    ],
+    images:[],
+    log:["[k1] 只读体检完成：Docker 29.9.3 正常，MinIO 未安装。","[提示] 安装 MinIO 前请先导入离线镜像 tar。"]
+  },
+  healthy: {
+    docker:"ok", minio:"ok",
+    dockerVer:"Docker 29.9.3 · compose v2.x · active (running)",
+    minioVer:"minio · Up 3 days (healthy) · RELEASE.2026-08-06",
+    checkMeta:"最近一次：只读体检完成 · 刚刚",
+    banner:["ok","✅","<b>两个组件都已就绪。</b> 但本机 <code>minio.env</code> 的 <code>DEST_URL</code> 仍是 8007，备份脚本仍连不上 —— 请到「配置」页改成 9000 并同步远端。"],
+    rows:[
+      group("① Docker 引擎"),
+      row("docker 二进制","Docker version 29.9.3","ok","正常"),
+      row("docker 服务","active (running) · enabled","ok","正常"),
+      row("docker 用户组","docker 组存在；cql 已加入","ok","正常"),
+      group("② MinIO 服务"),
+      row("MinIO 容器","<code>minio</code> · Up 3 days (healthy)","ok","运行中"),
+      row("API 9000 / Console 9001","均已监听","ok","正常"),
+      row("9000 健康检查","<code>/minio/health/live</code> 200","ok","健康"),
+      row("数据目录","<code>/data/minio</code> · 32G 可用","ok","正常"),
+      row("挂载核对","<code>/data/minio:/data</code> · 宿主机落盘","ok","正常"),
+      row("镜像","<code>minio:RELEASE.2026-08-06</code>（离线导入）","ok","已导入"),
+      row("root 凭证","<code>DEST_KEY</code> / <code>DEST_SECRET</code> 已配置 · 不回显","ok","已配置")
+    ],
+    images:[["minio:RELEASE.2026-08-06","sha256:4f1c9a…","218 MB","2026-11-06 16:52"]],
+    log:["[k1] 只读体检完成：Docker 29.9.3 / MinIO 容器 healthy。","[提醒] DEST_URL=http://127.0.0.1:8007 与本机 API 9000 不一致。"]
+  },
+  minioUpdate: {
+    docker:"ok", minio:"update",
+    dockerVer:"Docker 29.9.3 · 无需改动","minioVer":"minio · RELEASE.2026-08-06 → 可换 RELEASE.2026-10-21",
+    checkMeta:"最近一次：只读体检完成 · 刚刚（发现新 MinIO 镜像）",
+    banner:["warn","⚠️","<b>只有 MinIO 需要更新。</b> 已导入 <code>RELEASE.2026-10-21</code>；换镜像只重建容器、保留 <code>/data/minio</code>，Docker 引擎一个包都不用动。"],
+    rows:[
+      group("① Docker 引擎"),
+      row("docker 二进制","Docker version 29.9.3","ok","无需改动"),
+      row("可升级包","无","ok","正常"),
+      group("② MinIO 服务"),
+      row("MinIO 容器","<code>minio</code> · Up 12 days (healthy)","ok","运行中"),
+      row("当前镜像","<code>minio:RELEASE.2026-08-06</code>","warn","旧版本"),
+      row("可用镜像","<code>minio:RELEASE.2026-10-21</code>（离线导入）","ok","新版本"),
+      row("API 9000 健康检查","200","ok","健康"),
+      row("数据目录","<code>/data/minio</code> 将被保留","ok","安全")
+    ],
+    images:[
+      ["minio:RELEASE.2026-08-06","sha256:4f1c9a…","218 MB","2026-11-06 16:52"],
+      ["minio:RELEASE.2026-10-21","sha256:9b2e77…","224 MB","2026-11-06 16:58"]
+    ],
+    log:["[k1] 只读体检完成：发现新导入镜像 minio:RELEASE.2026-10-21。"]
+  },
+  dockerUpdate: {
+    docker:"update", minio:"ok",
+    dockerVer:"Docker 29.9.3 → 29.9.4 可升级","minioVer":"minio · RELEASE.2026-08-06 · healthy（无需改动）",
+    checkMeta:"最近一次：只读体检完成 · 刚刚（发现引擎新版本）",
+    banner:["warn","⚠️","<b>只有 Docker 引擎需要升级。</b> apt 升级会重启 docker 服务，MinIO 容器会短暂中断；弹窗里会把这层影响单独列出来。"],
+    rows:[
+      group("① Docker 引擎"),
+      row("docker 二进制","Docker version 29.9.3","warn","有新版"),
+      row("可升级包","<code>docker-ce</code> 29.9.3 → 29.9.4","info","可升级"),
+      row("服务影响","升级会重启 docker.service","warn","短暂中断"),
+      group("② MinIO 服务"),
+      row("MinIO 容器","<code>minio</code> · Up 12 days (healthy)","ok","运行中"),
+      row("镜像","<code>minio:RELEASE.2026-08-06</code>","ok","无需改动"),
+      row("数据目录","<code>/data/minio</code> 不受影响","ok","安全")
+    ],
+    images:[["minio:RELEASE.2026-08-06","sha256:4f1c9a…","218 MB","2026-11-06 16:52"]],
+    log:["[k1] 只读体检完成：docker-ce 29.9.3 → 29.9.4 可升级。"]
+  },
+  failed: {
+    docker:"unknown", minio:"unknown",
+    dockerVer:"<b>未采集</b> —— 不许用「未安装」兜底",
+    minioVer:"<b>未采集</b> —— 不许用「未安装」兜底",
+    checkMeta:"最近一次：只读体检失败 · ssh exit 255",
+    banner:["err","⛔","<b>检查失败：ssh 连接被重置（exit 255）。</b> 这是传输层失败，<b>不能推断成「组件没装」</b>；所有写操作禁用，请修好网络 / sshd 后重新检查。"],
+    rows:[
+      group("连接"),
+      row("ssh 22 端口","Connection reset / timed out","err","连不上"),
+      row("退出码归类","255 = ssh 自身失败（非远端命令结论）","warn","已区分"),
+      group("① Docker 引擎"),
+      row("组件状态","<b>未采集</b>（collected=false）","off","未知"),
+      group("② MinIO 服务"),
+      row("组件状态","<b>未采集</b>（collected=false）","off","未知"),
+      group("其它"),
+      row("端口 / 镜像 / 数据目录","<b>未采集</b>","off","未知")
+    ],
+    images:[],
+    log:["[k1] ssh: connect to host 172.16.0.211 port 22: Connection reset","[结论] 传输层失败（exit 255），组件状态 collected=false，不写远端、不放行任何写操作。"]
+  }
+};
+
+let scene = "absent";
+let selectedComp = "docker";
+let busy = false;
+let pickedFile = "";
+let loadedImages = [];
+
+const stateOf = id => SCENES[scene][id];
+const verOf = id => id === "docker" ? SCENES[scene].dockerVer : SCENES[scene].minioVer;
+const shortVer = id => {
+  const st = stateOf(id);
+  if (st === "missing") return "—";
+  if (st === "unknown") return "未采集";
+  return id === "docker" ? "29.9.3" : "RELEASE.2026-08-06";
+};
+const currentComp = () => COMPONENTS.find(c => c.id === selectedComp);
+const depComp = c => c.depends ? COMPONENTS.find(x => x.id === c.depends) : null;
+const depName = c => depComp(c) ? depComp(c).name : "—";
+const isReady = st => st === "ok" || st === "update";
+const depReady = c => {
+  const d = depComp(c);
+  return d ? isReady(stateOf(d.id)) : true;
+};
+function rowsFor(id, source) {
+  const label = id === "docker" ? "① Docker" : "② MinIO";
+  const out = []; let on = false;
+  for (const r of (source || SCENES[scene].rows)) {
+    if (r.startsWith('<tr class="group"')) { on = r.includes(label); continue; }
+    if (on) out.push(r);
+  }
+  return out;
+}
+
+function render(resetOutput) {
+  const s = SCENES[scene];
+  const checkOk = scene !== "failed";
+  const c = currentComp();
+  const st = stateOf(c.id);
+  const ready = isReady(st);
+  const depOk = depReady(c);
+  const imgs = s.images.concat(loadedImages);
+  const dockerReady = isReady(s.docker);
+
+  const b = $("banner");
+  b.className = "banner " + s.banner[0];
+  let bannerText = s.banner[2];
+  if (loadedImages.length && scene === "absent") bannerText += " <b>已导入离线镜像：先装 Docker 引擎，再装 MinIO。</b>";
+  if (loadedImages.length && scene === "dockerOnly") bannerText += " <b>离线镜像已导入，现在可以单独安装 MinIO。</b>";
+  b.innerHTML = `<span class="ico">${s.banner[1]}</span><span>${bannerText}</span>`;
+
+  $("checkMeta").textContent = s.checkMeta;
+  $("compCount").textContent = COMPONENTS.length + " 个 · 目录可增长";
+  $("lockState").textContent = busy ? "运行中 · 新写请求 409" : "空闲 · 单任务互斥";
+  $("lockCell").className = "cell" + (busy ? " busy" : "");
+  $("depDocker").className = "dep-node " + (isReady(s.docker) ? "ok" : s.docker === "missing" ? "err" : s.docker === "update" ? "warn" : "off");
+  $("depMinio").className = "dep-node " + (isReady(s.minio) ? "ok" : s.minio === "missing" ? "err" : s.minio === "update" ? "warn" : "off");
+
+  let allRows = s.rows;
+  if (loadedImages.length && (scene === "absent" || scene === "dockerOnly")) {
+    const last = loadedImages[loadedImages.length - 1];
+    allRows = allRows.map(r => r.includes("远端无任何已导入镜像")
+      ? row("可用离线镜像", `<code>${last[0]}</code>（离线导入）`, "ok", "已导入") : r);
+  }
+  $("checkRows").innerHTML = allRows.join("");
+
+  $("catalogRows").innerHTML = COMPONENTS.map(x => {
+    const xs = stateOf(x.id);
+    const xr = isReady(xs);
+    const xd = depReady(x);
+    let n = 0;
+    if (checkOk && xs === "missing" && xd) n++;
+    if (checkOk && xr) n += 2;
+    return `<tr class="catalog-row ${x.id === selectedComp ? "sel" : ""}" data-comp="${x.id}">
+      <td><b>${x.no} ${x.name}</b><div class="cell-sub">${x.kind}</div></td>
+      <td>${compTag(xs)}</td><td class="mono">${shortVer(x.id)}</td>
+      <td>${depName(x)}</td><td>${n} / 3</td>
+      <td><button class="act mini" data-comp="${x.id}">管理 →</button></td></tr>`;
+  }).join("");
+
+  const detail = rowsFor(c.id, allRows).join("");
+  $("detailTitle").textContent = `${c.no} ${c.name} · 详情`;
+  $("detailTag").innerHTML = compTag(st);
+  $("detailVer").innerHTML = verOf(c.id);
+  const depEl = $("detailDep");
+  depEl.className = "dep-line" + (c.depends && !depOk ? " bad" : "");
+  depEl.innerHTML = c.depends
+    ? `前置依赖：<b>${depName(c)}</b>（${depOk ? "已就绪" : "未就绪，安装不可用"}）；安装来源：已导入的离线镜像 + 运行时注入的凭证`
+    : "无前置依赖；安装来源：Docker 官方 apt 仓库，不需要离线镜像 tar";
+  $("detailRows").innerHTML = detail || `<tr><td colspan="3" style="color:#9aa3af">未采集到该组件的体检项</td></tr>`;
+
+  $("btnActInstall").textContent = "安装 " + c.name;
+  $("btnActUpdate").textContent = "更新 " + c.name;
+  $("btnActUninstall").textContent = "卸载 " + c.name;
+  $("btnActInstall").disabled   = busy || !checkOk || st !== "missing" || !depOk;
+  $("btnActUpdate").disabled    = busy || !checkOk || !ready;
+  $("btnActUninstall").disabled = busy || !checkOk || !ready;
+  $("btnCheck").disabled = busy;
+  $("btnLoad").disabled = busy || !checkOk;
+  $("busyLine").hidden = !busy;
+  $("imageSection").hidden = c.id !== "minio";
+
+  let hint;
+  if (!checkOk) hint = "检查失败：组件状态未知，不允许任何写操作。";
+  else if (st === "missing" && !depOk) hint = `依赖未满足：${depName(c)} 还没就绪，安装不可用。先在目录里切到上游组件安装。`;
+  else if (st === "missing") hint = c.id === "minio"
+    ? "依赖已就绪、组件未装：还需远端已有离线镜像，然后可单独安装；不会重装 Docker 引擎。"
+    : "未安装：按官方 apt 仓库单独装引擎；不需要离线镜像，也不会碰 MinIO。";
+  else if (st === "update") hint = c.id === "docker"
+    ? "有新版：可单独 apt 升级引擎；升级会重启 docker 服务，短暂影响下游 MinIO 容器。"
+    : "有新镜像：更新只重建容器、保留 /data/minio，引擎一个包都不动。";
+  else hint = c.id === "docker"
+    ? "已就绪：可单独升级或卸载引擎；卸载会连带影响下游 MinIO，确认弹窗会强警示。"
+    : "运行中：可单独更新镜像或卸载容器，不影响 Docker 引擎。";
+  $("detailHint").textContent = hint;
+
+  $("imageRows").innerHTML = imgs.length
+    ? imgs.map(x => `<tr><td><code>${x[0]}</code></td><td class="mono">${x[1]}</td><td>${x[2]}</td><td>${x[3]}</td></tr>`).join("")
+    : `<tr><td colspan="4" style="color:#9aa3af">无 —— 请先从本机选择镜像 tar 导入</td></tr>`;
+
+  if (!busy && resetOutput !== false) {
+    $("log").innerHTML = s.log.map(l => `<span class="${l.includes("失败") || l.includes("255") ? "warn" : ""}">${l}</span>`).join("\n");
+    $("taskState").textContent = "空闲";
+    renderPhases([], -1);
+  }
+}
+
+function renderPhases(names, idx) {
+  $("phases").innerHTML = names.map((n,i) =>
+    `<span class="phase ${i < idx ? "done" : i === idx ? "run" : ""}">${i < idx ? "✓ " : i === idx ? "▸ " : ""}${n}</span>`
+  ).join("");
+}
+
+let toastTimer;
+function toast(msg, warn) {
+  const t = $("toast");
+  t.textContent = msg;
+  t.className = "toast" + (warn ? " warn" : "");
+  t.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.hidden = true; }, 2600);
+}
+
+$("btnCheck").addEventListener("click", () => {
+  toast("已发起只读体检（原型模拟，不连真实远端）");
+  $("checkMeta").textContent = "检查中 …";
+  setTimeout(() => { render(); toast("体检完成 · 未改动远端"); }, 700);
+});
+
+document.querySelectorAll(".chip").forEach(c => c.addEventListener("click", () => {
+  if (busy) { toast("任务进行中，场景切换暂不可用", true); return; }
+  document.querySelectorAll(".chip").forEach(x => x.classList.remove("active"));
+  c.classList.add("active");
+  scene = c.dataset.scene;
+  selectedComp = scene === "dockerOnly" ? "minio" : "docker";
+  render();
+}));
+
+$("catalogRows").addEventListener("click", e => {
+  const tr = e.target.closest("tr[data-comp]");
+  if (!tr) return;
+  selectedComp = tr.dataset.comp;
+  render();
+  toast("已切换到 " + currentComp().name + " 详情");
+});
+
+$("btnPick").addEventListener("click", () => $("fileInput").click());
+$("fileInput").addEventListener("change", e => {
+  const f = e.target.files && e.target.files[0];
+  if (!f) return;
+  pickedFile = f.name;
+  $("fileName").textContent = f.name + "  ·  " + (f.size/1024/1024).toFixed(1) + " MB（本机文件，仅取文件名）";
+  $("filePill").hidden = false;
+  toast("已选择本机镜像包，点「导入到远端」才真正上传");
+});
+
+const CONFIRM = {
+  installDocker: {
+    title:"确认安装 Docker 引擎", sub:"k1 · 仅组件 ① · 不动 MinIO",
+    alert:["warn","只安装基础设施：按 Docker 官方 apt 仓库装包并启用服务。<b>不会启动 MinIO、不需要离线镜像</b>；服务端先跑 --dry-run 预检。"],
+    impact:[
+      "卸载冲突包（docker.io / containerd / podman 等），保留 /var/lib/docker",
+      "按官方流程添加 GPG key 与 <code>docker.sources</code>（deb822，Suites=noble）",
+      "安装 docker-ce / docker-ce-cli / containerd.io / buildx / compose 插件",
+      "把 cql 加入 docker 组（新会话生效；安装期仍走 sudo -n）",
+      "<b>不</b>启动 MinIO 容器、<b>不</b>改 backup.env、<b>不</b>动 crontab"
+    ],
+    options:[],
+    phases:["dry-run 预检","配置 apt 仓库","安装引擎包","启用服务与用户组"],
+    lines:[
+      "[dry-run] OS=noble amd64 ✓ / sudo -n ✓ / 冲突包=无 ✓",
+      "[dry-run] download.docker.com 可达 ✓（不检查镜像仓库）",
+      "[1/3] apt: 添加 Docker 官方 GPG key 与 docker.sources …",
+      "[2/3] apt: docker-ce docker-ce-cli containerd.io buildx compose …",
+      "[3/3] usermod -aG docker cql；systemctl enable --now docker",
+      "[check] docker version → 29.9.3 / docker compose version → v2.x",
+      "[done] 组件 ① 就绪；下一步导入镜像后单独安装 MinIO"
+    ],
+    after:"dockerOnly", afterComp:"minio"
+  },
+  updateDocker: {
+    title:"确认更新 Docker 引擎", sub:"k1 · 仅组件 ① · MinIO 镜像与数据卷不动",
+    alert:["warn","apt 升级会<b>重启 docker 服务</b>，正在跑的 MinIO 容器会短暂中断；升级前会在预检里确认容器状态，升级后重新做健康检查。"],
+    impact:[
+      "当前：docker-ce 29.9.3 → 目标 29.9.4（官方 apt 仓库）",
+      "只升级引擎相关包，不重建 / 不换 MinIO 镜像",
+      "保留 /var/lib/docker、已导入镜像与 /data/minio 数据",
+      "升级后校验 docker 服务与 MinIO 容器自动恢复"
+    ],
+    options:[],
+    phases:["dry-run 预检","apt 升级引擎包","重启服务","回读组件状态"],
+    lines:[
+      "[dry-run] 目标版本 29.9.4 可用 ✓ / MinIO 容器状态已记录 ✓",
+      "[1/2] apt install docker-ce=29.9.4 docker-ce-cli=29.9.4 …",
+      "[2/2] systemctl restart docker → 等待容器自动恢复 …",
+      "[check] GET /minio/health/live → 200 OK",
+      "[done] 组件 ① 升级完成；MinIO 镜像与数据卷未动"
+    ],
+    after:"healthy"
+  },
+  uninstallDocker: {
+    title:"确认卸载 Docker 引擎（危险）", sub:"k1 · 仅组件 ① · 会连带停止 MinIO",
+    alert:["danger","卸载引擎会让<b>跑在它上面的 MinIO 服务一起停掉</b>，备份链路随之中断。默认保留 /var/lib/docker 与已导入镜像；建议先单独卸载 MinIO。"],
+    impact:[
+      "停止 docker.service 并 apt purge docker-ce 等引擎包",
+      "连带影响：MinIO 容器停止（其数据仍在 /data/minio）",
+      "保留 /var/lib/docker、已导入镜像、/data/minio 与 backup.env",
+      "不修改 crontab / logrotate —— minio 备份任务仍在，下一次执行会失败"
+    ],
+    options:[["ackImpact","我已知晓卸载引擎会连带停止 MinIO 备份服务","必须勾选才能提交；建议先单独卸载 MinIO 再回来卸引擎",false,true,true]],
+    phases:["dry-run 预检","停止服务","卸载引擎包","回读组件状态"],
+    lines:[
+      "[dry-run] 检测到 MinIO 容器运行中 → 已要求额外勾选确认 ✓",
+      "[1/2] docker stop minio（连带）→ systemctl stop docker",
+      "[2/2] apt purge docker-ce docker-ce-cli containerd.io …",
+      "[check] /data/minio 完好 ✓ / 镜像清单保留 ✓",
+      "[warn] 备份定时任务仍在，下一次执行会失败，请到「配置」页停用",
+      "[done] 组件 ① 已卸载；MinIO 数据未删除"
+    ],
+    after:"absent", afterComp:"docker"
+  },
+  installMinio: {
+    title:"确认安装 MinIO 服务", sub:"k1 · 仅组件 ② · 依赖 Docker 已就绪",
+    alert:["warn","只安装上层服务。服务端 dry-run 会确认 <b>Docker 已就绪 + 远端已有离线镜像</b>，任一不满足就原地停止、不装一半；<b>不会重装引擎、不执行 docker pull</b>。"],
+    impact:[
+      "前置：Docker 引擎 active、远端已有离线导入的 MinIO 镜像",
+      "创建 /data/minio（保留已有 /data/backups）",
+      "docker run -d --name minio：9000 / 9001、--restart unless-stopped",
+      "root 凭证取自本机 backup/minio.env 的 DEST_KEY / DEST_SECRET，运行时注入、日志脱敏",
+      "装完执行 /minio/health/live 健康检查；不跑备份、不动 crontab、不改 backup.env"
+    ],
+    options:[],
+    phases:["dry-run 预检","校验引擎与镜像","启动 MinIO 容器","健康检查"],
+    lines:[
+      "[dry-run] Docker 29.9.3 active ✓ / 离线镜像 minio:RELEASE.2026-08-06 已存在 ✓",
+      "[dry-run] 端口 9000/9001 空闲 ✓ / /data 可写 ✓",
+      "[1/2] mkdir -p /data/minio（不碰 /data/backups）",
+      "[2/2] docker run -d --name minio -p 9000:9000 -p 9001:9001 \\",
+      "        -e MINIO_ROOT_USER=*** -e MINIO_ROOT_PASSWORD=*** \\",
+      "        -v /data/minio:/data --restart unless-stopped minio:RELEASE.2026-08-06",
+      "[check] GET /minio/health/live → 200 OK",
+      "[done] 组件 ② 就绪（DEST_URL 仍需改成 9000）"
+    ],
+    after:"healthy"
+  },
+  updateMinio: {
+    title:"确认更新 MinIO 镜像", sub:"k1 · 仅组件 ② · 引擎一个包都不动",
+    alert:["warn","换镜像会重建 MinIO 容器（短暂中断备份服务），但<b>保留 /data/minio 数据卷</b>；不 docker rm -v、不删数据、不碰 Docker 引擎。"],
+    impact:[
+      "当前：minio:RELEASE.2026-08-06 → 目标 minio:RELEASE.2026-10-21（离线导入）",
+      "记录当前容器配置（端口 / 挂载 / 凭证引用）后用新镜像重建",
+      "保留 /data/minio 与已导入的其它镜像",
+      "更新失败会回滚到原镜像标签，不动数据"
+    ],
+    options:[],
+    phases:["dry-run 预检","校验目标镜像","重建 MinIO 容器","健康检查"],
+    lines:[
+      "[dry-run] 目标镜像已导入 ✓ / 数据卷存在 ✓ / Docker 正常 ✓",
+      "[1/3] 记录当前容器配置 …",
+      "[2/3] docker stop minio → docker rm minio → docker run …（保留 /data/minio）",
+      "       -e MINIO_ROOT_USER=*** -e MINIO_ROOT_PASSWORD=***",
+      "[3/3] GET /minio/health/live → 200 OK",
+      "[done] 组件 ② 更新完成；引擎与数据卷未动"
+    ],
+    after:"healthy"
+  },
+  uninstallMinio: {
+    title:"确认卸载 MinIO 服务", sub:"k1 · 仅组件 ② · Docker 引擎保留",
+    alert:["danger","默认只停并移除 MinIO 容器。<b>不删数据、不删镜像、不卸 Docker 引擎</b>；要删数据必须额外勾选，且无法撤销。"],
+    impact:[
+      "docker stop minio → docker rm minio（<b>不加 -v</b>）",
+      "保留 /data/minio 全部对象数据、已导入镜像与 Docker 引擎",
+      "不修改 crontab / logrotate / backup.env —— 请自行停用 minio 备份任务",
+      "卸载后备份脚本连不上目标端，preflight 会报错，这是预期结果"
+    ],
+    options:[["rmData","同时删除 /data/minio 数据目录","⚠️ 不可逆：会删掉所有已备份对象；默认不勾",false,true,false]],
+    phases:["dry-run 预检","停止并移除容器","保留数据校验"],
+    lines:[
+      "[dry-run] 容器 minio 存在 ✓ / 未勾选删数据 ✓",
+      "[1/2] docker stop minio → docker rm minio",
+      "[2/2] 校验 /data/minio 完好 ✓ / 镜像保留 ✓ / Docker 服务仍 active ✓",
+      "[warn] minio 备份定时任务仍在，下一次执行会失败，请到「配置」页停用",
+      "[done] 组件 ② 已卸载；组件 ① 保留"
+    ],
+    after:"dockerOnly", afterComp:"minio"
+  },
+  load: {
+    title:"确认导入离线镜像", sub:"本机文件 → 上传目标机 → docker load（只服务 MinIO）",
+    alert:["warn","纯离线：不访问任何镜像仓库、不执行 docker pull。上传前服务端校验 tar 结构与镜像名，接口不接受任意远端路径。"],
+    impact:[
+      "读取本机选择的 .tar 镜像包（仅本次请求，不缓存到配置目录）",
+      "经 ssh stdin 上传到目标机临时文件，校验后立即清理",
+      "docker load 导入；回显镜像 : 标签与 ID，供 MinIO 安装 / 更新预检使用",
+      "不启动容器、不改动现有 MinIO 服务、不碰 Docker 引擎"
+    ],
+    options:[],
+    phases:["校验本机 tar","上传到目标机","docker load","回读镜像列表"],
+    lines:[
+      "[check] tar 结构 ✓ / manifest.json ✓ / 镜像名 minio ✓",
+      "[1/2] 上传 minio-RELEASE.2026-10-21.tar（224 MB）…",
+      "[2/2] docker load -i … → Loaded image: minio:RELEASE.2026-10-21",
+      "[cleanup] 远端临时 tar 已清理",
+      "[done] 镜像可用；现在可以单独安装或更新 MinIO"
+    ],
+    after:null
+  }
+};
+
+let pendingKind = null;
+function canSubmit() {
+  if (!pendingKind) return false;
+  const yesOk = $("mYes").value.trim() === "yes";
+  const req = $("mOptions").querySelector("input[data-required]");
+  return yesOk && (!req || req.checked);
+}
+function openConfirm(kind) {
+  const c = CONFIRM[kind];
+  pendingKind = kind;
+  $("mTitle").textContent = c.title;
+  $("mSub").textContent = c.sub;
+  const a = $("mAlert");
+  a.className = c.alert[0] === "danger" ? "danger" : "warn";
+  let alertText = c.alert[1];
+  if (kind === "installMinio" && !loadedImages.length && !SCENES[scene].images.length) {
+    alertText += " <b>⚠️ 当前远端没有已导入的 MinIO 镜像：真实服务端 dry-run 会在这里拦下并提示先导入 tar。</b>";
+  }
+  a.innerHTML = alertText;
+  $("mImpact").innerHTML = c.impact.map(x => `<li>${x}</li>`).join("");
+  $("mOptions").innerHTML = c.options.length
+    ? `<div class="yes-label" style="margin-top:2px">附加确认</div>` + c.options.map(o =>
+        `<label class="opt ${o[4] ? "risk" : ""}"><input type="checkbox" value="${o[0]}" ${o[3] ? "checked" : ""} ${o[5] ? "data-required" : ""}>
+         <span>${o[1]}<small>${o[2]}</small></span></label>`).join("")
+    : "";
+  $("mYes").value = "";
+  $("mOk").disabled = true;
+  $("mOk").className = "act " + (kind === "uninstallDocker" || kind === "uninstallMinio" ? "danger" : "primary");
+  $("mask").hidden = false;
+  $("mYes").focus();
+}
+function closeConfirm() { $("mask").hidden = true; pendingKind = null; }
+$("mCancel").addEventListener("click", closeConfirm);
+$("mask").addEventListener("click", e => { if (e.target === $("mask")) closeConfirm(); });
+$("mYes").addEventListener("input", () => { $("mOk").disabled = !canSubmit(); });
+$("mOptions").addEventListener("change", () => { $("mOk").disabled = !canSubmit(); });
+
+$("btnActInstall").addEventListener("click", () => openConfirm(currentComp().actions[0]));
+$("btnActUpdate").addEventListener("click", () => openConfirm(currentComp().actions[1]));
+$("btnActUninstall").addEventListener("click", () => openConfirm(currentComp().actions[2]));
+$("btnLoad").addEventListener("click", () => {
+  if (!pickedFile) { toast("请先选择本机 .tar 镜像包", true); return; }
+  openConfirm("load");
+});
+
+$("mOk").addEventListener("click", () => {
+  const kind = pendingKind;
+  closeConfirm();
+  const c = CONFIRM[kind];
+  busy = true;
+  render();
+  $("log").innerHTML = "";
+  $("taskState").textContent = "运行中 · 任务已脱离 HTTP 请求";
+  let i = 0;
+  const total = c.phases.length;
+  const step = () => {
+    if (i < c.lines.length) {
+      const line = c.lines[i];
+      const cls = line.startsWith("[done]") ? "ok" : line.startsWith("[warn]") ? "warn"
+                : line.startsWith("[dry-run]") ? "sec" : line.includes("***") ? "sec" : "";
+      const el = document.createElement("span");
+      el.className = cls;
+      el.textContent = (i ? "\n" : "") + line;
+      $("log").appendChild(el);
+      $("log").scrollTop = $("log").scrollHeight;
+      renderPhases(c.phases, Math.min(total - 1, Math.floor(i / Math.max(1, c.lines.length / total))));
+      i++;
+      setTimeout(step, 190);
+    } else {
+      renderPhases(c.phases, total);
+      busy = false;
+      if (c.after) { scene = c.after; document.querySelectorAll(".chip").forEach(x => x.classList.toggle("active", x.dataset.scene === scene)); }
+      if (c.afterComp) selectedComp = c.afterComp;
+      if (kind === "load") {
+        $("filePill").hidden = true; pickedFile = "";
+        loadedImages.push(["minio:RELEASE.2026-10-21","sha256:9b2e77…","224 MB","刚刚（本次导入）"]);
+      }
+      render(false);
+      $("taskState").textContent = "已完成";
+      toast(kind.startsWith("uninstall") ? "卸载完成（数据已保留）" : "任务完成（原型模拟）");
+    }
+  };
+  step();
+});
+
+$("serverSel").addEventListener("change", e => {
+  toast("切换到 " + e.target.value + " · 清单之外的 name 服务端一律 404（原型不切数据）");
+});
+
+// 原型评审便利：?scene=dockerOnly&comp=minio 可直接打开指定场景与选中组件
+const qs = new URLSearchParams(location.search);
+if (qs.get("scene") && SCENES[qs.get("scene")]) {
+  scene = qs.get("scene");
+  selectedComp = scene === "dockerOnly" ? "minio" : "docker";
+  document.querySelectorAll(".chip").forEach(x => x.classList.toggle("active", x.dataset.scene === scene));
+}
+if (qs.get("comp") && COMPONENTS.some(x => x.id === qs.get("comp"))) selectedComp = qs.get("comp");
+render();
+</script>
+</body>
+</html>
