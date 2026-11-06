@@ -2,6 +2,7 @@ package main
 
 import (
 	"pass-up/ops/internal/backup"
+	"pass-up/ops/internal/component"
 	"pass-up/ops/internal/launcher"
 	"pass-up/ops/internal/restart"
 	"pass-up/ops/internal/servers"
@@ -34,6 +35,12 @@ func commandHandler(name string) (func([]string) int, bool) {
 		return func(a []string) int {
 			return backup.CmdBackup(a, backupScripts)
 		}, true
+	case "component":
+		// 环境组件脚本（deploy/component）同样在根包嵌入、由这里注入。
+		// 组件注册表在 internal/component，新增组件只改注册表 + 脚本目录。
+		return func(a []string) int {
+			return component.CmdComponent(a, componentScripts)
+		}, true
 	case "shortcut":
 		return launcher.CmdShortcut, true
 	case "menu":
@@ -54,6 +61,8 @@ func commandHandler(name string) (func([]string) int, bool) {
 //   - webDist：前端产物（embed 路径不能有 `..`，ui 收 fs.FS 便于测试塞 MapFS）；
 //   - 快捷方式实现：真正代码在 launcher（它要用 ui.IconBytes），反向引用会成环；
 //   - 备份部署执行器：ui 不能 import backup，函数值由这里递进去。
+//     同一个执行器也跑 `component ...` 子命令（见 backuprun.go），
+//     因此环境组件与备份部署共用界面里唯一一个后台任务锁。
 func runUI(a []string) int {
 	return ui.CmdUI(a, webDist,
 		func() (shared.ShortcutInfo, error) {
@@ -96,7 +105,7 @@ func usage() {
   ops servers check [name|all] [--json]  只读检查 SSH 与免密 sudo
   ops servers apply-sudo <name>          一键配置免密 sudo（写操作）
   ops ui [--port 7788] [--no-open]       本机界面（只监听 127.0.0.1；端口被占自动递增）
-                                         服务器清单 / 检查只读；备份部署需显式二次确认
+                                         服务器清单 / 检查只读；写操作需显式二次确认
   ops shortcut [--name <名字>] [--remove]
                                          创建/删除桌面快捷方式（仅 Windows）
   ops menu                               交互菜单（启动器双击入口）
@@ -105,9 +114,13 @@ func usage() {
   ops backup verify [组件] --server <name>
                                          只跑远端 preflight 自检
   ops backup env [组件]                  生成本机备份配置模板（backup/*.env）
+  ops component list --server <name>     只读查看环境组件状态（--json 给界面）
+  ops component install docker --server <name> [--dry-run]
+                                         按官方 apt 仓库安装 Docker 引擎（写操作）
 
 组件: pg | minio | all（默认 all）
+环境组件: docker（minio 尚未接入，install 会拒绝）
 
-运行 ops servers --help 或 ops backup deploy --help 查看选项。
+运行 ops servers --help / ops backup deploy --help / ops component help 查看选项。
 `)
 }

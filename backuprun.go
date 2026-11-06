@@ -100,10 +100,18 @@ func resolveBackupExe(exe string) string {
 
 // backupSubprocessArgs 把界面选好的参数原样补成 CLI 参数。
 // --password-stdin 追加在末尾：deploy / verify 的参数解析都遍历全部 argv，不挑位置。
+//
+// 环境组件（ops component ...）复用同一个执行器与同一个后台任务锁：
+// 首元素是 "component" 时参数已是完整子命令，不再补 "backup" 前缀。
+// 这样 ui 不必新增第二个 runner，也不用改 CmdUI 签名（依赖方向仍单向）。
 func backupSubprocessArgs(args []string, withPassword bool) []string {
 	full := make([]string, 0, len(args)+2)
-	full = append(full, "backup")
-	full = append(full, args...)
+	if len(args) > 0 && args[0] == "component" {
+		full = append(full, args...)
+	} else {
+		full = append(full, "backup")
+		full = append(full, args...)
+	}
 	if withPassword {
 		full = append(full, "--password-stdin")
 	}

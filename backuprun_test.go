@@ -27,6 +27,23 @@ func TestBackupSubprocessArgs(t *testing.T) {
 	}
 }
 
+// 环境组件复用同一个执行器：首元素是 component 时不能补 backup 前缀，
+// 否则会变成 `ops.exe backup component ...`（未知子命令）。
+func TestComponentSubprocessArgs(t *testing.T) {
+	args := []string{"component", "install", "docker", "--server", "k1"}
+	got := backupSubprocessArgs(args, false)
+	if want := "component install docker --server k1"; strings.Join(got, " ") != want {
+		t.Errorf("组件参数 = %q，想要 %q", strings.Join(got, " "), want)
+	}
+	withPw := backupSubprocessArgs(args, true)
+	if want := "component install docker --server k1 --password-stdin"; strings.Join(withPw, " ") != want {
+		t.Errorf("带密码的组件参数 = %q，想要 %q", strings.Join(withPw, " "), want)
+	}
+	if strings.Join(args, " ") != "component install docker --server k1" {
+		t.Errorf("调用方参数被改写了：%v", args)
+	}
+}
+
 // 重启换身之后，当前进程的 os.Executable() 指向的 next.exe 已被改名成正式 exe。
 // 不归一化的话，所有 backup 子命令都会以「找不到文件」失败。
 func TestResolveBackupExe(t *testing.T) {

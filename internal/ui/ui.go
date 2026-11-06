@@ -418,6 +418,12 @@ func (u *uiState) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		u.handleBackupRun(w, r)
 	case r.Method == http.MethodGet && r.URL.Path == "/api/backup/task":
 		u.handleBackupTask(w, r)
+	case r.Method == http.MethodGet && r.URL.Path == "/api/components/status":
+		u.handleComponentStatus(w, r)
+	case r.Method == http.MethodPost && r.URL.Path == "/api/components/run":
+		u.handleComponentRun(w, r)
+	case r.Method == http.MethodGet && r.URL.Path == "/api/components/task":
+		u.handleComponentTask(w, r)
 	case r.Method == http.MethodGet && r.URL.Path == "/api/config":
 		u.handleConfigView(w)
 	case r.Method == http.MethodGet && r.URL.Path == "/api/config/compare":
