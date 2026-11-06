@@ -1,4 +1,11 @@
 {
+    // 任务（npm 脚本 / tasks.json）单独用干净的 cmd.exe。
+    // 默认 PowerShell profile 的 args 里带 -Command，任务系统又会追加一次，
+    // 拼成 "... -Command - -Command ..." 时报「参数格式不正确 - -Command」，pnpm 根本不会启动。
+    "terminal.integrated.automationProfile.windows": {
+        "path": "cmd.exe"
+    },
+
     // "emeraldwalk.runonsave": {
     //     "commands": [
     //         {

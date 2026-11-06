@@ -14,6 +14,21 @@
       "problemMatcher": [],
       "label": "npm: docs:clean-dev",
       "detail": "vuepress dev docs --clean-cache"
+    },
+    {
+      "type": "shell",
+      "label": "docker:sync",
+      "command": "pnpm run docker:sync",
+      "problemMatcher": [],
+      "windows": {
+        "options": {
+          "shell": {
+            "executable": "cmd.exe",
+            "args": ["/d", "/s", "/c"]
+          }
+        }
+      },
+      "detail": "构建 docs 并同步到命名卷 cqlql-notes-dist"
     }
   ]
 }
