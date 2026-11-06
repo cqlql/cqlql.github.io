@@ -20,6 +20,10 @@
     delaycompress
     # 拷贝后清空原文件，脚本持续 >> 追加不中断
     copytruncate
+    # 日志目录属主是备份运行用户：不带 su，logrotate 会因「目录属主非 root」
+    # 判定不安全而跳过轮转。占位符由 ops backup deploy 安装时替换；
+    # 手工安装请换成实际的运行用户与主组（见 install.sh Step 4）。
+    su __BACKUP_USER__ __BACKUP_GROUP__
     # 历史文件加日期后缀，如 minio_backup.log-20260813.gz
     dateext
 }

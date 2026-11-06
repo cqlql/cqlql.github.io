@@ -26,11 +26,17 @@
 | | 备份监控（只读） | 本文（安装） |
 | :--- | :--- | :--- |
 | 动作 | 只读采集 | 写目录 / crontab / logrotate |
-| 账号 | 清单的 `monitor`（只读） | 清单的 `user` + `sudo`（安装账号） |
+| 账号 | 清单的 `monitor`（只读） | 安装期 `user` + `sudo`；运行期就是 `user` 本人 |
 | 入口 | `status`（P2 规划）、界面默认视图、预检 `--dry-run`、`backup verify` | `ops backup deploy`、界面「备份能力部署」里输过 `yes` 的安装 |
 
 🔴 **绝不自动触发安装**：双击落地页只读、`status` 只读；界面安装要人点按钮 + 输 `yes`
 + 服务端预检通过。**安装账号与只读账号绝不复用**。
+
+🔴 **远端分两层身份（2026-11-06 起）**：安装期（写 `/etc/logrotate.d`、建系统级目录、
+清理旧 crontab）才由 `sudo -n sh -c` 提权到 root；装出来的 crontab、定时备份脚本、
+`preflight` 自检、`--run-now` 首跑**一律以清单 `user` 运行**。这样 `~/.ssh/known_hosts`、
+`~/.mc`、私钥、目录权限与备份机上手敲的 ssh 是同一套，杜绝「手工能连、自检说连不上」
+和「自检过了、cron 却失败」。详见 §4.4 与 [backup-scripts.md](backup-scripts.md) §4.1。
 
 > **2026-11-05 改红线**：旧表述「`status` / `ui` 绝不触发安装」已作废 ——
 > `ui` 现在有**显式**安装入口（见 §10），但「绝不自动触发」这条不变。
@@ -75,13 +81,15 @@ ops backup compare-env [pg|minio|all] --server <name>
 
 - 本机：嵌入的 `deploy/backup/**` 完整（缺 `install.sh` / `preflight_check.sh` /
   `lib/common.sh` / `*.logrotate` 时在连远端之前就失败）；本机 ssh 可用；**不要求本机有 `rsync`**。
-- 远端：目标机由 `--server` 从 [servers.json](servers.md) 选择；安装提权用该条目的
+- 远端：目标机由 `--server` 从 [servers.json](servers.md) 选择；**安装期**提权用该条目的
   `user` + `sudo`（已免密走 `sudo -n`；否则用清单 `sudo.password` 或界面/`--password-stdin`
-  经 **ssh stdin** 走 `sudo -S -p ''`，密码不出现在命令行/日志）；依赖命令 `ssh` / `scp` / `pg_restore` /
+  经 **ssh stdin** 走 `sudo -S -p ''`，密码不出现在命令行/日志），**运行期固定为同一个
+  `user`，不提权**；依赖命令 `ssh` / `scp` / `pg_restore` /
   `mc` / `logrotate` / `crontab` 逐项报告；缺失时**默认只报告**，加 `--install-deps` 才安装
   （`--dry-run` 永不安装）；
 - 磁盘余量、`/data` 与日志目录可写；
-- **目录漂移检查**：`crontab -l` 里带 `#PG_BACKUP` / `#MINIO_BACKUP` 的行会包含脚本绝对路径。
+- **目录漂移检查**：运行用户与 root 两份 `crontab -l` 里带 `#PG_BACKUP` / `#MINIO_BACKUP`
+  的行会包含脚本绝对路径（迁移期两种都要看，旧任务还留在 root 名下）。
   若与 `PASS_UP_OPS_BACKUP_DEPLOY_DIR` 不一致 → **直接失败**，提示改配置，
   不静默迁移（见 §5）。
 
@@ -114,19 +122,35 @@ ops backup compare-env [pg|minio|all] --server <name>
 
 ### 4.4 安装
 
-- 依次执行远端 `bash <deploy_dir>/postgres/install.sh` 与 `minio/install.sh`（root 身份，
-  **stdin 关闭**：脚本里的 `read` 会走默认分支，不会卡住）。
+- 依次执行远端 `BACKUP_RUN_USER=<user> bash <deploy_dir>/{postgres,minio}/install.sh`
+  （由 `sudo -n sh -c` 包着以 root 执行，**stdin 关闭**：脚本里的 `read` 走默认分支）。
+  工具显式传 `BACKUP_RUN_USER`，不依赖 `SUDO_USER` 推导。
+- 🔴 `install.sh` 虽以 root 跑，装出来的东西全部归属运行用户：
+  - `crontab -u <user> -` 把定时任务装进该用户的 crontab，`CRON_HOME` 取该用户的家目录；
+  - 日志目录 / PG 备份根目录由 root 预建并 `chown -R <user>:<组>`，之后 cron 与自检都不再需要 sudo；
+  - Step 2 的 SSH 探测、Step 6 的 preflight 用 `sudo -n -u <user> -H` 降权执行；
+  - 清理旧版本留在 **root crontab** 里的同标签任务（只删带标签的行、其它条目原样保留），
+    否则升级后每天会双跑；
+  - cron 行只用 `/bin/sh` 语法：`>/dev/null 2>>日志`。不用 `2> >(sed ...)`（cron 默认
+    不是 bash）、不写 `$(date ...)`（会在**安装期**展开成固定时间戳，Makefile 里还会被
+    make 当变量吃成空）、不出现裸 `%`（crontab 特殊字符）。脚本内部已 `tee -a` 落盘
+    带时间戳的业务日志，这里只兜底 stderr。
 - 复用脚本已有的幂等逻辑：`backup.env` 存在就不覆盖、cron 按标签先删后加。
 - 🔴 `install.sh` 对 logrotate **只提示不安装**：工具在安装前把
   `pg_backup.logrotate` / `minio_backup.logrotate` 落到
-  `/etc/logrotate.d/{pg,minio}-backup`（权限 644），否则「一键部署」会漏掉这一项。
+  `/etc/logrotate.d/{pg,minio}-backup`（权限 644），并把模板里的
+  `su __BACKUP_USER__ __BACKUP_GROUP__` 占位符替换成运行用户与主组 ——
+  日志目录属主不是 root，不带 `su` 时 logrotate 会因「目录不安全」直接跳过轮转。
 
 ### 4.5 自检与首跑
 
-- 执行 `bash <deploy_dir>/../preflight_check.sh pg|minio|all`：
+- 执行 `bash <deploy_dir>/../preflight_check.sh pg|minio|all`，`ops backup verify` 与
+  deploy 收尾都走 `Stream(root=false)` —— **以清单 `user` 执行，不套 sudo**。
+  它的 `known_hosts` / `crontab -l` / 目录写权限与 cron 里的备份脚本完全一致；
+  `install.sh` 内部那次 preflight 也降权到同一身份。
   - `0` 通过；`2` 有警告（如尚未首次备份）→ 继续但输出警告；
   - `1` 有错误 → **恢复 `.old` 目录并重跑 install.sh**，然后失败退出。
-- `--run-now` 才执行 `pg_backup.sh` / `minio_backup.sh`；成功后
+- `--run-now` 才执行 `pg_backup.sh` / `minio_backup.sh`，同样以 `user` 运行；成功后
   `backup-monitor` 的 `status` 立刻能看到心跳。
 
 ### 4.6 交付监控
@@ -138,8 +162,16 @@ ops backup compare-env [pg|minio|all] --server <name>
 
 - 重复执行 `backup deploy` = 升级：脚本换新，配置默认保留，cron 重写为当前路径。
 - 已有安装升级时，`PASS_UP_OPS_BACKUP_DEPLOY_DIR` **必须等于现有路径**
-  （工具从 cron 标签行反查并校验），否则拒绝执行。
+  （工具同时反查运行用户与 root 两份 cron 标签行并校验），否则拒绝执行。
 - 失败恢复：`.old` 目录保留；`preflight` 失败自动回滚脚本并重跑 install.sh。
+  🔴 回滚重跑的是**旧版** install.sh（会把任务装回 root），所以 `failAfterInstall`
+  会先 `revokeRunUserCrontab` 撤掉本次写进运行用户 crontab 的标签行，避免两套任务
+  每天双跑（2026-11-06 211 真机踩过）。回滚后仍建议人工核对两份 crontab。
+- 🔴 **从旧版本（root 运行）升级的迁移是写操作**：`chown -R` 日志/备份目录、
+  清掉 root crontab 旧任务、把任务改写到运行用户 crontab。这三步由 install.sh 在
+  一次部署里完成，都是幂等的（内容没变就不写回）；升级前建议先跑一次
+  `ops backup deploy --dry-run` 看计划，升级后再点一次「远端自检」核对
+  `crontab`、SSH 连通与 `known_hosts` 是否都已落到同一身份。
   **不自动回滚配置**（配置回滚会让「哪版凭据生效」说不清，需人工确认）。
 - 不提供 `uninstall`：删 cron / logrotate / 历史备份是破坏性操作，本期只出人工步骤。
 

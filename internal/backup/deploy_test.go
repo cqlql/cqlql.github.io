@@ -284,3 +284,35 @@ func TestInspectLocalEnv(t *testing.T) {
 		t.Errorf("good: ok=%v issue=%q", ok, issue)
 	}
 }
+
+// 运行身份靠「Stream 的 bool 参数」这一行区分，重构时最容易被顺手改回 true。
+// SSH 子进程不好在单测里 mock，这里从源码锁住关键调用点：
+// preflight / 首跑不套 sudo，install.sh 显式带运行用户，迁移期两份 crontab 都要看。
+// 判据见 AGENTS.md 硬约束 24、docs/backup-deploy.md §4.4。
+func TestDeployRunsBackupAsNonRoot(t *testing.T) {
+	data, err := os.ReadFile("deploy.go")
+	if err != nil {
+		t.Fatalf("读取 deploy.go 失败：%v", err)
+	}
+	s := string(data)
+	for _, want := range []string{
+		`preflightArg(comps), false, nil)`,
+		`preflightArg(opt.comps)+" </dev/null", false, nil)`,
+		`c.backupPath(cfg.DeployDir)), false, nil)`,
+		`runUserEnv(t.User)+"bash "`,
+		`crontab -u root -l 2>/dev/null || true`,
+		`BACKUP_RUN_USER=`,
+		`revokeRunUserCrontab(t,`,
+	} {
+		if !strings.Contains(s, want) {
+			t.Errorf("deploy.go 缺少运行身份迁移的关键片段 %q", want)
+		}
+	}
+	if got := strings.Count(s, "runUserEnv(t.User)"); got != 2 {
+		t.Errorf("install.sh 调用点应有 2 处（主安装 + 回滚重装）都带运行用户，实际 %d", got)
+	}
+	if strings.Contains(s, `preflightArg(comps), true, nil)`) ||
+		strings.Contains(s, `preflightArg(opt.comps)+" </dev/null", true, nil)`) {
+		t.Error("preflight 又被套回 sudo 了")
+	}
+}

@@ -70,14 +70,56 @@ check_pg() {
     fi
 
     # --- 7. SSH 连通性（只读探测，不执行备份） ---
+    # 🔴 必须与 pg_backup.sh / pg_restore.sh 用同一份 PG_SSH_OPTS（含默认兜底）。
+    # BatchMode=yes 下不带 StrictHostKeyChecking=accept-new 时，首次连接一台没进
+    # 「当前执行身份」known_hosts 的主机会直接失败：交互式 ssh 会问一次 yes 并记下
+    # 主机密钥，批处理不会，于是出现「手工能连、自检说连不上」的假阴性。
+    # 自检与 cron 现在都以清单 user 跑（同一份 HOME / known_hosts / 私钥），
+    # 但 BatchMode=yes 仍不会问 yes：新主机要能自动收录、密钥变了要能拒绝，
+    # 所以 accept-new 依旧不能省。身份模型见 docs/backup-scripts.md §4.1。
+    # 另一条：不要把 ssh 的 stderr 直接丢进 /dev/null，否则失败只剩一句无从排查的
+    # 「SSH 无法连通」。下面只回显归类后的原因，不回显原文（原文可能带私钥路径）。
     if [ -n "${PG_SSH_HOST:-}" ] && have_cmd ssh; then
         local port="${PG_SSH_PORT:-22}"
-        if ssh -p "$port" ${PG_SSH_KEY:+-i "$PG_SSH_KEY"} \
-            -o BatchMode=yes -o ConnectTimeout=8 \
-            "${PG_SSH_USER}@${PG_SSH_HOST}" "echo ok" >/dev/null 2>&1; then
-            ok "SSH 连通正常: ${PG_SSH_USER}@${PG_SSH_HOST}:${port}"
+        local ssh_user="${PG_SSH_USER:-root}"
+        local ssh_opts="${PG_SSH_OPTS:--o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new}"
+        local -a ssh_opts_arr=() ssh_cmd=()
+        # shellcheck disable=SC2206
+        ssh_opts_arr=($ssh_opts)
+        ssh_cmd=(ssh -p "$port")
+        if [ -n "${PG_SSH_KEY:-}" ]; then
+            ssh_cmd+=(-i "$PG_SSH_KEY")
+        fi
+        ssh_cmd+=("${ssh_opts_arr[@]}" "${ssh_user}@${PG_SSH_HOST}" "echo ok")
+
+        local ssh_err="" ssh_rc=0 why
+        # 2>&1 在前、>/dev/null 在后：只捕获 stderr，丢掉远端 echo ok 的 stdout
+        ssh_err="$("${ssh_cmd[@]}" 2>&1 >/dev/null)" || ssh_rc=$?
+        if [ "$ssh_rc" -eq 0 ]; then
+            ok "SSH 连通正常: ${ssh_user}@${PG_SSH_HOST}:${port}（与定时任务同一身份）"
         else
-            err "SSH 无法连通: ${PG_SSH_USER}@${PG_SSH_HOST}:${port}（检查 host/端口/密钥/known_hosts）"
+            case "$ssh_err" in
+                *"REMOTE HOST IDENTIFICATION HAS CHANGED"*|*"Host key verification failed"*)
+                    why="主机密钥未收录或已变更（当前运行用户的 known_hosts；WSL/系统重装后 host key 会变）"
+                    ;;
+                *"Permission denied"*|*"Load key"*|*"invalid format"*|*"bad permissions"*)
+                    why="认证失败或私钥不可用（确认 PG_SSH_KEY 对应公钥已在主服务器 authorized_keys，且私钥权限为 600）"
+                    ;;
+                *"Connection refused"*|*"No route to host"*|*"Network is unreachable"*)
+                    why="从备份端访问该 host:port 被拒或不可路由（端口转发/防火墙可能只对运维机开放）"
+                    ;;
+                *"timed out"*|*"Operation timed out"*)
+                    why="连接超时（检查备份端到主服务器的路由与防火墙）"
+                    ;;
+                *"Could not resolve hostname"*)
+                    why="主机名无法解析"
+                    ;;
+                *)
+                    why="ssh 退出码 ${ssh_rc}，原因未归类；请在备份端以相同身份手工复现"
+                    ;;
+            esac
+            err "SSH 无法连通: ${ssh_user}@${PG_SSH_HOST}:${port} — ${why}"
+            info "在备份端以同一运行身份复现：ssh -p <port> -i <私钥> -o BatchMode=yes -o StrictHostKeyChecking=accept-new <user>@<host> \"echo ok\""
         fi
     fi
 

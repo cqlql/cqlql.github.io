@@ -22,6 +22,10 @@
 > **2026-11-06 界面新增「配置」页**：本机可编辑 `servers.json` 与 `backup/{postgres,minio}.env`，
 > 远端 `backup.env` 走显式「同步到远端」（新增 CLI `ops backup sync-env`），
 > 见 `docs/ui.md` §12 / 硬约束 23。
+> **2026-11-06 远端运行身份改为非 root**：安装期才 sudo 提权到 root（写系统目录 / 清旧
+> crontab），定时备份、preflight 自检、首跑一律以清单 `user` 运行，`known_hosts` /
+> `~/.mc` 与备份机手工 ssh 同源；升级会迁移 root crontab 与目录属主。
+> 见硬约束 24 / `docs/backup-deploy.md` §4.4。
 > 只放「每次动代码都要遵守」的红线：一句结论 + 一个指针。判据、流程、踩坑都在 `docs/`。
 > 通用文档规则以 `cqlql-notes/docs/工程/文档约定.md` 为准。
 
@@ -166,6 +170,25 @@
        就地显示，另有「对比远端配置」次入口兜住「仅远端有」的键；同步是整份覆盖，
        远端独有项会消失，必须显式提示。
     详见 `docs/ui.md` §12。
+24. 🔴 **远端运行身份不是 root**（2026-11-06 新增；`docs/ui.md` §12.4 里
+    「非 root 安装另立方案」的旧结论作废）：
+    安装期才由 `sudo -n sh -c` 提权到 root（写 `/etc/logrotate.d`、建并 `chown`
+    日志/备份目录、清理旧 root crontab）；**cron 定时备份、preflight 自检、
+    `--run-now` 首跑、install.sh 里的 SSH 连通探测一律以 `servers.json.user` 运行** ——
+    同一个 HOME / `~/.ssh/known_hosts` / `~/.mc` / 私钥，与备份机上手敲的 ssh 一致。
+    ① `runBackupVerify` 与 deploy 收尾的 preflight、`--run-now` 都走 `Stream(root=false)`；
+       install.sh 仍走 `root=true`，但命令要带 `BACKUP_RUN_USER=<user>`（不靠 SUDO_USER）；
+    ② install.sh 用 `crontab -u <user> -` 装任务、`CRON_HOME` 取该用户家目录，
+       并只删 root crontab 里带 `#PG_BACKUP` / `#MINIO_BACKUP` 标签的旧行（防双跑）；
+    ③ 日志轮转配置必须带 `su <user> <组>`（占位符由 `installLogrotate` 替换），
+       否则目录属主非 root 时 logrotate 直接跳过轮转；
+    ④ 迁移期目录漂移检查要同时看运行用户与 root 两份 crontab；
+       `TestEmbeddedInstallRunsAsNonRoot` 与源码级断言一起挡回归；
+    ⑤ **不要把 install.sh 整体降成普通用户**：它内部的 `chown` 会依赖免密 sudo，
+       只配 `sudo.password` 的机器会回归失败；
+    ⑥ 部署失败回滚时 `failAfterInstall` 必须撤销运行用户 crontab 里本次装的任务
+       （`revokeRunUserCrontab`）：旧 install.sh 会把任务装回 root，不撤销就双跑。
+    详见 `docs/backup-deploy.md` §2 / §4.4 / §5、`docs/backup-scripts.md` §4.1。
 
 ## 命令与验证
 

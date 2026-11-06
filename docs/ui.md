@@ -454,13 +454,16 @@ POST /api/restart           → {"rebuild":bool,"confirm":"sha256:…"}
 一次真机安装失败暴露的不是 bug，是**三处「用户」被混为一谈**：
 
 1. `servers.json.user`（如 `cql`）：本机 SSH 登录**备份端**的账号；
-2. 远端执行身份（`root`）：`rootWrap` 用 `sudo -n sh -c` 提权的结果，**不是配置项**；
+2. 远端执行身份：2026-11-06 起分两层 —— **安装期** `rootWrap` 用 `sudo -n sh -c`
+   提权到 root（写 `/etc/logrotate.d`、建系统目录、清旧 crontab）；**运行期**
+   （cron / 备份脚本 / preflight 自检 / 首跑）固定回落为 `servers.json.user`，**都不是可配项**；
 3. `backup/{postgres,minio}.env` 的 `PG_SSH_USER` / `*_KEY`：备份脚本每天从**备份端
    连主服务器**拉 dump 用的账号与私钥，跟前两者无关。
 
-`printDryRun` 只打印裸命令、`install.sh` 打印「当前以 root 身份执行」，页面又看不到
-sudo 包装层，于是「配置了 cql，日志却说 root」看起来像配置被读错。配置页把这三件事
-摆到同一页说清楚，同时解决「不想开编辑器手改配置文件」。
+`printDryRun` 只打印裸命令、`install.sh` 打印「安装期以 root 身份执行」，页面看不到
+sudo 包装层，于是「配置了 cql，日志却说 root」看起来像配置被读错。配置页用
+`exec_chain` 把两层身份摆到同一页说清楚，同时解决「不想开编辑器手改配置文件」。
+判据见 [backup-deploy.md](backup-deploy.md) §2 / §4.4。
 
 新增左侧菜单「配置」作为**次入口**：不占主路径（服务器管理 / 备份部署）的点击，
 双击落地页仍是只读的。
@@ -512,8 +515,11 @@ ops backup sync-env [pg|minio|all] --server <name>
 
 - **「远端执行身份」下拉框**：它是 `user + sudo.mode` 推导的结果，再开一个字段只会造出
   「登录 cql 却填执行账号 root」这种自相矛盾；页面用 `exec_chain` 只读展示。
-- **非 root 安装**：`install.sh` Step 0 硬性要求 `id -u = 0`（写 `/etc/logrotate.d` 与
-  crontab）。真要去掉 root 得改脚本架构（用户级 crontab + 日志轮转换方案），另立方案。
+- **去掉 root 运行**（2026-11-06 已做，原「另立方案」作废）：`install.sh` Step 0 仍要求
+  `id -u = 0`，因为安装期要写 `/etc/logrotate.d` 与建系统级目录；但它装出来的
+  crontab（`crontab -u`）、日志/备份目录属主、preflight 与首跑全部归 `servers.json.user`。
+  所以**仍不做**「让 install.sh 整体以普通用户跑」：那会让它内部的目录 `chown` 依赖
+  免密 sudo，只配 `sudo.password` 的机器会回归失败。见 [backup-deploy.md](backup-deploy.md) §4.4。
 - **新增 / 删除服务器**：仍只编辑已有条目，避免引入主键与状态缓存的一致性处理。
 - **不把脚本内置默认值自动写进本机 env**：`PG_SSH_OPTS` 没配时，页面只在 placeholder
   提示脚本兜底值（`-o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new`），

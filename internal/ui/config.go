@@ -46,17 +46,19 @@ type configView struct {
 	SyncEnabled bool               `json:"sync_enabled"`
 }
 
-// execChain 把「远端执行身份」讲清楚：它是 user + sudo.mode 推出来的结果，
-// 不是可配项。日志不打印 sudo 包装层，页面必须自己说清，否则又会误读成
-// 「工具拿 root 直接登录」。见 docs/ui.md §12。
+// execChain 把「远端执行身份」讲清楚：现在分两层，别再混成一个人。
+// 安装期由 sudo 提权到 root（写 /etc/logrotate.d、建系统目录、清理旧 crontab）；
+// 但 cron 里的备份脚本、preflight 自检、--run-now 首跑一律以 s.User 运行，
+// 用的是这个人的 HOME / ~/.ssh/known_hosts / 私钥，与备份机上手敲的 ssh 一致。
+// 仍不是可配项：页面只读展示。见 docs/ui.md §12.1 / docs/backup-deploy.md §4.4。
 func execChain(s *shared.Server) string {
 	if s.User == "root" || s.Sudo.Mode == shared.SudoModeRoot {
-		return s.User + " 直接以 root 登录，无需提权"
+		return s.User + " 直接以 root 登录（安装与运行都是 root；建议改用普通用户 + 免密 sudo）"
 	}
 	if s.Sudo.Mode == shared.SudoModeNone {
-		return s.User + " 登录，不提权（安装会在权限检查处失败）"
+		return s.User + " 登录，无免密 sudo（安装期的系统目录写入会失败）"
 	}
-	return s.User + " 登录 → 免密 sudo 提权 → 脚本以 root 执行（写 crontab / logrotate 必需）"
+	return s.User + " 登录 → 安装期 sudo 提权一次（写系统目录 / 清旧 crontab）→ 定时任务、备份脚本、自检均回落为 " + s.User + " 运行"
 }
 
 func (u *uiState) handleConfigView(w http.ResponseWriter) {

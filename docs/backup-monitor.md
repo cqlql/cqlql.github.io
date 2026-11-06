@@ -65,11 +65,11 @@
 
 ### 3.2 不检查 crontab
 
-定时任务由 `install.sh` 以 **root** 装进 root 的 crontab。只读账号读不到，
-`crontab -l` 只会返回空，结果是假的「定时任务未安装」。
+定时任务由 `install.sh` 装进**备份运行用户**（清单 `user`）的 crontab。
+只读监控账号是另一个人，`crontab -l` 只会返回空，结果是假的「定时任务未安装」。
 
-因此**不查 cron**，用 `last_success.txt` 的新鲜度间接判断。要真查只能读
-`/etc/cron.d` 或放开 `sudo -n`，两者都超出「只读账号」的设定。
+因此**不查 cron**，用 `last_success.txt` 的新鲜度间接判断。要真查得切到运行用户
+（`crontab -u <user> -l`）或放开 `sudo -n`，两者都超出「只读账号」的设定。
 
 ### 3.3 超时与失败
 
@@ -81,7 +81,8 @@
 **注意：还有另一条 ssh 链路。** 上面说的是 `ops` 自己连服务器做只读采集
 （`internal/shared/remote.go`）；备份脚本每天从**备份端连主服务器拉 dump** 走的是
 `pg_backup.sh` / `pg_restore.sh` 里的 `${PG_SSH_OPTS:-...}`，不受前者管。这条链路的
-默认值也必须含 `accept-new`，三处逐字一致：
+默认值也必须含 `accept-new`，四处逐字一致（`pg_backup.sh` / `pg_restore.sh` /
+`backup.env.example` / `preflight_pg.sh`）：
 
 ```
 -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new
@@ -89,7 +90,9 @@
 
 `BatchMode=yes` 禁掉了交互提示，不带 `accept-new` 时 cron 首次连一台没进 `known_hosts`
 的主机必然失败；换成 `no` 又等于关掉主机密钥校验。`accept-new` 要求远端 OpenSSH ≥ 7.6。
-三处默认值由 `go test` 的 `TestEmbeddedBackupSSHDefaultsAligned` 锁住（含界面 placeholder）。
+四处默认值由 `go test` 的 `TestEmbeddedBackupSSHDefaultsAligned` 锁住（含界面 placeholder）。
+🔴 这条链路现在跑在**清单 `user`** 名下，读的是该用户的 `~/.ssh/known_hosts`；
+`install.sh` 的连通探测与 `preflight` 都降到同一身份，别再把它们套回 sudo。
 
 ## 4. 状态结构与判定
 
@@ -189,5 +192,5 @@ ops/
 | :--- | :--- | :--- |
 | 独立本地 Go 工具 | 后端加 API + admin 页面 | 不建表 / 不加权限 / 不改后端；工具坏了不影响生产 |
 | 本机 `ssh` CLI | 纯 Go SSH 库 | 复用 `known_hosts` / agent / ssh config，少一个依赖与一套密钥管理 |
-| 不查 crontab | 读 `/etc/cron.d` 或 `sudo -n` | 只读账号读不到 root crontab，读到空会误报「未安装」 |
+| 不查 crontab | `crontab -u <运行用户> -l` 或 `sudo -n` | 只读监控账号读不到别人的 crontab，读到空会误报「未安装」 |
 | `du` MinIO 数据目录可选 | 默认全量 `du` | 对象多时几十秒；「只看备份」不值得每次等 |

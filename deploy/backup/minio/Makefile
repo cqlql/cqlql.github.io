@@ -20,9 +20,10 @@ BACKUP_LOG_DIR := /var/log/minio-backup
 endif
 
 # ---- Crontab 环境变量（修复 cron 与手动 shell 环境差异）----
-# cron 默认 HOME 与手动执行时不同，导致 mc alias（~/.mc/config.json）不一致；
-# 必须显式注入实际手动执行时用的 HOME（用 echo $HOME 查，若为 root 则保持 /root）。
-CRON_HOME := /root
+# 🔴 Makefile 是手工入口：谁执行 make，crontab 就装在谁名下（不要用 sudo make）。
+# HOME 必须是那个人的家目录，~/.mc/config.json 在那儿；写死 /root 会让
+# cron 与界面自检读到两份不同的 alias 配置。与 install.sh 的 RUN_HOME 同口径。
+CRON_HOME := $(shell getent passwd "$$(id -un)" | cut -d: -f6)
 # cron 默认 PATH 极简（通常仅 /usr/bin:/bin），导致 mc/nc 找不到；此处补全常用路径。
 # 若 mc 装在其他位置（which mc 查看），请把该目录补进此变量。
 CRON_PATH := /usr/local/bin:/usr/local/sbin:/usr/bin:/usr/sbin:/bin:/sbin
@@ -38,13 +39,15 @@ HEALTH_CRON_SCHEDULE := 0 8 * * *
 endif
 
 # ---- 备份定时任务（每天凌晨 2:00）----
-# 脚本内部已 tee 落盘 minio_backup.log，此处 stdout 丢弃、stderr 追加兜底，避免日志重复
+# 🔴 只用 /bin/sh 语法：cron 默认不是 bash，>(...) 会语法错；crontab 里 % 是特殊字符，
+# 而 make 里的 $(date ...) 又会被当成 make 变量展开成空。脚本内部已 tee 落盘带时间戳的
+# 业务日志，这里 stdout 丢弃、stderr 直接追加兜底即可。
 CRON_TAG := \#MINIO_BACKUP
-CRON_JOB := $(CRON_SCHEDULE) HOME=$(CRON_HOME) PATH=$(CRON_PATH) $(BACKUP_SCRIPT) >/dev/null 2> >(sed 's/^/[$(date +%Y-%m-%d\ %H:%M:%S)][cron] /' >>$(BACKUP_LOG_DIR)/minio_backup.log) $(CRON_TAG)
+CRON_JOB := $(CRON_SCHEDULE) HOME=$(CRON_HOME) PATH=$(CRON_PATH) $(BACKUP_SCRIPT) >/dev/null 2>>$(BACKUP_LOG_DIR)/minio_backup.log $(CRON_TAG)
 
 # ---- 健康巡检定时任务（每天 8:00）----
 HEALTH_CRON_TAG := \#MINIO_BACKUP_HEALTH
-HEALTH_CRON_JOB := $(HEALTH_CRON_SCHEDULE) HOME=$(CRON_HOME) PATH=$(CRON_PATH) $(STATUS_SCRIPT) >/dev/null 2> >(sed 's/^/[$(date +%Y-%m-%d\ %H:%M:%S)][cron] /' >>$(BACKUP_LOG_DIR)/minio_backup.log) $(HEALTH_CRON_TAG)
+HEALTH_CRON_JOB := $(HEALTH_CRON_SCHEDULE) HOME=$(CRON_HOME) PATH=$(CRON_PATH) $(STATUS_SCRIPT) >/dev/null 2>>$(BACKUP_LOG_DIR)/minio_backup.log $(HEALTH_CRON_TAG)
 
 .PHONY: minio-install minio-backup minio-backup-cron-install minio-backup-cron-uninstall minio-backup-cron-status \
         minio-backup-health minio-backup-health-cron-install minio-backup-health-cron-uninstall minio-backup-health-cron-status \

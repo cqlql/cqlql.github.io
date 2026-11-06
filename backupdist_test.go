@@ -100,8 +100,10 @@ func TestEmbeddedBackupScriptsDroppedRsyncSync(t *testing.T) {
 	}
 }
 
-// PG_SSH_OPTS 的兜底默认值散在三个文件里，任一处漏掉 accept-new，
-// cron 首次连一台没进 known_hosts 的主机就会在 BatchMode=yes 下直接失败。
+// PG_SSH_OPTS 的兜底默认值散在四个文件里，任一处漏掉 accept-new，
+// 首次连一台没进「当前执行身份」known_hosts 的主机就会在 BatchMode=yes 下直接失败。
+// preflight_pg.sh 最容易漏：它曾硬编码 BatchMode=yes 却不带 accept-new，
+// 漏一次就出现「真机手工能连、远端自检说连不上」的假阴性（2026-11-06 踩过）。
 // 从**嵌入产物**读，顺带挡住「改了脚本没重新 build」的口径漂移；
 // 界面 placeholder 用的是同一串，也一起锁住（web 源码不在时跳过）。
 func TestEmbeddedBackupSSHDefaultsAligned(t *testing.T) {
@@ -110,6 +112,7 @@ func TestEmbeddedBackupSSHDefaultsAligned(t *testing.T) {
 		"deploy/backup/postgres/pg_backup.sh",
 		"deploy/backup/postgres/pg_restore.sh",
 		"deploy/backup/postgres/backup.env.example",
+		"deploy/backup/preflight_pg.sh",
 	}
 	for _, n := range files {
 		data, err := fs.ReadFile(backupScripts, n)
@@ -123,5 +126,94 @@ func TestEmbeddedBackupSSHDefaultsAligned(t *testing.T) {
 	ui, err := os.ReadFile("web/src/features/config/utils/draft.ts")
 	if err == nil && !strings.Contains(string(ui), want) {
 		t.Errorf("web/src/features/config/utils/draft.ts 的 PG_SSH_OPTS_DEFAULT 与脚本默认值不一致")
+	}
+}
+
+// 自检的 SSH 探测必须复用 PG_SSH_OPTS，且不能把 ssh 的 stderr 整个丢掉：
+// 否则失败只剩一句「SSH 无法连通」，无法区分 host key / 认证 / 网络 / 超时。
+func TestEmbeddedPreflightSSHProbeKeepsDiagnosis(t *testing.T) {
+	data, err := fs.ReadFile(backupScripts, "deploy/backup/preflight_pg.sh")
+	if err != nil {
+		t.Fatalf("读取嵌入产物 preflight_pg.sh 失败：%v", err)
+	}
+	s := string(data)
+	if !strings.Contains(s, "PG_SSH_OPTS:-") {
+		t.Error("preflight_pg.sh 没有读 PG_SSH_OPTS（会与 pg_backup.sh 口径漂移）")
+	}
+	if strings.Contains(s, ">/dev/null 2>&1") {
+		t.Error("preflight_pg.sh 把 ssh 的 stderr 丢进了 /dev/null，失败原因无从排查")
+	}
+	if !strings.Contains(s, "why=") || !strings.Contains(s, "主机密钥未收录或已变更") {
+		t.Error("preflight_pg.sh 缺少归类后的失败原因输出")
+	}
+}
+
+// 运行身份迁移：root 只剩安装期的系统级写操作，装出来的 crontab / 目录属主 /
+// 自检身份都得落到清单 user。任一处漏掉都会让「自检 / 备份 / 手工 ssh」又读到
+// 三份不同的 known_hosts 与 ~/.mc。从嵌入产物读，顺带挡住「改了脚本没 build」。
+func TestEmbeddedInstallRunsAsNonRoot(t *testing.T) {
+	wantInstall := []string{
+		"BACKUP_RUN_USER",
+		`crontab -u "$RUN_USER" -`,
+		`sudo -n -u "$RUN_USER" -H bash "$PREFLIGHT"`,
+		`chown -R "${RUN_USER}:${RUN_GROUP}"`,
+		`crontab -u root -l`,
+		`CRON_HOME="${CRON_HOME:-$RUN_HOME}"`,
+	}
+	for _, n := range []string{
+		"deploy/backup/postgres/install.sh",
+		"deploy/backup/minio/install.sh",
+	} {
+		data, err := fs.ReadFile(backupScripts, n)
+		if err != nil {
+			t.Fatalf("读取嵌入产物 %s 失败：%v", n, err)
+		}
+		s := string(data)
+		for _, w := range wantInstall {
+			if !strings.Contains(s, w) {
+				t.Errorf("%s 缺少运行身份迁移的关键片段 %q", n, w)
+			}
+		}
+		if strings.Contains(s, `CRON_HOME="${CRON_HOME:-/root}"`) {
+			t.Errorf("%s 仍把 CRON_HOME 写死 /root", n)
+		}
+		if strings.Contains(s, "| crontab - ") {
+			t.Errorf("%s 仍把定时任务装进当前（root）crontab", n)
+		}
+		// cron 默认 SHELL=/bin/sh：>(...) 是 bash 语法、% 是 crontab 特殊字符、
+		// 双引号里的 $(date) 会在安装期展开成固定时间戳。三者都不许回来。
+		if strings.Contains(s, "2> >(") || strings.Contains(s, "$(date +%Y") {
+			t.Errorf("%s 的 cron 行仍带 bash process substitution / 安装期展开的 date", n)
+		}
+		if !strings.Contains(s, "2>>") {
+			t.Errorf("%s 缺少 /bin/sh 可用的 stderr 兜底重定向", n)
+		}
+	}
+	for _, n := range []string{
+		"deploy/backup/postgres/pg_backup.logrotate",
+		"deploy/backup/minio/minio_backup.logrotate",
+	} {
+		data, err := fs.ReadFile(backupScripts, n)
+		if err != nil {
+			t.Fatalf("读取嵌入产物 %s 失败：%v", n, err)
+		}
+		if !strings.Contains(string(data), "su __BACKUP_USER__ __BACKUP_GROUP__") {
+			t.Errorf("%s 缺少 su 占位符（目录属主非 root 时 logrotate 会跳过轮转）", n)
+		}
+	}
+	for _, n := range []string{
+		"deploy/backup/postgres/Makefile",
+		"deploy/backup/minio/Makefile",
+	} {
+		data, err := fs.ReadFile(backupScripts, n)
+		if err != nil {
+			t.Fatalf("读取嵌入产物 %s 失败：%v", n, err)
+		}
+		if strings.Contains(string(data), "CRON_HOME := /root") {
+			t.Errorf("%s 仍把 CRON_HOME 写死 /root", n)
+		}
+		if strings.Contains(string(data), "2> >(") || strings.Contains(string(data), "$(date +%Y") {
+			t.Errorf("%s 的 cron 行仍带 bash process substitution / make 变量形式的 date", n)
+		}
 	}
 }

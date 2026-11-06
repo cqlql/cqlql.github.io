@@ -52,11 +52,12 @@ deploy/backup/
 - 🔴 `deploy/backup/` 里**不许出现真实 `backup.env`**：`//go:embed all:deploy/backup`
   会把整个目录编进二进制。`.gitignore` 已挡，`backupdist_test.go` 会在 `go test` 时再挡一次。
 - PG 的 `PG_SSH_OPTS` 不写也有兜底默认值，`pg_backup.sh` / `pg_restore.sh` /
-  `backup.env.example` 三处逐字一致：
+  `backup.env.example` / **`preflight_pg.sh`** 四处逐字一致：
   `-o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new`。
   与 `ops` 自身 ssh 封装、`install.sh` 的连通性预检同口径；别改成
   `StrictHostKeyChecking=no`（关掉主机密钥校验），改默认值要连同界面 placeholder 一起改，
-  `TestEmbeddedBackupSSHDefaultsAligned` 会挡住漂移。见 [backup-monitor.md](backup-monitor.md) §3.3。
+  `TestEmbeddedBackupSSHDefaultsAligned` 会挡住漂移。见 [backup-monitor.md](backup-monitor.md) §3.3
+  与下方 §4.1。
 - 日志目录：MinIO 读 `BACKUP_LOG_DIR`；PostgreSQL 读 `PG_BACKUP_LOG_DIR`（默认 `/var/log/pg-backup`）。
 
 ## 4. 部署自检（preflight）
@@ -77,6 +78,51 @@ deploy/backup/
 `pg_restore` 深度校验要求**本地客户端版本不低于服务端 `pg_dump` 版本**
 （服务端 PG 18 的 dump 头为 `1.16`，PG 16 的 `pg_restore` 会报 `unsupported version`）。
 版本不足时跳过深度校验并记 `warn`，**不会误判备份失败**；要深度校验就装同版本客户端。
+
+### 4.1 「手工 ssh 明明能连，preflight 却报 SSH 无法连通」
+
+`preflight_pg.sh` 第 7 项探测的是**备份端 → 主服务器**（`PG_SSH_HOST/PORT/USER/KEY`），
+既不是运维机 → 备份服务器的连接，也不是你在终端里手工敲的那条 ssh。
+
+🔴 2026-11-06 起身份已统一：安装期才由 `sudo -n sh -c` 提权到 root
+（写 `/etc/logrotate.d`、建系统目录、清旧 crontab）；**定时备份、preflight 自检、
+`--run-now` 首跑、`install.sh` 里的 SSH 探测都以清单 `user` 运行**，读的是同一个
+`~/.ssh/known_hosts` 与同一把私钥。所以旧的 root/cql 差异已经消除，剩下三条：
+
+| 维度 | 运维机手工 ssh | 备份端 preflight 探测 |
+| :--- | :--- | :--- |
+| 执行身份 / known_hosts | 运维机当前账号 | 备份机上的清单 `user`（与 cron 完全一致） |
+| 交互 | 交互式，首次连接问过 `yes` 并收录 | `-o BatchMode=yes` 不问；靠 `accept-new` 收录，密钥变化即拒绝 |
+| 私钥 | 默认 `~/.ssh/id_*` 或 ssh-agent | 显式 `-i "$PG_SSH_KEY"`，可能不是同一把密钥 |
+| 网络出口 | 运维机 | 备份服务器（端口转发 / 防火墙可能只对运维机开放） |
+
+**历史坑（2026-11-06）**：`preflight_pg.sh` 原先硬编码
+`-o BatchMode=yes -o ConnectTimeout=8`，**漏了 `accept-new` 也不读 `PG_SSH_OPTS`**，
+与 `pg_backup.sh` 口径不一致；当时自检还套着 sudo 以 root 跑、读 `/root/.ssh/known_hosts`，
+于是「手工能连、自检说连不上」而真实备份脚本能连。`>/dev/null 2>&1` 又把 ssh 的 stderr
+全吞了，只剩一句无从排查的结论。现在：四处 `PG_SSH_OPTS` 逐字一致、自检与 cron 同身份、
+失败按「主机密钥 / 认证 / 网络 / 超时 / 解析」归类回显原因（**不回显原文**，避免私钥路径进日志），
+`TestEmbeddedBackupSSHDefaultsAligned` 与 `TestEmbeddedInstallRunsAsNonRoot` 一起挡回归。
+
+排查要在**备份端**以与自检相同的身份复现（私钥路径用配置里的值替换占位符）：
+
+```bash
+ssh -p <port> -i <PG_SSH_KEY> -o BatchMode=yes \
+    -o StrictHostKeyChecking=accept-new <user>@<host> "echo ok"
+```
+
+- `Host key verification failed` → 该用户的 known_hosts 没有该 host:port 条目，带 `accept-new`
+  重连一次即可；`REMOTE HOST IDENTIFICATION HAS CHANGED` → 主服务器（尤其 WSL2）重装过、
+  主机密钥变了，**核实指纹后**用 `ssh-keygen -R "[<host>]:<port>"` 清掉旧条目再连。
+- `Permission denied` / `Load key ... invalid format` → `PG_SSH_KEY` 对应的公钥不在主服务器
+  `authorized_keys`，或私钥格式/权限不对。
+- `Connection refused` / `No route to host` / `timed out` → 备份端到主服务器这条网络路径不通，
+  与运维机上手工 ssh 成功无关（WSL2 的 2221 常是 Windows 上的端口转发，可能没对局域网开放）。
+
+🔴 升级迁移（从旧 root 版本）：`install.sh` 会 `chown -R` 日志/备份目录、清掉 root
+crontab 旧任务、把任务改写到运行用户 crontab；`ops backup deploy --dry-run` 可先看计划。
+改了 `deploy/backup/**` 后要重新 `go build`（脚本是 embed 输入），再走界面
+「安装 / 升级备份能力」把新脚本推到备份端；只重建本机 `ops.exe` 不会改变远端的旧脚本。
 
 ## 5. 为什么删掉了 backup_sync.sh / sync.env
 

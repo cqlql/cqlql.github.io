@@ -4,15 +4,22 @@
 # PostgreSQL 备份体系自动安装脚本
 # 部署: 运行在"备份端"机器上（与 pg_backup.sh / pg_backup_status.sh 同机）
 # 功能: 一键完成以下安装步骤（均幂等，可重复执行）
-#   1. 环境自检（root 权限 / 网络 / backup.env）
-#   2. 自动安装依赖命令（ssh / scp / pg_restore）
-#   3. 检查主服务器 SSH 是否可达（否则提示先配置）
+#   1. 环境自检（安装期 root 权限 / 网络 / backup.env）
+#   2. 检查依赖命令（ssh / scp / pg_restore）
+#   3. 以运行用户身份检查主服务器 SSH 是否可达
 #   4. 从 backup.env.example 生成 backup.env（缺什么问什么）
-#   5. 安装日志轮转（logrotate）
-#   6. 安装定时任务（每日备份 + 每日健康巡检）
-#   7. 执行 preflight 部署自检，给出最终结论
-# 用法: sudo bash deploy/backup/postgres/install.sh
+#   5. 安装日志轮转（logrotate）+ 把运行目录属主交给运行用户
+#   6. 安装定时任务到运行用户的 crontab，并清理旧 root crontab
+#   7. 以运行用户身份执行 preflight 部署自检，给出最终结论
+# 用法: BACKUP_RUN_USER=<运行用户> sudo bash deploy/backup/postgres/install.sh
+#       一般不用手工跑，由 ops backup deploy 调用（工具会显式传入运行用户）。
 # 退出码: 0=安装成功, 1=安装失败
+#
+# 🔴 身份模型：本脚本经 sudo 以 root 执行（要写 /etc/logrotate.d、建系统级目录、
+# 清理旧 crontab），但它「装出来的东西」一律归属非 root 的运行用户：
+# crontab -u、日志/备份目录 chown、SSH 探测与 preflight 降权。这样 cron 里的
+# pg_backup.sh、界面自检、以及备份机上手敲的 ssh 用的是同一份 ~/.ssh/known_hosts
+# 与同一把私钥，不会再出现「手工能连、自检说连不上」或「自检过了、备份却失败」。
 # ==========================================
 
 set -u
@@ -27,8 +34,29 @@ LOGROTATE_DST="/etc/logrotate.d/pg-backup"
 CRON_TAG_BACKUP="#PG_BACKUP"
 CRON_TAG_HEALTH="#PG_BACKUP_HEALTH"
 
+# ---------- 运行身份（🔴 不允许是 root） ----------
+# 工具通过 BACKUP_RUN_USER 显式传清单里的 ssh 登录用户；手工执行时退回 SUDO_USER。
+# 这个人的 HOME 决定了 ~/.ssh/known_hosts 与 ~/.mc，必须与 cron、自检是同一个。
+RUN_USER="${BACKUP_RUN_USER:-${SUDO_USER:-$(id -un)}}"
+if [ "$RUN_USER" = "root" ]; then
+    echo "❌ 未指定备份运行用户：请用 BACKUP_RUN_USER=<user> 指定，或经 sudo 执行以带出 SUDO_USER。" >&2
+    echo "   安装期允许 root，但备份任务不允许以 root 运行。" >&2
+    exit 1
+fi
+if ! id "$RUN_USER" >/dev/null 2>&1; then
+    echo "❌ 备份运行用户不存在：$RUN_USER" >&2
+    exit 1
+fi
+RUN_HOME="$(getent passwd "$RUN_USER" | cut -d: -f6)"
+RUN_GROUP="$(id -gn "$RUN_USER")"
+if [ -z "$RUN_HOME" ] || [ ! -d "$RUN_HOME" ]; then
+    echo "❌ 取不到 $RUN_USER 的家目录" >&2
+    exit 1
+fi
+
 # cron 环境变量（与 Makefile 一致，修复 cron 与手动 shell 环境差异）
-CRON_HOME="${CRON_HOME:-/root}"
+# HOME 必须是运行用户的家目录，否则 cron 里的 ssh 又会去读 root 的 known_hosts。
+CRON_HOME="${CRON_HOME:-$RUN_HOME}"
 CRON_PATH="/usr/local/bin:/usr/local/sbin:/usr/bin:/usr/sbin:/bin:/sbin"
 PG_BACKUP_LOG_DIR="${PG_BACKUP_LOG_DIR:-/var/log/pg-backup}"
 # 定时时间读取优先级：环境变量 > backup.env > 默认值
@@ -77,10 +105,10 @@ echo ""
 # ==========================================
 hdr "Step 0: 权限检查"
 if [ "$(id -u)" -ne 0 ]; then
-    err "请使用 root 或 sudo 执行本脚本（需安装依赖、写 /etc/logrotate.d 与 crontab）"
+    err "请经 sudo 以 root 执行本脚本（安装期要写 /etc/logrotate.d 与系统级目录）"
     exit 1
 fi
-ok "当前以 root 身份执行"
+ok "安装期以 root 身份执行；备份任务 / 自检的运行身份为 ${RUN_USER}（HOME=${RUN_HOME}）"
 
 # ==========================================
 # Step 1: 依赖命令检查（仅检查，缺啥提示手动安装）
@@ -135,12 +163,12 @@ else
     SSH_USER="${SSH_USER:-root}"
     info "主服务器: ${SSH_USER}@${SSH_HOST}:${SSH_PORT}"
     if [ -n "$SSH_HOST" ] && have_cmd ssh; then
-        if ssh -p "$SSH_PORT" ${SSH_KEY:+-i "$SSH_KEY"} \
+        # 降权到运行用户：这一探测会写入 ~/.ssh/known_hosts，必须与 cron / preflight
+        # 是同一份，否则装完 root 收录过、cql 却仍连不上。
+        if sudo -n -u "$RUN_USER" -H ssh -p "$SSH_PORT" ${SSH_KEY:+-i "$SSH_KEY"} \
             -o BatchMode=yes \
-            -o ConnectTimeout=8 \
+            -o ConnectTimeout=10 \
             -o StrictHostKeyChecking=accept-new \
-            -o ServerAliveInterval=3 \
-            -o ServerAliveCountMax=2 \
             "${SSH_USER}@${SSH_HOST}" "echo ok" >/dev/null 2>&1; then
             ok "主服务器 SSH 可达: ${SSH_USER}@${SSH_HOST}:${SSH_PORT}"
         else
@@ -221,7 +249,7 @@ if have_cmd logrotate; then
         ok "日志轮转配置已存在: ${LOGROTATE_DST}"
     else
         warn "日志轮转配置尚未安装，请手动执行："
-        info "  cp ${LOGROTATE_SRC} ${LOGROTATE_DST}"
+        info "  sed -e 's|__BACKUP_USER__|${RUN_USER}|g' -e 's|__BACKUP_GROUP__|${RUN_GROUP}|g' ${LOGROTATE_SRC} | sudo tee ${LOGROTATE_DST} >/dev/null"
         info "  测试: logrotate -d ${LOGROTATE_DST}"
     fi
 else
@@ -238,21 +266,47 @@ if ! have_cmd crontab; then
 elif [ ! -f "$ENV_FILE" ]; then
     err "缺少 backup.env，跳过定时任务安装"
 else
-    mkdir -p "$PG_BACKUP_LOG_DIR" 2>/dev/null || true
+    # 日志目录与备份数据目录在 /var/log、/data 下，普通用户建不了：安装期由 root
+    # 建好并把属主交给运行用户，之后 cron / 自检 / 备份脚本都不再需要 sudo。
+    # chown -R 是把旧安装（一直以 root 跑）留下的日志与 dump 一并迁过来。
+    # /*/ 只接受至少两级的绝对路径，避免把 /、/data 这类挂载点整体 chown。
+    for d in "$PG_BACKUP_LOG_DIR" "${PG_BACKUP_ROOT:-/data/backups/postgres}"; do
+        case "$d" in
+            /*/*) mkdir -p "$d" && chown -R "${RUN_USER}:${RUN_GROUP}" "$d" \
+                    || fail "无法准备运行目录：$d" ;;
+            *) warn "跳过根级/相对路径，不自动 chown：$d" ;;
+        esac
+    done
 
     BACKUP_SCRIPT="${SCRIPT_DIR}/pg_backup.sh"
     STATUS_SCRIPT="${SCRIPT_DIR}/pg_backup_status.sh"
     chmod +x "$BACKUP_SCRIPT" "$STATUS_SCRIPT"
 
-    CRON_JOB_BACKUP="${CRON_SCHEDULE_BACKUP} HOME=${CRON_HOME} PATH=${CRON_PATH} ${BACKUP_SCRIPT} >/dev/null 2> >(sed 's/^/[$(date +%Y-%m-%d\ %H:%M:%S)][cron] /' >>${PG_BACKUP_LOG_DIR}/pg_backup.log) ${CRON_TAG_BACKUP}"
-    CRON_JOB_HEALTH="${CRON_SCHEDULE_HEALTH} HOME=${CRON_HOME} PATH=${CRON_PATH} ${STATUS_SCRIPT} >/dev/null 2> >(sed 's/^/[$(date +%Y-%m-%d\ %H:%M:%S)][cron] /' >>${PG_BACKUP_LOG_DIR}/pg_backup.log) ${CRON_TAG_HEALTH}"
+    # 🔴 cron 默认 SHELL=/bin/sh：不能用 bash 的 >(...)；crontab 里 % 是特殊字符；
+    # 而双引号里的 $(date) 会在**安装时**就展开成固定时间戳，不是运行时时间。
+    # 脚本内部已用 tee -a 把带时间戳的业务日志写进同一个文件，这里只兜底 stderr，
+    # 直接追加重定向即可：无展开、无 %、无 bash 依赖，在 /bin/sh 下必定生效。
+    CRON_JOB_BACKUP="${CRON_SCHEDULE_BACKUP} HOME=${CRON_HOME} PATH=${CRON_PATH} ${BACKUP_SCRIPT} >/dev/null 2>>${PG_BACKUP_LOG_DIR}/pg_backup.log ${CRON_TAG_BACKUP}"
+    CRON_JOB_HEALTH="${CRON_SCHEDULE_HEALTH} HOME=${CRON_HOME} PATH=${CRON_PATH} ${STATUS_SCRIPT} >/dev/null 2>>${PG_BACKUP_LOG_DIR}/pg_backup.log ${CRON_TAG_HEALTH}"
 
-    # 幂等写入：先剔除旧标签再追加
-    (crontab -l 2>/dev/null | grep -v "${CRON_TAG_BACKUP}" | grep -v "${CRON_TAG_HEALTH}"; \
+    # 幂等写入：装到运行用户的 crontab（不是 root 的），先剔除旧标签再追加。
+    (crontab -u "$RUN_USER" -l 2>/dev/null | grep -v "${CRON_TAG_BACKUP}" | grep -v "${CRON_TAG_HEALTH}"; \
         printf '%s\n' "$CRON_JOB_BACKUP"; \
-        printf '%s\n' "$CRON_JOB_HEALTH") | crontab -
-    ok "备份定时任务已安装: ${CRON_SCHEDULE_BACKUP}（每日 3:00）"
-    ok "健康巡检定时任务已安装: ${CRON_SCHEDULE_HEALTH}（每日 9:00）"
+        printf '%s\n' "$CRON_JOB_HEALTH") | crontab -u "$RUN_USER" -
+    ok "备份定时任务已安装到 ${RUN_USER}: ${CRON_SCHEDULE_BACKUP}（每日 3:00）"
+    ok "健康巡检定时任务已安装到 ${RUN_USER}: ${CRON_SCHEDULE_HEALTH}（每日 9:00）"
+
+    # 迁移：旧版本把任务装在 root crontab 里，不清掉就会每天双跑。
+    # 只删带我们标签的行，其它 root 任务原样保留；内容没变就不写回。
+    if crontab -u root -l >/dev/null 2>&1; then
+        old_cron="$(crontab -u root -l 2>/dev/null || true)"
+        new_cron="$(printf '%s\n' "$old_cron" | grep -v "${CRON_TAG_BACKUP}" | grep -v "${CRON_TAG_HEALTH}" || true)"
+        if [ "$new_cron" != "$old_cron" ]; then
+            printf '%s\n' "$new_cron" | crontab -u root - \
+                && ok "已清理旧 root crontab 的备份任务（避免双跑）" \
+                || fail "清理旧 root crontab 失败"
+        fi
+    fi
 fi
 
 # ==========================================
@@ -263,7 +317,9 @@ PREFLIGHT="${SCRIPT_DIR}/../preflight_check.sh"
 if [ -f "$PREFLIGHT" ]; then
     info "执行部署自检（只读，不执行备份/恢复）..."
     echo ""
-    bash "$PREFLIGHT" pg
+    # 降权到运行用户：自检读的 known_hosts / crontab / 目录写权限必须与
+    # cron 里的备份脚本完全一致，用 root 跑等于检查了另一套环境。
+    sudo -n -u "$RUN_USER" -H bash "$PREFLIGHT" pg
     PF_RC=$?
     echo ""
     case "$PF_RC" in

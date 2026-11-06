@@ -402,7 +402,7 @@ func runBackupDeploy(args []string, embedded fs.FS) int {
 	}
 
 	ctx, cancel = context.WithTimeout(root, timeoutPrecheck)
-	err = installLogrotate(t, ctx, cfg.DeployDir, opt.comps)
+	err = installLogrotate(t, ctx, cfg.DeployDir, srv.User, opt.comps)
 	cancel()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: 安装 logrotate 配置失败：%v\n", err)
@@ -412,7 +412,7 @@ func runBackupDeploy(args []string, embedded fs.FS) int {
 	for _, c := range opt.comps {
 		fmt.Printf("==> 安装 %s\n", c)
 		ctx, cancel = context.WithTimeout(root, timeoutInstall)
-		code, err := t.Stream(ctx, "bash "+shared.ShQuote(c.installPath(cfg.DeployDir))+" </dev/null", true, nil)
+		code, err := t.Stream(ctx, runUserEnv(t.User)+"bash "+shared.ShQuote(c.installPath(cfg.DeployDir))+" </dev/null", true, nil)
 		cancel()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "ERROR: 安装 %s 失败：%v\n", c, err)
@@ -426,7 +426,10 @@ func runBackupDeploy(args []string, embedded fs.FS) int {
 
 	fmt.Println("==> 运行 preflight 自检")
 	ctx, cancel = context.WithTimeout(root, timeoutPreflight)
-	code, err := t.Stream(ctx, "bash "+shared.ShQuote(path.Join(cfg.DeployDir, "preflight_check.sh"))+" "+preflightArg(opt.comps)+" </dev/null", true, nil)
+	// 自检必须以「备份任务的实际运行身份」跑，不能套 sudo：root 的
+	// known_hosts / HOME / 私钥与 cron 里的 cql 不是同一份，会出现
+	// 「手工 ssh 能连、自检报连不上」以及「自检过了、备份却失败」两类假象。
+	code, err := t.Stream(ctx, "bash "+shared.ShQuote(path.Join(cfg.DeployDir, "preflight_check.sh"))+" "+preflightArg(opt.comps)+" </dev/null", false, nil)
 	cancel()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: preflight 执行失败：%v\n", err)
@@ -444,7 +447,7 @@ func runBackupDeploy(args []string, embedded fs.FS) int {
 		for _, c := range opt.comps {
 			fmt.Printf("==> 首次运行 %s 备份（可能需要较长时间）\n", c)
 			ctx, cancel = context.WithTimeout(root, timeoutRunNow)
-			code, err := t.Stream(ctx, "bash "+shared.ShQuote(c.backupPath(cfg.DeployDir)), true, nil)
+			code, err := t.Stream(ctx, "bash "+shared.ShQuote(c.backupPath(cfg.DeployDir)), false, nil)
 			cancel()
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "ERROR: %s 备份执行失败：%v\n", c, err)
@@ -464,6 +467,23 @@ func runBackupDeploy(args []string, embedded fs.FS) int {
 	return 0
 }
 
+// revokeRunUserCrontab 撤销本次部署写进运行用户 crontab 的备份任务。
+// 只在回滚路径调用：旧版 install.sh 重跑时会把任务装回 root，不撤销运行用户
+// 这份就会两套并存、每天双跑。以 root 执行才能改别人的 crontab；
+// 失败只告警，不打断已经开始的回滚（现场留给 .failed / .old 人工核对）。
+func revokeRunUserCrontab(t *shared.SSHTarget, ctx context.Context, user string) {
+	if user == "" || user == "root" {
+		return
+	}
+	cmd := fmt.Sprintf("crontab -u %s -l 2>/dev/null | grep -vE '#(PG_BACKUP|MINIO_BACKUP)' | crontab -u %s - || true",
+		shared.ShQuote(user), shared.ShQuote(user))
+	out, _, err := t.Capture(ctx, cmd, true)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "WARN: 撤销 %s 的备份定时任务失败，请人工检查两份 crontab 是否双跑：%v %s\n",
+			user, err, strings.TrimSpace(out))
+	}
+}
+
 func failAfterInstall(root context.Context, t *shared.SSHTarget, cfg *shared.Config, comps []component, hadOld bool) int {
 	if !hadOld {
 		fmt.Fprintln(os.Stderr, "全新安装未回滚（没有可回滚的旧版本）；修复配置后重跑 ops backup deploy。")
@@ -477,9 +497,15 @@ func failAfterInstall(root context.Context, t *shared.SSHTarget, cfg *shared.Con
 		fmt.Fprintf(os.Stderr, "ERROR: 回滚失败，请人工检查 %s.old 与 %s.failed：%v\n", cfg.DeployDir, cfg.DeployDir, err)
 		return 1
 	}
+	// 🔴 身份迁移回滚：install.sh 在失败前可能已把任务装进运行用户 crontab，
+	// 而回滚重跑的旧 install.sh 会把任务装回 root。不清掉前者就会每天双跑
+	// （2026-11-06 211 真机踩过）。只删带我们标签的行，其它用户任务原样保留。
+	cleanCtx, cleanCancel := context.WithTimeout(root, timeoutPrecheck)
+	revokeRunUserCrontab(t, cleanCtx, t.User)
+	cleanCancel()
 	for _, c := range comps {
 		ctx, cancel = context.WithTimeout(root, timeoutInstall)
-		t.Stream(ctx, "bash "+shared.ShQuote(c.installPath(cfg.DeployDir))+" </dev/null", true, nil)
+		t.Stream(ctx, runUserEnv(t.User)+"bash "+shared.ShQuote(c.installPath(cfg.DeployDir))+" </dev/null", true, nil)
 		cancel()
 	}
 	fmt.Fprintln(os.Stderr, "已回滚脚本并重装旧版本；配置未回滚。")
@@ -487,8 +513,8 @@ func failAfterInstall(root context.Context, t *shared.SSHTarget, cfg *shared.Con
 }
 
 func printDeployPlan(cfg *shared.Config, srv *shared.Server, opt deployOptions, plans []envPlan, freeMB string) {
-	fmt.Printf("部署计划\n  服务器：%s（%s）\n  主机：%s@%s:%d\n  组件：%s\n  目录：%s\n",
-		srv.Name, srv.Role, srv.User, srv.Host, srv.Port, joinComponents(opt.comps), cfg.DeployDir)
+	fmt.Printf("部署计划\n  服务器：%s（%s）\n  主机：%s@%s:%d\n  组件：%s\n  目录：%s\n  运行身份：%s（cron / 自检 / 首跑）；root 只用于安装期写系统目录\n",
+		srv.Name, srv.Role, srv.User, srv.Host, srv.Port, joinComponents(opt.comps), cfg.DeployDir, srv.User)
 	for _, p := range plans {
 		action := "保留远端配置"
 		if p.upload {
@@ -515,12 +541,15 @@ func printDryRun(cfg *shared.Config, srv *shared.Server, opt deployOptions) {
 	fmt.Printf("  rm -rf %s && mkdir -p %s && chown %s %s\n", newDir, newDir, srv.User, newDir)
 	fmt.Printf("  tar -xzf - -C %s   # stdin 为本机脚本包\n", newDir)
 	for _, c := range opt.comps {
-		fmt.Printf("  cp %s %s\n", c.logrotateSrc(cfg.DeployDir), c.logrotateDst())
+		fmt.Printf("  sed 's|__BACKUP_USER__|%s|g; s|__BACKUP_GROUP__|<主组>|g' %s > %s\n",
+			srv.User, c.logrotateSrc(cfg.DeployDir), c.logrotateDst())
 	}
 	for _, c := range opt.comps {
-		fmt.Printf("  bash %s </dev/null\n", c.installPath(cfg.DeployDir))
+		fmt.Printf("  BACKUP_RUN_USER=%s bash %s </dev/null   # sudo 包装层由工具添加\n", srv.User, c.installPath(cfg.DeployDir))
 	}
-	fmt.Printf("  bash %s %s\n", path.Join(cfg.DeployDir, "preflight_check.sh"), preflightArg(opt.comps))
+	fmt.Printf("  # install.sh 内：crontab -u %s、目录 chown %s、清理旧 root crontab\n", srv.User, srv.User)
+	fmt.Printf("  bash %s %s   # 以 %s 执行，不套 sudo\n",
+		path.Join(cfg.DeployDir, "preflight_check.sh"), preflightArg(opt.comps), srv.User)
 	if opt.runNow {
 		for _, c := range opt.comps {
 			fmt.Printf("  bash %s\n", c.backupPath(cfg.DeployDir))
@@ -776,9 +805,31 @@ func dedup(in []string) []string {
 	return out
 }
 
+// runUserEnv 把「备份运行身份」显式传给远端 install.sh。
+// ssh 本来就以上面清单里的 user 登录，但 install.sh 由 sudo 包着跑，
+// SUDO_USER 未必可靠，所以显式给一个环境变量。它同时决定：
+// crontab -u 装给谁、日志/备份目录 chown 给谁、preflight 与 SSH 连通探测降权到谁。
+// 🔴 四处必须是同一个人，否则又会出现「自检能连、cron 连不上」。
+func runUserEnv(user string) string {
+	if user == "" {
+		user = "root"
+	}
+	return "BACKUP_RUN_USER=" + shared.ShQuote(user) + " "
+}
+
+// cronOutput 同时看「运行用户」与「root」两份 crontab：
+// 迁移期旧安装的任务还留在 root 名下（install.sh 会清掉），只看用户级会漏掉
+// 目录漂移检查，导致同一套备份被装到两个目录、每天双跑。
 func cronOutput(t *shared.SSHTarget, ctx context.Context) (string, error) {
-	out, _, err := t.Capture(ctx, "crontab -l 2>/dev/null || true", true)
-	return out, err
+	userOut, _, err := t.Capture(ctx, "crontab -l 2>/dev/null || true", false)
+	if err != nil {
+		return "", err
+	}
+	rootOut, _, err := t.Capture(ctx, "crontab -u root -l 2>/dev/null || true", true)
+	if err != nil {
+		return "", err
+	}
+	return userOut + "\n" + rootOut, nil
 }
 
 func cronScriptDirs(crontab, script string) []string {
@@ -893,17 +944,31 @@ func swap(t *shared.SSHTarget, ctx context.Context, dir string, keep []component
 	return nil
 }
 
-func installLogrotate(t *shared.SSHTarget, ctx context.Context, dir string, comps []component) error {
+// safeRunUser 挡住用户名里可能破坏 sed 表达式 / shell 命令的字符。
+var safeRunUser = regexp.MustCompile(`^[A-Za-z0-9_.-]+$`)
+
+// installLogrotate 把模板里的 su 占位符替换成运行用户再落盘。
+// 日志目录属主改成运行用户后，logrotate 不带 su 会因「目录属主非 root」
+// 判定不安全而直接跳过轮转，所以这一步是身份迁移的一部分，不能省。
+func installLogrotate(t *shared.SSHTarget, ctx context.Context, dir, user string, comps []component) error {
+	if len(comps) == 0 {
+		return nil
+	}
+	if user == "" {
+		user = "root"
+	}
+	if !safeRunUser.MatchString(user) {
+		return fmt.Errorf("备份运行用户名含非法字符：%q", user)
+	}
 	var b strings.Builder
 	b.WriteString("set -e\n")
+	fmt.Fprintf(&b, "grp=$(id -gn %s) || exit 1\n", shared.ShQuote(user))
 	for _, c := range comps {
 		src := c.logrotateSrc(dir)
 		dst := c.logrotateDst()
-		fmt.Fprintf(&b, "if [ -f %s ]; then cp -f %s %s && chmod 644 %s; else echo '缺少 %s' >&2; exit 1; fi\n",
-			shared.ShQuote(src), shared.ShQuote(src), shared.ShQuote(dst), shared.ShQuote(dst), src)
-	}
-	if len(comps) == 0 {
-		return nil
+		fmt.Fprintf(&b,
+			"if [ -f %s ]; then sed -e 's|__BACKUP_USER__|%s|g' -e \"s|__BACKUP_GROUP__|$grp|g\" %s > %s && chmod 644 %s; else echo '缺少 %s' >&2; exit 1; fi\n",
+			shared.ShQuote(src), user, shared.ShQuote(src), shared.ShQuote(dst), shared.ShQuote(dst), src)
 	}
 	code, err := t.Stream(ctx, b.String(), true, nil)
 	if err != nil {
@@ -1138,7 +1203,9 @@ func runBackupVerify(args []string) int {
 	}
 
 	ctx, cancel = context.WithTimeout(root, timeoutPreflight)
-	code, err := t.Stream(ctx, "bash "+shared.ShQuote(path.Join(cfg.DeployDir, "preflight_check.sh"))+" "+preflightArg(comps), true, nil)
+	// 与 cron 里的备份脚本保持同一身份（清单 user），不要 sudo 提权：
+	// 见 runBackupDeploy 里同处的说明。
+	code, err := t.Stream(ctx, "bash "+shared.ShQuote(path.Join(cfg.DeployDir, "preflight_check.sh"))+" "+preflightArg(comps), false, nil)
 	cancel()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: preflight 执行失败：%v\n", err)
