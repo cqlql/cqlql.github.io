@@ -54,10 +54,9 @@ pre {
   word-break: break-all;
 }
 
-/* 清单路径本身就是「用 VSCode 打开」的入口。
-   🔴 常驻的图标 + 短提示说明「能点、点了会怎样」：只在 hover 才显形的话，
-   静态看就是一行灰字，等于没提示。图标与短提示同属那一个 button，
-   仍是一次点击、不新增控件；button 也保留了键盘可达性。 */
+/* 清单路径本身就是打开编辑器的入口：蓝色虚线下划线 + pointer 已经说明「能点」。
+   🔴 不挂常驻图标，也不写「点击用 VSCode 打开」这类提示文字——这是低频辅助入口，
+   链接样式足够，别给页头添说明噪音。仍是一个 button、一次点击，键盘可达。 */
 .meta-file-link {
   padding: 0;
   border: 0;
@@ -66,26 +65,14 @@ pre {
   font: inherit;
   text-align: left;
   cursor: pointer;
-  word-break: normal;
-}
-
-/* 下划线只挂在路径 span 上：text-decoration 会向后代传播且无法被后代取消，
-   直接挂在 button 上会把图标和提示文字一起划上，很难看。 */
-.meta-file-path {
   text-decoration: underline dotted;
   text-underline-offset: 3px;
   word-break: break-all;
 }
 
-.meta-file-link:hover:not(:disabled) .meta-file-path,
-.meta-file-link:focus-visible .meta-file-path {
+.meta-file-link:hover:not(:disabled),
+.meta-file-link:focus-visible {
   text-decoration: underline solid;
-}
-
-.meta-file-action {
-  margin-left: 8px;
-  white-space: nowrap;
-  word-break: normal;
 }
 
 .meta-file-link:focus-visible {

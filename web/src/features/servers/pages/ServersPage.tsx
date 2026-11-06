@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Alert, Button, Input, Modal, Popconfirm, Typography } from 'antd'
-import { EditOutlined } from '@ant-design/icons'
 
 import { serversApi } from '../api.ts'
 import { ServersTable } from '../components/ServersTable.tsx'
@@ -186,21 +185,11 @@ export function ServersPage() {
               <button
                 type="button"
                 className="meta-file-link"
-                title="用 VSCode 打开 servers.json"
+                title="用编辑器打开 servers.json"
                 disabled={opening}
                 onClick={() => void onOpenServersFile()}
               >
-                <span className="meta-file-path">{data.servers_file}</span>
-                <span className="meta-file-action">
-                  {opening ? (
-                    '正在打开…'
-                  ) : (
-                    <>
-                      <EditOutlined aria-hidden style={{ marginRight: 4 }} />
-                      点击用 VSCode 打开
-                    </>
-                  )}
-                </span>
+                {data.servers_file}
               </button>
             ) : (
               <span>{loading ? '加载中…' : '加载失败'}</span>
