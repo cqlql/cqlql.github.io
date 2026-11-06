@@ -58,13 +58,98 @@ func TestComponentRunGates(t *testing.T) {
 		{"confirm 不是 yes", `{"verb":"install","component":"docker","name":"bk","confirm":"no"}`, http.StatusBadRequest},
 		{"未接入组件", `{"verb":"install","component":"future","name":"bk","confirm":"yes"}`, http.StatusBadRequest},
 		{"未注册组件", `{"verb":"install","component":"../../etc","name":"bk","confirm":"yes"}`, http.StatusBadRequest},
-		{"未开放动词", `{"verb":"uninstall","component":"docker","name":"bk","confirm":"yes"}`, http.StatusBadRequest},
+		{"未知动词", `{"verb":"force","component":"docker","name":"bk","confirm":"yes"}`, http.StatusBadRequest},
+		{"导入动词不走这个接口", `{"verb":"image-load","component":"minio","name":"bk","confirm":"yes"}`, http.StatusBadRequest},
 		{"未知 name", `{"verb":"install","component":"docker","name":"evil","confirm":"yes"}`, http.StatusNotFound},
 		{"缺 name", `{"verb":"install","component":"docker","confirm":"yes"}`, http.StatusBadRequest},
 	}
 	for _, c := range cases {
 		if w := serveComponentRun(u, c.body); w.Code != c.want {
 			t.Errorf("%s = %d，想要 %d；响应 %s", c.name, w.Code, c.want, w.Body.String())
+		}
+	}
+}
+
+// 2026-11-07：update / uninstall 的附加参数门（docs/components.md §8.3 / §8.4）。
+// 前端勾没勾不算数，服务端按同一份 ValidateActionFlags 再验一次。
+func TestComponentRunExtraFlagGates(t *testing.T) {
+	cases := []struct {
+		name, body string
+		want       int
+	}{
+		{"卸引擎缺必勾", `{"verb":"uninstall","component":"docker","name":"bk","confirm":"yes"}`, 400},
+		{"删数据给安装", `{"verb":"install","component":"minio","name":"bk","confirm":"yes","purge_data":true}`, 400},
+		{"卸 MinIO 带引擎确认", `{"verb":"uninstall","component":"minio","name":"bk","confirm":"yes","ack_downstream":true}`, 400},
+		{"安装带镜像引用", `{"verb":"install","component":"minio","name":"bk","confirm":"yes","image_ref":"minio/minio:R2"}`, 400},
+		{"更新带非法镜像引用", `{"verb":"update","component":"minio","name":"bk","confirm":"yes","image_ref":"minio/minio:R2;rm -rf /"}`, 400},
+		{"卸引擎带代理", `{"verb":"uninstall","component":"docker","name":"bk","confirm":"yes","ack_downstream":true,"proxy":"http://x:7897"}`, 400},
+		{"更新 Docker 带代理", `{"verb":"update","component":"docker","name":"bk","confirm":"yes","proxy":"http://x:7897"}`, 200},
+		{"更新 MinIO 带镜像引用", `{"verb":"update","component":"minio","name":"bk","confirm":"yes","image_ref":"minio/minio:R2"}`, 200},
+		{"卸 MinIO 勾删数据", `{"verb":"uninstall","component":"minio","name":"bk","confirm":"yes","purge_data":true}`, 200},
+		{"卸引擎带确认", `{"verb":"uninstall","component":"docker","name":"bk","confirm":"yes","ack_downstream":true}`, 200},
+	}
+	for _, c := range cases {
+		u := backupState(t, func([]string, string, io.Writer) int { return 0 })
+		w := serveComponentRun(u, c.body)
+		if w.Code != c.want {
+			t.Errorf("%s = %d，想要 %d；响应 %s", c.name, w.Code, c.want, w.Body.String())
+		}
+		if w.Code == http.StatusOK {
+			waitBackupTask(t, u)
+		} else if u.backupBusy() {
+			t.Errorf("%s 被拒绝后不该占住任务锁", c.name)
+		}
+	}
+}
+
+// 预检与正式动作必须带**同一组**附加参数，否则「预检过了」不代表会这么跑。
+func TestComponentRunUpdateUninstallArgs(t *testing.T) {
+	cases := []struct {
+		name, body, mode string
+		wantArgs         []string
+	}{
+		{
+			"更新 MinIO", `{"verb":"update","component":"minio","name":"bk","confirm":"yes","image_ref":"minio/minio:R2"}`,
+			"component.update", []string{"update", "--image-ref minio/minio:R2"},
+		},
+		{
+			"卸 MinIO 删数据", `{"verb":"uninstall","component":"minio","name":"bk","confirm":"yes","purge_data":true}`,
+			"component.uninstall", []string{"uninstall", "--purge-data"},
+		},
+		{
+			"卸引擎", `{"verb":"uninstall","component":"docker","name":"bk","confirm":"yes","ack_downstream":true}`,
+			"component.uninstall", []string{"uninstall", "--ack-downstream"},
+		},
+		{
+			"更新 Docker 走代理", `{"verb":"update","component":"docker","name":"bk","confirm":"yes","proxy":"http://x:7897"}`,
+			"component.update", []string{"update", "--proxy http://x:7897"},
+		},
+	}
+	for _, tc := range cases {
+		f := &fakeBackupRunner{}
+		u := backupState(t, f.run)
+		if w := serveComponentRun(u, tc.body); w.Code != http.StatusOK {
+			t.Fatalf("%s 启动失败：%s", tc.name, w.Body.String())
+		}
+		v := waitBackupTask(t, u)
+		if v.Mode != tc.mode {
+			t.Errorf("%s 任务 mode = %s，想要 %s", tc.name, v.Mode, tc.mode)
+		}
+		calls := f.snapshot()
+		if len(calls) != 2 {
+			t.Fatalf("%s 应为 预检 + 正式动作 两次调用，得到 %d", tc.name, len(calls))
+		}
+		for i, c := range calls {
+			joined := strings.Join(c.args, " ")
+			for _, want := range tc.wantArgs {
+				if !strings.Contains(joined, want) {
+					t.Errorf("%s 第 %d 次调用缺少 %q：%v", tc.name, i+1, want, c.args)
+				}
+			}
+		}
+		if !strings.Contains(strings.Join(calls[0].args, " "), "--dry-run") ||
+			strings.Contains(strings.Join(calls[1].args, " "), "--dry-run") {
+			t.Errorf("%s 第一次必须 dry-run、第二次不能带：%+v", tc.name, calls)
 		}
 	}
 }

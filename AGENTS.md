@@ -30,7 +30,12 @@
 > **2026-11-06 环境组件能力落地**：`ops component list/install/image-load` + 界面第 3 项
 > 「环境组件」（组件目录 + 详情）；Docker 走官方 apt 仓库，MinIO 走**离线镜像 tar**
 > 与本机 `backup/minio.env` 运行时注入的 root 凭证，见 `docs/components.md` /
-> `docs/ui.md` §13 / 硬约束 25。界面更新 / 卸载仍未接入。
+> `docs/ui.md` §13 / 硬约束 25。
+> **2026-11-07 更新 / 卸载落地**：`ops component update/uninstall` + 界面三个写动词
+> 共用一个确认弹窗；动作计划（能否执行 / 阻塞原因 / 影响清单 / 附加勾选 / 候选镜像）
+> 由 Go 侧 `BuildActions` 按注册表与体检结果算、随 status 下发，**前端只渲染**。
+> 删数据独立勾选且默认不勾、卸引擎的连带影响必勾，界面不开放 `--force`；
+> MinIO 更新的新镜像同样只能来自人导入的 tar。见 `docs/components.md` §8 / 硬约束 25。
 > **2026-11-06 换电脑零手工 + 配置不全不挡路**：`启动运维.cmd` **先**问
 > `ops.exe __dist-check` —— 二进制里已有页面就零构建（磁盘 `web/dist` 被删也只补占位目录）；
 > 只有没页面才自动 `node.exe npm-cli.js run build` + `go build -o ops.exe .`，
@@ -52,8 +57,9 @@
   `ops backup deploy/verify/env/sync-env` 安装、升级、预检备份能力、生成配置模板、
   单独同步配置到远端
   （备份脚本本体就在本仓 `deploy/backup/`，编进二进制）；
-  `ops component list/install/image-load` 管备份端环境组件（Docker 引擎与 MinIO 服务，
-  只读体检 / 安装 / 离线镜像导入，脚本在 `deploy/component/` 编进二进制，见 `docs/components.md`）；
+  `ops component list/install/update/uninstall/image-load` 管备份端环境组件
+  （Docker 引擎与 MinIO 服务，只读体检 / 安装 / 更新 / 卸载 / 离线镜像导入，
+  脚本在 `deploy/component/` 编进二进制，见 `docs/components.md`）；
   `ops ui` 默认只读查看服务器清单与检查结果；「备份能力部署」页另有预检 / 安装 / 自检
   三个显式入口（安装要输 yes，服务端先跑 `--dry-run`，见 `docs/ui.md` §9）；
   顶部工具栏另有「重启」（本机动作，可选先重建 + 换 exe，见 `docs/ui.md` §11）
@@ -121,6 +127,9 @@
     但同样要人点一下；见 `docs/ui.md` §10。
     顶部工具栏的「重启」也是**本机动作**（只换本机的进程与 exe，不碰远端），
     但仍要显式点击 + 二次确认；备份任务在跑时服务端直接 409 拒绝（硬约束 22）。
+    环境组件页的四个写动作（安装 / 更新 / 卸载 / 导入镜像）同样要点按钮 +
+    `confirm=="yes"` + 服务端先跑 `--dry-run`，删数据 / 卸引擎另有独立勾选
+    （硬约束 25 / `docs/ui.md` §13）。
     命令行与 `启动运维.cmd --menu` 仍是等价入口，菜单第 3 项的「预检通过 + 输入 yes」不变。
     `.lnk` 只指启动器，图标是独立 `.ico`，名字必校验。详见 `docs/one-click-launch.md`。
 16. 🔴 **前端产物不进 Git，但 `web/dist/.gitkeep` 必须进**：`//go:embed all:web/dist`
@@ -215,9 +224,10 @@
        （`revokeRunUserCrontab`）：旧 install.sh 会把任务装回 root，不撤销就双跑。
     详见 `docs/backup-deploy.md` §2 / §4.4 / §5、`docs/backup-scripts.md` §4.1。
 25. 🔴 **环境组件按注册表接，MinIO 不在线拉镜像、凭证只走运行时注入**（2026-11-06 新增）：
-    ① 组件 id 只认 `internal/component/registry.go`；写操作 `Runnable`、导入 tar
-       `SupportsImage` 各挡一道，planned 组件一律拒绝；新增组件 = 一条声明 +
-       一份只读 `check.sh`（可选 `install.sh`），导航项与页面数不变。
+    ① 组件 id 只认 `internal/component/registry.go`；写动词 `RunnableVerb`、导入 tar
+       `SupportsImage` 各挡一道，planned 组件一律拒绝；**不声明 `Verbs` 的组件只给
+       `install`**，破坏性动词必须显式声明。新增组件 = 一条声明 +
+       一份只读 `check.sh`（可选 install/update/uninstall.sh），导航项与页面数不变。
     ② `deploy/component/**` 整目录 embed，**不许出现凭证 / .env / 私钥 / 日志**；
        MinIO root 凭证只从本机 `backup/minio.env` 的 `DEST_KEY` / `DEST_SECRET` 读，
        运行时拼到上传脚本头部（远端 0600 临时文件，成败都删），
@@ -231,16 +241,26 @@
        预检必须给「数据落在根分区、非独立数据盘」的明确警告，绝不自动挂盘。
     ⑤ `check.sh` 只读（不写文件 / 不提权 / 不装包 / 不拉镜像）；采不到就是 `unknown`，
        不用 0 兜底（硬约束 3）。
-    ⑥ 界面写动作（install / image-load）照抄硬约束 21 的六道门，与备份部署共用
-       同一把后台任务锁；`/api/components/image` **不接收任何本机路径**，
-       临时 tar 由服务端生成、任务结束即删。
+    ⑥ 界面写动作（install / update / uninstall / image-load）照抄硬约束 21 的六道门，
+       与备份部署共用同一把后台任务锁；附加参数由 `ValidateActionFlags` 在服务端再验一次：
+       `--image-ref` 只 update minio、`--purge-data` 只 uninstall minio（默认关）、
+       `--ack-downstream` 是 uninstall docker 必填、`--proxy` 只 install/update docker。
+       `/api/components/image` **不接收任何本机路径**，临时 tar 由服务端生成、任务结束即删。
     ⑦ 改了 `deploy/component/**` 必须重编 Go（与 `deploy/backup/**`、`web/dist` 同理，
        `internal/restart/staleness.go` 已把它算作 Go 构建输入）。
     ⑧ **安装 Docker 的代理是可选入参，不是远端系统配置**：界面/CLI 只接受
        `http://host:port`（`component.ValidProxy`，禁认证 / 路径 / shell 元字符），
-       只给 `install docker`，预检与正式安装带同一组 `--proxy`；脚本内 `export` +
-       `apt -o Acquire::...::Proxy` 让本次 apt/curl 生效，**绝不写 `/etc/apt/apt.conf.d/`**。
-    详见 `docs/components.md` §3.1 / `docs/ui.md` §13。
+       只给 `install` / `update docker`，预检与正式动作带同一组 `--proxy`；脚本内
+       `export` + `apt -o Acquire::...::Proxy` 让本次 apt/curl 生效，
+       **绝不写 `/etc/apt/apt.conf.d/`**。
+    ⑨ **更新 / 卸载（2026-11-07）**：更新只动一个组件；MinIO 失败回滚只回到原镜像标签
+       + 原容器配置，**数据卷从头到尾不参与回滚**；卸载默认保留数据 / 镜像 / 上游引擎，
+       `rm -rf /data/minio` 只能在 `COMPONENT_PURGE_DATA=yes` 分支且路径是硬编码常量，
+       卸引擎必勾连带影响、脚本再验 `COMPONENT_ACK_DOWNSTREAM=yes`。
+       🔴 影响清单 / 能否执行 / 阻塞原因一律由 Go 侧 `BuildActions` 算，
+       前端只渲染 `actions[id][]`；卸载后备份定时任务仍在、下一次执行失败是**预期结果**，
+       不许顺手删 crontab 或改 `backup.env`。
+    详见 `docs/components.md` §3.1 / §8、`docs/ui.md` §13。
 26. 🔴 **换电脑零手工、配置不全不挡路**（2026-11-06 新增）：
     ① `启动运维.cmd` 的 `:ensure` 段负责「这台机器能不能跑」，🔴 **顺序是红线**：
        先用内部命令 `ops.exe __dist-check` 判**二进制里**有没有 `index.html` + `assets/`；
@@ -295,6 +315,10 @@ ops backup verify --server <name>
 ops backup sync-env pg --server <name>   # 只把本机配置推到远端 backup.env
 ops component list --server <name> --json
 ops component install docker|minio --server <name> --dry-run
+ops component update docker --server <name> --dry-run
+ops component update minio --server <name> --image-ref <已导入镜像:标签> --dry-run
+ops component uninstall docker --server <name> --ack-downstream --dry-run
+ops component uninstall minio --server <name> --dry-run
 ops component image-load minio --server <name> --image-tar <本机 .tar> --dry-run
 ops ui [--port 7788] [--no-open]
 ops shortcut [--name <名字>] [--remove]
@@ -391,7 +415,7 @@ ops menu --help
 | 能力 / 模块 | 文档 | 最硬的那条红线 |
 | :--- | :--- | :--- |
 | 服务器管理 + 一键免密 sudo（P0 先做） | `docs/servers.md` | 主机只来自清单；只写一个 sudoers drop-in；验证用 `runuser` |
-| 界面（`ops ui` · Vite + React + antd，左侧两项导航） | `docs/ui.md` | 静态产物不过 token、API 才是边界；产物不进 Git 但 `.gitkeep` 必进；未构建要回说明页；单实例 + 配置不全也起页面；界面安装要过六道门（§9） |
+| 界面（`ops ui` · Vite + React + antd，左侧 Sider + Menu） | `docs/ui.md` | 静态产物不过 token、API 才是边界；产物不进 Git 但 `.gitkeep` 必进；未构建要回说明页；单实例 + 配置不全也起页面；界面安装要过六道门（§9） |
 | 备份脚本（`deploy/backup/**`，已迁入本仓） | `docs/backup-scripts.md` | 脚本编在二进制里，改了必须 `go build`；目录里不许有真实凭证；恢复脚本禁止入 Crontab |
 | 备份能力部署（P1 ✅，监控的前置；CLI + 界面） | `docs/backup-deploy.md` | 复用 `install.sh`；不覆盖 `backup.env`；不静默迁移目录；logrotate 由工具落盘；界面安装必须 yes + 服务端预检门 |
 | 备份监控（P2 · 方案，未实现） | `docs/backup-monitor.md` | 只读采集；时间差在远端算；`-` 不是 0 |

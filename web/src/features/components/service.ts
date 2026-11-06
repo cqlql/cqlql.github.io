@@ -62,13 +62,23 @@ export async function watchComponentTask(
   }
 }
 
-export async function startComponentInstall(
+/** 三个写动词共用同一条链路：发请求 → 服务端 dry-run → 增量轮询同一个任务。 */
+export async function startComponentRun(
   api: ComponentApi,
   req: ComponentRunRequest,
   hooks: WatchHooks,
 ): Promise<ComponentTask> {
   await api.run(req)
   return watchComponentTask(api, hooks, 0)
+}
+
+/** 兼容入口：安装只是 verb='install' 的一种。 */
+export async function startComponentInstall(
+  api: ComponentApi,
+  req: ComponentRunRequest,
+  hooks: WatchHooks,
+): Promise<ComponentTask> {
+  return startComponentRun(api, req, hooks)
 }
 
 /** 选好本机 .tar 后：上传 → 服务端 dry-run → docker load，日志增量回同一份任务。 */

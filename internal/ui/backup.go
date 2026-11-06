@@ -340,7 +340,13 @@ func modeLabel(m BackupMode) string {
 	case backupDeploy:
 		return "安装 / 升级备份能力"
 	case componentInstallMode:
-		return "安装 Docker 引擎"
+		return "安装环境组件"
+	case componentUpdateMode:
+		return "更新环境组件"
+	case componentUninstallMode:
+		return "卸载环境组件"
+	case componentImageMode:
+		return "导入离线镜像"
 	default:
 		return "远端自检"
 	}

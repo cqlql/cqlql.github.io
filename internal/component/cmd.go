@@ -1,7 +1,8 @@
 package component
 
 // ops component 的 CLI 分发。入口只做：解析参数 → 解析清单里的 name → 只读体检 →
-// list 回状态 / install 走安装（含 dry-run 预检门）/ image-load 导入离线镜像。
+// list 回状态（含 Go 侧动作计划）/ 写动作走 RunAction（含 dry-run 预检门）/
+// image-load 导入离线镜像。
 //
 // 🔴 主机只来自 servers.json：命令只接受 --server <name>，不接受任意 host。
 // 🔴 组件 id 只认注册表且必须 PhaseReady；image-load 还要求组件声明了离线镜像。
@@ -37,6 +38,9 @@ type options struct {
 	Server        string
 	ImageTar      string
 	Proxy         string
+	ImageRef      string
+	PurgeData     bool
+	AckDownstream bool
 	DryRun        bool
 	JSON          bool
 	PasswordStdin bool
@@ -49,12 +53,8 @@ func parseArgs(args []string) (options, error) {
 	}
 	rest := args[1:]
 	switch args[0] {
-	case "list":
-		opt.Verb = "list"
-	case "install":
-		opt.Verb = "install"
-	case "image-load":
-		opt.Verb = "image-load"
+	case "list", VerbInstall, VerbUpdate, VerbUninstall, VerbImageLoad:
+		opt.Verb = args[0]
 	case "help", "-h", "--help":
 		return opt, errHelp
 	default:
@@ -87,6 +87,18 @@ func parseArgs(args []string) (options, error) {
 			opt.Proxy = rest[i]
 		case strings.HasPrefix(a, "--proxy="):
 			opt.Proxy = strings.TrimPrefix(a, "--proxy=")
+		case a == "--image-ref":
+			if i+1 >= len(rest) {
+				return opt, fmt.Errorf("--image-ref 缺少参数")
+			}
+			i++
+			opt.ImageRef = rest[i]
+		case strings.HasPrefix(a, "--image-ref="):
+			opt.ImageRef = strings.TrimPrefix(a, "--image-ref=")
+		case a == "--purge-data":
+			opt.PurgeData = true
+		case a == "--ack-downstream":
+			opt.AckDownstream = true
 		case a == "--dry-run":
 			opt.DryRun = true
 		case a == "--json":
@@ -104,15 +116,16 @@ func parseArgs(args []string) (options, error) {
 			opt.ID = a
 		}
 	}
-	if opt.Verb == "install" {
+	writeVerb := opt.Verb == VerbInstall || opt.Verb == VerbUpdate || opt.Verb == VerbUninstall
+	if writeVerb {
 		if opt.ID == "" {
-			return opt, fmt.Errorf("install 必须显式指定组件 id（docker / minio）")
+			return opt, fmt.Errorf("%s 必须显式指定组件 id（docker / minio）", opt.Verb)
 		}
-		if !Runnable(opt.ID) {
-			return opt, fmt.Errorf("组件 %q 不可安装（未注册或尚未接入）", opt.ID)
+		if !RunnableVerb(opt.ID, opt.Verb) {
+			return opt, fmt.Errorf("组件 %q 不允许动作 %q（未注册、未接入或动词不在白名单里）", opt.ID, opt.Verb)
 		}
 	}
-	if opt.Verb == "image-load" {
+	if opt.Verb == VerbImageLoad {
 		if opt.ID == "" {
 			return opt, fmt.Errorf("image-load 必须显式指定组件 id（当前只有 minio）")
 		}
@@ -122,9 +135,13 @@ func parseArgs(args []string) (options, error) {
 		if opt.ImageTar == "" {
 			return opt, fmt.Errorf("image-load 需要 --image-tar <本机 .tar 路径>")
 		}
+		if opt.ImageRef != "" || opt.PurgeData || opt.AckDownstream || opt.Proxy != "" {
+			return opt, fmt.Errorf("image-load 不接受 --image-ref / --purge-data / --ack-downstream / --proxy")
+		}
 	}
-	if opt.Verb == "list" && (opt.DryRun || opt.ImageTar != "") {
-		return opt, fmt.Errorf("list 本身就是只读的，不需要 --dry-run / --image-tar")
+	if opt.Verb == "list" && (opt.DryRun || opt.ImageTar != "" || opt.Proxy != "" ||
+		opt.ImageRef != "" || opt.PurgeData || opt.AckDownstream) {
+		return opt, fmt.Errorf("list 本身就是只读的，不需要写动作参数")
 	}
 	// 🔴 代理值会拼进远端命令字符串：格式必须在 CLI 边界就卡死。
 	proxy, err := ValidProxy(opt.Proxy)
@@ -132,8 +149,15 @@ func parseArgs(args []string) (options, error) {
 		return opt, err
 	}
 	opt.Proxy = proxy
-	if proxy != "" && (opt.Verb != "install" || opt.ID != "docker") {
-		return opt, fmt.Errorf("--proxy 只用于 install docker（apt / curl 下载），其它动作不走网络")
+	// 🔴 附加参数门由 ValidateActionFlags 统一裁决（界面后端调的是同一份），
+	//    「卸载引擎必勾」「删数据默认不勾」「镜像引用只给 update minio」都不在这里另抄。
+	if writeVerb {
+		if err := ValidateActionFlags(ActionOptions{
+			Verb: opt.Verb, ID: opt.ID, Proxy: opt.Proxy, ImageRef: opt.ImageRef,
+			PurgeData: opt.PurgeData, AckDownstream: opt.AckDownstream,
+		}); err != nil {
+			return opt, err
+		}
 	}
 	return opt, nil
 }
@@ -254,8 +278,9 @@ func CmdComponent(args []string, scripts fs.FS) int {
 		}
 		return 0
 	}
-	return Install(ctx, t, scripts, view, InstallOptions{
-		ID: opt.ID, DryRun: opt.DryRun, Minio: creds, Proxy: opt.Proxy,
+	return RunAction(ctx, t, scripts, view, ActionOptions{
+		Verb: opt.Verb, ID: opt.ID, DryRun: opt.DryRun, Minio: creds, Proxy: opt.Proxy,
+		ImageRef: opt.ImageRef, PurgeData: opt.PurgeData, AckDownstream: opt.AckDownstream,
 	})
 }
 
@@ -292,28 +317,53 @@ func printStatus(v StatusView) {
 		}
 		fmt.Println("")
 	}
+	fmt.Println("")
+	fmt.Println("写动作（Go 侧按注册表 + 体检结果算，界面只渲染）：")
+	for _, c := range v.Components {
+		for _, p := range v.Actions[c.ID] {
+			fmt.Printf("  %-6s %-10s %s", c.ID, p.Verb, boolText(p.Available))
+			for _, r := range p.Reasons {
+				fmt.Printf("\n    BLOCK: %s", r)
+			}
+			fmt.Println("")
+		}
+	}
 }
 
 func usage() {
 	fmt.Print(`用法:
   ops component list --server <name> [--json]
-                                       只读体检：组件状态 + 检查项 + 已导入镜像
+                                       只读体检：组件状态 + 检查项 + 已导入镜像 + 写动作计划
   ops component install docker --server <name> [--proxy <http://host:port>] [--dry-run] [--password-stdin]
                                        按 Docker 官方 apt 仓库安装引擎（写操作）
   ops component install minio --server <name> [--dry-run] [--password-stdin]
                                        用已导入的离线镜像拉起 MinIO 服务（写操作）
+  ops component update docker --server <name> [--proxy <http://host:port>] [--dry-run] [--password-stdin]
+                                       只升 docker-ce 系列包并重启服务；MinIO 会短暂中断
+  ops component update minio --server <name> [--image-ref <已导入的镜像:标签>] [--dry-run] [--password-stdin]
+                                       只重建 MinIO 容器换镜像；失败回滚到原镜像，数据卷不参与
+  ops component uninstall docker --server <name> --ack-downstream [--dry-run] [--password-stdin]
+                                       停服务 + purge 引擎包（连带停 MinIO，必带 --ack-downstream）
+  ops component uninstall minio --server <name> [--purge-data] [--dry-run] [--password-stdin]
+                                       移除容器；数据 / 镜像 / 引擎默认全部保留
   ops component image-load minio --server <name> --image-tar <本机 .tar> [--dry-run]
                                        把离线镜像 tar 上传到目标机并 docker load（写操作）
 
 --dry-run 只做只读预检与计划打印，绝不上传脚本 / 镜像、绝不修改远端。
 --server 只接受 servers.json 里的 name；不接受任意主机地址。
 --password-stdin 从 stdin 读一次性 sudo 密码（密码不进命令行 / 日志）。
---proxy 只用于 install docker：本次 apt / curl 临时走该代理，只接受
+--image-ref 只给 update minio，且必须是目标机已离线导入的镜像（list --json 的候选）。
+--purge-data 只给 uninstall minio，默认不勾；勾了才永久删除 /data/minio（不可逆）。
+--ack-downstream 是 uninstall docker 的必填确认（下游 MinIO 会一起停）。
+--proxy 只用于 install / update docker：本次 apt / curl 临时走该代理，只接受
         http://host:port（不含认证 / 路径），不写 /etc/apt/apt.conf.d/ 等任何远端配置。
-        界面安装弹窗里也有同一个可选项；留空则直连。
+        界面弹窗里也有同一个可选项；留空则直连。
+🔴 界面与 CLI 都不开放 --force；组件 / 动词只认 internal/component/registry.go。
 
 🔴 MinIO 不执行 docker pull：目标机拉不到 Docker Hub / quay.io / dl.min.io，
    镜像必须由人从本机导入。root 凭证取自本机 backup/minio.env 的
    DEST_KEY / DEST_SECRET，运行时注入，不进二进制、不进命令行、不进日志。
+🔴 卸载后 minio 备份定时任务仍在、下一次执行会失败，这是预期结果；
+   不要为消掉报错去删 crontab 或改 backup.env。
 `)
 }

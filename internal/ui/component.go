@@ -1,16 +1,19 @@
 package ui
 
-// 界面「环境组件」页：只读状态 + 安装动作。
+// 界面「环境组件」页：只读状态（含 Go 侧动作计划）+ install / update / uninstall。
 //
 // 🔴 与备份部署共用**同一个后台任务锁**（backupTask）：两者都会写远端，
 //    同时跑会互相踩；重启的 409 门（u.backupBusy）也因此自动覆盖组件任务。
 // 🔴 六道门照抄 docs/ui.md §9：
-//    ① POST 必须 confirm=="yes"；② 服务端自己先跑 --dry-run，非 0 不安装；
-//    ③ name 只认 servers.json、component 只认注册表里 PhaseReady 的 id；
+//    ① POST 必须 confirm=="yes"；② 服务端自己先跑 --dry-run，非 0 不执行；
+//    ③ name 只认 servers.json、component / verb 只认注册表白名单；
 //    ④ sudo 密码只在单次请求内存 → 子进程 stdin，日志按行脱敏、任务结束清空；
 //    ⑤ 任务脱离 HTTP 请求（不用 r.Context()），单任务互斥 409、增量日志；
-//    ⑥ 界面不开放 --force / uninstall / update（后两个能力尚未接入）。
+//    ⑥ 界面不开放 --force；删数据是独立勾选（默认不勾）、卸引擎的连带影响必勾，
+//       附加参数由 component.ValidateActionFlags 在服务端再验一次。
 //
+// 🔴 影响清单、能否执行、阻塞原因由 Go 侧 BuildActions 算好，随 status 下发；
+//    前端只渲染并据此禁用按钮，不在前端另算一套指标。
 // 组件白名单来自 internal/component 的注册表（纯函数，不碰 SSH），
 // 不在 ui 里再抄一份字符串。
 
@@ -30,8 +33,10 @@ import (
 )
 
 const (
-	componentInstallMode BackupMode = "component.install"
-	componentImageMode   BackupMode = "component.image-load"
+	componentInstallMode   BackupMode = "component.install"
+	componentUpdateMode    BackupMode = "component.update"
+	componentUninstallMode BackupMode = "component.uninstall"
+	componentImageMode     BackupMode = "component.image-load"
 	// 与 CLI 的 2 GiB 上限一致；multipart 也卡同一道，避免先落一个超大文件再失败。
 	maxComponentImageBytes = int64(2) << 30
 )
@@ -42,9 +47,26 @@ type componentRunRequest struct {
 	Name      string `json:"name"`
 	Confirm   string `json:"confirm"`
 	Password  string `json:"password"`
-	// Proxy 只给 install docker 用：本次 apt / curl 临时走代理，不落远端配置。
+	// Proxy 只给 install / update docker 用：本次 apt / curl 临时走代理，不落远端配置。
 	// 格式由 component.ValidProxy 卡死，前端"可选"不等于服务端放行任意字符串。
 	Proxy string `json:"proxy,omitempty"`
+	// ImageRef 只给 update minio，且必须是只读体检采到的目标机已导入镜像。
+	ImageRef string `json:"image_ref,omitempty"`
+	// PurgeData 只给 uninstall minio，默认 false（不删数据）。
+	PurgeData bool `json:"purge_data,omitempty"`
+	// AckDownstream 是 uninstall docker 的必勾确认。
+	AckDownstream bool `json:"ack_downstream,omitempty"`
+}
+
+func componentRunMode(verb string) BackupMode {
+	switch verb {
+	case component.VerbUpdate:
+		return componentUpdateMode
+	case component.VerbUninstall:
+		return componentUninstallMode
+	default:
+		return componentInstallMode
+	}
 }
 
 // handleComponentStatus 跑一次**只读**体检给页面。
@@ -80,7 +102,8 @@ func (u *uiState) handleComponentStatus(w http.ResponseWriter, r *http.Request) 
 			"server": name, "collected": false,
 			"components": []any{}, "checks": []any{}, "raw": map[string]string{},
 			"preflight": map[string]any{"ready": false, "blockers": []string{}, "warnings": []string{}},
-			"error":     "只读体检没有返回可解析的状态：" + err.Error(),
+			"preflights": map[string]any{}, "images": []any{}, "actions": map[string]any{},
+			"error": "只读体检没有返回可解析的状态：" + err.Error(),
 		}})
 		return
 	}
@@ -112,14 +135,15 @@ func (u *uiState) handleComponentRun(w http.ResponseWriter, r *http.Request) {
 		writeAPI(w, http.StatusBadRequest, apiResponse{Error: "请求格式错误"})
 		return
 	}
-	// 本轮只开放 install；update / uninstall 尚未接入，界面也不给按钮。
-	if req.Verb != "install" {
-		writeAPI(w, http.StatusBadRequest, apiResponse{Error: "未知动作（当前只支持 install）"})
+	// /api/components/run 只负责改组件的三个动词；image-load 走 multipart 接口。
+	verb := strings.ToLower(strings.TrimSpace(req.Verb))
+	if verb != component.VerbInstall && verb != component.VerbUpdate && verb != component.VerbUninstall {
+		writeAPI(w, http.StatusBadRequest, apiResponse{Error: "未知动作（只支持 install / update / uninstall）"})
 		return
 	}
 	comp := strings.ToLower(strings.TrimSpace(req.Component))
-	if !component.Runnable(comp) {
-		writeAPI(w, http.StatusBadRequest, apiResponse{Error: "组件未注册或尚未接入，拒绝写操作"})
+	if !component.RunnableVerb(comp, verb) {
+		writeAPI(w, http.StatusBadRequest, apiResponse{Error: "组件未注册、未接入或不允许该动作，拒绝写操作"})
 		return
 	}
 	if strings.TrimSpace(req.Name) == "" {
@@ -127,17 +151,21 @@ func (u *uiState) handleComponentRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if req.Confirm != "yes" {
-		writeAPI(w, http.StatusBadRequest, apiResponse{Error: "安装是写操作：请输入 yes 确认"})
+		writeAPI(w, http.StatusBadRequest, apiResponse{Error: "这是远端写操作：请输入 yes 确认"})
 		return
 	}
-	// 🔴 代理会拼进远端命令字符串：格式必须在服务端再卡一次（前端只是体验）。
+	// 🔴 附加参数门由 Go 侧同一份 ValidateActionFlags 裁决：
+	//    代理 / 镜像引用 / 删数据 / 连带影响确认各归其位，前端勾没勾不算数。
 	proxy, err := component.ValidProxy(req.Proxy)
 	if err != nil {
 		writeAPI(w, http.StatusBadRequest, apiResponse{Error: err.Error()})
 		return
 	}
-	if proxy != "" && comp != "docker" {
-		writeAPI(w, http.StatusBadRequest, apiResponse{Error: "只有安装 Docker 引擎可以选择 apt 代理"})
+	if err := component.ValidateActionFlags(component.ActionOptions{
+		Verb: verb, ID: comp, Proxy: proxy, ImageRef: req.ImageRef,
+		PurgeData: req.PurgeData, AckDownstream: req.AckDownstream,
+	}); err != nil {
+		writeAPI(w, http.StatusBadRequest, apiResponse{Error: err.Error()})
 		return
 	}
 	if u.runner == nil {
@@ -156,49 +184,72 @@ func (u *uiState) handleComponentRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	req.Verb = verb
+	req.Name = strings.TrimSpace(req.Name)
+	req.Proxy = proxy
 	task := u.ensureTask()
-	if !task.start(componentInstallMode, req.Name, comp, req.Password) {
+	if !task.start(componentRunMode(verb), req.Name, comp, req.Password) {
 		writeAPI(w, http.StatusConflict, apiResponse{Error: "已有远端任务在运行，等它结束再试"})
 		return
 	}
-	go u.runComponentTask(task, req.Name, comp, req.Password, proxy)
+	go u.runComponentTask(task, req, comp)
 	writeAPI(w, http.StatusOK, apiResponse{OK: true, Data: map[string]any{
-		"started": true, "verb": req.Verb, "component": comp, "server": req.Name,
+		"started": true, "verb": verb, "component": comp, "server": req.Name,
 	}})
 }
 
 // runComponentTask 的 --dry-run 门放在服务端：前端不点预检、直接调 API 也绕不过。
-func (u *uiState) runComponentTask(t *backupTask, name, comp, password, proxy string) {
+// 🔴 预检与正式动作必须带**同一组**附加参数（代理 / 镜像 / 删数据 / 连带影响确认），
+//    否则「预检过了」不能代表「正式动作会这么跑」。
+func (u *uiState) runComponentTask(t *backupTask, req componentRunRequest, comp string) {
 	lw := &backupLogWriter{task: t}
-	// 预检与正式安装必须带同一组参数，否则「预检过了」不能代表「安装会这么跑」。
-	installArgs := func(extra ...string) []string {
-		args := []string{"component", "install", comp, "--server", name}
-		if proxy != "" {
-			args = append(args, "--proxy", proxy)
+	argsFor := func(extra ...string) []string {
+		args := []string{"component", req.Verb, comp, "--server", req.Name}
+		if req.Proxy != "" {
+			args = append(args, "--proxy", req.Proxy)
+		}
+		if req.ImageRef != "" {
+			args = append(args, "--image-ref", req.ImageRef)
+		}
+		if req.PurgeData {
+			args = append(args, "--purge-data")
+		}
+		if req.AckDownstream {
+			args = append(args, "--ack-downstream")
 		}
 		return append(args, extra...)
 	}
-	fmt.Fprintf(lw, "==> 开始：安装 %s（目标：%s）\n", comp, name)
-	if proxy != "" {
-		fmt.Fprintf(lw, "==> 本次 apt / curl 走代理 %s（仅本次生效，不改远端配置）\n", proxy)
+	label := map[string]string{
+		component.VerbInstall: "安装", component.VerbUpdate: "更新", component.VerbUninstall: "卸载",
+	}[req.Verb]
+	fmt.Fprintf(lw, "==> 开始：%s %s（目标：%s）\n", label, comp, req.Name)
+	if req.Proxy != "" {
+		fmt.Fprintf(lw, "==> 本次 apt / curl 走代理 %s（仅本次生效，不改远端配置）\n", req.Proxy)
+	}
+	if req.ImageRef != "" {
+		fmt.Fprintf(lw, "==> 目标镜像 %s（只读体检采集到的离线镜像，绝不 docker pull）\n", req.ImageRef)
+	}
+	if req.PurgeData {
+		fmt.Fprintln(lw, "==> 已显式勾选删除 /data/minio 数据目录（不可逆）")
+	}
+	if req.AckDownstream {
+		fmt.Fprintln(lw, "==> 已确认卸载引擎会连带停止下游 MinIO 备份服务")
+	}
+	if req.Verb == component.VerbUninstall {
+		fmt.Fprintln(lw, "==> 卸载后 minio 备份定时任务仍在，下一次执行会失败（预期结果）")
 	}
 	fmt.Fprintln(lw, "==> 服务端预检（--dry-run，不改远端）")
-	pre := installArgs("--dry-run")
-	code := u.runner(pre, password, lw)
+	code := u.runner(argsFor("--dry-run"), req.Password, lw)
 	if code != 0 {
-		fmt.Fprintln(lw, "预检没过，不执行安装；远端没有被修改。")
+		fmt.Fprintf(lw, "预检没过，不执行%s；远端没有被修改。\n", label)
 		lw.Flush()
 		t.finish(code)
 		return
 	}
-	if comp == "minio" {
-		fmt.Fprintln(lw, "==> 预检通过，开始安装（远端会创建 /data/minio 并启动 MinIO 容器）")
-	} else {
-		fmt.Fprintln(lw, "==> 预检通过，开始安装（会写远端 apt 源 / 系统包 / docker 服务）")
-	}
-	code = u.runner(installArgs(), password, lw)
+	fmt.Fprintf(lw, "==> 预检通过，开始%s（远端写操作，影响清单见确认弹窗）\n", label)
+	code = u.runner(argsFor(), req.Password, lw)
 	if code == 0 {
-		fmt.Fprintln(lw, "==> 完成。请点「重新检查」复核组件状态。")
+		fmt.Fprintf(lw, "==> %s完成。请点「重新检查」复核组件状态。\n", label)
 	} else {
 		fmt.Fprintf(lw, "==> 结束，退出码 %d。请点「重新检查」复核远端状态。\n", code)
 	}

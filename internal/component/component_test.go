@@ -369,6 +369,309 @@ func TestMinioInstallDryRunGate(t *testing.T) {
 	}
 }
 
+// ---------------------------------------------------------------------------
+// 2026-11-07：update / uninstall 落地（docs/components.md §8）
+// ---------------------------------------------------------------------------
+
+func TestRegistryVerbWhitelist(t *testing.T) {
+	for _, id := range []string{"docker", "minio"} {
+		for _, verb := range []string{VerbInstall, VerbUpdate, VerbUninstall} {
+			if !RunnableVerb(id, verb) {
+				t.Errorf("%s 的 %s 应已接入", id, verb)
+			}
+		}
+	}
+	if !RunnableVerb("minio", VerbImageLoad) || RunnableVerb("docker", VerbImageLoad) {
+		t.Error("image-load 只给声明了离线镜像的组件")
+	}
+	for _, tc := range []struct{ id, verb string }{
+		{"future", VerbUpdate}, {"docker", "force"}, {"docker", "list"},
+		{"", VerbUninstall}, {"../etc", VerbInstall},
+	} {
+		if RunnableVerb(tc.id, tc.verb) {
+			t.Errorf("不该允许写操作：%s/%s", tc.id, tc.verb)
+		}
+	}
+	if !Runnable("docker") || !SupportsImage("minio") {
+		t.Error("旧的兼容入口仍要有效")
+	}
+}
+
+func TestParseArgsWriteVerbs(t *testing.T) {
+	good := [][]string{
+		{"update", "docker", "--server", "k1", "--dry-run"},
+		{"update", "minio", "--server", "k1", "--image-ref", "minio/minio:R2", "--dry-run"},
+		{"uninstall", "minio", "--server", "k1", "--purge-data", "--dry-run"},
+		{"uninstall", "docker", "--server", "k1", "--ack-downstream", "--dry-run"},
+		{"install", "docker", "--server", "k1", "--proxy", "http://x:7897"},
+		{"update", "docker", "--server", "k1", "--proxy", "http://x:7897"},
+	}
+	for _, args := range good {
+		if _, err := parseArgs(args); err != nil {
+			t.Errorf("该放行的参数组合 %v：%v", args, err)
+		}
+	}
+	bad := [][]string{
+		{"uninstall", "docker", "--server", "k1"}, // 必勾确认没带
+		{"update", "docker", "--server", "k1", "--purge-data"},
+		{"install", "minio", "--server", "k1", "--ack-downstream"},
+		{"uninstall", "minio", "--server", "k1", "--image-ref", "minio/minio:R2"},
+		{"install", "minio", "--server", "k1", "--image-ref", "minio/minio:R2"},
+		{"uninstall", "docker", "--server", "k1", "--ack-downstream", "--proxy", "http://x:7897"},
+		{"update", "redis", "--server", "k1"},
+		{"update", "--server", "k1"},
+		{"uninstall", "minio", "--server", "k1", "--force"},
+		{"list", "--server", "k1", "--purge-data"},
+		{"image-load", "minio", "--server", "k1", "--image-tar", "x.tar", "--purge-data"},
+	}
+	for _, args := range bad {
+		if _, err := parseArgs(args); err == nil {
+			t.Errorf("不该放行的参数组合：%v", args)
+		}
+	}
+}
+
+func TestValidateActionFlags(t *testing.T) {
+	good := []ActionOptions{
+		{Verb: VerbInstall, ID: "docker"},
+		{Verb: VerbUpdate, ID: "docker", Proxy: "http://x:7897"},
+		{Verb: VerbUpdate, ID: "minio", ImageRef: "minio/minio:R2"},
+		{Verb: VerbUninstall, ID: "minio", PurgeData: true},
+		{Verb: VerbUninstall, ID: "docker", AckDownstream: true},
+	}
+	for _, o := range good {
+		if err := ValidateActionFlags(o); err != nil {
+			t.Errorf("该放行 %+v：%v", o, err)
+		}
+	}
+	bad := []ActionOptions{
+		{Verb: VerbUninstall, ID: "docker"}, // 必勾
+		{Verb: VerbInstall, ID: "minio", PurgeData: true},
+		{Verb: VerbUninstall, ID: "minio", AckDownstream: true},
+		{Verb: VerbInstall, ID: "docker", ImageRef: "minio/minio:R2"},
+		{Verb: VerbUpdate, ID: "minio", ImageRef: "minio/minio:R2;rm -rf /"},
+		{Verb: VerbUpdate, ID: "minio", Proxy: "http://x:7897"},
+		{Verb: "force", ID: "docker"},
+	}
+	for _, o := range bad {
+		if err := ValidateActionFlags(o); err == nil {
+			t.Errorf("不该放行 %+v", o)
+		}
+	}
+}
+
+func TestDeriveUpdateStates(t *testing.T) {
+	base := map[string]string{
+		"DOCKER_INSTALLED": "yes", "DOCKER_SERVICE": "active", "COMPOSE_PLUGIN": "yes",
+		"DOCKER_APT_INSTALLED": "5:27.3.1-1~ubuntu.24.04~noble",
+	}
+	if s, _ := deriveDockerState(base); s != "ok" {
+		t.Errorf("没有候选版本时是 ok，得到 %s", s)
+	}
+	up := map[string]string{}
+	for k, v := range base {
+		up[k] = v
+	}
+	up["DOCKER_APT_CANDIDATE"] = "5:28.0.0-1~ubuntu.24.04~noble"
+	if s, _ := deriveDockerState(up); s != "update" {
+		t.Errorf("apt 有候选新版本时应是 update，得到 %s", s)
+	}
+	up["DOCKER_SERVICE"] = "inactive"
+	if s, _ := deriveDockerState(up); s != "degraded" {
+		t.Errorf("服务异常优先于可更新，得到 %s", s)
+	}
+
+	m := map[string]string{
+		"MINIO_CONTAINER": "running", "MINIO_HEALTH": "ok",
+		"MINIO_RUNNING_IMAGE": "minio/minio:R1", "MINIO_DOCKER_QUERY": "yes",
+	}
+	if s, _ := deriveMinioStateWithImages(m, []ImageInfo{{Reference: "minio/minio:R1"}}); s != "ok" {
+		t.Error("只有当前镜像时是 ok")
+	}
+	if s, _ := deriveMinioStateWithImages(m, []ImageInfo{
+		{Reference: "minio/minio:R1"}, {Reference: "minio/minio:R2"},
+	}); s != "update" {
+		t.Error("有另一个已导入镜像时应是 update")
+	}
+	m["MINIO_DOCKER_QUERY"] = "no"
+	if s, _ := deriveMinioStateWithImages(m, []ImageInfo{{Reference: "minio/minio:R2"}}); s != "ok" {
+		t.Error("读不到镜像列表时不该猜成可更新")
+	}
+}
+
+// scenarioView 手工拼一份「已采集」的体检结果，用来锁 §8.1 的六场景按钮门。
+func scenarioView(dockerState, minioState string, raw map[string]string, images []ImageInfo) StatusView {
+	v := emptyView("k1")
+	v.Collected = true
+	v.Raw = raw
+	v.Images = images
+	v.Local = LocalFacts{MinioRootUserSet: true, MinioRootSecretSet: true, DestURLPort: "9000"}
+	v.Preflight = Preflight{Ready: true, Blockers: []string{}, Warnings: []string{}}
+	v.Preflights["docker"] = v.Preflight
+	v.Preflights["minio"] = v.Preflight
+	v.Components = []ComponentStatus{
+		{Component: mustLookup("docker"), State: dockerState, Collected: true, Preflight: v.Preflight},
+		{Component: mustLookup("minio"), State: minioState, Collected: true, Preflight: v.Preflight},
+	}
+	v.Actions = BuildActions(v)
+	return v
+}
+
+func scenarioBase() map[string]string {
+	return map[string]string{
+		"OS_ID": "ubuntu", "OS_CODENAME": "noble", "SUDO_NOPASSWD": "yes",
+		"DOCKER_INSTALLED": "yes", "DOCKER_SERVICE": "active", "COMPOSE_PLUGIN": "yes",
+		"MINIO_CONTAINER": "running", "MINIO_HEALTH": "ok",
+		"MINIO_DOCKER_QUERY": "yes", "MINIO_DATA_DIR": "yes",
+		"MINIO_RUNNING_IMAGE": "minio/minio:R1", "MINIO_UPDATE_CANDIDATE": "无",
+		"MINIO_IMAGE_COUNT": "1", "MINIO_IMAGE_FIRST": "minio/minio:R1",
+	}
+}
+
+func available(v StatusView, id, verb string) bool {
+	p, _ := PlanFor(v, id, verb)
+	return p.Available
+}
+
+func TestBuildActionsSixScenarios(t *testing.T) {
+	// ① 都未装：只装 Docker，MinIO 因上游未就绪被挡。
+	r := scenarioBase()
+	r["DOCKER_INSTALLED"] = "no"
+	r["MINIO_CONTAINER"] = "absent"
+	r["MINIO_DOCKER_QUERY"] = "no"
+	v := scenarioView("missing", "missing", r, nil)
+	if !available(v, "docker", VerbInstall) || available(v, "minio", VerbInstall) {
+		t.Error("都未装时只应允许装 Docker")
+	}
+	if available(v, "docker", VerbUninstall) || available(v, "minio", VerbUpdate) {
+		t.Error("未安装不该允许更新 / 卸载")
+	}
+
+	// ② 仅引擎就绪：单独装 MinIO。
+	r = scenarioBase()
+	r["MINIO_CONTAINER"] = "absent"
+	r["MINIO_IMAGE_COUNT"] = "1"
+	v = scenarioView("ok", "missing", r, []ImageInfo{{Reference: "minio/minio:R1"}})
+	if !available(v, "minio", VerbInstall) || available(v, "docker", VerbInstall) {
+		t.Error("引擎已装时只应允许单独装 MinIO")
+	}
+
+	// ③ 两者正常：只有卸载可用，更新因「没有新版本」被挡。
+	v = scenarioView("ok", "ok", scenarioBase(), []ImageInfo{{Reference: "minio/minio:R1"}})
+	if available(v, "docker", VerbInstall) || available(v, "minio", VerbInstall) {
+		t.Error("已装好不该再允许安装")
+	}
+	if available(v, "docker", VerbUpdate) || available(v, "minio", VerbUpdate) {
+		t.Error("没有新版本时不该允许更新")
+	}
+	if !available(v, "docker", VerbUninstall) || !available(v, "minio", VerbUninstall) {
+		t.Error("两者正常时更新按钮禁用、卸载按钮可用")
+	}
+
+	// ④ MinIO 有新版：只更新 MinIO。
+	r = scenarioBase()
+	r["MINIO_UPDATE_CANDIDATE"] = "minio/minio:R2"
+	v = scenarioView("ok", "update", r, []ImageInfo{
+		{Reference: "minio/minio:R1"}, {Reference: "minio/minio:R2"},
+	})
+	if !available(v, "minio", VerbUpdate) || available(v, "docker", VerbUpdate) {
+		t.Error("只有 MinIO 该更新")
+	}
+	if p, _ := PlanFor(v, "minio", VerbUpdate); len(p.Images) != 1 || p.Images[0].Reference != "minio/minio:R2" {
+		t.Errorf("候选镜像应只给与当前不同的那个：%+v", p.Images)
+	}
+
+	// ⑤ 引擎有新版：只更新 Docker，且连带影响必须写进弹窗清单。
+	r = scenarioBase()
+	r["DOCKER_APT_INSTALLED"] = "5:27.3.1-1~noble"
+	r["DOCKER_APT_CANDIDATE"] = "5:28.0.0-1~noble"
+	v = scenarioView("update", "ok", r, []ImageInfo{{Reference: "minio/minio:R1"}})
+	if !available(v, "docker", VerbUpdate) || available(v, "minio", VerbUpdate) {
+		t.Error("只有引擎该更新")
+	}
+	p, _ := PlanFor(v, "docker", VerbUpdate)
+	if !strings.Contains(strings.Join(p.Impacts, " "), "MinIO 容器会短暂中断") {
+		t.Errorf("引擎升级的连带停服必须进确认弹窗：%+v", p.Impacts)
+	}
+
+	// ⑥ 检查失败：所有写按钮禁用，且理由指向「状态未知」。
+	failed := emptyView("k1")
+	unknownComponents(&failed, "ssh 连接失败（exit 255）")
+	for _, id := range []string{"docker", "minio"} {
+		for _, verb := range []string{VerbInstall, VerbUpdate, VerbUninstall} {
+			if available(failed, id, verb) {
+				t.Errorf("采集失败时不该允许 %s/%s", id, verb)
+			}
+		}
+	}
+	if p, _ := PlanFor(failed, "docker", VerbUninstall); len(p.Reasons) == 0 ||
+		!strings.Contains(strings.Join(p.Reasons, " "), "没采到状态") {
+		t.Errorf("未知状态要给出明确阻塞原因：%+v", p.Reasons)
+	}
+}
+
+func TestActionPlanImpactChecklist(t *testing.T) {
+	v := scenarioView("ok", "ok", scenarioBase(), []ImageInfo{{Reference: "minio/minio:R1"}})
+	mu, _ := PlanFor(v, "minio", VerbUpdate)
+	if !strings.Contains(strings.Join(mu.Impacts, " "), "数据卷从头到尾不参与回滚") {
+		t.Errorf("MinIO 更新必须写明数据卷不参与回滚：%+v", mu.Impacts)
+	}
+	du, _ := PlanFor(v, "docker", VerbUninstall)
+	foundAck := false
+	for _, c := range du.Checks {
+		if c.Key == "ack_downstream" && c.Required {
+			foundAck = true
+		}
+	}
+	if !foundAck || !strings.Contains(strings.Join(du.Impacts, " "), "预期结果") {
+		t.Errorf("卸引擎必须必勾连带影响 + 说明备份失败是预期结果：%+v", du)
+	}
+	nu, _ := PlanFor(v, "minio", VerbUninstall)
+	foundPurge := false
+	for _, c := range nu.Checks {
+		if c.Key == "purge_data" && !c.Required {
+			foundPurge = true
+		}
+	}
+	if !foundPurge || !strings.Contains(strings.Join(nu.Impacts, " "), "下一次执行会失败") {
+		t.Errorf("卸 MinIO 的删数据必须独立、默认不勾：%+v", nu)
+	}
+}
+
+// dry-run 必须在上传之前 return；目标机故意连不上，误触发远端写就会失败。
+func TestWriteActionDryRunNeverTouchesRemote(t *testing.T) {
+	raw := scenarioBase()
+	raw["DOCKER_APT_INSTALLED"] = "5:27.3.1-1~noble"
+	raw["DOCKER_APT_CANDIDATE"] = "5:28.0.0-1~noble"
+	images := []ImageInfo{{Reference: "minio/minio:R1"}, {Reference: "minio/minio:R2"}}
+	v := scenarioView("update", "update", raw, images)
+	v.Local = LocalFacts{MinioRootUserSet: true, MinioRootSecretSet: true}
+	tgt := &shared.SSHTarget{Host: "127.0.0.1", Port: 1, User: "cql"}
+	cases := []ActionOptions{
+		{Verb: VerbUpdate, ID: "docker"},
+		{Verb: VerbUpdate, ID: "minio", ImageRef: "minio/minio:R2",
+			Minio: MinioCredentials{RootUser: "opsadmin", RootPassword: "long-enough-secret"}},
+		{Verb: VerbUninstall, ID: "docker", AckDownstream: true},
+		{Verb: VerbUninstall, ID: "minio", PurgeData: true},
+	}
+	for _, o := range cases {
+		o.DryRun = true
+		if code := RunAction(context.Background(), tgt, fstest.MapFS{}, v, o); code != 0 {
+			t.Errorf("%s/%s dry-run 预检应通过，得到 %d", o.ID, o.Verb, code)
+		}
+	}
+	// 阻塞项必须让 dry-run 非 0，服务端才会拦住正式动作。
+	bad := ActionOptions{Verb: VerbUpdate, ID: "minio", DryRun: true,
+		ImageRef: "minio/minio:R9", Minio: MinioCredentials{RootUser: "opsadmin", RootPassword: "long-enough-secret"}}
+	if code := RunAction(context.Background(), tgt, fstest.MapFS{}, v, bad); code == 0 {
+		t.Error("目标镜像不在候选里时必须拦住")
+	}
+	bad = ActionOptions{Verb: VerbUninstall, ID: "docker", DryRun: true}
+	if code := RunAction(context.Background(), tgt, fstest.MapFS{}, v, bad); code == 0 {
+		t.Error("缺必勾确认时必须拦住")
+	}
+}
+
 func TestCheckItemsNeverNil(t *testing.T) {
 	items := dockerCheckItems(map[string]string{})
 	if len(items) == 0 {

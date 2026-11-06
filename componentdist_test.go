@@ -45,9 +45,83 @@ func codeLines(s string) string {
 func TestEmbeddedComponentScriptsComplete(t *testing.T) {
 	for _, name := range []string{
 		"deploy/component/docker/check.sh", "deploy/component/docker/install.sh",
+		"deploy/component/docker/update.sh", "deploy/component/docker/uninstall.sh",
 		"deploy/component/minio/check.sh", "deploy/component/minio/install.sh",
+		"deploy/component/minio/update.sh", "deploy/component/minio/uninstall.sh",
 	} {
 		readComponentScript(t, name)
+	}
+}
+
+// 2026-11-07：update / uninstall 四份脚本的行为边界（docs/components.md §8.2 / §8.3）。
+// 注释里写「不要做 X」不算「做了 X」，所以统一只看 codeLines。
+func TestComponentWriteScriptsBoundaries(t *testing.T) {
+	du := codeLines(readComponentScript(t, "deploy/component/docker/update.sh"))
+	for _, must := range []string{
+		"apt-cache policy docker-ce", "--only-upgrade", "systemctl restart docker",
+		"docker info", "/minio/health/live", "COMPONENT_DOCKER_TARGET_VERSION",
+	} {
+		if !strings.Contains(du, must) {
+			t.Errorf("引擎更新脚本缺少 %q", must)
+		}
+	}
+	for _, bad := range []string{"docker pull", "docker run", "docker rm", "docker rmi", "rm -rf", "/etc/apt/apt.conf.d"} {
+		if strings.Contains(du, bad) {
+			t.Errorf("引擎更新脚本不该出现 %q（只升引擎包）", bad)
+		}
+	}
+
+	dx := codeLines(readComponentScript(t, "deploy/component/docker/uninstall.sh"))
+	for _, must := range []string{
+		"COMPONENT_ACK_DOWNSTREAM", "systemctl stop docker.service", "apt-get purge",
+		"/var/lib/docker", "预期结果", "MinIO 容器运行中",
+	} {
+		if !strings.Contains(dx, must) {
+			t.Errorf("引擎卸载脚本缺少 %q", must)
+		}
+	}
+	for _, bad := range []string{"rm -rf", "docker pull", "docker rmi", "crontab -", "docker rm -v"} {
+		if strings.Contains(dx, bad) {
+			t.Errorf("引擎卸载脚本不该出现 %q", bad)
+		}
+	}
+
+	mu := codeLines(readComponentScript(t, "deploy/component/minio/update.sh"))
+	for _, must := range []string{
+		"OLD_IMAGE", "docker stop", "docker rm \"$CONTAINER\"", "start_container \"$OLD_IMAGE\"",
+		"/minio/health/live", "MINIO_ROOT_PASSWORD=\"$ROOT_SECRET\"", "COMPONENT_MINIO_IMAGE",
+		"数据卷未参与回滚",
+	} {
+		if !strings.Contains(mu, must) {
+			t.Errorf("MinIO 更新脚本缺少 %q", must)
+		}
+	}
+	for _, bad := range []string{"docker pull", "docker rm -v", "rm -rf", "docker rmi", "> /var/log"} {
+		if strings.Contains(mu, bad) {
+			t.Errorf("MinIO 更新脚本不该出现 %q", bad)
+		}
+	}
+
+	mx := codeLines(readComponentScript(t, "deploy/component/minio/uninstall.sh"))
+	for _, must := range []string{
+		"COMPONENT_PURGE_DATA", "PURGE=\"${COMPONENT_PURGE_DATA:-no}\"",
+		"docker rm \"$CONTAINER\"", "预期结果", "数据目录 /data/minio 完整保留",
+	} {
+		if !strings.Contains(mx, must) {
+			t.Errorf("MinIO 卸载脚本缺少 %q", must)
+		}
+	}
+	for _, bad := range []string{"docker rm -v", "docker pull"} {
+		if strings.Contains(mx, bad) {
+			t.Errorf("MinIO 卸载脚本不该出现 %q", bad)
+		}
+	}
+	// 🔴 删数据是独立勾选项且默认不勾：rm -rf 只能出现在 PURGE=yes 的分支里，
+	//    且路径必须是硬编码常量，绝不拼用户输入。
+	branch := strings.Index(mx, `if [ "$PURGE" = "yes" ]; then`)
+	rmLine := strings.Index(mx, "rm -rf /data/minio")
+	if branch < 0 || rmLine < 0 || rmLine < branch {
+		t.Errorf("删数据必须落在 PURGE=yes 分支内：branch=%d rm=%d", branch, rmLine)
 	}
 }
 

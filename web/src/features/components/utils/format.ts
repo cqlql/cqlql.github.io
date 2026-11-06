@@ -1,9 +1,11 @@
 import type {
+  ActionPlan,
   CheckState,
   ComponentCheck,
   ComponentState,
   ComponentStatus,
   ComponentsStatusView,
+  ComponentVerb,
   Preflight,
 } from '../types.ts'
 
@@ -35,12 +37,36 @@ export function normalizeStatusView(raw: unknown): ComponentsStatusView {
       : {},
     images: list<ComponentsStatusView['images'][number]>(v.images),
     local: v.local && typeof v.local === 'object' ? v.local : undefined,
+    actions: normalizeActions(v.actions),
   }
+}
+
+/** actions 是 map：每个数组都要兜成 []，旧二进制没有这个字段时给 {}。 */
+export function normalizeActions(raw: unknown): Record<string, ActionPlan[]> {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {}
+  const out: Record<string, ActionPlan[]> = {}
+  for (const [id, plans] of Object.entries(raw as Record<string, unknown>)) {
+    out[id] = list<ActionPlan>(plans).map((p) => ({
+      verb: (p.verb ?? 'install') as ComponentVerb,
+      label: typeof p.label === 'string' ? p.label : '执行',
+      available: p.available === true,
+      reasons: list<string>(p.reasons),
+      title: typeof p.title === 'string' ? p.title : '确认写操作',
+      description: typeof p.description === 'string' ? p.description : '',
+      impacts: list<string>(p.impacts),
+      checks: list<ActionPlan['checks'][number]>(p.checks),
+      images: list<ActionPlan['images'][number]>(p.images),
+      danger: p.danger !== false,
+      submit_label: typeof p.submit_label === 'string' ? p.submit_label : '确认',
+    }))
+  }
+  return out
 }
 
 const STATE_LABELS: Record<ComponentState, string> = {
   missing: '未安装',
   ok: '正常',
+  update: '可更新',
   degraded: '需修复',
   unknown: '未知',
   planned: '待接入',
@@ -55,6 +81,7 @@ export function stateColor(s: string): string {
   switch (s) {
     case 'ok': return 'green'
     case 'missing': return 'default'
+    case 'update': return 'blue'
     case 'degraded': return 'orange'
     case 'unknown': return 'red'
     case 'planned': return 'blue'
@@ -108,7 +135,8 @@ export function installHint(
   if (!comp || comp.phase !== 'ready') return '该组件尚未接入，暂不允许写操作。'
   if (!dependenciesReady) return '上游依赖组件还没就绪，请先在目录里安装上游组件。'
   if (comp.state === 'ok') return '已安装且运行正常；重复安装会被跳过，无需再点。'
-  if (comp.state === 'degraded') return '已安装但服务或插件异常；本轮不开放修复，请手工复核。'
+  if (comp.state === 'update') return '检测到可更新版本；请点「更新」，版本依据来自只读体检。'
+  if (comp.state === 'degraded') return '已安装但服务或插件异常；可用更新 / 卸载修复，请先看影响清单。'
   if (comp.state !== 'missing') return '状态未知，不放行写操作。'
   const pre = preflightOf(view, comp)
   if (!pre.ready || pre.blockers.length > 0) {
@@ -175,6 +203,80 @@ export function normalizeProxyInput(raw: string): string | null {
   const port = Number(m[2])
   if (!Number.isInteger(port) || port < 1 || port > 65535) return null
   return s
+}
+
+// ---------------------------------------------------------------------------
+// 写动作：判据与文案全部来自 Go 侧 actions（docs/components.md §8.4）。
+// 前端只做「取出来 + 渲染 + 加一个 busy 门」，不在这里复算有没有新版本。
+// ---------------------------------------------------------------------------
+
+export function actionPlans(view: ComponentsStatusView, comp?: ComponentStatus): ActionPlan[] {
+  if (!comp) return []
+  return list<ActionPlan>(view.actions?.[comp.id])
+}
+
+export function actionOf(
+  view: ComponentsStatusView,
+  comp: ComponentStatus | undefined,
+  verb: ComponentVerb,
+): ActionPlan | undefined {
+  return actionPlans(view, comp).find((p) => p.verb === verb)
+}
+
+/** busy 是前端唯一的额外门：任务在跑时不许再点（服务端还有 409）。 */
+export function actionEnabled(plan: ActionPlan | undefined, busy: boolean): boolean {
+  return !!plan && plan.available && !busy
+}
+
+/** 详情区的一句话：优先说「哪些能动」，否则给出第一条阻塞原因。 */
+export function actionHint(
+  plans: ActionPlan[],
+  comp: ComponentStatus | undefined,
+  view: ComponentsStatusView,
+): string {
+  if (!view.collected) return '只读体检没采到状态（可能是 ssh 连不上）；状态未知时不放行写操作。'
+  if (!comp) return '请在组件目录里选一个组件。'
+  if (comp.phase !== 'ready') return '该组件尚未接入，暂不允许写操作。'
+  if (plans.length === 0) return '后端没有下发动作计划（旧二进制？）；请重新构建或点「重新检查」。'
+  const available = plans.filter((p) => p.available)
+  if (available.length > 0) {
+    return `可执行：${available.map((p) => p.label).join(' / ')}；每个动作的影响清单见确认弹窗。`
+  }
+  const reasons = plans.flatMap((p) => p.reasons)
+  return `当前没有可执行的写动作：${reasons[0] ?? '见下方阻塞项'}`
+}
+
+export interface ActionCopy {
+  title: string
+  description: string
+  impacts: string[]
+  checks: ActionPlan['checks']
+  images: ActionPlan['images']
+  danger: boolean
+  submitLabel: string
+}
+
+/**
+ * 弹窗文案只认后端 plan；后端没下发（旧二进制）时才回退到安装弹窗的静态文案，
+ * 并且这种情况下 available 一定是 false，按钮根本点不开。
+ */
+export function actionCopy(plan: ActionPlan | undefined, comp?: ComponentStatus): ActionCopy {
+  if (plan) {
+    return {
+      title: plan.title,
+      description: plan.description,
+      impacts: plan.impacts,
+      checks: plan.checks,
+      images: plan.images,
+      danger: plan.danger,
+      submitLabel: plan.submit_label,
+    }
+  }
+  const fallback = confirmCopy(comp?.id)
+  return {
+    title: fallback.title, description: fallback.description, impacts: fallback.items,
+    checks: [], images: [], danger: true, submitLabel: '确认安装',
+  }
 }
 
 /** 离线镜像区的说明文字：没有镜像时明确告诉人下一步做什么。 */

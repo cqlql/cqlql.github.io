@@ -90,5 +90,18 @@ if command -v curl >/dev/null 2>&1; then
 fi
 kv APT_REPO_REACHABLE "$_repo_reachable"
 
+# ---------- apt 候选版本（只读；给「引擎可升级」的 update 态用） ----------
+# 🔴 apt-cache policy 只读本机 dpkg/apt 缓存，不 update、不装包、不写任何文件。
+#    在没有候选（离线 / 没配官方源）时会给 (none)，Go 侧据此不判 update。
+_inst_pkg=""
+_cand_pkg=""
+if command -v apt-cache >/dev/null 2>&1 && command -v docker >/dev/null 2>&1; then
+  _policy="$(apt-cache policy docker-ce 2>/dev/null || true)"
+  _inst_pkg="$(printf '%s\n' "$_policy" | awk '/Installed:/{print $2; exit}')"
+  _cand_pkg="$(printf '%s\n' "$_policy" | awk '/Candidate:/{print $2; exit}')"
+fi
+kv DOCKER_APT_INSTALLED "$_inst_pkg"
+kv DOCKER_APT_CANDIDATE "$_cand_pkg"
+
 kv DISK_FREE_MB "$(df -Pm / 2>/dev/null | awk 'NR==2{print $4}')"
 kv CHECK_OK yes

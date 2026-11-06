@@ -22,7 +22,7 @@ import (
 //	                       界面看着变了、其实跑的还是旧 Go；
 //	deploy/backup/**    —— 备份脚本整目录 embed 进二进制，改了 .sh / .example /
 //	                       .logrotate 不重新 go build，部署出去的还是旧脚本；
-//	deploy/component/** —— 环境组件（Docker / MinIO）的 check.sh / install.sh
+//	deploy/component/** —— 环境组件（Docker / MinIO）的 check / install / update / uninstall.sh
 //	                       同样整目录 embed，漏掉它会「重启了却是旧脚本」。
 //
 // ⚠️ 判定只有这一份（Rebuild 与 GET /api/restart 共用），不能长出第二套

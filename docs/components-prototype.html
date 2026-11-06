@@ -122,7 +122,7 @@ button.act.danger{background:#fff;border-color:#ffccc7;color:var(--err)}
 button.act.danger:hover{background:var(--err);color:#fff}
 button.act:disabled{opacity:.45;cursor:not-allowed}
 button.act.mini{padding:4px 10px;font-size:12px}
-button.act.design{border-style:dashed;color:var(--muted);background:#fafbfc}
+/* 2026-11-07 更新 / 卸载已接入：设计态虚线按钮样式随标注一起退场 */
 .image-section{margin-top:16px;border-top:1px solid var(--border);padding-top:14px}
 .drop{border:1.5px dashed #b7c9e2;background:#fbfdff;border-radius:9px;padding:14px;
   display:flex;flex-wrap:wrap;align-items:center;gap:12px}
@@ -209,24 +209,26 @@ details.card pre{background:var(--code-bg);border-radius:8px;padding:10px 12px;
         <button class="chip active" data-scene="absent">都未装（k1 实测）</button>
         <button class="chip" data-scene="dockerOnly">仅 Docker 已装</button>
         <button class="chip" data-scene="healthy">两者正常</button>
-        <button class="chip" data-scene="minioUpdate">MinIO 可更新（设计态）</button>
-        <button class="chip" data-scene="dockerUpdate">引擎可升级（设计态）</button>
+        <button class="chip" data-scene="minioUpdate">MinIO 可更新（已接入）</button>
+        <button class="chip" data-scene="dockerUpdate">引擎可升级（已接入）</button>
         <button class="chip" data-scene="failed">检查失败 / SSH 不通</button>
-        <span class="badge">与实现同步 · 2026-11-07</span>
+        <span class="badge">与实现同步 · 2026-11-07 落地更新 / 卸载</span>
       </div>
       <div class="banner info" style="margin-top:0;margin-bottom:16px">
         <span class="ico">i</span>
-        <span><b>设计稿，不是实现</b>：静态数据、不连真实远端、不执行任何动作。
-        已落地的是 <code>install</code> 与 <code>image-load</code>；场景里的
-        <b>「更新 / 卸载」尚未接入</b>（真实界面里按钮仍置灰），判据见
-        <code>docs/components.md §8</code>。本页与 <code>docs/components.md</code> /
-        <code>docs/ui.md §13</code> <b>同步维护</b>，冲突时以文档为准。</span>
+        <span><b>交互速览，不是实现</b>：静态数据、不连真实远端、不执行任何动作。
+        四个写动词 <code>install</code> / <code>update</code> / <code>uninstall</code> /
+        <code>image-load</code> <b>均已接入</b>；真实界面里按钮能否点、阻塞原因、影响清单、
+        附加勾选与候选镜像都由 Go 侧 <code>BuildActions</code> 算好后随 status 下发，
+        前端只渲染。判据见 <code>docs/components.md §8</code>。本页与
+        <code>docs/components.md</code> / <code>docs/ui.md §13</code>
+        <b>同步维护</b>，冲突时以文档为准。</span>
       </div>
 
       <div class="page-head">
         <div>
           <h1>环境组件</h1>
-          <div class="meta"><b>可扩展的组件目录</b>：新增组件只在 Go 注册表加一条声明，页面自动多一行；默认只读，写操作要输 <code>yes</code>。已落地：<code>install</code> / <code>image-load</code></div>
+          <div class="meta"><b>可扩展的组件目录</b>：新增组件只在 Go 注册表加一条声明，页面自动多一行；默认只读，写操作要输 <code>yes</code>。已落地：<code>install</code> / <code>update</code> / <code>uninstall</code> / <code>image-load</code></div>
         </div>
         <span class="tag neutral">一个导航项 · 零跨页状态</span>
       </div>
@@ -302,11 +304,13 @@ details.card pre{background:var(--code-bg);border-radius:8px;padding:10px 12px;
         </div>
         <div class="btn-row" style="margin-top:12px">
           <button class="act primary" id="btnActInstall">安装</button>
-          <button class="act design" id="btnActUpdate">更新（未接入）</button>
-          <button class="act design" id="btnActUninstall">卸载（未接入）</button>
+          <button class="act" id="btnActUpdate">更新</button>
+          <button class="act danger" id="btnActUninstall">卸载</button>
         </div>
-        <div class="hintline">虚线按钮只演示<b>设计态</b>：真实界面里它们置灰不可点，
-          判据已写进 <code>docs/components.md §8</code>；这里点开确认弹窗看的是「将来要怎么做」。</div>
+        <div class="hintline">三个按钮都对应<b>已接入</b>的动词：真实界面按后端
+          <code>actions[id][]</code> 的 <code>available</code> 决定能否点，禁用原因取
+          <code>reasons</code>；点开弹窗看的是按动词 / 组件算好的影响清单与附加确认
+          （判据见 <code>docs/components.md §8</code>）。</div>
         <div class="comp-hint" id="detailHint"></div>
         <div class="image-section" id="imageSection" hidden>
           <h2 style="margin-bottom:9px">MinIO 离线镜像 <span class="tag warn">不走外网</span> <small>只属于本组件；Docker 引擎走 apt 仓库</small></h2>
@@ -335,7 +339,7 @@ details.card pre{background:var(--code-bg);border-radius:8px;padding:10px 12px;
               </table>
             </div>
           </div>
-          <div class="chain"><b>已实现</b>：MinIO 的安装预检门确认「Docker active + 远端已有离线镜像」，没有就原地失败并提示先导入 tar。<b>设计态</b>：更新也要过同一道镜像门（见 <code>docs/components.md §8.2</code>）。Docker 引擎的安装<b>不检查</b>镜像。</div>
+          <div class="chain"><b>已实现</b>：MinIO 的安装预检门确认「Docker active + 远端已有离线镜像」，没有就原地失败并提示先导入 tar；<b>更新</b>过同一道镜像门，且目标镜像只能从已导入镜像里选（<code>--image-ref</code> / 界面下拉，见 <code>docs/components.md §8.2</code>）。Docker 引擎的安装<b>不检查</b>镜像。</div>
         </div>
         <div class="busy-line" id="busyLine" hidden>任务进行中：新的写请求会被服务端以 <b>409</b> 拒绝；刷新页面不打断已在跑的远端任务。</div>
       </div>
@@ -392,47 +396,68 @@ details.card pre{background:var(--code-bg);border-radius:8px;padding:10px 12px;
         <summary>设计注记 · 为什么是「目录 + 详情」、实现时要守的红线（点开）</summary>
         <ul>
           <li><b>本页的用处</b>：把「一个组件目录 + 选中详情」的交互讲清楚，比读文档快；
-            但它是<b>设计稿</b>，与 <code>docs/components.md</code> / <code>docs/ui.md §13</code>
-            <b>同步维护</b>，冲突时以文档判据为准。下面每条都标明「已实现」还是「设计态」。</li>
+            但它是<b>交互速览</b>（静态数据、不连远端），与 <code>docs/components.md</code> /
+            <code>docs/ui.md §13</code> <b>同步维护</b>，冲突时以文档判据为准。
+            2026-11-07 起四个写动词<b>全部已接入</b>，下面按实现口径写。</li>
           <li><b>为什么是目录 + 详情</b>：以后还会加别的安装项，全塞一页会装不下；
             拆成 N 个导航页同样不解决 —— 窄屏横向 Menu 先撑不住，每个新页还得重复一套任务轮询。
             目录天然可增长，每屏只展开一个组件，<b>导航项与页面数永远不变</b>。</li>
           <li><b>注册表在 Go 侧，只有一份</b>（已实现）：<code>internal/component/registry.go</code>
-            的有序表声明 <code>{ID, Name, Kind, Depends, Phase, OfflineImage}</code>；
-            目录、依赖链、检查项由它推导，写动作走 <code>Runnable</code>、
-            导入 tar 走 <code>SupportsImage</code> 第二道白名单。
+            的有序表声明 <code>{ID, Name, Kind, Depends, Phase, OfflineImage, Verbs}</code>；
+            目录、依赖链、检查项与按钮顺序由它推导，写动词走 <code>RunnableVerb</code>
+            （<b>不声明 Verbs 的组件只给 install</b>）、导入 tar 走 <code>SupportsImage</code>
+            第二道白名单。
             本页 <code>COMPONENTS</code> 只是<b>演示镜像</b>；组件专属区块（离线镜像）按
             <code>offline_image</code> 条件渲染，不污染其它组件。</li>
-          <li><b>依赖由拓扑推导</b>（已实现）：上游未就绪时下游安装禁用。
-            <b>设计态</b>：卸上游 Docker 会连带停下游 MinIO，弹窗强警示且必须额外勾选
-            （判据见 <code>docs/components.md §8.3</code>）。</li>
+          <li><b>依赖由拓扑推导</b>（已实现）：上游未就绪时下游安装禁用；
+            <code>update</code> / <code>degraded</code> 都算「已装」。卸上游 Docker 会连带停
+            下游 MinIO，弹窗强警示且<b>必须</b>额外勾选（<code>ack_downstream</code> 必填，
+            服务端 <code>ValidateActionFlags</code> 再验一次，见
+            <code>docs/components.md §8.3</code>）。</li>
           <li><b>零跨页共享状态</b>：目录 / 详情 / 依赖链 / 任务日志 / 配置摘要都在同一页；
             后台任务单实例互斥（并发 409），<code>GET /api/components/task?after=</code>
             增量日志全局一份，且与备份部署<b>共用同一把任务锁</b>。符合 <code>docs/ui.md §7</code>。</li>
-          <li><b>六道门</b>（已实现）：<code>POST</code> + <code>confirm=="yes"</code> + 页面输 <code>yes</code>
-            → 服务端先跑 <code>--dry-run</code> → <code>name</code> 只认 <code>servers.json</code>（未知 404）、
-            动词只认注册表白名单 → 密码只经 stdin → 单任务 409 / 脱敏日志 →
-            界面不开放 <code>--force</code> / 更新 / 卸载 / 删数据。
-            🔴 影响清单与阻塞原因<b>由 Go 侧算</b>，前端只渲染；本页 <code>CONFIRM</code>
+          <li><b>六道门</b>（已实现，四个写动词各一套）：<code>POST</code> +
+            <code>confirm=="yes"</code> + 页面输 <code>yes</code> → 服务端先跑
+            <code>--dry-run</code> → <code>name</code> 只认 <code>servers.json</code>（未知 404）、
+            动词只认注册表白名单 + 附加参数门 → 密码只经 stdin → 单任务 409 / 脱敏日志 →
+            🔴 界面不开放 <code>--force</code>，删数据独立勾选且默认不勾。
+            预检与正式动作带<b>同一组</b>附加参数。
+            🔴 影响清单、能否执行、阻塞原因<b>由 Go 侧 BuildActions 算</b>，
+            随 <code>actions[id][]</code> 下发，前端只渲染；本页 <code>CONFIRM</code>
             里的文案是演示用的静态数据，不是实现。</li>
           <li><b>凭证绝不进二进制</b>：<code>deploy/component/**</code> 整目录 <code>//go:embed</code> 编进 exe；
             root 凭证只从本机 <code>backup/minio.env</code> 的 <code>DEST_KEY</code> /
             <code>DEST_SECRET</code> 读，运行时注入远端脚本头部、用完 <code>rm -f</code>，
             不落脚本、不回显、不进日志（<code>TestComponentScriptsHaveNoCredentials</code> 挡回归）。</li>
-          <li><b>更新 / 卸载仍是设计态</b>：CLI 无这两个动词，界面按钮置灰。
-            判据已写进 <code>docs/components.md §8</code>：更新只动一个组件、MinIO 换镜像保留
-            <code>/data/minio</code>、失败回滚到原镜像标签且数据卷不参与；
-            卸载默认只移除容器 / 包，数据 / 镜像 / 引擎一律保留，删数据独立勾选默认不勾、
-            卸引擎必勾连带影响；卸载后备份失败是<b>预期结果</b>，不许顺手改 crontab。</li>
+          <li><b>更新 / 卸载已落地（2026-11-07）</b>：CLI 有
+            <code>update</code> / <code>uninstall</code>，界面按钮按后端动作计划启用。
+            判据见 <code>docs/components.md §8</code>：更新只动一个组件、MinIO 换镜像保留
+            <code>/data/minio</code>、失败回滚到原镜像标签 + 原容器配置且数据卷不参与；
+            卸载默认只移除容器 / 包，数据 / 镜像 / 引擎一律保留，删数据独立勾选默认不勾
+            （<code>COMPONENT_PURGE_DATA=yes</code> 分支才 <code>rm -rf /data/minio</code>）、
+            卸引擎必勾连带影响；卸载后备份失败是<b>预期结果</b>，不许顺手改 crontab。
+            <code>update</code> 态只由只读体检推导：Docker 看 apt 候选版本、
+            MinIO 看已导入镜像里有没有与当前容器不同的标签，绝不在线查版本。</li>
           <li><b>现行 CLI</b>（不是草案）：
-<pre>ops component list --server &lt;name&gt; [--json]                         # 只读体检
+<pre>ops component list --server &lt;name&gt; [--json]                          # 只读体检 + 写动作计划
 ops component install docker|minio --server &lt;name&gt; [--proxy http://host:port] [--dry-run] [--password-stdin]
+ops component update docker --server &lt;name&gt; [--proxy http://host:port] [--dry-run] [--password-stdin]
+ops component update minio --server &lt;name&gt; [--image-ref &lt;已导入镜像:标签&gt;] [--dry-run] [--password-stdin]
+ops component uninstall docker --server &lt;name&gt; --ack-downstream [--dry-run] [--password-stdin]
+ops component uninstall minio --server &lt;name&gt; [--purge-data] [--dry-run] [--password-stdin]
 ops component image-load minio --server &lt;name&gt; --image-tar &lt;本机 .tar&gt; [--dry-run]</pre>
-            <code>--server</code> 只认清单里的 name；<code>--proxy</code> 只给装 Docker 用、
-            格式严格校验、只本次生效；<code>--dry-run</code> 绝不改远端。
-            装 MinIO 时 <code>/data</code> 不存在会 <code>mkdir -p</code> 并警告根分区（k4）。</li>
-          <li><b>现行接口</b>（不是草案）：<code>GET /api/components/status?name=</code>、
-            <code>POST /api/components/run</code>（<code>{verb:"install", component, name, confirm:"yes", password?, proxy?}</code>）、
+            <code>--server</code> 只认清单里的 name；<code>--proxy</code> 只给
+            <code>install</code> / <code>update docker</code> 用，格式严格校验、只本次生效；
+            <code>--image-ref</code> 只在体检采到的已导入镜像白名单里；
+            <code>--purge-data</code> 默认关、<code>--ack-downstream</code> 是卸引擎必填；
+            <code>--dry-run</code> 绝不改远端。装 MinIO 时 <code>/data</code> 不存在会
+            <code>mkdir -p</code> 并警告根分区（k4）。</li>
+          <li><b>现行接口</b>（不是草案）：<code>GET /api/components/status?name=</code>
+            （含 <code>actions</code> 动作计划）、
+            <code>POST /api/components/run</code>（<code>{verb:"install"|"update"|"uninstall",
+            component, name, confirm:"yes", password?, proxy?, image_ref?, purge_data?,
+            ack_downstream?}</code>，附加参数由服务端 <code>ValidateActionFlags</code> 再验）、
             <code>POST /api/components/image</code>（multipart，<code>verb=image-load</code> + <code>image</code>，
             服务端 <code>os.CreateTemp</code>、不接收本机路径）、
             <code>GET /api/components/task?after=</code>。全部要 token，写操作校验 Origin。</li>
@@ -441,11 +466,14 @@ ops component image-load minio --server &lt;name&gt; --image-tar &lt;本机 .tar
             <code>go vet ./... &amp;&amp; go test ./... &amp;&amp; go build -o ops.exe .</code>；
             或点界面「重启」勾「先重建」。<b>改了脚本必须重建 exe</b>，否则部署出去的还是旧脚本。</li>
           <li><b>同步记录</b>：原型最初 2026-11-06 只改设计、不写代码；功能当天已落地
-            <code>install</code> / <code>image-load</code>；2026-11-07 按实现与文档回改本页
-            （CLI、注册表、接口、代理、<code>/data</code>、更新 / 卸载标注），
-            并把未落地判据沉淀到 <code>docs/components.md §8</code>；
-            同日文件改名为 <code>components-prototype.html</code>（原名按「MinIO 起不来」
-            那个早期议题起的，与本页「环境组件目录」的内容不符；旧名见 git 历史）。</li>
+            <code>install</code> / <code>image-load</code>，并把未落地判据沉淀到
+            <code>docs/components.md §8</code>；同日文件改名为
+            <code>components-prototype.html</code>（原名按「MinIO 起不来」那个早期议题起的，
+            与本页「环境组件目录」的内容不符；旧名见 git 历史）。
+            <b>2026-11-07 晚</b>：<code>update</code> / <code>uninstall</code> 按 §8 落地，
+            本页去掉全部「设计态 · 未接入」标注，同步 CLI（三个新动词）、注册表
+            <code>Verbs</code> / <code>RunnableVerb</code>、接口附加参数、动作计划下发、
+            六场景文案与弹窗标题；<code>docs/components.md §8</code> 改写为已实现判据。</li>
         </ul>
       </details>
       <div class="footnote" style="margin-top:10px">
@@ -493,7 +521,8 @@ const STATE_TAG = { missing:["err","未安装"], ok:["ok","正常"], update:["wa
 const compTag = st => { const x = STATE_TAG[st] || STATE_TAG.unknown; return tag(x[0], x[1]); };
 
 // 演示用的组件声明镜像；真源是 internal/component/registry.go（Go 侧唯一声明）。
-// 这里的 actions 只用于点开设计态弹窗，不代表已实现的动词（见 docs/components.md §8）。
+// 这里的 actions 对应已接入的三个写动词；真实界面按后端 actions[id][] 的
+// available / reasons / impacts / checks / images 渲染（见 docs/components.md §8）。
 const COMPONENTS = [
   { id:"docker", no:"①", name:"Docker 引擎", kind:"基础设施", depends:null,
     actions:["installDocker","updateDocker","uninstallDocker"] },
@@ -582,7 +611,7 @@ const SCENES = {
     docker:"ok", minio:"update",
     dockerVer:"Docker 29.9.3 · 无需改动","minioVer":"minio · RELEASE.2026-08-06 → 可换 RELEASE.2026-10-21",
     checkMeta:"最近一次：只读体检完成 · 刚刚（发现新 MinIO 镜像）",
-    banner:["warn","⚠️","<b>【设计态 · 未接入】只有 MinIO 需要更新。</b> 已导入 <code>RELEASE.2026-10-21</code>；换镜像只重建容器、保留 <code>/data/minio</code>，Docker 引擎一个包都不用动。判据见 docs/components.md §8。"],
+    banner:["warn","⚠️","<b>【已接入】只有 MinIO 需要更新。</b> 已导入 <code>RELEASE.2026-10-21</code>；换镜像只重建容器、保留 <code>/data/minio</code>，Docker 引擎一个包都不用动；失败回滚到原镜像标签 + 原容器配置，数据卷不参与。判据见 docs/components.md §8。"],
     rows:[
       group("① Docker 引擎"),
       row("docker 二进制","Docker version 29.9.3","ok","无需改动"),
@@ -604,7 +633,7 @@ const SCENES = {
     docker:"update", minio:"ok",
     dockerVer:"Docker 29.9.3 → 29.9.4 可升级","minioVer":"minio · RELEASE.2026-08-06 · healthy（无需改动）",
     checkMeta:"最近一次：只读体检完成 · 刚刚（发现引擎新版本）",
-    banner:["warn","⚠️","<b>【设计态 · 未接入】只有 Docker 引擎需要升级。</b> apt 升级会重启 docker 服务，MinIO 容器会短暂中断；弹窗里会把这层影响单独列出来。判据见 docs/components.md §8。"],
+    banner:["warn","⚠️","<b>【已接入】只有 Docker 引擎需要升级。</b> apt 升级会重启 docker 服务，MinIO 容器会短暂中断；这条连带影响由 Go 侧写进确认弹窗的 impacts，不是任务日志末尾的补充。判据见 docs/components.md §8。"],
     rows:[
       group("① Docker 引擎"),
       row("docker 二进制","Docker version 29.9.3","warn","有新版"),
@@ -730,9 +759,9 @@ function render(resetOutput) {
   $("detailRows").innerHTML = detail || `<tr><td colspan="3" style="color:#9aa3af">未采集到该组件的体检项</td></tr>`;
 
   $("btnActInstall").textContent = "安装 " + c.name;
-  $("btnActUpdate").textContent = "更新 " + c.name + "（未接入）";
-  $("btnActUninstall").textContent = "卸载 " + c.name + "（未接入）";
-  // 原型故意放开设计态按钮，方便点开确认弹窗；真实界面它们恒置灰（见 §8）。
+  $("btnActUpdate").textContent = "更新 " + c.name;
+  $("btnActUninstall").textContent = "卸载 " + c.name;
+  // 三个动词都已接入；真实界面按后端 available + busy 决定能否点（见 §8.1）。
   $("btnActInstall").disabled   = busy || !checkOk || st !== "missing" || !depOk;
   $("btnActUpdate").disabled    = busy || !checkOk || !ready;
   $("btnActUninstall").disabled = busy || !checkOk || !ready;
@@ -753,7 +782,7 @@ function render(resetOutput) {
   else hint = c.id === "docker"
     ? "已就绪：可单独升级或卸载引擎；卸载会连带影响下游 MinIO，确认弹窗会强警示。"
     : "运行中：可单独更新镜像或卸载容器，不影响 Docker 引擎。";
-  $("detailHint").textContent = hint + "  ｜ 更新 / 卸载是设计态（真实界面置灰），判据见 docs/components.md §8。";
+  $("detailHint").textContent = hint + "  ｜ 能否执行与影响清单由后端 ActionPlan 算，判据见 docs/components.md §8。";
 
   $("imageRows").innerHTML = imgs.length
     ? imgs.map(x => `<tr><td><code>${x[0]}</code></td><td class="mono">${x[1]}</td><td>${x[2]}</td><td>${x[3]}</td></tr>`).join("")
@@ -841,7 +870,7 @@ const CONFIRM = {
     after:"dockerOnly", afterComp:"minio"
   },
   updateDocker: {
-    title:"确认更新 Docker 引擎（设计态 · 未接入）", sub:"k1 · 仅组件 ① · MinIO 镜像与数据卷不动",
+    title:"确认更新 Docker 引擎（已接入）", sub:"k1 · 仅组件 ① · MinIO 镜像与数据卷不动",
     alert:["warn","apt 升级会<b>重启 docker 服务</b>，正在跑的 MinIO 容器会短暂中断；升级前会在预检里确认容器状态，升级后重新做健康检查。"],
     impact:[
       "当前：docker-ce 29.9.3 → 目标 29.9.4（官方 apt 仓库）",
@@ -861,7 +890,7 @@ const CONFIRM = {
     after:"healthy"
   },
   uninstallDocker: {
-    title:"确认卸载 Docker 引擎（设计态 · 未接入）", sub:"k1 · 仅组件 ① · 会连带停止 MinIO",
+    title:"确认卸载 Docker 引擎（已接入）", sub:"k1 · 仅组件 ① · 会连带停止 MinIO",
     alert:["danger","卸载引擎会让<b>跑在它上面的 MinIO 服务一起停掉</b>，备份链路随之中断。默认保留 /var/lib/docker 与已导入镜像；建议先单独卸载 MinIO。"],
     impact:[
       "停止 docker.service 并 apt purge docker-ce 等引擎包",
@@ -906,7 +935,7 @@ const CONFIRM = {
     after:"healthy"
   },
   updateMinio: {
-    title:"确认更新 MinIO 镜像（设计态 · 未接入）", sub:"k1 · 仅组件 ② · 引擎一个包都不动",
+    title:"确认更新 MinIO 镜像（已接入）", sub:"k1 · 仅组件 ② · 引擎一个包都不动",
     alert:["warn","换镜像会重建 MinIO 容器（短暂中断备份服务），但<b>保留 /data/minio 数据卷</b>；不 docker rm -v、不删数据、不碰 Docker 引擎。"],
     impact:[
       "当前：minio:RELEASE.2026-08-06 → 目标 minio:RELEASE.2026-10-21（离线导入）",
@@ -927,7 +956,7 @@ const CONFIRM = {
     after:"healthy"
   },
   uninstallMinio: {
-    title:"确认卸载 MinIO 服务（设计态 · 未接入）", sub:"k1 · 仅组件 ② · Docker 引擎保留",
+    title:"确认卸载 MinIO 服务（已接入）", sub:"k1 · 仅组件 ② · Docker 引擎保留",
     alert:["danger","默认只停并移除 MinIO 容器。<b>不删数据、不删镜像、不卸 Docker 引擎</b>；要删数据必须额外勾选，且无法撤销。"],
     impact:[
       "docker stop minio → docker rm minio（<b>不加 -v</b>）",
@@ -993,10 +1022,8 @@ function openConfirm(kind) {
         `<label class="opt ${o[4] ? "risk" : ""}"><input type="checkbox" value="${o[0]}" ${o[3] ? "checked" : ""} ${o[5] ? "data-required" : ""}>
          <span>${o[1]}<small>${o[2]}</small></span></label>`).join("")
     : "";
-  const design = kind.startsWith("update") || kind.startsWith("uninstall");
-  $("mProtoNote").textContent = design
-    ? "设计态 · 未接入：真实界面按钮置灰；判据见 docs/components.md §8"
-    : "已落地动作：此处影响清单是演示文案，真实清单由 Go 侧按组件 / 动词生成";
+  $("mProtoNote").textContent =
+    "四个动词均已接入：此处影响清单是演示文案，真实清单由 Go 侧按组件 / 动词生成并随 actions 下发；判据见 docs/components.md §8";
   $("mYes").value = "";
   $("mOk").disabled = true;
   $("mOk").className = "act " + (kind === "uninstallDocker" || kind === "uninstallMinio" ? "danger" : "primary");

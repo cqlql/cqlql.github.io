@@ -662,50 +662,61 @@ ops backup sync-env [pg|minio|all] --server <name>
   改 `user` 后确认提示重新免密 sudo → 点「同步到远端」后到目标机核对 `backup.env`
   内容与 0600 权限，且 crontab / 脚本 mtime 没变。
 
-## 13. 环境组件页（2026-11-06）
+## 13. 环境组件页（2026-11-06；2026-11-07 接入更新 / 卸载）
 
 第 3 个导航项「环境组件」，一个**组件目录 + 选中详情**页（`web/src/features/components/`）。
-判据与完整设计见 [components.md](components.md)（含 §8 尚未接入的更新 / 卸载判据）；
+判据与完整设计见 [components.md](components.md)（§8 的更新 / 卸载**已落地**）；
 这里只记界面相关的边界。交互原型
 [components-prototype.html](components-prototype.html) 按 §12 的约定**保留并同步维护**
-（2026-11-07 已按实现回改 CLI / 注册表 / 接口 / 代理 / `/data` / 设计态标注），
-读的时候以本节与 `components.md` 的判据为准。
+（2026-11-07 已按实现回改 CLI / 注册表 / 接口 / 代理 / `/data`，并去掉全部
+「设计态 · 未接入」标注），读的时候以本节与 `components.md` 的判据为准。
 
 **为什么是一个页而不是两个**：Docker → MinIO → mc mirror 是同一条引导链路，
 依赖门、任务锁、增量日志都是同一份状态；拆成两个导航页会第一次引入跨页共享状态，
 且以后每加一个组件就多一项，窄屏退化成横向 Menu 时先撑不住（§7）。
-新增组件只加一条后端注册表声明，目录自动多一行。
+新增组件只加一条后端注册表声明，目录自动多一行、按钮按声明的 `Verbs` 自动出现。
 
 **接口**：
 
 | 方法与路径 | 作用 |
 |---|---|
-| `GET /api/components/status?name=` | 只读体检：所有组件状态、按组件 `preflight`、`images`、`local`（本机凭证标记） |
-| `POST /api/components/run` | `{verb:"install", component, name, confirm:"yes", password?, proxy?}`（proxy 仅 docker，格式 `http://host:port`） |
+| `GET /api/components/status?name=` | 只读体检：组件状态、按组件 `preflight`、`images`、`local`（本机凭证标记）、**`actions`（Go 侧算好的写动作计划）** |
+| `POST /api/components/run` | `{verb:"install"\|"update"\|"uninstall", component, name, confirm:"yes", password?, proxy?, image_ref?, purge_data?, ack_downstream?}` |
 | `POST /api/components/image` | multipart：`verb=image-load` + `component=minio` + `name` + `confirm=yes` + `password?` + `image`（.tar） |
 | `GET /api/components/task?after=` | 与备份部署共用同一个后台任务 / 增量日志 |
 
 - 全部要 token；写操作 `POST` + `Origin` 校验（§4）。
+- `run` 的附加参数各归其位并由服务端 `component.ValidateActionFlags` 再验一次：
+  `proxy` 只 `install` / `update docker`；`image_ref` 只 `update minio`（必须是体检采到的
+  已导入镜像）；`purge_data` 只 `uninstall minio`（默认 false）；
+  `ack_downstream` 是 `uninstall docker` 的**必填**确认。
 - `/api/components/image` **不接收任何本机路径**：临时 tar 由服务端 `os.CreateTemp`
   生成、multipart 文件名只用于提示；任务结束（含预检失败 / 409）一律删除。
 - 失败响应的数组仍是 `[]` 不是 `null`（§11.4 的同款坑），前端
-  `normalizeStatusView` 再兜一层。
+  `normalizeStatusView` / `normalizeActions` 再兜一层。
 
-**六道门**（照抄 §9，安装与导入各一套，见 `components.md` §6）：
+**六道门**（照抄 §9，四个写动作各一套，见 `components.md` §6）：
 `confirm=="yes"` → 服务端先跑 `--dry-run` → `name` 只认清单、组件/动词只认注册表
-（`Runnable` / `SupportsImage`）→ 密码只经 runner 的 stdin → 任务脱离请求、单任务
-409、增量日志 → 界面不开放 `--force` / 更新 / 卸载 / 删数据。
+（`RunnableVerb` / `SupportsImage`）+ 附加参数门 → 密码只经 runner 的 stdin →
+任务脱离请求、单任务 409、增量日志 → 🔴 **不开放 `--force`**；
+删数据是独立勾选项且默认不勾，卸引擎的连带影响必须勾选才能提交。
+预检与正式动作带**同一组**附加参数，否则「预检过了」不代表正式动作会这么跑。
 
-**安装 Docker 的可选代理**：确认弹窗多一个「本次安装走代理」勾选 + 地址输入，
+**安装 / 更新 Docker 的可选代理**：确认弹窗多一个「本次走代理」勾选 + 地址输入，
 只认 `http://host:port`，由服务端 `component.ValidProxy` 二次校验（前端仅用于禁用按钮）；
-`runComponentTask` 把 `--proxy` 同时加进预检与正式安装，临时作用于远端 apt/curl，
+`runComponentTask` 把 `--proxy` 同时加进预检与正式动作，临时作用于远端 apt/curl，
 **不落任何远端系统配置**。详见 `components.md` §3.1。
 
-**页面判定**：`canInstall` 同时看「组件已接入 + 采到状态 + `missing` +
-上游 `depends` 就绪 + **服务端按组件算好的 `preflight.ready`**」。
-MinIO 没有离线镜像 / 缺本机 `DEST_KEY`+`DEST_SECRET` / Docker 没 active 时按钮直接禁用，
-不再由前端拼第二套判据。详情里的检查项与阻塞项随选中组件切换（选中 MinIO 不会
-显示 Docker 的 apt 检查结论）。
+**页面判定（2026-11-07 改）**：🔴 能否执行、阻塞原因、影响清单、附加勾选项全在
+`actions[组件id][]` 的 `ActionPlan` 里，由 Go 侧 `BuildActions` 按注册表与体检结果算；
+前端只做 `plan.available && !busy`，**不在前端复算指标**。
+六个场景（都未装 / 仅引擎 / 两者正常 / MinIO 有新版 / 引擎有新版 / 检查失败）的
+按钮门见 `components.md §8.1`。详情里的检查项与阻塞项随选中组件切换。
+
+**统一确认弹窗**：三个写动词共用一个 Modal，标题 / 说明 / 影响清单 / 提交按钮文案 /
+必勾项 / 目标镜像下拉全部取 `ActionPlan`；提交条件是「手输 `yes` + 勾齐 `required`
+项 + 选好候选镜像」。删数据默认不勾、卸引擎必勾，打开弹窗时所有附加勾选一律重置。
+旧二进制没下发 `actions` 时回退到静态安装文案，且按钮因 `available=false` 恒禁用。
 
 **界面样式**（2026-11-06 修）：本页最早整页写 inline style，跟另外三页脱节：
 `.card` 本身没有内边距，5 个 `section` 直接塞内容会贴边、彼此还连成一条白条；
@@ -720,9 +731,13 @@ MinIO 没有离线镜像 / 缺本机 `DEST_KEY`+`DEST_SECRET` / Docker 没 activ
 Enter/Space 键盘可达的，不只靠鼠标。改完 `web/` 仍需 `npm run build`，
 且**只有重建 `ops.exe` 后界面才吃到新产物**（见 §11 / 硬约束 26）。
 
-**回归**：`go test ./internal/ui ./internal/component .` 的组件接口用例、
-`web/test/components.test.ts`、`cd web && npm test && npm run typecheck && npm run build`。
-真机只读验证：`ops component list --server k1 --json`、
+**回归**：`go test ./internal/ui ./internal/component ./internal/restart .` 的组件接口、
+六场景按钮门、四份写脚本边界与过期检测用例，`web/test/components.test.ts`，
+`cd web && npm test && npm run typecheck && npm run build`。
+真机只读验证（都不改远端）：`ops component list --server k1 --json`、
 `ops component install minio --server k1 --dry-run`、
+`ops component update docker|minio --server k1 --dry-run`（minio 要带 `--image-ref`）、
+`ops component uninstall docker --server k1 --ack-downstream --dry-run`、
+`ops component uninstall minio --server k1 --dry-run`、
 `ops component image-load minio --server k1 --image-tar <本机 .tar> --dry-run`。
 

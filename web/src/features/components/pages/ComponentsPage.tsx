@@ -6,21 +6,26 @@ import {
   errText,
   fetchStatus,
   resumeComponentTask,
-  startComponentInstall,
+  startComponentRun,
   startImageLoad,
 } from '../service.ts'
 import type { WatchHooks } from '../service.ts'
 import type {
+  ActionPlan,
+  ComponentRunRequest,
   ComponentTask,
   ComponentsStatusView,
+  ComponentVerb,
   ServerOption,
 } from '../types.ts'
 import {
-  canInstall,
+  actionCopy,
+  actionEnabled,
+  actionHint,
+  actionOf,
+  actionPlans,
   checkColor,
-  confirmCopy,
   imageHint,
-  installHint,
   installLabel,
   normalizeProxyInput,
   normalizeStatusView,
@@ -32,11 +37,13 @@ import {
 /**
  * 「环境组件」页：一个组件目录 + 选中组件详情。
  *
- * 目录由后端注册表渲染，新增组件只加一条后端声明，前端不用改结构。
- * 两个已接入组件：docker（官方 apt 仓库）、minio（离线镜像 + 运行时注入凭证）。
+ * 目录与写动作都由后端注册表 / 体检结果渲染（新增组件只加一条后端声明）。
+ * 🔴 能否执行、阻塞原因、影响清单、附加勾选项全在后端 ActionPlan 里，
+ *    前端只渲染 + 加一个 busy 门，不在这里复算指标（docs/components.md §8.4）。
  * 双击落地页仍是服务器管理页；这一页默认只做只读体检，写动作要显式确认。
  */
 const EMPTY_VIEW: ComponentsStatusView = normalizeStatusView(null)
+const WRITE_VERBS: ComponentVerb[] = ['install', 'update', 'uninstall']
 
 // 代理地址只是普通网络偏好，不是凭据（访问令牌仍只在内存 + 地址栏，绝不落盘）。
 // 记住它，换机/重装时不用每次手填；格式仍由前端 normalizeProxyInput 与服务端各卡一道。
@@ -55,12 +62,14 @@ export function ComponentsPage() {
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState<Notice>(null)
 
-  // 安装二次确认：yes + 一次性 sudo 密码，用完即清，不缓存。
-  const [confirmOpen, setConfirmOpen] = useState(false)
+  // 统一确认弹窗：yes + 一次性 sudo 密码 + 后端下发的附加勾选 / 目标镜像，用完即清。
+  const [confirmVerb, setConfirmVerb] = useState<ComponentVerb | null>(null)
   const [confirmText, setConfirmText] = useState('')
   const [password, setPassword] = useState('')
+  const [extraChecks, setExtraChecks] = useState<Record<string, boolean>>({})
+  const [imageRef, setImageRef] = useState('')
 
-  // 安装 Docker 时可选的 apt 代理（勾选才生效；地址可记住，勾选状态不落盘）。
+  // install / update Docker 时可选的 apt 代理（勾选才生效；地址可记住，勾选状态不落盘）。
   const [useProxy, setUseProxy] = useState(false)
   const [proxyUrl, setProxyUrl] = useState('')
 
@@ -143,66 +152,84 @@ export function ComponentsPage() {
     [view.components, selected],
   )
 
-  // 依赖由后端注册表的 depends 声明推导（minio → docker）。
-  const dependenciesReady = useMemo(() => {
-    const dep = current?.depends
-    if (!dep) return true
-    const s = view.components.find((c) => c.id === dep)?.state
-    return s === 'ok' || s === 'degraded'
-  }, [current, view.components])
-
+  // 依赖门由后端动作计划算好；这里只为「离线镜像导入」留一个 Docker 就绪判断
+  // （update / degraded 也算已装），不参与任何写动作的能否执行判定。
   const dockerReady = useMemo(() => {
     const s = view.components.find((c) => c.id === 'docker')?.state
-    return s === 'ok' || s === 'degraded'
+    return s === 'ok' || s === 'update' || s === 'degraded'
   }, [view.components])
 
   const pre = preflightOf(view, current)
-  const installable = canInstall(current, view, busy || loading, dependenciesReady)
-  const copy = confirmCopy(current?.id)
+  const plans = actionPlans(view, current)
+  const planOf = (verb: ComponentVerb): ActionPlan | undefined => actionOf(view, current, verb)
+  const activePlan = confirmVerb ? planOf(confirmVerb) : undefined
+  const currentCopy = actionCopy(activePlan, current)
   const imageEnabled = !!current?.offline_image && !busy && !loading && view.collected && dockerReady
 
-  // 代理只在 Docker 安装弹窗里出现；格式错了就禁用确认，不让用户白跑一次预检。
-  const proxyApplies = current?.id === 'docker'
+  // 代理只在 install / update Docker 的弹窗里出现；格式错了就禁用确认，不白跑一次预检。
+  const proxyApplies = confirmVerb !== null && confirmVerb !== 'uninstall' && current?.id === 'docker'
   const proxyValue = proxyApplies && useProxy ? normalizeProxyInput(proxyUrl) : null
-  const confirmOk = confirmText === 'yes' && (!proxyApplies || !useProxy || proxyValue !== null)
+  const requiredChecksOk = (activePlan?.checks ?? []).every(
+    (c) => !c.required || extraChecks[c.key] === true,
+  )
+  const imageRefOk = !activePlan?.images.length ||
+    activePlan.images.some((i) => i.reference === imageRef)
+  const confirmOk = confirmText === 'yes' && requiredChecksOk && imageRefOk &&
+    (!proxyApplies || !useProxy || proxyValue !== null)
 
-  const closeConfirm = useCallback(() => {
-    setConfirmOpen(false)
+  const closeConfirm = () => {
+    setConfirmVerb(null)
     setConfirmText('')
     setPassword('')
-  }, [])
+    setExtraChecks({})
+    setImageRef('')
+  }
 
-  const submitConfirm = useCallback(() => {
-    const id = current?.id
-    if (!confirmOk || !name || !id || !installable) return
+  const openConfirm = (verb: ComponentVerb) => {
+    const plan = planOf(verb)
+    if (!plan || !actionEnabled(plan, busy || loading)) return
+    setConfirmVerb(verb)
+    setConfirmText('')
+    setPassword('')
+    // 🔴 附加勾选一律默认不勾（删数据尤其如此），目标镜像取后端候选里的第一个。
+    setExtraChecks({})
+    setImageRef(plan.images.find((i) => !i.current)?.reference ?? '')
+  }
+
+  const submitConfirm = () => {
+    const verb = confirmVerb
+    const plan = activePlan
+    const comp = current
+    if (!confirmOk || !name || !comp || !verb || !plan ||
+      !actionEnabled(plan, busy || loading)) return
     const pw = password
-    const proxy = id === 'docker' && useProxy ? proxyValue : null
+    const proxy = comp.id === 'docker' && verb !== 'uninstall' && useProxy ? proxyValue : null
+    const req: ComponentRunRequest = {
+      verb, component: comp.id, name, confirm: 'yes',
+      ...(pw ? { password: pw } : {}),
+      ...(proxy ? { proxy } : {}),
+      ...(verb === 'update' && imageRef ? { image_ref: imageRef } : {}),
+      ...(verb === 'uninstall' && extraChecks['purge_data'] ? { purge_data: true } : {}),
+      ...(verb === 'uninstall' && extraChecks['ack_downstream'] ? { ack_downstream: true } : {}),
+    }
     const poll = ++pollId.current
     closeConfirm()
     try {
       if (proxy) localStorage.setItem(PROXY_STORAGE_KEY, proxy)
       else if (!useProxy) localStorage.removeItem(PROXY_STORAGE_KEY)
     } catch {
-      // 存储不可用时只是记不住，不影响本次安装。
+      // 存储不可用时只是记不住，不影响本次动作。
     }
     setBusy(true)
     setLog('')
     setTask(null)
-    setNotice({ kind: 'info', text: `${installLabel(id)}已提交，服务端正在跑 --dry-run 预检…` })
+    setNotice({ kind: 'info', text: `${plan.label}${comp.name}已提交，服务端正在跑 --dry-run 预检…` })
     void (async () => {
       try {
-        const t = await startComponentInstall(
-          componentsApi,
-          {
-            verb: 'install', component: id, name, confirm: 'yes',
-            ...(pw ? { password: pw } : {}),
-            ...(proxy ? { proxy } : {}),
-          },
-          makeHooks(poll),
-        )
+        const t = await startComponentRun(componentsApi, req, makeHooks(poll))
         setTask(t)
         setNotice(t.exit_code === 0
-          ? { kind: 'success', text: `${installLabel(id)}完成，请点「重新检查」复核状态。` }
+          ? { kind: 'success', text: `${plan.label}${comp.name}完成，请点「重新检查」复核状态。` }
           : { kind: 'error', text: `任务结束，退出码 ${t.exit_code}。请看日志并复核远端状态。` })
       } catch (e) {
         setNotice({ kind: 'error', text: errText(e) })
@@ -211,7 +238,7 @@ export function ComponentsPage() {
         void refresh(name)
       }
     })()
-  }, [confirmOk, password, name, current, installable, useProxy, proxyValue, closeConfirm, makeHooks, refresh])
+  }
 
   const closeImage = useCallback(() => {
     setImageOpen(false)
@@ -257,7 +284,7 @@ export function ComponentsPage() {
         <div>
           <h1>环境组件</h1>
           <div className="page-meta">
-            默认只读体检；安装 / 导入镜像会写远端，需输入 yes 二次确认并由服务端先跑预检
+            默认只读体检；安装 / 更新 / 卸载 / 导入镜像会写远端，需输入 yes 二次确认并由服务端先跑预检
           </div>
         </div>
         <Tag color="blue">{view.components.length} 个组件</Tag>
@@ -352,6 +379,7 @@ export function ComponentsPage() {
         </div>
         <div className="component-note">
           依赖链：① Docker 引擎 → ② MinIO 服务 → ③ mc mirror 备份链路；上游没就绪时下游写动作一律禁用。
+          「可更新」由只读体检判定（apt 候选版本 / 目标机已导入镜像），绝不在线查询版本。
         </div>
       </section>
 
@@ -366,9 +394,9 @@ export function ComponentsPage() {
           </div>
         )}
         <Alert
-          type={pre.ready ? 'info' : 'warning'}
+          type={view.collected ? 'info' : 'warning'}
           showIcon
-          message={installHint(current, view, dependenciesReady)}
+          message={actionHint(plans, current, view)}
           style={{ marginBottom: 10 }}
         />
         {pre.blockers.length > 0 && (
@@ -404,12 +432,27 @@ export function ComponentsPage() {
               </table>
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
-              <Button type="primary" disabled={!installable} onClick={() => setConfirmOpen(true)}>
-                {installLabel(current?.id)}
-              </Button>
-              <Button disabled title="后续接入">更新</Button>
-              <Button disabled danger title="后续接入">卸载</Button>
-              <span className="component-hint">更新 / 卸载尚未接入；安装不会删数据、不动引擎与已有镜像。</span>
+              {WRITE_VERBS.map((verb) => {
+                const plan = planOf(verb)
+                const enabled = actionEnabled(plan, busy || loading)
+                return (
+                  <Button
+                    key={verb}
+                    type={verb === 'install' ? 'primary' : undefined}
+                    danger={verb === 'uninstall'}
+                    disabled={!enabled}
+                    title={plan?.available
+                      ? `${plan.label} ${current?.name ?? ''}`
+                      : (plan?.reasons[0] ?? '后端尚未下发动作计划')}
+                    onClick={() => openConfirm(verb)}
+                  >
+                    {verb === 'install' ? installLabel(current?.id) : (plan?.label ?? verb)}
+                  </Button>
+                )
+              })}
+              <span className="component-hint">
+                能否执行、阻塞原因与影响清单均由后端按注册表和体检结果计算；卸载默认保留数据。
+              </span>
             </div>
           </>
         )}
@@ -477,6 +520,7 @@ export function ComponentsPage() {
           </div>
           <div className="component-note">
             选择本机 docker save 导出的 .tar；服务端校验后才上传，接口不接受任意本机路径。
+            更新 MinIO 用的新镜像也必须从这里导入，工具绝不在线拉取。
           </div>
         </section>
       )}
@@ -497,33 +541,68 @@ export function ComponentsPage() {
       </section>
 
       <Modal
-        title={copy.title}
-        open={confirmOpen}
+        title={currentCopy.title}
+        open={confirmVerb !== null}
         onCancel={closeConfirm}
         onOk={submitConfirm}
-        okText="确认安装"
+        okText={currentCopy.submitLabel}
         cancelText="取消"
-        okButtonProps={{ disabled: !confirmOk, danger: true }}
+        okButtonProps={{ disabled: !confirmOk, danger: currentCopy.danger }}
         destroyOnClose
       >
         <Alert
           type="warning" showIcon style={{ marginBottom: 12 }}
           message="这是远端写操作"
-          description={copy.description}
+          description={currentCopy.description}
         />
         <ul style={{ paddingLeft: 18, margin: '0 0 12px', fontSize: 13, lineHeight: 1.9 }}>
-          {copy.items.map((it) => <li key={it}>{it}</li>)}
+          {currentCopy.impacts.map((it) => <li key={it}>{it}</li>)}
         </ul>
+
+        {currentCopy.images.length > 0 && (
+          <div className="component-box">
+            <div className="component-hint" style={{ marginBottom: 4 }}>
+              目标镜像（只能选目标机已离线导入的，绝不 docker pull）：
+            </div>
+            <Select
+              value={imageRef || undefined}
+              onChange={(v) => setImageRef(v)}
+              style={{ width: '100%' }}
+              placeholder="选择更新用的离线镜像"
+              options={currentCopy.images.map((i) => ({ value: i.reference, label: i.reference }))}
+            />
+            <div className="component-hint" style={{ marginTop: 6 }}>
+              没看到新版本？先到下方「MinIO 离线镜像」区导入新的 .tar，再点「重新检查」。
+            </div>
+          </div>
+        )}
+
+        {currentCopy.checks.length > 0 && (
+          <div className="component-box">
+            {currentCopy.checks.map((c) => (
+              <div key={c.key} style={{ marginBottom: 6 }}>
+                <Checkbox
+                  checked={extraChecks[c.key] === true}
+                  onChange={(e) => setExtraChecks((prev) => ({ ...prev, [c.key]: e.target.checked }))}
+                >
+                  {c.label}{c.required ? '（必勾）' : '（默认不勾）'}
+                </Checkbox>
+                {c.help && <div className="component-hint">{c.help}</div>}
+              </div>
+            ))}
+          </div>
+        )}
+
         <div className="component-hint" style={{ marginBottom: 4 }}>请输入 yes 确认：</div>
         <Input value={confirmText} onChange={(e) => setConfirmText(e.target.value)} placeholder="yes" autoComplete="off" />
         <div className="component-hint" style={{ margin: '10px 0 4px' }}>
           一次性 sudo 密码（目标机已配免密 sudo 可留空）：
         </div>
         <Input.Password value={password} onChange={(e) => setPassword(e.target.value)} placeholder="留空则用免密 sudo" autoComplete="new-password" />
-        {current?.id === 'docker' && (
+        {proxyApplies && (
           <div className="component-box">
             <Checkbox checked={useProxy} onChange={(e) => setUseProxy(e.target.checked)}>
-              本次安装走代理（目标机直连 download.docker.com 很慢 / 被重置时勾选）
+              本次走代理（目标机直连 download.docker.com 很慢 / 被重置时勾选）
             </Checkbox>
             {useProxy && (
               <Input

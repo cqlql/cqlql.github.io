@@ -86,6 +86,9 @@ type StatusView struct {
 	Preflights map[string]Preflight `json:"preflights"` // 按组件 id 的预检
 	Images     []ImageInfo          `json:"images"`     // 目标机已导入的离线镜像
 	Local      LocalFacts           `json:"local"`      // 本机配置事实，不含凭证
+	// Actions 是 Go 侧按注册表 + 体检结果算好的写动作计划（§8.4）：
+	// 能否执行、阻塞原因、影响清单、附加确认全在这里，前端只渲染。
+	Actions map[string][]ActionPlan `json:"actions"`
 }
 
 func emptyView(server string) StatusView {
@@ -97,6 +100,7 @@ func emptyView(server string) StatusView {
 		Preflight:  Preflight{Blockers: []string{}, Warnings: []string{}},
 		Preflights: map[string]Preflight{},
 		Images:     []ImageInfo{},
+		Actions:    map[string][]ActionPlan{},
 	}
 }
 
@@ -109,6 +113,8 @@ func unknownComponents(view *StatusView, reason string) {
 		})
 	}
 	view.Preflight.Blockers = append(view.Preflight.Blockers, reason)
+	// 采不到状态时也要下发一份「全部禁用 + 原因」的计划，别让前端自己算。
+	view.Actions = BuildActions(*view)
 }
 
 // readScript 从注入的脚本树里读一个文件；src 可以是 embed.FS 的 Sub，也可以是 MapFS。
@@ -205,6 +211,8 @@ func CollectWithLocal(ctx context.Context, t *shared.SSHTarget, scripts fs.FS, s
 	view.Preflights["docker"] = view.Preflight
 
 	// 先算状态，再按依赖声明算各组件的预检门。
+	// 🔴 update 态由「apt 候选版本 ≠ 已装版本」/「已导入镜像 ≠ 当前容器镜像」推导，
+	//    两者都来自 check.sh 的只读采集，绝不在线查询版本。
 	states := map[string]string{}
 	for _, c := range All() {
 		if c.Phase != PhaseReady {
@@ -213,7 +221,7 @@ func CollectWithLocal(ctx context.Context, t *shared.SSHTarget, scripts fs.FS, s
 		}
 		switch c.ID {
 		case "minio":
-			states[c.ID], _ = deriveMinioState(raw)
+			states[c.ID], _ = deriveMinioStateWithImages(raw, view.Images)
 		default:
 			states[c.ID], _ = deriveDockerState(raw)
 		}
@@ -234,7 +242,7 @@ func CollectWithLocal(ctx context.Context, t *shared.SSHTarget, scripts fs.FS, s
 			cs.State = states[c.ID]
 			switch c.ID {
 			case "minio":
-				_, cs.Version = deriveMinioState(raw)
+				_, cs.Version = deriveMinioStateWithImages(raw, view.Images)
 				cs.Checks = minioCheckItems(raw, local)
 				cs.Preflight = view.Preflights["minio"]
 			default:
@@ -245,6 +253,7 @@ func CollectWithLocal(ctx context.Context, t *shared.SSHTarget, scripts fs.FS, s
 		}
 		view.Components = append(view.Components, cs)
 	}
+	view.Actions = BuildActions(view)
 	return view
 }
 
@@ -253,6 +262,9 @@ func mustLookup(id string) Component {
 	return c
 }
 
+// deriveDockerState：未装 = missing；服务 / 插件异常 = degraded；
+// apt 候选版本比已装版本新 = update；否则 ok。
+// 🔴 版本只来自 check.sh 的 apt-cache policy（只读），绝不在线查。
 func deriveDockerState(raw map[string]string) (string, string) {
 	if raw["DOCKER_INSTALLED"] != "yes" {
 		return "missing", ""
@@ -261,12 +273,22 @@ func deriveDockerState(raw map[string]string) (string, string) {
 	if raw["DOCKER_SERVICE"] != "active" || raw["COMPOSE_PLUGIN"] != "yes" {
 		return "degraded", v
 	}
+	if _, _, upgrade := dockerCandidate(raw); upgrade {
+		return "update", v
+	}
 	return "ok", v
 }
 
-// deriveMinioState：容器在跑且健康 = ok；跑着但不健康 / 停了 = degraded；
-// 没有容器 = missing；采不到（脚本没给状态）= unknown。
+// deriveMinioState 保留 1 参数兼容入口（只用于不关心镜像清单的调用 / 旧测试）。
 func deriveMinioState(raw map[string]string) (string, string) {
+	return deriveMinioStateWithImages(raw, nil)
+}
+
+// deriveMinioStateWithImages：容器在跑且健康、且目标机有**与当前不同的已导入镜像**
+// = update；健康但没新镜像 = ok；跑着但不健康 / 停了 = degraded；
+// 没有容器 = missing；采不到（脚本没给状态 / daemon 查不动）= unknown。
+// 🔴 绝不把「读不到镜像列表」当成「没有新镜像」：那种情况下最多是 ok，不是 update。
+func deriveMinioStateWithImages(raw map[string]string, images []ImageInfo) (string, string) {
 	container := raw["MINIO_CONTAINER"]
 	if container == "" || container == "unknown" {
 		return "unknown", ""
@@ -277,6 +299,9 @@ func deriveMinioState(raw map[string]string) (string, string) {
 		return "missing", ""
 	case "running":
 		if raw["MINIO_HEALTH"] == "ok" {
+			if minioHasNewerImage(raw, images) {
+				return "update", version
+			}
 			return "ok", version
 		}
 		return "degraded", version
@@ -286,6 +311,24 @@ func deriveMinioState(raw map[string]string) (string, string) {
 		// 认不出来的值一律「未知」，绝不猜成已装 / 未装。
 		return "unknown", ""
 	}
+}
+
+// minioHasNewerImage 只认体检采到的目标机本地镜像；daemon 查不动时返回 false。
+func minioHasNewerImage(raw map[string]string, images []ImageInfo) bool {
+	if raw["MINIO_DOCKER_QUERY"] != "yes" {
+		return false
+	}
+	current := strings.TrimSpace(raw["MINIO_RUNNING_IMAGE"])
+	if current == "" {
+		return false
+	}
+	for _, img := range images {
+		ref := strings.TrimSpace(img.Reference)
+		if ref != "" && ref != current {
+			return true
+		}
+	}
+	return false
 }
 
 // parseImageLines 解析 check.sh 的 `ref;id;size;created|...` 编码。
@@ -361,6 +404,16 @@ func dockerCheckItems(raw map[string]string) []CheckItem {
 	add("APT_REPO_REACHABLE", "仓库可达性", boolText(yes(raw, "APT_REPO_REACHABLE")),
 		stateOf(yes(raw, "APT_REPO_REACHABLE"), true))
 	add("DISK_FREE_MB", "根分区剩余", valueOr(raw["DISK_FREE_MB"], "?")+" MB", "ok")
+	// 更新判据的依据必须看得见：apt 候选版本来自只读的 apt-cache policy。
+	installed, candidate, upgrade := dockerCandidate(raw)
+	add("DOCKER_APT_VERSION", "docker-ce 已装 / 候选",
+		fmt.Sprintf("%s → %s", valueOr(installed, "未采集"), valueOr(candidate, "未采集")),
+		func() string {
+			if upgrade {
+				return "warn"
+			}
+			return "ok"
+		}())
 	return items
 }
 
@@ -426,6 +479,20 @@ func minioCheckItems(raw map[string]string, local LocalFacts) []CheckItem {
 		valueOr(local.DestURL, "未配置")+"（端口 "+valueOr(local.DestURLPort, "?")+"）",
 		func() string {
 			if local.DestURLPort != "" && local.DestURLPort != minioAPIPort {
+				return "warn"
+			}
+			return "ok"
+		}())
+	// 更新判据的依据：当前容器镜像 vs 目标机已导入的离线镜像（不回显任何凭证）。
+	cur := valueOr(raw["MINIO_RUNNING_IMAGE"], "—")
+	candidate := valueOr(raw["MINIO_UPDATE_CANDIDATE"], "无")
+	add("MINIO_UPDATE_CANDIDATE", "当前镜像 / 新镜像",
+		cur+" → "+candidate,
+		func() string {
+			if raw["MINIO_DOCKER_QUERY"] != "yes" {
+				return "off"
+			}
+			if candidate != "无" {
 				return "warn"
 			}
 			return "ok"

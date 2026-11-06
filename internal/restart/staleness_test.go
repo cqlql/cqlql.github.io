@@ -16,16 +16,20 @@ func makeRoot(t *testing.T) (root, exe string) {
 	exe = filepath.Join(root, "ops.exe")
 	old := time.Now().Add(-2 * time.Hour)
 	files := map[string]string{
-		"go.mod":                           "module pass-up/ops\n",
-		"main.go":                          "package main\n",
-		"web/package.json":                 "{}\n",
-		"web/src/App.tsx":                  "export default null\n",
-		"web/dist/index.html":              "<html></html>\n",
-		"deploy/backup/pg/pg_backup.sh":    "#!/bin/sh\n",
-		"deploy/backup/pg/backup.example":  "PG=1\n",
-		"deploy/backup/minio/minio.env.sh": "#!/bin/sh\n",
-		"deploy/component/minio/check.sh":  "#!/bin/bash\n",
-		"ops.exe":                          "binary",
+		"go.mod":                               "module pass-up/ops\n",
+		"main.go":                              "package main\n",
+		"web/package.json":                     "{}\n",
+		"web/src/App.tsx":                      "export default null\n",
+		"web/dist/index.html":                  "<html></html>\n",
+		"deploy/backup/pg/pg_backup.sh":        "#!/bin/sh\n",
+		"deploy/backup/pg/backup.example":      "PG=1\n",
+		"deploy/backup/minio/minio.env.sh":     "#!/bin/sh\n",
+		"deploy/component/minio/check.sh":      "#!/bin/bash\n",
+		"deploy/component/docker/update.sh":    "#!/bin/bash\n",
+		"deploy/component/docker/uninstall.sh": "#!/bin/bash\n",
+		"deploy/component/minio/update.sh":     "#!/bin/bash\n",
+		"deploy/component/minio/uninstall.sh":  "#!/bin/bash\n",
+		"ops.exe":                              "binary",
 	}
 	for rel, content := range files {
 		p := filepath.Join(root, filepath.FromSlash(rel))
@@ -103,6 +107,23 @@ func TestCheckEmbeddedComponentScriptIsStale(t *testing.T) {
 	got := Check(root, exe)
 	if !got.Go || !strings.Contains(got.Reason(), "check.sh") {
 		t.Fatalf("deploy/component 整目录 embed，改组件脚本同样要重编 Go：%+v", got)
+	}
+}
+
+// 2026-11-07：新增的四份写脚本同样 embed 进 exe，改了必须重编 Go。
+func TestCheckComponentWriteScriptsAreGoInputs(t *testing.T) {
+	for _, rel := range []string{
+		"deploy/component/docker/update.sh",
+		"deploy/component/docker/uninstall.sh",
+		"deploy/component/minio/update.sh",
+		"deploy/component/minio/uninstall.sh",
+	} {
+		root, exe := makeRoot(t)
+		touch(t, root, rel)
+		got := Check(root, exe)
+		if !got.Go || !strings.Contains(got.GoReason, "deploy/component/") {
+			t.Errorf("%s 改了必须重编 Go：%+v", rel, got)
+		}
 	}
 }
 

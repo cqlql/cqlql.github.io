@@ -114,4 +114,23 @@ kv MINIO_DATA_FREE_MB "$_free"
 
 kv MINIO_API_PORT 9000
 kv MINIO_CONSOLE_PORT 9001
+
+# ---------- 可更新镜像（只读；给「有新版本」的 update 态用） ----------
+# 第一个「与当前容器镜像不同」的本地镜像；只在 docker 查询成功时给值。
+# 🔴 绝不 docker pull / docker inspect 全量配置（后者会把 root 凭证带出来）。
+_upd=""
+if [ "$_query" = "yes" ]; then
+  while IFS= read -r _ref; do
+    [ -z "$_ref" ] && continue
+    case "$_ref" in
+      *minio*|*MINIO*) ;;
+      *) continue ;;
+    esac
+    [ "$_ref" = "$_run_image" ] && continue
+    _upd="$_ref"
+    break
+  done < <(docker images --format '{{.Repository}}:{{.Tag}}' 2>/dev/null)
+fi
+kv MINIO_UPDATE_CANDIDATE "$_upd"
+
 kv CHECK_OK yes
