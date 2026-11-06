@@ -418,6 +418,16 @@ func (u *uiState) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		u.handleBackupRun(w, r)
 	case r.Method == http.MethodGet && r.URL.Path == "/api/backup/task":
 		u.handleBackupTask(w, r)
+	case r.Method == http.MethodGet && r.URL.Path == "/api/config":
+		u.handleConfigView(w)
+	case r.Method == http.MethodGet && r.URL.Path == "/api/config/compare":
+		u.handleConfigCompare(w, r)
+	case r.Method == http.MethodPost && r.URL.Path == "/api/config/servers":
+		u.handleConfigServers(w, r)
+	case r.Method == http.MethodPost && r.URL.Path == "/api/config/backup-env":
+		u.handleConfigBackupEnv(w, r)
+	case r.Method == http.MethodPost && r.URL.Path == "/api/config/sync-env":
+		u.handleConfigSyncEnv(w, r)
 	case r.Method == http.MethodPost && r.URL.Path == "/api/shortcut":
 		u.handleShortcut(w)
 	case r.Method == http.MethodPost && r.URL.Path == "/api/open-servers-file":

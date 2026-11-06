@@ -266,3 +266,207 @@ pre {
   word-break: break-word;
   line-height: 1.6;
 }
+
+/* ---- 配置 ---- */
+.config-panel {
+  padding: 16px;
+  margin-bottom: 12px;
+}
+
+.config-panel h3 {
+  margin: 0 0 12px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ops-text);
+}
+
+.config-group {
+  margin-top: 16px;
+}
+
+.config-group h4 {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--ops-muted);
+}
+
+.config-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px 20px;
+}
+
+.config-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--ops-text);
+}
+
+.config-field > span {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--ops-muted);
+}
+
+.config-field small {
+  font-size: 11px;
+  opacity: 0.7;
+}
+
+.config-chain {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #f6f8fa;
+  font-size: 12px;
+  color: var(--ops-muted);
+}
+
+.config-chain code {
+  color: var(--ops-text);
+}
+
+.config-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.config-path {
+  font-size: 12px;
+  color: var(--ops-muted);
+  word-break: break-all;
+}
+
+/* 远端值对照：输入框下方一行，凭证只显示掩码 */
+.config-remote-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: #f6f8fa;
+  font-size: 12px;
+  color: var(--ops-muted);
+}
+
+.config-remote-status .err {
+  color: #cf1322;
+  word-break: break-word;
+}
+
+.config-remote {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-height: 18px;
+  font-size: 11px;
+  color: var(--ops-muted);
+}
+
+.config-remote code {
+  background: #f6f8fa;
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+
+.config-remote .empty,
+.config-compare-table .empty {
+  color: #b0b6bf;
+}
+
+.config-extra {
+  margin-top: 14px;
+  padding: 10px 12px;
+  border: 1px dashed #b7c9e2;
+  border-radius: 8px;
+  background: #fbfdff;
+  font-size: 12px;
+  color: var(--ops-muted);
+}
+
+.config-extra summary {
+  cursor: pointer;
+  color: #0958d9;
+}
+
+.config-extra ul {
+  margin: 8px 0 0;
+  padding-left: 18px;
+}
+
+.config-warn {
+  margin: 8px 0 0;
+  color: #d46b08;
+  font-size: 12px;
+}
+
+.config-compare-wrap {
+  margin-top: 14px;
+  border: 1px solid #e5e9f0;
+  border-radius: 8px;
+  overflow: auto;
+}
+
+.config-compare-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.config-compare-table th,
+.config-compare-table td {
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid #e5e9f0;
+  vertical-align: top;
+}
+
+.config-compare-table th {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ops-muted);
+  background: #fafbfc;
+}
+
+.config-compare-table tr.group td {
+  background: #fafbfc;
+  color: var(--ops-muted);
+  font-size: 12px;
+  padding: 6px 10px;
+}
+
+.config-compare-table tr.changed-row {
+  background: #fffcf5;
+}
+
+.config-compare-table code {
+  background: #f6f8fa;
+  padding: 1px 5px;
+  border-radius: 3px;
+  word-break: break-all;
+}
+
+.config-compare-table .field-name {
+  display: block;
+}
+
+.config-compare-table .field-key {
+  display: block;
+  font-size: 11px;
+  color: var(--ops-muted);
+}

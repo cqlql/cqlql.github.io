@@ -88,7 +88,14 @@ JSON 结构、字段语义与校验规则见 [servers.md](servers.md) §3，**�
 | `PASS_UP_OPS_BACKUP_MINIO_ENV_FILE` | 配置目录 `backup/minio.env` | 同上 |
 
 `backup.env` 的键名与默认值随脚本一起维护在 `deploy/backup/<组件>/backup.env.example`
-（模板用 `ops backup env` 生成到配置目录），本工具**不复制**键定义，只上传与校验。
+（模板用 `ops backup env` 生成到配置目录）。CLI **不复制**键定义，只上传与校验；
+但界面「配置」页为了让字段可编辑，在 `internal/ui/config_edit.go` 维护了一份带标签 /
+分组的白名单（`pgEnvDefs` / `minioEnvDefs`）——🔴 **改模板键必须同步改这份白名单**，
+否则新键在页面上不可见。文件里已有、模板里没有的键仍可编辑，注释与未知行原样保留。
+
+这两份本机文件与 `servers.json` 都可以在界面「配置」页编辑（凭证只回显「已配置」、
+空值保持不变、写 0600 + `.bak`）；**保存只改本机**，远端 `backup.env` 要另外点
+「同步到远端」（`ops backup sync-env`），见 [ui.md](ui.md) §12。
 
 ## 5. 应用部署（P3–P4）
 

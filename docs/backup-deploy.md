@@ -57,6 +57,16 @@ ops backup verify [pg|minio|all] [--server <name>] [--password-stdin]
 ops backup env [pg|minio|all]
     把嵌入的 backup.env.example 落到配置目录 backup/{postgres,minio}.env
     （已存在不覆盖；脚本树里不放真实凭证，所以模板必须由这条命令给出）
+
+ops backup sync-env [pg|minio|all] --server <name>
+    只把本机填好的配置推到远端 <组件>/backup.env（0600，旧文件留 .bak）
+    不重跑 install.sh、不动脚本与 crontab；占位符配置会拒绝同步
+    界面「配置」页的「同步到远端」走这条，见 ui.md §12
+
+ops backup compare-env [pg|minio|all] --server <name>
+    只读：一条 cat 抓远端 backup.env，输出脱敏后的键值（JSON）
+    凭证只给掩码 + 指纹（shared.EnvFingerprint），明文不进 stdout；失败如实回原因
+    界面「配置」页的远端值对照走这条，见 ui.md §12.6
 ```
 
 ## 4. 部署流程
@@ -213,3 +223,17 @@ stdout/stderr 汇成任务日志，页面用 `GET /api/backup/task?after=N` 轮�
 
 **验收要点**：预检失败时日志里必须有「预检没过」且**只调用了一次**命令；
 日志里搜不到明文密码；安装途中刷新页面，回来仍能接着看日志直到完成。
+
+### 10.1 改配置不等于生效（2026-11-06）
+
+`deploy` 在「远端 `backup.env` 已是 OK」时默认**保留远端配置**（日志里的
+`远端=OK 保留远端配置`），只有 `--force` 才覆盖，而界面按硬约束 21 ⑥ 不开放 `--force`。
+于是「在页面改完本机配置、保存成功」并不代表定时任务会用新值。
+
+界面「配置」页因此把保存与同步拆成两个显式动作：`POST /api/config/backup-env` 只写本机
+`backup/{postgres,minio}.env`，`POST /api/config/sync-env` 才经 `ops backup sync-env`
+推到远端。同步是**独立的远端写操作**：要输 `yes`、只认清单里的 `name`、组件白名单、
+占位符拒绝、备份任务在跑时 409；输出里不含配置内容。见 [ui.md](ui.md) §12。
+
+CLI 上等价的两种做法：`ops backup sync-env pg --server <name>`（只换配置，推荐），
+或 `ops backup deploy pg --server <name> --force`（会重装一遍脚本并跑自检）。

@@ -19,13 +19,17 @@
 > 路径由服务端解析、接口不读请求体，见 `docs/ui.md` §10。
 > **2026-11-06 导航新增全局顶部工具栏**：左侧 Sider + Menu 不变，工具栏放「重启」，
 > 窄屏与横向导航合成同一条；访问过的页面仍保持挂载（见 `docs/ui.md` §7）。
+> **2026-11-06 界面新增「配置」页**：本机可编辑 `servers.json` 与 `backup/{postgres,minio}.env`，
+> 远端 `backup.env` 走显式「同步到远端」（新增 CLI `ops backup sync-env`），
+> 见 `docs/ui.md` §12 / 硬约束 23。
 > 只放「每次动代码都要遵守」的红线：一句结论 + 一个指针。判据、流程、踩坑都在 `docs/`。
 > 通用文档规则以 `cqlql-notes/docs/工程/文档约定.md` 为准。
 
 ## 项目概述
 
 - 本地单二进制运维工具，**已实现**：`ops servers list/check/apply-sudo` 管服务器与免密 sudo；
-  `ops backup deploy/verify/env` 安装、升级、预检备份能力并生成配置模板
+  `ops backup deploy/verify/env/sync-env` 安装、升级、预检备份能力、生成配置模板、
+  单独同步配置到远端
   （备份脚本本体就在本仓 `deploy/backup/`，编进二进制）；
   `ops ui` 默认只读查看服务器清单与检查结果；「备份能力部署」页另有预检 / 安装 / 自检
   三个显式入口（安装要输 yes，服务端先跑 `--dry-run`，见 `docs/ui.md` §9）；
@@ -87,8 +91,9 @@
     `ops.env` 解析、接口不读请求体**，不变成「打开任意本机文件」的代理。
     详见 `docs/ui.md` §4 / §9 / §10。
 15. 🔴 **双击不触发写操作，写操作一律显式确认**：双击直接开**只读落地页**（服务器管理页）；
-    页面里的两个写动作——一键免密 sudo、安装 / 升级备份能力——都要人点按钮，
-    后者还要输 `yes` 且过服务端预检门（硬约束 21）。
+    页面里的写动作——一键免密 sudo、安装 / 升级备份能力、配置页保存 / 同步——都要人点按钮；
+    后两类每次写请求还要带 `confirm=="yes"`（安装另需过服务端预检门，见硬约束 21；
+    配置页见硬约束 23）。
     点清单路径用编辑器打开是**本机动作**（不写清单、不碰远端），不算这里的写动作，
     但同样要人点一下；见 `docs/ui.md` §10。
     顶部工具栏的「重启」也是**本机动作**（只换本机的进程与 exe，不碰远端），
@@ -140,6 +145,27 @@
     ⑥ 判据只有 `/api/health` 的 `boot_id` 变了，传输层失败不是失败；
        不重建时不跑 `ReplaceBinary`，同路径换二进制必须拒绝。
     `__restart` / `__takeover` 是内部标记，不进 usage / 菜单；详见 `docs/ui.md` §11。
+23. 🔴 **界面配置页必须过六道门**（2026-11-06 新增）：
+    ① `GET /api/config` 凭证字段只给 `configured` 标记、不回显明文；
+       `POST /api/config/{servers,backup-env,sync-env}` 必须带 `confirm=="yes"`；
+    ② 路径全部由服务端从 `ops.env` / 配置目录解析，**接口不接收任何路径**；
+       `name` 只认 `servers.json`、组件只认 `pg|minio|all`；
+    ③ 字段白名单：清单不改 `name`（主键），env 只改「模板定义过或文件里已有」的键；
+       值按 shell 字面量转义（env 会被远端 `source`，`$(...)` / 反引号必须失效）；
+    ④ 写 0600 + 先留 `.bak` + 原子替换；清单写前用 `shared.LoadServers` 全量校验，
+       校验失败原文件一字不动；私钥路径不进任何输出 / 日志；
+    ⑤ **保存本机 ≠ 生效**：deploy 在远端 `backup.env=OK` 时默认保留旧配置，
+       界面又不开放 `--force`，所以必须另有显式「同步到远端」动作，
+       走 `ops backup sync-env`（只传 env，不重跑 install.sh、不动 crontab）；
+       占位符配置拒绝同步；备份任务在跑时 409；
+    ⑥ 「远端执行身份」是 `user + sudo.mode` 推导的**结果**，不是可配项，页面只读展示；
+       改了 `user` / `sudo.mode` 要提示重新一键免密 sudo（drop-in 按用户名写）并清掉检查缓存。
+    ⑦ 远端值对照是**只读**：`ops backup compare-env` 只发一条 `cat`，不写文件、不跑脚本；
+       凭证只回掩码 + 指纹（`shared.EnvFingerprint`），明文既不进 HTTP 响应也不进日志；
+       失败如实回原因、不猜空值、不缓存。页面默认在「编辑本机配置」的每个输入框下方
+       就地显示，另有「对比远端配置」次入口兜住「仅远端有」的键；同步是整份覆盖，
+       远端独有项会消失，必须显式提示。
+    详见 `docs/ui.md` §12。
 
 ## 命令与验证
 
@@ -162,6 +188,7 @@ ops backup deploy --server <name> --install-deps
 ops backup deploy --server <name> --password-stdin   # 初始 sudo 密码从 stdin 读（界面走这条）
 ops backup env
 ops backup verify --server <name>
+ops backup sync-env pg --server <name>   # 只把本机配置推到远端 backup.env
 ops ui [--port 7788] [--no-open]
 ops shortcut [--name <名字>] [--remove]
 ops menu --help

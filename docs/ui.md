@@ -438,3 +438,112 @@ POST /api/restart           → {"rebuild":bool,"confirm":"sha256:…"}
   核对 `/api/health` 的 `boot_id` 变了、`ops.exe` 的 mtime 变了、`ops.next.exe` 不在了、
   `ops-ui.log` 里有「新二进制已就位」；再点一次**不重建**的重启，确认同样能回来。
 
+## 12. 配置页（2026-11-06）
+
+### 12.1 为什么改
+
+一次真机安装失败暴露的不是 bug，是**三处「用户」被混为一谈**：
+
+1. `servers.json.user`（如 `cql`）：本机 SSH 登录**备份端**的账号；
+2. 远端执行身份（`root`）：`rootWrap` 用 `sudo -n sh -c` 提权的结果，**不是配置项**；
+3. `backup/{postgres,minio}.env` 的 `PG_SSH_USER` / `*_KEY`：备份脚本每天从**备份端
+   连主服务器**拉 dump 用的账号与私钥，跟前两者无关。
+
+`printDryRun` 只打印裸命令、`install.sh` 打印「当前以 root 身份执行」，页面又看不到
+sudo 包装层，于是「配置了 cql，日志却说 root」看起来像配置被读错。配置页把这三件事
+摆到同一页说清楚，同时解决「不想开编辑器手改配置文件」。
+
+新增左侧菜单「配置」作为**次入口**：不占主路径（服务器管理 / 备份部署）的点击，
+双击落地页仍是只读的。
+
+### 12.2 接口与六道门
+
+| 接口 | 作用 | 写哪里 |
+|---|---|---|
+| `GET /api/config` | 清单字段 + 两份 env 字段 + `exec_chain` | 只读 |
+| `POST /api/config/servers` | 保存清单里的白名单字段 | 本机 `servers.json` |
+| `POST /api/config/backup-env` | 保存一份本机备份配置 | 本机 `backup/*.env` |
+| `POST /api/config/sync-env` | 显式同步到远端 | 远端 `<组件>/backup.env` |
+
+六道门（服务端 enforce，前端只是交互，对应 AGENTS.md 硬约束 23）：
+
+1. 凭证字段（含 `PASSWORD|SECRET|TOKEN|KEY`）**只回显 `configured` 标记**；提交时
+   空值 = 保持不变，填新值才覆盖。三个写接口都要 `confirm=="yes"`，`POST` + token + Origin。
+2. 路径全部由服务端从 `ops.env` / 配置目录解析，**接口不接收任何路径**；`name` 只认清单，
+   组件只认 `pg|minio|all`。
+3. 字段白名单：清单不改 `name`（主键，`servers.state.json` 与 default 都按它索引）；
+   env 只改「模板定义过或文件里已有」的键，注释与未知行原样保留。
+4. 🔴 **值按 shell 字面量转义**：env 会被远端 `install.sh` / 备份脚本 `source`，
+   `$(...)`、反引号、双引号、反斜杠不转义就是命令注入。`quoteEnvValue` 统一处理。
+5. 写 0600 + 先留 `.bak` + 原子替换；清单写前把 `.tmp` 交给 `shared.LoadServers`
+   做全量校验（字段格式、`sudo.mode` 组合、default 指向、私钥存在性），失败原文件一字不动。
+   改了 `user` / `sudo.mode` 会提示重新「一键免密 sudo」并清掉该 name 的检查缓存——
+   drop-in 是 `/etc/sudoers.d/90-<user>-nopasswd`，按用户名写的。
+6. 备份预检 / 安装 / 自检在跑时 **409**；占位符（`CHANGE_ME` / `YOUR_`）配置拒绝同步。
+
+### 12.3 保存本机 ≠ 生效
+
+`deploy` 在「远端 `backup.env` 已是 OK」时默认**保留远端配置**（日志里的
+`远端=OK 保留远端配置`），只有 `--force` 才覆盖，而按硬约束 21 ⑥ 界面不开放 `--force`。
+所以「保存成功」若不同步就是假成功。配置页把两者拆成两个显式动作，中间用
+`本机已改 · 远端未同步` 标记提示。
+
+同步走新增 CLI：
+
+```
+ops backup sync-env [pg|minio|all] --server <name>
+```
+
+只把本机 env 内容经 stdin 推到远端 `<DeployDir>/<组件>/backup.env`（0600，旧文件留
+`.bak`），**不重跑 install.sh、不动脚本与 crontab**。走 `root=false`：部署目录由
+`prepareDir` 以登录账号属主创建，stdin 才能整份留给配置内容，不必和 sudo 密码抢管道。
+凭证内容既不进命令行也不打印到输出。
+
+### 12.4 明确不做
+
+- **「远端执行身份」下拉框**：它是 `user + sudo.mode` 推导的结果，再开一个字段只会造出
+  「登录 cql 却填执行账号 root」这种自相矛盾；页面用 `exec_chain` 只读展示。
+- **非 root 安装**：`install.sh` Step 0 硬性要求 `id -u = 0`（写 `/etc/logrotate.d` 与
+  crontab）。真要去掉 root 得改脚本架构（用户级 crontab + 日志轮转换方案），另立方案。
+- **新增 / 删除服务器**：仍只编辑已有条目，避免引入主键与状态缓存的一致性处理。
+
+### 12.5 远端值对照（2026-11-06 追加）
+
+**为什么**：`servers.json` / 本机 env / 远端 env 是三份不同的东西，只看本机配置无法判断
+「改了到底生效没有」。抓一次远端现值，在**编辑本机配置的每个输入框下方**就地显示，
+比单独开一个对比页少一次跳转；另留「对比远端配置」次入口，兜住表单里没有输入框的键。
+
+**接口**：`GET /api/config/compare?component=&name=` → 只读，走
+`ops backup compare-env <组件> --server <name>` 子进程（与 sync-env 同一条注入链路）。
+
+- 服务端只回**掩码**：凭证字段的 `remote` / `local` 都是 `已配置 · /ro…est`；
+  是否变化由 `state` 表达，页面拿不到明文。
+- `state` 四种：`consistent` / `changed` / `remote-only` / `local-only`。
+  凭证的一致性用指纹（`shared.EnvFingerprint`）判断，不比较明文。
+- 失败（远端未安装 / 无读权限 / ssh 不通）回 `ok=true` + `data.error`，
+  页面只在状态条给一条集中提示，本机表单照常可编辑，不往 13 个输入框下面各刷一条错误。
+- 不缓存、不写任何文件；不进 `opMu`（只读抓取不该把「检查全部」堵在后面）。
+
+**两个必须提示的坑**：
+
+1. 「仅远端有」的键在编辑表单里**没有输入框**（如 `PG_LOCAL_RETENTION_DAYS`），
+   收进底部折叠区；且 `sync-env` 是**整份覆盖**，这些项会随同步从远端消失。
+2. 凭证只能看出「变了」，看不出「变成了什么」——私钥路径/密码永远不回显。
+
+**交互原型**：[config-compare.html](config-compare.html) 是本节设计阶段的**静态交互原型**
+（单文件 HTML，双击即可打开，无需构建）。它用假数据演示四种 `state`、输入框下方的就地对照
+与「仅远端有」折叠区，可切换组件、场景与视图。**它是设计稿，不是实现**：
+实现以 `web/src/features/config/` 与本节判据为准；原型与判据不一致时以本节为准，
+原型不再维护时直接删除，不另建归档目录。
+
+### 12.6 回归要点
+
+- `go test ./internal/ui ./internal/backup`：凭证脱敏、值转义（含 `$(id)`）、
+  未知键 / 换行拒绝、清单保留未知字段、非法 `sudo.mode` 不落盘、`.bak`、二次确认、
+  未知 name 404、任务忙 409、占位符拒绝同步、runner 参数 `sync-env pg --server <name>`；
+- `cd web && npm test && npm run typecheck && npm run build`：`config.test.ts` 的
+  「空值 = 保持不变」「只提交改动字段」「保存本机 ≠ 同步远端」；
+- 真机：临时配置目录起实例 → 点「配置」→ 改一项非凭证值保存，核对文件与 `.bak` →
+  改 `user` 后确认提示重新免密 sudo → 点「同步到远端」后到目标机核对 `backup.env`
+  内容与 0600 权限，且 crontab / 脚本 mtime 没变。
+

@@ -1,24 +1,28 @@
 import { useCallback, useEffect, useState } from 'react'
-import { CloudServerOutlined, DatabaseOutlined } from '@ant-design/icons'
+import { CloudServerOutlined, DatabaseOutlined, SettingOutlined } from '@ant-design/icons'
 import { App as AntApp, ConfigProvider, Layout, Menu } from 'antd'
 import type { MenuProps } from 'antd'
 import zhCN from 'antd/locale/zh_CN'
 
 import { BackupPage } from './features/backup/index.ts'
+import { ConfigPage } from './features/config/index.ts'
 import { ServersPage } from './features/servers/index.ts'
 import { RestartPanel } from './features/system/index.ts'
 import { ErrorBoundary } from './shared/ui/ErrorBoundary.tsx'
 
-type PageKey = 'servers' | 'backup'
+type PageKey = 'servers' | 'backup' | 'config'
 
 const NAV_ITEMS: MenuProps['items'] = [
   { key: 'servers', icon: <CloudServerOutlined />, label: '服务器管理' },
   { key: 'backup', icon: <DatabaseOutlined />, label: '备份能力部署' },
+  // 低频入口：放最后，不给主路径（服务器管理 / 备份部署）多一次点击。
+  { key: 'config', icon: <SettingOutlined />, label: '配置' },
 ]
 
 const PAGE_TITLE: Record<PageKey, string> = {
   servers: '服务器管理',
   backup: '备份能力部署',
+  config: '配置',
 }
 
 // 窄窗口放不下 200px 侧栏，退化成顶部横向菜单；只是布局变化，不增加一次点击。
@@ -108,6 +112,9 @@ export default function App() {
                 </div>
                 <div className="app-pane" hidden={page !== 'backup'}>
                   {visited.includes('backup') && <BackupPage />}
+                </div>
+                <div className="app-pane" hidden={page !== 'config'}>
+                  {visited.includes('config') && <ConfigPage />}
                 </div>
               </Layout.Content>
             </Layout>

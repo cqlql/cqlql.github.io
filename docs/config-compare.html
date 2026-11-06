@@ -1,0 +1,567 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>配置对比 · 交互原型</title>
+<style>
+:root{
+  --bg:#f4f6f9; --surface:#fff; --border:#e5e9f0; --text:#1f2329;
+  --muted:#6b7280; --primary:#1677ff; --primary-bg:#e6f4ff;
+  --warn-bg:#fff7e6; --warn:#d46b08; --ok-bg:#f6ffed; --ok:#389e0d;
+  --info-bg:#e6f4ff; --info:#0958d9; --err-bg:#fff2f0; --err:#cf1322;
+  --code-bg:#f6f8fa;
+}
+*{box-sizing:border-box}
+[hidden]{display:none !important}
+body{margin:0;background:var(--bg);color:var(--text);
+  font:14px/1.6 system-ui,"Segoe UI","Microsoft YaHei",sans-serif}
+code,.mono{font-family:ui-monospace,Consolas,"Courier New",monospace;font-size:12px}
+.shell{display:flex;min-height:100vh}
+.sider{width:200px;flex:none;background:#fff;border-right:1px solid var(--border);
+  position:sticky;top:0;height:100vh;padding:0 8px}
+.brand{font-weight:600;font-size:15px;padding:18px 12px 14px}
+.nav-item{display:flex;align-items:center;gap:9px;padding:9px 12px;margin:2px 0;
+  border-radius:8px;color:var(--muted);cursor:default;font-size:13px}
+.nav-item .dot{width:14px;height:14px;border:1.5px solid currentColor;border-radius:3px;flex:none}
+.nav-item.active{background:var(--primary-bg);color:var(--primary);font-weight:500}
+.main{flex:1;min-width:0}
+.toolbar{height:56px;background:#fff;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;padding:0 24px}
+.toolbar .title{font-size:14px;font-weight:500}
+.ghost{border:1px solid var(--border);background:#fff;border-radius:6px;
+  padding:5px 12px;color:var(--muted);font-size:12px;cursor:default}
+.content{padding:20px 24px 40px;max-width:1180px}
+.proto-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;
+  border:1px dashed #b7c9e2;background:#fbfdff;border-radius:10px;padding:10px 14px;margin-bottom:16px}
+.proto-bar .lead{font-size:12px;color:var(--info);margin-right:6px}
+.proto-bar .badge{margin-left:auto;font-size:11px;color:var(--muted);
+  background:#fff;border:1px solid var(--border);border-radius:20px;padding:2px 10px}
+.chip{border:1px solid var(--border);background:#fff;border-radius:20px;
+  padding:4px 12px;font-size:12px;color:var(--muted);cursor:pointer}
+.chip:hover{border-color:var(--primary);color:var(--primary)}
+.chip.active{background:var(--primary);border-color:var(--primary);color:#fff}
+.page-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:14px}
+.page-head h1{margin:0;font-size:20px;font-weight:600}
+.page-head .meta{color:var(--muted);font-size:13px;margin-top:2px}
+.tag{display:inline-flex;align-items:center;border-radius:4px;padding:1px 8px;
+  font-size:12px;white-space:nowrap;border:1px solid transparent}
+.tag.neutral{background:#f3f4f6;color:var(--muted);border-color:var(--border)}
+.tag.consistent{background:#f3f4f6;color:var(--muted);border-color:var(--border)}
+.tag.changed{background:var(--warn-bg);color:var(--warn);border-color:#ffd591}
+.tag.remote-only{background:var(--info-bg);color:var(--info);border-color:#91caff}
+.tag.local-only{background:var(--ok-bg);color:var(--ok);border-color:#b7eb8f}
+.tag.synced{background:var(--ok-bg);color:var(--ok);border-color:#b7eb8f}
+.tag.err{background:var(--err-bg);color:var(--err);border-color:#ffccc7}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;
+  padding:16px;margin-bottom:14px}
+.card h2{margin:0 0 12px;font-size:14px;font-weight:600}
+.seg{display:inline-flex;border:1px solid var(--border);border-radius:7px;overflow:hidden;background:#fff}
+.seg button{border:0;background:#fff;padding:6px 14px;font-size:13px;color:var(--muted);cursor:pointer}
+.seg button+button{border-left:1px solid var(--border)}
+.seg button.active{background:var(--primary-bg);color:var(--primary);font-weight:500}
+.kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px 24px}
+.kv .item{min-width:0}
+.kv .k{font-size:12px;color:var(--muted)}
+.kv .v{font-size:13px;word-break:break-all}
+.chain{margin-top:12px;padding:10px 12px;background:var(--code-bg);border-radius:8px;
+  font-size:12px;color:var(--muted)}
+.chain code{color:var(--text);margin-left:6px}
+.action-row{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+button.act{border:1px solid var(--border);background:#fff;border-radius:6px;
+  padding:7px 14px;font-size:13px;cursor:pointer;color:var(--text)}
+button.act:hover{border-color:var(--primary);color:var(--primary)}
+button.act.primary{background:var(--primary);border-color:var(--primary);color:#fff}
+button.act.primary:hover{opacity:.9;color:#fff}
+button.act.danger{background:#fff;border-color:#ffccc7;color:var(--err)}
+button.act:disabled{opacity:.45;cursor:not-allowed}
+.hintline{font-size:12px;color:var(--muted)}
+.fetch-state{margin-top:14px;padding:14px;border-radius:8px;background:var(--code-bg);
+  color:var(--muted);font-size:13px}
+.fetch-state.err{background:var(--err-bg);color:var(--err)}
+.summary{display:flex;flex-wrap:wrap;gap:10px;margin:14px 0}
+.summary .cell{flex:1;min-width:130px;border:1px solid var(--border);border-radius:8px;padding:10px 12px}
+.summary .num{font-size:20px;font-weight:600;line-height:1.2}
+.summary .lbl{font-size:12px;color:var(--muted)}
+.summary .cell.warn{background:var(--warn-bg);border-color:#ffd591}
+.summary .cell.warn .num{color:var(--warn)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--border);vertical-align:top}
+th{font-size:12px;color:var(--muted);font-weight:500;background:#fafbfc;position:sticky;top:0}
+tr.group td{background:#fafbfc;color:var(--muted);font-size:12px;padding:6px 10px}
+tr.changed-row{background:#fffcf5}
+tr.synced-row{background:#fafff6}
+td.pick{width:36px}
+td.status{width:120px}
+.field-name{font-size:13px}
+.field-key{display:block;font-size:11px;color:var(--muted);margin-top:1px}
+.val code{background:var(--code-bg);padding:2px 6px;border-radius:4px;word-break:break-all}
+.val .secret{color:var(--warn);font-size:12px}
+.val .empty{color:#bbb}
+.table-wrap{border:1px solid var(--border);border-radius:8px;overflow-x:auto}
+.sync-bar{display:flex;flex-wrap:wrap;align-items:center;gap:12px;
+  border-top:1px solid var(--border);padding-top:14px;margin-top:14px}
+.remote-status{display:flex;flex-wrap:wrap;align-items:center;gap:10px;
+  margin:14px 0 4px;padding:9px 12px;background:var(--code-bg);
+  border-radius:8px;font-size:12px;color:var(--muted)}
+.remote-status.err{background:var(--err-bg);color:var(--err)}
+.remote-status .act{padding:3px 10px;font-size:12px}
+.edit-group{margin-top:16px}
+.edit-group h4{margin:0 0 8px;font-size:12px;font-weight:500;color:var(--muted)}
+.edit-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(285px,1fr));gap:12px 18px}
+.edit-field{display:flex;flex-direction:column;gap:4px;font-size:13px;min-width:0}
+.edit-label{display:flex;justify-content:space-between;gap:8px;font-size:12px;color:var(--muted)}
+.edit-label small{font-size:11px;opacity:.75}
+.edit-field input{width:100%;border:1px solid var(--border);border-radius:6px;
+  padding:6px 9px;font-size:13px;font-family:inherit;color:var(--text);background:#fff}
+.edit-field input:focus{outline:none;border-color:var(--primary)}
+.edit-field input::placeholder{color:#b0b6bf}
+.remote-line{display:flex;flex-wrap:wrap;align-items:center;gap:6px;
+  min-height:20px;font-size:11px;color:var(--muted)}
+.remote-line code{background:var(--code-bg);padding:1px 5px;border-radius:3px}
+.remote-line .tag{font-size:11px;padding:0 6px}
+.remote-line .secret{color:var(--warn)}
+.extra-box{margin-top:16px;border:1px dashed #b7c9e2;border-radius:8px;
+  padding:10px 12px;background:#fbfdff;font-size:12px;color:var(--muted)}
+.extra-box summary{cursor:pointer;color:var(--info)}
+.extra-box ul{margin:8px 0 0;padding-left:18px}
+.extra-box code{background:var(--code-bg);padding:1px 5px;border-radius:3px}
+.overwrite-note{margin:8px 0 0;color:var(--warn);font-size:12px}
+.footnote{font-size:12px;color:var(--muted);line-height:1.8;margin-top:4px}
+.modal-mask{position:absolute;inset:0;background:rgba(0,0,0,.32);
+  display:flex;align-items:flex-start;justify-content:center;padding-top:14vh;z-index:20}
+.modal{width:440px;max-width:calc(100vw - 32px);background:#fff;border-radius:10px;padding:18px}
+.modal h3{margin:0 0 10px;font-size:15px}
+.modal .warn{background:var(--warn-bg);border:1px solid #ffd591;color:var(--warn);
+  border-radius:8px;padding:10px 12px;font-size:12px;margin-bottom:12px}
+.modal input{width:100%;border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:13px}
+.modal .foot{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
+.toast{position:fixed;right:24px;top:70px;z-index:30;background:#fff;
+  border:1px solid #b7eb8f;border-left:4px solid var(--ok);border-radius:8px;
+  padding:10px 16px;font-size:13px;box-shadow:0 4px 16px rgba(0,0,0,.08)}
+@media (max-width:860px){
+  .shell{display:block}.sider{width:auto;height:auto;position:static;display:flex;
+    align-items:center;gap:4px;padding:6px 10px}.brand{padding:6px 8px}
+  .nav-item{padding:6px 8px}.toolbar{padding:0 12px}.content{padding:14px}
+}
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="sider">
+    <div class="brand">PassUp 运维</div>
+    <div class="nav-item"><span class="dot"></span>服务器管理</div>
+    <div class="nav-item"><span class="dot"></span>备份能力部署</div>
+    <div class="nav-item active"><span class="dot"></span>配置</div>
+  </aside>
+  <main class="main">
+    <header class="toolbar">
+      <span class="title">配置 · 远端对比</span>
+      <button class="ghost">重启</button>
+    </header>
+    <div class="content">
+      <div class="proto-bar">
+        <span class="lead">原型演示 · 切换场景：</span>
+        <button class="chip" data-scene="diff">本机已改 · 待同步</button>
+        <button class="chip" data-scene="same">两端一致</button>
+        <button class="chip" data-scene="missing">远端未安装</button>
+        <button class="chip" data-scene="fail">抓取失败</button>
+        <span class="badge">静态数据 · 不连真实远端</span>
+      </div>
+
+      <div class="page-head">
+        <div>
+          <h1>编辑本机配置 · 远端值对照</h1>
+          <div class="meta">每个输入框下方就地显示远端现值；抓取只读，不点同步就不会改远端</div>
+        </div>
+        <span class="tag neutral" id="fetchTag">只读对比 · 不改远端</span>
+      </div>
+
+      <div class="card">
+        <h2>当前目标</h2>
+        <div class="kv">
+          <div class="item"><div class="k">目标机</div><div class="v mono">k1 · cql@172.16.0.211:22</div></div>
+          <div class="item"><div class="k">远端文件</div><div class="v mono" id="remotePath">—</div></div>
+          <div class="item"><div class="k">本机文件</div><div class="v mono" id="localPath">—</div></div>
+          <div class="item"><div class="k">抓取状态</div><div class="v" id="fetchStatus">尚未抓取</div></div>
+        </div>
+        <div class="chain">
+          执行方式（只读推导，不是可配项）
+          <code>cql 登录 → 免密 sudo 提权 → 脚本以 root 执行</code>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>配置对比</h2>
+        <div class="seg" id="viewSeg">
+          <button data-view="edit" class="active">编辑本机配置</button>
+          <button data-view="compare">对比远端配置</button>
+        </div>
+        <div class="action-row" style="margin-top:14px">
+          <div class="seg" id="compSeg">
+            <button data-component="pg" class="active">PostgreSQL</button>
+            <button data-component="minio">MinIO</button>
+          </div>
+          <button class="act primary" id="btnFetch">抓取远端配置（只读）</button>
+          <span class="hintline">只读取远端 backup.env，不写文件、不跑脚本</span>
+        </div>
+        <div class="fetch-state" id="fetchState">点「抓取远端配置」查看远端值。</div>
+        <div id="editArea" hidden>
+          <div class="remote-status" id="editStatus"></div>
+          <div id="editForm"></div>
+          <div class="extra-box" id="extraBox" hidden></div>
+          <div class="sync-bar">
+            <button class="act danger" id="btnSyncEdit">同步改动到远端</button>
+            <span class="hintline" id="editSyncHint">—</span>
+          </div>
+        </div>
+        <div id="compareArea" hidden>
+          <div class="summary" id="summary"></div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th></th><th>配置项</th><th>远端现值</th><th>本机值</th><th>状态</th></tr></thead>
+              <tbody id="tbody"></tbody>
+            </table>
+          </div>
+          <div class="sync-bar">
+            <button class="act danger" id="btnSync">同步选中项到远端</button>
+            <span class="hintline" id="selectedHint">已选 0 项</span>
+            <span class="hintline">同步只更新远端 backup.env（0600），不动脚本与 crontab；需二次确认。</span>
+          </div>
+        </div>
+      </div>
+
+      <p class="footnote">
+        边界：凭证字段（含 KEY / SECRET / PASSWORD / TOKEN）永不回显明文；
+        抓取是只读动作，失败时如实显示原因、不猜一个值；「同步」是独立的远端写操作，
+        必须显式点击 + 输 yes。远端执行身份是 user + sudo.mode 推导的结果，页面只读展示。
+      </p>
+    </div>
+  </main>
+</div>
+
+<div class="modal-mask" id="modal" hidden>
+  <div class="modal">
+    <h3>确认同步配置到远端</h3>
+    <div class="warn" id="modalHint">这是远端写操作。</div>
+    <p class="hintline">请输入 <code>yes</code> 确认：</p>
+    <input id="confirmInput" autocomplete="off" placeholder="yes">
+    <div class="foot">
+      <button class="act" id="btnCancel">取消</button>
+      <button class="act primary" id="btnConfirm" disabled>确认同步</button>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+const SECRET = /PASSWORD|PASSWD|SECRET|TOKEN|KEY/;
+
+const PG_REMOTE = {
+  PG_CONTAINER_NAME:'postgres', PG_DB_USER:'postgres', PG_DB_NAME:'pass_up_dev',
+  PG_SSH_HOST:'127.0.0.1', PG_SSH_PORT:'22', PG_SSH_USER:'root',
+  PG_SSH_KEY:'/root/.ssh/id_passup_test',
+  PG_SSH_OPTS:'-o BatchMode=yes -o ConnectTimeout=10',
+  PG_BACKUP_ROOT:'/data/backups/postgres', PG_BACKUP_LOG_DIR:'/var/log/pg-backup',
+  PG_LOCAL_RETENTION_DAYS:'7',
+  CRON_SCHEDULE_BACKUP:'0 3 * * *', CRON_SCHEDULE_HEALTH:'0 9 * * *'
+};
+const PG_LOCAL = Object.assign({}, PG_REMOTE, {
+  PG_SSH_HOST:'172.16.0.222', PG_SSH_USER:'backup',
+  PG_SSH_KEY:'/home/cql/.ssh/id_passup',
+  PG_RESTORE_JOBS:'4'
+});
+delete PG_LOCAL.PG_LOCAL_RETENTION_DAYS;
+
+const MINIO_REMOTE = {
+  SRC_URL:'http://127.0.0.1:8007', SRC_KEY:'admin', SRC_SECRET:'12345678',
+  SRC_BUCKETS:'passup-public', DEST_URL:'http://127.0.0.1:8007',
+  DEST_KEY:'admin', DEST_SECRET:'12345678', DEST_BUCKET_PREFIX:'passup-backup-',
+  CRON_SCHEDULE_BACKUP:'0 2 * * *', CRON_SCHEDULE_HEALTH:'0 8 * * *'
+};
+const MINIO_LOCAL = Object.assign({}, MINIO_REMOTE, {
+  SRC_URL:'http://172.16.0.222:8007', DEST_URL:'http://172.16.0.222:8007'
+});
+
+const META = {
+  pg:{
+    remotePath:'/opt/passup-backup/postgres/backup.env',
+    localPath:'C:\\Users\\cql13\\AppData\\Roaming\\pass-up\\backup\\postgres.env',
+    labels:{
+      PG_CONTAINER_NAME:'主服务器 PG 容器名', PG_DB_USER:'数据库用户', PG_DB_NAME:'业务库名',
+      PG_SSH_HOST:'主服务器地址', PG_SSH_PORT:'SSH 端口', PG_SSH_USER:'SSH 登录用户',
+      PG_SSH_KEY:'备份端私钥路径', PG_SSH_OPTS:'SSH 额外选项',
+      PG_BACKUP_ROOT:'备份根目录', PG_BACKUP_LOG_DIR:'日志目录',
+      PG_LOCAL_RETENTION_DAYS:'本地保留天数', PG_RESTORE_JOBS:'恢复并发数',
+      CRON_SCHEDULE_BACKUP:'备份定时', CRON_SCHEDULE_HEALTH:'巡检定时'
+    },
+    groups:[
+      {name:'主服务器', keys:['PG_CONTAINER_NAME','PG_DB_USER','PG_DB_NAME']},
+      {name:'SSH 连接（备份端 → 主服务器）', keys:['PG_SSH_HOST','PG_SSH_PORT','PG_SSH_USER','PG_SSH_KEY','PG_SSH_OPTS']},
+      {name:'备份端', keys:['PG_BACKUP_ROOT','PG_BACKUP_LOG_DIR','PG_LOCAL_RETENTION_DAYS','PG_RESTORE_JOBS']},
+      {name:'定时任务', keys:['CRON_SCHEDULE_BACKUP','CRON_SCHEDULE_HEALTH']}
+    ]
+  },
+  minio:{
+    remotePath:'/opt/passup-backup/minio/backup.env',
+    localPath:'C:\\Users\\cql13\\AppData\\Roaming\\pass-up\\backup\\minio.env',
+    labels:{
+      SRC_URL:'源 MinIO 地址', SRC_KEY:'源端 Access Key', SRC_SECRET:'源端 Secret Key',
+      SRC_BUCKETS:'源桶列表', DEST_URL:'目标 MinIO 地址', DEST_KEY:'目标 Access Key',
+      DEST_SECRET:'目标 Secret Key', DEST_BUCKET_PREFIX:'备份桶前缀',
+      CRON_SCHEDULE_BACKUP:'备份定时', CRON_SCHEDULE_HEALTH:'巡检定时'
+    },
+    groups:[
+      {name:'源端', keys:['SRC_URL','SRC_KEY','SRC_SECRET','SRC_BUCKETS']},
+      {name:'备份端', keys:['DEST_URL','DEST_KEY','DEST_SECRET','DEST_BUCKET_PREFIX']},
+      {name:'定时任务', keys:['CRON_SCHEDULE_BACKUP','CRON_SCHEDULE_HEALTH']}
+    ]
+  }
+};
+
+const SCENES = {
+  diff:{kind:'ok', time:'11:35:02', pg:{remote:PG_REMOTE,local:PG_LOCAL}, minio:{remote:MINIO_REMOTE,local:MINIO_LOCAL}},
+  same:{kind:'ok', time:'11:35:02', pg:{remote:PG_REMOTE,local:PG_REMOTE}, minio:{remote:MINIO_REMOTE,local:MINIO_REMOTE}},
+  missing:{kind:'missing', message:'远端目录不存在：/opt/passup-backup/postgres/backup.env（这台机还没安装备份能力，先跑一次安装）'},
+  fail:{kind:'fail', message:'SSH 连接失败（exit 255）：ssh: connect to host 172.16.0.211 port 22: Connection timed out'}
+};
+
+const state = {
+  scene:'diff', component:'pg', view:'edit', fetched:false, loading:false,
+  remote:null, local:null, selected:new Set(), synced:new Set(), result:'ok'
+};
+const q = new URLSearchParams(location.search).get('scene');
+if (q && SCENES[q]) state.scene = q;
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const isSecret = (k) => SECRET.test(k);
+const mask = (v) => v.length > 9 ? v.slice(0,3) + '…' + v.slice(-3) : '••••••';
+
+function valueCell(k, v){
+  if (v === undefined) return '<span class="empty">—</span>';
+  if (isSecret(k)) return '<span class="secret">已配置 · ' + esc(mask(v)) + '</span>';
+  return '<code>' + esc(v) + '</code>';
+}
+function statusOf(k){
+  if (state.synced.has(k)) return {cls:'synced', text:'已同步'};
+  const r = (state.remote || {})[k], l = (state.local || {})[k];
+  if (r === undefined) return {cls:'local-only', text:'仅本机有'};
+  if (l === undefined) return {cls:'remote-only', text:'仅远端有'};
+  if (r === l) return {cls:'consistent', text:'一致'};
+  return {cls:'changed', text:isSecret(k) ? '凭证已变更' : '本机将覆盖'};
+}
+function allKeys(){
+  const meta = META[state.component];
+  const R = state.remote || {}, L = state.local || {};
+  const known = new Set(meta.groups.flatMap(g => g.keys));
+  const extra = [...new Set([...Object.keys(R), ...Object.keys(L)])]
+    .filter(k => !known.has(k)).sort();
+  const groups = meta.groups.map(g => ({name:g.name, keys:g.keys.filter(k => R[k] !== undefined || L[k] !== undefined)}));
+  if (extra.length) groups.push({name:'其它', keys:extra});
+  return groups;
+}
+function diffKeys(){
+  return [...new Set([...Object.keys(state.remote || {}), ...Object.keys(state.local || {})])]
+    .filter(k => statusOf(k).cls !== 'consistent');
+}
+function cellHtml(k){
+  const meta = META[state.component];
+  const st = statusOf(k);
+  const checked = state.selected.has(k) ? 'checked' : '';
+  const disabled = st.cls === 'consistent' || st.cls === 'synced' ? 'disabled' : '';
+  const rowCls = st.cls === 'changed' ? 'changed-row' : (st.cls === 'synced' ? 'synced-row' : '');
+  return '<tr class="' + rowCls + '">' +
+    '<td class="pick"><input type="checkbox" data-key="' + esc(k) + '" ' + checked + ' ' + disabled + '></td>' +
+    '<td><span class="field-name">' + esc(meta.labels[k] || k) + '</span><span class="field-key mono">' + esc(k) + '</span></td>' +
+    '<td class="val">' + valueCell(k, state.remote[k]) + '</td>' +
+    '<td class="val">' + valueCell(k, state.local[k]) + '</td>' +
+    '<td class="status"><span class="tag ' + st.cls + '">' + st.text + '</span></td></tr>';
+}
+function render(){
+  const meta = META[state.component];
+  $('remotePath').textContent = meta.remotePath;
+  $('localPath').textContent = meta.localPath;
+  document.querySelectorAll('[data-scene]').forEach(b => b.classList.toggle('active', b.dataset.scene === state.scene));
+  document.querySelectorAll('[data-component]').forEach(b => b.classList.toggle('active', b.dataset.component === state.component));
+  document.querySelectorAll('[data-view]').forEach(b => b.classList.toggle('active', b.dataset.view === state.view));
+
+  const ok = state.fetched && state.result === 'ok';
+  const tag = $('fetchTag');
+  tag.className = 'tag ' + (!state.fetched || ok ? 'neutral' : 'err');
+  tag.textContent = state.loading ? '正在读取远端…' : (ok ? '只读对比 · 不改远端' : (state.fetched ? '远端值不可用' : '只读对比 · 不改远端'));
+  $('fetchStatus').textContent = state.loading ? '正在读取远端 backup.env …'
+    : (ok ? '已读取 · 11:35:02' : (state.fetched ? '读取失败' : '尚未抓取'));
+  $('btnFetch').disabled = state.loading;
+
+  const fs = $('fetchState');
+  const editMode = state.view === 'edit';
+  if (state.loading || !state.fetched){
+    fs.hidden = false; fs.className = 'fetch-state';
+    fs.textContent = state.loading ? '正在读取远端 backup.env（只读）…' : '点「抓取远端配置」读取远端值。';
+    $('editArea').hidden = true; $('compareArea').hidden = true; return;
+  }
+  if (!ok){
+    // 抓不到远端，本机配置照常可编辑；只是不显示远端行，也不重复刷 14 条错误。
+    if (editMode){
+      fs.hidden = true;
+      $('editArea').hidden = false; $('compareArea').hidden = true;
+      renderEdit(false);
+    } else {
+      fs.hidden = false; fs.className = 'fetch-state err';
+      fs.textContent = SCENES[state.scene].message;
+      $('editArea').hidden = true; $('compareArea').hidden = true;
+    }
+    return;
+  }
+  fs.hidden = true;
+  if (editMode){
+    $('editArea').hidden = false; $('compareArea').hidden = true;
+    renderEdit(true);
+  } else {
+    $('editArea').hidden = true; $('compareArea').hidden = false;
+    renderCompare();
+  }
+}
+function renderCompare(){
+  const keys = diffKeys();
+  const oneSide = keys.filter(k => ['remote-only','local-only'].includes(statusOf(k).cls)).length;
+  const synced = state.synced.size;
+  const total = new Set([...Object.keys(state.remote), ...Object.keys(state.local)]).size;
+  $('summary').innerHTML =
+    '<div class="cell"><div class="num">' + total + '</div><div class="lbl">对比项</div></div>' +
+    '<div class="cell ' + (keys.length - synced > 0 ? 'warn' : '') + '"><div class="num">' + Math.max(0, keys.length - synced) + '</div><div class="lbl">待同步差异</div></div>' +
+    '<div class="cell"><div class="num">' + oneSide + '</div><div class="lbl">仅一端有</div></div>' +
+    '<div class="cell"><div class="num">' + synced + '</div><div class="lbl">本次已同步</div></div>';
+  $('tbody').innerHTML = allKeys().map(g =>
+    '<tr class="group"><td colspan="5">' + esc(g.name) + '</td></tr>' +
+    g.keys.map(cellHtml).join('')
+  ).join('');
+  const n = state.selected.size;
+  $('selectedHint').textContent = '已选 ' + n + ' 项';
+  $('btnSync').disabled = n === 0;
+  $('btnSync').textContent = '同步选中项到远端' + (n ? '（' + n + ' 项）' : '');
+}
+function editFieldHtml(k, hasRemote){
+  const meta = META[state.component];
+  const secret = isSecret(k);
+  const value = state.local[k] ?? '';
+  let line = '';
+  if (hasRemote){
+    const rv = state.remote[k];
+    const rvText = rv === undefined ? '<span class="empty">未配置</span>' :
+      (secret ? '<span class="secret">已配置 · ' + esc(mask(rv)) + '</span>' : '<code>' + esc(rv) + '</code>');
+    const st = statusOf(k);
+    const tagCls = st.cls === 'consistent' ? 'consistent' : (st.cls === 'synced' ? 'synced' : 'changed');
+    const tagText = st.cls === 'consistent' ? '一致' : (st.cls === 'synced' ? '已同步' : (secret ? '凭证可能已变更' : '不同于本机'));
+    line = '<span class="remote-line"><span>远端：</span>' + rvText +
+      '<span class="tag ' + tagCls + '">' + tagText + '</span></span>';
+  }
+  return '<label class="edit-field">' +
+    '<span class="edit-label"><span>' + esc(meta.labels[k] || k) + '</span><small class="mono">' + esc(k) + '</small></span>' +
+    '<input data-local-key="' + esc(k) + '" value="' + esc(secret ? '' : value) + '" placeholder="' +
+      (secret ? '已配置，留空保持不变' : '未配置') + '" autocomplete="off">' + line + '</label>';
+}
+function renderEdit(hasRemote){
+  const meta = META[state.component];
+  const st = $('editStatus');
+  st.className = 'remote-status' + (hasRemote ? '' : ' err');
+  st.innerHTML = (hasRemote
+      ? '<span>远端值读取于 11:35:02 · 只读抓取，不写远端</span>'
+      : '<span>远端值暂不可用：' + esc(SCENES[state.scene].message) + '（本机配置仍可编辑）</span>') +
+    '<button class="act" id="btnRefetch">重新读取</button>';
+
+  $('editForm').innerHTML = allKeys().map(g => {
+    const keys = g.keys.filter(k => state.local[k] !== undefined);
+    if (!keys.length) return '';
+    return '<div class="edit-group"><h4>' + esc(g.name) + '</h4><div class="edit-grid">' +
+      keys.map(k => editFieldHtml(k, hasRemote)).join('') + '</div></div>';
+  }).join('');
+
+  // 远端独有的键在「编辑本机配置」里没有对应输入框，只能单独收在折叠区。
+  const extra = Object.keys(state.remote || {}).filter(k => state.local[k] === undefined);
+  const box = $('extraBox');
+  box.hidden = extra.length === 0 || !hasRemote;
+  if (!box.hidden){
+    box.innerHTML = '<details><summary>远端还有 ' + extra.length + ' 项本机没有（表单里没有对应输入框）</summary>' +
+      '<p class="overwrite-note">同步是整份覆盖：这些项会随同步从远端消失。要保留就先把它们加到本机配置。</p><ul>' +
+      extra.map(k => '<li><code>' + esc(k) + '</code> = ' +
+        (isSecret(k) ? '<span class="secret">已配置 · ' + esc(mask(state.remote[k])) + '</span>'
+                     : '<code>' + esc(state.remote[k]) + '</code>') + '</li>').join('') + '</ul></details>';
+  }
+  const n = hasRemote ? diffKeys().filter(k => !state.synced.has(k)).length : 0;
+  const extraNote = hasRemote && extra.length ? '（含 ' + extra.length + ' 项远端独有，同步后会消失）' : '';
+  $('editSyncHint').textContent = !hasRemote ? '远端值不可用，暂时无法判断差异；本机配置仍可保存。'
+    : (n ? n + ' 项与远端不一致' + extraNote + '；同步只更新远端 backup.env，不动脚本与 crontab。'
+         : '本机与远端一致，无需同步。');
+  $('btnSyncEdit').disabled = n === 0 || !hasRemote;
+  $('btnSyncEdit').textContent = '同步改动到远端' + (n ? '（' + n + ' 项）' : '');
+}
+function fetchRemote(){
+  state.loading = true; render();
+  setTimeout(() => {
+    const sc = SCENES[state.scene];
+    state.loading = false; state.fetched = true; state.result = sc.kind;
+    if (sc.kind === 'ok'){
+      state.remote = Object.assign({}, sc[state.component].remote);
+      state.local = Object.assign({}, sc[state.component].local);
+    } else {
+      // 抓取失败也要能编辑本机配置：远端值为 null，本机值照常可改。
+      state.remote = null;
+      state.local = Object.assign({}, SCENES.diff[state.component].local);
+    }
+    state.selected = new Set(sc.kind === 'ok' ? diffKeys() : []);
+    state.synced = new Set();
+    render();
+  }, 550);
+}
+function toast(msg){
+  const t = $('toast'); t.textContent = msg; t.hidden = false;
+  clearTimeout(toast.timer); toast.timer = setTimeout(() => { t.hidden = true; }, 3800);
+}
+
+document.addEventListener('click', (e) => {
+  const scene = e.target.closest('[data-scene]');
+  if (scene){ state.scene = scene.dataset.scene; fetchRemote(); return; }
+  const comp = e.target.closest('[data-component]');
+  if (comp){ state.component = comp.dataset.component; fetchRemote(); return; }
+  const view = e.target.closest('[data-view]');
+  if (view){ state.view = view.dataset.view; render(); return; }
+  if (e.target.id === 'btnFetch' || e.target.id === 'btnRefetch'){ fetchRemote(); return; }
+  if (e.target.id === 'btnSync' || e.target.id === 'btnSyncEdit'){
+    const n = state.view === 'edit' ? diffKeys().filter(k => !state.synced.has(k)).length : state.selected.size;
+    $('modalHint').textContent = '将把 ' + n + ' 项本机值写入 k1 的远端 backup.env。这是远端写操作，脚本与定时任务不会改动。';
+    $('confirmInput').value = ''; $('btnConfirm').disabled = true;
+    $('modal').hidden = false; return;
+  }
+  if (e.target.id === 'btnCancel' || e.target.id === 'modal'){ $('modal').hidden = true; return; }
+  if (e.target.id === 'btnConfirm'){
+    state.synced = new Set(state.view === 'edit' ? diffKeys() : state.selected);
+    state.selected = new Set();
+    $('modal').hidden = true;
+    toast('已同步 ' + state.synced.size + ' 项到远端 backup.env（脚本与 crontab 未改动）');
+    render(); return;
+  }
+});
+document.addEventListener('change', (e) => {
+  if (e.target.matches('input[data-key]')){
+    const k = e.target.dataset.key;
+    if (e.target.checked) state.selected.add(k); else state.selected.delete(k);
+    render(); return;
+  }
+  if (e.target.matches('input[data-local-key]')){
+    const k = e.target.dataset.localKey;
+    const v = e.target.value.trim();
+    if (v !== '') state.local[k] = v; // 空值 = 保持不变（凭证字段语义）
+    state.synced.delete(k);
+    render();
+  }
+});
+$('confirmInput').addEventListener('input', (e) => {
+  $('btnConfirm').disabled = e.target.value !== 'yes';
+});
+render();
+fetchRemote();
+</script>
+</body>
+</html>

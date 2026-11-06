@@ -1170,6 +1170,10 @@ func CmdBackup(args []string, embedded fs.FS) int {
 		return runBackupVerify(args[1:])
 	case "env":
 		return runBackupEnv(args[1:], embedded)
+	case "sync-env":
+		return runBackupSyncEnv(args[1:])
+	case "compare-env":
+		return runBackupCompareEnv(args[1:])
 	case "help", "-h", "--help":
 		backupUsage()
 		return 0
@@ -1229,7 +1233,11 @@ func backupUsage() {
 	fmt.Print(`用法:
   ops backup deploy [pg|minio|all] --server <name> [--dry-run] [--force] [--run-now] [--install-deps]
   ops backup verify [pg|minio|all] --server <name>
-  ops backup env    [pg|minio|all]        生成本机配置模板（已存在不覆盖）
+  ops backup env       [pg|minio|all]  生成本机配置模板（已存在不覆盖）
+  ops backup sync-env  [pg|minio|all] --server <name>
+                                       只把本机填好的配置推到远端 backup.env（不重装脚本）
+  ops backup compare-env [pg|minio|all] --server <name>
+                                       只读抓取远端 backup.env，输出脱敏后的键值（供界面对照）
 
 目标机只从服务器清单（servers.json）里按 name 选择。
 脚本随二进制分发（deploy/backup 已嵌入）；只有调试时才用

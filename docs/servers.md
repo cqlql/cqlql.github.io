@@ -109,7 +109,11 @@ ops ui [--port 7788]
 - 密码表单：`type=password`、`autocomplete=off`；**只在本次请求内存中存在**，
   提交后立即清空，不写日志、不落配置；页面回显只显示「已配置 / 需要配置 / 连接失败」。
 - 仅当「SSH 可达 + 尚无免密 sudo + 清单无 `sudo.password`」时才弹出密码输入框。
-- 界面**不提供**新增/删除服务器（P0），只显示 `PASS_UP_OPS_SERVERS_FILE` 路径。
+- 界面**不提供**新增/删除服务器；「配置」页可编辑已有条目的
+  `host / port / user / role / note / sudo.mode / key / sudo.password`，`name` 是主键不可改。
+  每次保存要输 `yes`，服务端按 `shared.LoadServers` 全量校验、0600 + `.bak` 原子替换，
+  改了 `user` / `sudo.mode` 会提示重新执行「一键免密 sudo」（drop-in 按用户名写）。
+  见 [ui.md](ui.md) §12。清单路径仍可点开编辑器。
 
 检查结果只写同目录的 `servers.state.json`（`600`，纯缓存、可随时删除）；没检查过显示 `—`，
 不假装成功。
