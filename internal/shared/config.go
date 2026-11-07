@@ -216,7 +216,7 @@ func CmdInit(args []string) int {
 			fmt.Fprintf(os.Stderr, "ERROR: 写入配置失败：%v\n", err)
 			return 1
 		}
-		fmt.Printf("已生成配置：%s\n模板里的键留空即用默认路径，说明见 docs/config.md。\n", path)
+		fmt.Printf("已生成配置：%s\nops.env 的路径键留空由程序推导默认值；backup.env 不适用（留空不会落盘、预检会判未配置），说明见 docs/config.md。\n", path)
 	}
 
 	servers := defaultServersPath()

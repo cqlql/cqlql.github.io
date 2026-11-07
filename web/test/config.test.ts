@@ -87,16 +87,19 @@ test('PG_SSH_OPTS 未配置时提示脚本内置默认值（含 accept-new），
   // 提示只改变 placeholder：envInitial 依旧拿到空值，保存时不会被误写。
   assert.equal(envInitial([opts]).PG_SSH_OPTS, '')
   assert.equal(envInputPlaceholder({ ...opts, configured: true }), '')
-  assert.equal(envInputPlaceholder({ ...opts, key: 'PG_SSH_HOST' }), '未配置')
+  assert.equal(envInputPlaceholder({ ...opts, key: 'PG_SSH_HOST' }), '未配置，需手工填写')
 })
 
-test('未配置字段用灰字提示 schema 默认值，已配置字段不提示', () => {
+test('灰字只说「未写入配置」+ 建议值，不承诺留空即可用', () => {
   const root: EnvField = {
     key: 'PG_BACKUP_ROOT', label: '备份根目录', group: '备份端',
     value: '', secret: false, configured: false, default: '/data/backups/postgres',
   }
-  assert.equal(envInputPlaceholder(root), '留空即用默认：/data/backups/postgres')
+  assert.equal(envInputPlaceholder(root), '未写入配置（默认值：/data/backups/postgres）')
   assert.equal(envInputPlaceholder({ ...root, configured: true }), '')
+  // 🔴 2026-11-07 真机踩坑：原文案「留空即用默认 / 留空即可生效」让人以为不填也能过
+  // 部署预检，实际 preflight 按「backup.env 有没有显式这一行」判定。见 docs/ui.md §12.7。
+  assert.doesNotMatch(envInputPlaceholder(root), /留空即用|即可生效|不必.*填写/)
   // 提示只改 placeholder：表单初值仍是空的，保存时不会被误写。
   assert.equal(envInitial([root]).PG_BACKUP_ROOT, '')
 })
@@ -106,10 +109,10 @@ test('凭证、必填项与「留空即关闭」的开关都不显示默认值',
     key: 'MINIO_CONTAINER_NAME', label: 'MinIO 容器名', group: '备份端',
     value: '', secret: false, configured: false, default: '',
   }
-  assert.equal(envInputPlaceholder(base), '未配置')
-  assert.equal(envInputPlaceholder({ ...base, key: 'PG_SSH_HOST' }), '未配置')
+  assert.equal(envInputPlaceholder(base), '未配置，需手工填写')
+  assert.equal(envInputPlaceholder({ ...base, key: 'PG_SSH_HOST' }), '未配置，需手工填写')
   // 就算旧数据/误配给凭证塞了 default，也不许显示或填入。
-  assert.equal(envInputPlaceholder({ ...base, key: 'SRC_SECRET', secret: true, default: 'leak' }), '未配置')
+  assert.equal(envInputPlaceholder({ ...base, key: 'SRC_SECRET', secret: true, default: 'leak' }), '未配置，需手工填写')
 })
 
 test('旧 exe 未下发 default 时归一化补空串，凭证强制清空', () => {
@@ -123,7 +126,7 @@ test('旧 exe 未下发 default 时归一化补空串，凭证强制清空', () 
   const got = normalizeConfigView(raw)
   assert.equal(got.envs[0].fields[0].default, '')
   assert.equal(got.envs[0].fields[1].default, '')
-  assert.equal(envInputPlaceholder(got.envs[0].fields[1]), '未配置')
+  assert.equal(envInputPlaceholder(got.envs[0].fields[1]), '未配置，需手工填写')
 })
 
 test('一键填入只动「有默认值的非凭证空字段」，不覆盖人填的值', () => {
@@ -157,9 +160,12 @@ test('一键填入只动「有默认值的非凭证空字段」，不覆盖人�
   assert.equal(typed?.PG_BACKUP_LOG_DIR, '/var/log/pg-backup')
 })
 
-test('确认文案点明「保存本机 ≠ 同步远端」', () => {
+test('确认文案点明「保存本机 ≠ 同步远端」，并提醒留空过不了预检', () => {
+  const hint = confirmHint('env', { component: 'pg', count: 2 })
   assert.match(confirmTitle('env'), /本机/)
-  assert.match(confirmHint('env', { component: 'pg', count: 2 }), /远端 backup.env 不会变/)
+  assert.match(hint, /远端 backup.env 不会变/)
+  assert.match(hint, /留空的字段不会写入文件/)
+  assert.match(hint, /预检/)
   assert.match(confirmHint('sync', { component: 'minio', server: 'k1' }), /远端写操作/)
   assert.match(confirmHint('servers', { server: 'k1', count: 1 }), /一键免密 sudo/)
 })

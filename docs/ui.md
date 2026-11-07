@@ -723,9 +723,9 @@ ops backup sync-env [pg|minio|all] --server <name>
 [config.md](config.md) §4 与 §12.4。
 
 **前端**：`normalizeConfigView` 对旧 exe 缺字段补 `''`、凭证强制清空（旧 dist / 旧 exe
-混跑不白屏）；未配置输入框的灰字改成「留空即用默认：X」；新增
-`fillableDefaults()` 与「填入推荐默认值」按钮，**只改表单**，仍要走
-「保存本机配置」+ `confirm=="yes"` 才落盘。已配置、人已填过、凭证、无默认值的项
+混跑不白屏）；未配置输入框的灰字改成「未写入配置（默认值：X）」——只陈述状态、
+**不承诺留空可用**；新增 `fillableDefaults()` 与「填入推荐默认值」按钮，**只改表单**，
+仍要走「保存本机配置」+ `confirm=="yes"` 才落盘。已配置、人已填过、凭证、无默认值的项
 一律不动；没有可填项时按钮置灰。
 
 **为什么不「打开页面就自动写满文件」**：① 空值是有语义的，写满会静默改掉
@@ -735,6 +735,21 @@ ops backup sync-env [pg|minio|all] --server <name>
 反过来，远端 `preflight_pg.sh` 的 `check_required_var` 要求 `backup.env` 里真有
 `PG_BACKUP_ROOT` 等键，所以显式「一键填入 + 保存」让本机配置更接近安装期的
 `backup.env.example`，同步到远端后反而少一处漂移；这是人的显式选择，不是页面偷偷写。
+
+**2026-11-07 晚文案修正（真机踩坑）**：第一版灰字写「留空即用默认：X」，底部说明还写
+「留空即可生效，不必逐项填写」。装 k4 时被截图打脸：远端 `backup.env` 没写
+`PG_BACKUP_ROOT`，预检照报「未配置」，`install.sh` 退出码 1。默认值确实存在，但那是
+**备份脚本运行时**的 `${KEY:-默认值}` 兜底；预检是**配置完整性**门禁，按「文件里有没有
+显式这一行」判定，两者判据不同，页面却把前者说成了「整机可用」。
+现在：灰字只说「未写入配置（默认值：X）」+ 建议值；配置页用一条 warning 说明条讲清
+后果与动作链（填入推荐默认值 → 保存本机 + yes → 同步远端 + yes）；「填入推荐默认值」
+按钮补 hover 说明；保存确认弹窗再补「留空的字段不会写入文件，预检仍会判未配置」。
+🔴 不改 `preflight_pg.sh` 的必填判据，也不在前端硬编码「哪些键必填」第二份清单：
+唯一事实源仍是 `env-schema.json`，说明条只举 `PG_BACKUP_ROOT` 为例。
+`config.test.ts` 用 `doesNotMatch(/留空即用|即可生效|不必.*填写/)` 锁住文案不再回退。
+`ops init` 的 CLI 提示同步改掉「模板里的键留空即用默认路径」：那说的是 `ops.env`
+路径键（留空由 `FallbackConfig()` 推导，确实生效），与 `backup.env` 正好相反，
+同款措辞留在仓库里会继续误导，现在一句里点明两套的区别。
 
 **没变**：双击落地页只读；四个写动作仍 `POST` + token + Origin + `confirm=="yes"`；
 `sync-env` 仍整份覆盖，远端独有项仍要显式提示；路径仍由服务端解析、接口不收路径。
@@ -762,7 +777,8 @@ ops backup sync-env [pg|minio|all] --server <name>
 - 默认值（§12.7）：Go 侧 `TestReadEnvFieldsExposesSchemaDefaults` /
   `TestReadEnvFieldsNoMinioSecretDefaults` 锁住「目录/数值有默认、凭证与
   留空即关闭的开关恒空、未知键不猜值」；前端 `config.test.ts` 锁住
-  「灰字只提示不写表单」「旧 exe 缺 `default` 归一化补空串」与
+  「灰字只说状态 + 默认值、不含『留空即用 / 即可生效 / 不必填写』承诺词」
+  「保存确认弹窗点明留空过不了预检」「旧 exe 缺 `default` 归一化补空串」与
   `fillableDefaults` 不覆盖人填的值、不碰凭证；
   `TestEmbeddedBackupSSHDefaultsAligned` 仍锁 `PG_SSH_OPTS` 四处逐字一致；
 - 真机：临时配置目录起实例 → 点「配置」→ 改一项非凭证值保存，核对文件与 `.bak` →

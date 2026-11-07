@@ -120,11 +120,13 @@ export function envPlaceholder(f: EnvField): string {
 }
 
 /**
- * 非凭证输入框的占位文案。
+ * 非凭证输入框的占位文案 / 默认值兜底。
  *
- * 🔴 只提示、不自动写文件：本机 env 里没写这一项时，备份脚本会用 env-schema.json 的
- * 默认值，页面留空**不等于**「没有值」。default 由 GET /api/config 下发，唯一事实源是
- * internal/shared/env-schema.json，前端不再手抄第二份。
+ * 🔴 只提示、不自动写文件：本机 env 里没写这一项时，**文件里就是没有这一行**。
+ * 「留空」只在实际跑备份脚本时由 ${KEY:-默认值} 兜底；部署预检 / 安装门禁按
+ * 「backup.env 里有没有显式这一行」判定，不认脚本兜底（见 docs/ui.md §12.7）。
+ * default 由 GET /api/config 下发，唯一事实源是 internal/shared/env-schema.json，
+ * 前端不再手抄第二份。
  *
  * PG_SSH_OPTS 是旧 exe（还没下发 default）唯一的兼容兜底：这串必须与
  * deploy/backup/postgres/{pg_backup.sh,pg_restore.sh,backup.env.example} 的兜底默认值
@@ -133,7 +135,7 @@ export function envPlaceholder(f: EnvField): string {
 export const PG_SSH_OPTS_DEFAULT =
   '-o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new'
 
-/** 取「留空时会生效」的默认值；凭证与 schema 里 default 为空的键一律返回空串。 */
+/** 取脚本运行时的兜底默认值（不是已落盘的值）；凭证与 default 为空的键一律返回空串。 */
 export function envDefaultOf(f: EnvField): string {
   if (f.secret) return ''
   if (f.default) return f.default
@@ -142,10 +144,19 @@ export function envDefaultOf(f: EnvField): string {
   return ''
 }
 
+/**
+ * 未配置字段的灰字：只陈述「文件里没这一行」+ 建议值，**不承诺留空可用**。
+ *
+ * 🔴 2026-11-07 修正：原文案「留空即用默认：X」让人以为不填也能过部署自检。
+ * 实际上默认值只在备份脚本真正运行时兜底，不会写进本机 / 远端 backup.env；
+ * preflight_pg.sh 的 check_required_var 按「文件里有没有显式这一行」判定，
+ * 被列为必填的键（如 PG_BACKUP_ROOT）留空会报「未配置」并让 install.sh 退出码 1。
+ * 所以灰字改说状态，完整后果与动作链放到配置页的 warning 说明条里。
+ */
 export function envInputPlaceholder(f: EnvField): string {
   if (f.configured) return ''
   const def = envDefaultOf(f)
-  return def ? `留空即用默认：${def}` : '未配置'
+  return def ? `未写入配置（默认值：${def}）` : '未配置，需手工填写'
 }
 
 /**
@@ -230,7 +241,7 @@ export function confirmHint(
     case 'add':
       return `将把这台服务器追加到 servers.json（本机文件，先留 .bak），并做一次全量校验；校验不通过原文件一字不动。新增只写本机，不会连任何远端。`
     case 'env':
-      return `将把 ${detail.count ?? 0} 项修改写入本机的 ${c} 配置（0600，先留 .bak）。这只是本机文件，远端 backup.env 不会变。`
+      return `将把 ${detail.count ?? 0} 项修改写入本机的 ${c} 配置（0600，先留 .bak）。留空的字段不会写入文件，预检仍会判「未配置」；这只是本机文件，远端 backup.env 不会变。`
     default:
       return `将把本机 ${c} 配置推送到 ${detail.server ?? ''} 的 backup.env（远端写操作）。定时任务会立刻按新配置运行，请确认地址与私钥在目标机上可用。`
   }

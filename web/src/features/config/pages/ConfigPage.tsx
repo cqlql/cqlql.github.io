@@ -485,6 +485,7 @@ export function ConfigPage({ onServersChanged }: ConfigPageProps) {
             <div className="config-actions">
               <Button
                 disabled={busy || !currentEnv || !defaultsFill}
+                title="把有默认值的非凭证项填进表单；仍要保存本机配置并同步到远端，预检才会通过"
                 onClick={() => {
                   if (defaultsFill) setEnvDraft(defaultsFill)
                 }}
@@ -508,10 +509,20 @@ export function ConfigPage({ onServersChanged }: ConfigPageProps) {
                 <Tag>保存后请显式同步，远端才会生效</Tag>
               )}
             </div>
-            <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 8 }}>
-              灰字是脚本默认值，留空即可生效，不必逐项填写；「填入推荐默认值」只把有默认值的非凭证项写进表单，
-              仍要点「保存本机配置」并输入 yes 才会落盘。主机、私钥、密钥等没有默认值，必须自己填。
-            </Typography.Text>
+            <Alert
+              type="warning"
+              showIcon
+              style={{ marginTop: 12 }}
+              message="留空 ≠ 生效：默认值只在备份脚本运行时兜底"
+              description={
+                <>
+                  默认值不会写进本机或远端 <code>backup.env</code>；预检 / 安装按「文件里有没有这一行」判定，
+                  被列为必填的键（如 <code>PG_BACKUP_ROOT</code>）留空会报「未配置」并让安装失败。
+                  要过自检：点「填入推荐默认值」→「保存本机配置」(yes) →「同步到远端」(yes)。
+                  主机、私钥、密钥等没有默认值，必须自己填。
+                </>
+              }
+            />
           </>
         ) : (
           <>

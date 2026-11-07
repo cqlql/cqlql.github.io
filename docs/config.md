@@ -117,11 +117,15 @@ JSON 结构、字段语义与校验规则见 [servers.md](servers.md) §3，**�
 文件里已有、模板里没有的键仍可编辑，注释与未知行原样保留。
 
 **界面怎么用这些默认值**：`GET /api/config` 的每个字段带一份 `default`（就是本表第二列），
-配置页对未配置字段显示「留空即用默认：X」，另有显式「填入推荐默认值」按钮。
-🔴 凭证、本表里标「（空，必须人填）」的键、以及 `MINIO_CONTAINER_NAME` / `UPLOAD_LIMIT`
+配置页对未配置字段显示「未写入配置（默认值：X）」，另有显式「填入推荐默认值」按钮。
+🔴 灰字只陈述「文件里没有这一行」并给出建议值，**不承诺留空可用**：默认值只在备份脚本
+运行时由 `${KEY:-默认值}` 兜底，而 `preflight_pg.sh` 的 `check_required_var` 按
+「`backup.env` 里有没有显式这一行」判定，被列为必填的键（如 `PG_BACKUP_ROOT`）留空会报
+「未配置」并让 `install.sh` 退出码 1。要让自检通过，必须显式「填入推荐默认值」→
+保存本机（yes）→ 同步到远端（yes）。判据见 [ui.md](ui.md) §12.7。
+凭证、本表里标「（空，必须人填）」的键、以及 `MINIO_CONTAINER_NAME` / `UPLOAD_LIMIT`
 这类「留空即跳过 / 关闭」的键，`default` 恒为空，页面既不提示也不填入，避免改掉
 `${KEY:-}` 的空值判定；页面也不会在打开时自动把这些值写进本机文件。
-判据与回归见 [ui.md](ui.md) §12.7。
 
 <!-- gen:env-schema -->
 ### pg（`deploy/backup/postgres/backup.env.example`）
