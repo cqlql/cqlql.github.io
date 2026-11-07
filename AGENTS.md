@@ -3,8 +3,11 @@
 > 状态：**P0 服务器管理（含一键免密 sudo）已实现并真机验证**；
 > P1 备份能力部署已实现并真机验证；一键启动与桌面快捷方式（S2/S3/S5 + 图标同源）已实现，
 > **双击 `启动运维.cmd` 直接开网页面板**（隐藏守护 / 单实例 / 自动开浏览器 / 关闭界面），
-> S4 真机人工验收待做；**P2a 备份监控 CLI 已实现（真机验收待做）**，
-> P2+ 界面与 P3–P4 应用部署仍为方案、代码未实现（2026-11-07 更新）。
+> S4 真机人工验收待做；**P2a 备份监控 CLI 与 P2+ 界面均已实现（真机验收待做）**；
+> P3–P4 应用部署仍为方案、代码未实现（2026-11-07 夜更新）。
+> **2026-11-07 深夜界面新增「备份监控」**（第 5 个导航项，纯只读）：
+> `GET /api/monitor/status` + 30s 缓存 + 四张卡，与 `ops status --json` 共用
+> `monitor.CollectForServer` / `Status`；见 `docs/ui.md` §14 / `docs/backup-monitor.md` §12 / 硬约束 31。
 > **2026-11-06 界面新增「重启」**（顶部工具栏）：可选「先重建」（npm test / typecheck /
 > build → `go build -o ops.next.exe .`）、换 exe、同端口同 token 接手、`boot_id` 判定，
 > 见 `docs/ui.md` §11 / 硬约束 22。
@@ -83,7 +86,8 @@
 > `shared.SSHTarget.RunScript` 走 stdin `sh -s`、stdout/stderr 分离；
 > `MonitorSSHTarget()` 强制专用只读账号，删掉 `MonitorTarget()` 复用兜底。
 > `main.go` 注册 `status`，菜单第 7 项按 `probe("status")` 条件出现。
-> P2+ 界面、P3–P4 仍为方案；**真机连备份机验收待做**。
+> P2+ 界面随后另起一刀（已落地，见下条状态）；P3–P4 仍为方案；
+> **真机连备份机验收待做**。
 > 🔴 只放「每次动代码都要遵守」的红线：一句结论 + 一个指针。判据、流程、踩坑都在 `docs/`。
 > 通用文档规则以 `cqlql-notes/docs/工程/文档约定.md` 为准。
 
@@ -106,8 +110,10 @@
   （前端是 React 工程，源码 `web/`，构建后嵌入二进制）；
   双击 `启动运维.cmd` 直接开这个网页面板（后台隐藏守护 + 自动开浏览器 + 单实例）；
   `ops menu` 是显式的交互菜单入口，`ops shortcut` 建桌面 `.lnk`。见 `docs/one-click-launch.md`。
-- **仍是方案、代码未实现**：`ops ui` 里的备份监控页（P2+）、`ops deploy` / `ops rollback`
-  （P3–P4 单机 Docker 部署）；设计见 `docs/backup-monitor.md` / `docs/deploy.md`。
+- `ops ui` 的「备份监控」页（P2+）已实现：只读快照 + 30s 缓存 + 四张卡 +
+  60s 自动刷新，与 CLI 共用一份 `Status`；见 `docs/ui.md` §14 / `docs/backup-monitor.md` §12。
+- **仍是方案、代码未实现**：`ops deploy` / `ops rollback`（P3–P4 单机 Docker 部署）；
+  设计见 `docs/deploy.md`。
 - 代码按能力分包：`main.go` 只做命令分发，`internal/<能力>/` 放实现，
   `internal/shared/` 放配置、ssh 封装与服务器清单模型。详见「目录与边界」。
 - 服务器（备份端 / 应用端）只在 `servers.json` 登记一处，命令用 `--server <name>` 选目标。
@@ -402,6 +408,13 @@
     不卸 cron / nc / ssh / tar / logrotate，不 autoremove / purge，不碰 `~/.mc`、
     容器 / 镜像、PGDG 源、服务端、crontab / backup.env；卸载后自动复查。
     详见 `docs/backup-deploy.md` §10.2 / §10.3 与 `docs/ui.md` §9.7。
+31. 🔴 **界面备份监控与 CLI 共用一份只读快照**（2026-11-07 夜新增）：
+    `GET /api/monitor/status` 只认清单里的 `name`（要连远端必须严格 `LoadConfig`），
+    账号强制 `monitor`，判据只在 `monitor.assess()`、前端不算指标；
+    30s 缓存 / 5s 最小强制刷新 / 采集串行，连不上与配置错都回 **200 + 完整快照**
+    （数值未采到是 `null` 不是 `0`、`problems` 恒为数组），配置错不缓存、
+    私钥路径不进响应。不许让界面另起一套采集或另算一套阈值。
+    详见 `docs/ui.md` §14 / `docs/backup-monitor.md` §12。
 
 ## 命令与验证
 
@@ -444,9 +457,10 @@ ops shortcut [--name <名字>] [--remove]
 ops menu --help
 ```
 
-上面只列 `main.go` 注册表里**已实现**的命令；`ops deploy` / `ops rollback` 与界面里的
-备份监控页（P2+）尚未实现，不要照抄执行。`ops status` 已实现但只读账号强制来自清单
-`monitor`，未配会明确报错并回 `2`；子命令选项以各能力的 `--help` 为准。
+上面只列 `main.go` 注册表里**已实现**的命令；`ops deploy` / `ops rollback`（P3–P4）
+尚未实现，不要照抄执行。`ops status` 已实现但只读账号强制来自清单 `monitor`，
+未配会明确报错并回 `2`；界面的「备份监控」页走 `GET /api/monitor/status`，
+不对外开放任何写动词。子命令选项以各能力的 `--help` 为准。
 本机二进制：`go build -o ops.exe .`（`启动运维.cmd` 按仓根 `ops.exe` 定位，不要挪）。
 双击 `启动运维.cmd` 无参 → 后台网页 + 自动开浏览器；`--fg` 前台 `ops ui`（保留窗口）、
 `--menu` 交互菜单、`--bg` 后台守护专用；带子命令（`help` / `servers list` …）原样转发。
@@ -507,9 +521,11 @@ ops menu --help
   （`exec.CommandContext(os.Executable(), "backup", ...)`，密码走 stdin、输出接任务日志）。
 - `web/` 按母本 `cqlql-notes/docs/工程/目录结构规范.md` 与 `前端/前端目录结构规划.md` §二 排：
   `features/<能力>/`（`api.ts` / `service.ts` / `types.ts` / `utils/` / `components/` / `pages/` /
-  `index.ts`）+ `shared/{api,ui,utils}`。现在两个 feature：`servers/` 与 `backup/`，
-  用左侧 `Sider + Menu` 导航切换（窄窗口退化成顶部横向 Menu）。🔴 **没有 `router/`、顶层 `pages/`、`src/api/`、`src/lib/`**
-  —— 两页仍不引路由：本机回环 + 地址栏带一次性 token，深链接没有意义，
+  `index.ts`）+ `shared/{api,ui,utils}`（`service.ts` 按编排复杂度决定，不是标配）。
+  现在五个 feature：`servers/` / `backup/` / `components/` / `config/` / `monitor/`，
+  另有全局工具栏 `system/`；用左侧 `Sider + Menu` 导航切换（窄窗口退化成顶部横向 Menu）。
+  🔴 **没有 `router/`、顶层 `pages/`、`src/api/`、`src/lib/`**
+  —— 五页仍不引路由：本机回环 + 地址栏带一次性 token，深链接没有意义，
   而路由会带来「刷新丢 token」（判据见 `docs/ui.md` §7）。
   约定（相对 import 必须写扩展名、`test/` 不在 tsconfig include、端口 5175、产物不进 Git）
   见 `docs/ui.md`；**不要在前端算指标**，那是 Go 侧的唯一真源。
@@ -549,7 +565,7 @@ ops menu --help
 | 界面（`ops ui` · Vite + React + antd，左侧 Sider + Menu） | `docs/ui.md` | 静态产物不过 token、API 才是边界；产物不进 Git 但 `.gitkeep` 必进；未构建要回说明页；单实例 + 配置不全也起页面；界面安装要过六道门（§9） |
 | 备份脚本（`deploy/backup/**`，已迁入本仓） | `docs/backup-scripts.md` | 脚本编在二进制里，改了必须 `go build`；目录里不许有真实凭证；恢复脚本禁止入 Crontab |
 | 备份能力部署（P1 ✅，监控的前置；CLI + 界面） | `docs/backup-deploy.md` | 复用 `install.sh`；不覆盖 `backup.env`；不静默迁移目录；logrotate 由工具落盘；界面安装必须 yes + 服务端预检门 |
-| 备份监控（P2a CLI ✅ / P2+ 界面方案；真机验收待做） | `docs/backup-monitor.md` | 只读采集；时间差在远端算；`-` 不是 0；只读账号强制 `monitor` 且不复用安装账号；8 个键已进 `docs/config.md` §3 |
+| 备份监控（P2a CLI ✅ / P2+ 界面 ✅；真机验收待做） | `docs/backup-monitor.md`（界面见 `docs/ui.md` §14） | 只读采集；时间差在远端算；`-` 不是 0；只读账号强制 `monitor` 且不复用安装账号；网页与 CLI 共用 `CollectForServer` / `Status`，前端不算指标；8 个键已进 `docs/config.md` §3 |
 | 单机一键 Docker 部署（P3–P4 · 方案，未实现） | `docs/deploy.md` | `.env` 去 CRLF；镜像前缀必须等于 compose；Flyway 单向；方案键表在本文 §8，不进 config.md |
 | 一键启动与桌面快捷方式（S2/S3/S5 ✅，S4 人工验收待做） | `docs/one-click-launch.md` | 双击直达网页面板（隐藏守护 + 单实例）；`.lnk` 只指启动器；图标用独立 `.ico`；名字校验挡路径穿越；双击绝不触发写操作，页面写操作要显式确认 |
 | 配置（唯一维护处） | `docs/config.md` | `ops.env` 的键只在 `internal/shared/opsenv.go`（未知 `PASS_UP_OPS_*` 直接报错）；`backup.env` 的键只在 `internal/shared/env-schema.json`，模板 / 脚本兜底 / 白名单 / 键表都是生成物，漏跑生成器 `go test` 会红 |

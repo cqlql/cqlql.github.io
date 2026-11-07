@@ -15,7 +15,9 @@
 > 默认值」按钮，换电脑后不必逐项填（§12.7）。
 > **2026-11-07 夜追加**：配置页可显式「清空」已配置字段（`clear` 列表），
 > `PG_SSH_KEY` 保存时只认私钥文件绝对路径、日志不再回显路径（§12.8）。
-> 未实现的 P2/P3 视图按本文件 §7 的触发条件再加。
+> **2026-11-07 深夜追加第 5 个导航项「备份监控」**（P2+，纯只读）：四张卡 +
+> 问题清单 + 60s 自动刷新，与 `ops status` 共用一份快照（§14 / [backup-monitor.md](backup-monitor.md) §12）。
+> 未实现的 P3–P4 视图按本文件 §7 的触发条件再加。
 
 # 界面（`ops ui`）
 
@@ -24,6 +26,7 @@
 另有 `GET /api/health` / `GET|POST /api/restart`（重启自己，见 §11）、
 `POST /api/shortcut`（建桌面快捷方式）与 `POST /api/shutdown`（只关本机界面进程）；
 四者都不碰远端，统一放在顶部工具栏。
+「备份监控」（§14）是第 5 个导航项，也是纯只读：不触发备份、不恢复、不改配置。
 接口、清单与 sudo 的规则分别见 [servers.md](servers.md) 与 [config.md](config.md)，本文只讲界面本身。
 
 ## 1. 为什么不再用单文件 HTML
@@ -42,7 +45,7 @@ P1 的「备份能力部署」比 P2/P3 先落地，正好验证了这个判断�
 | 继续单文件，拆成 `index.html` + `app.js` + `app.css` | 零构建，但 P3 的步骤表格 / 日志流仍要手写，判定逻辑依旧没有测试 |
 | 服务端 `html/template` 渲染 | 模板只能出静态 HTML，弹窗与行内 loading 仍要 JS，等于两套渲染 |
 | Svelte / Vue（体积更小） | 与同机另一个本地工具 `wsl-manager/web` 技术栈不一致，跨项目复用的收益归零 |
-| 立刻加 `react-router` + `zustand` | 当时只有一页。加了只会多一个「刷新时 URL 上没有 token」的问题（见 §7；两页后仍只用一个选中态外壳） |
+| 立刻加 `react-router` + `zustand` | 当时只有一页。加了只会多一个「刷新时 URL 上没有 token」的问题（见 §7；五页后仍只用一个选中态外壳） |
 
 ## 2. 目录
 
@@ -78,6 +81,15 @@ web/                             前端源码（不在 internal/ 下，见 §3 �
         components/BackupLog.tsx 日志容器（只渲染 + 自动滚动）
         pages/BackupPage.tsx     表单 + yes/密码弹窗 + 任务状态
         index.ts                 对外只导出 BackupPage
+      components/                环境组件（§13）：api / types / service / utils / pages
+      config/                    配置页（§12）：api / types / utils/draft / pages
+      monitor/                   备份监控（P2+，§14，纯只读）
+        api.ts                   targets（/api/servers）+ status（/api/monitor/status）
+        types.ts                 与 Go 的 monitor.Status / monitorStatusView 对齐
+        utils/format.ts          只格式化：null → —、0 仍是 0、数组兜底、默认机
+        pages/MonitorPage.tsx    目标机 + 问题清单 + 四张卡 + 60s 刷新
+        index.ts                 对外只导出 MonitorPage
+      system/                    全局顶部工具栏（§7 / §11）：api / restartFlow / components
     shared/
       api/http.ts                唯一请求底座：令牌、信封、401、ApiError
       ui/ErrorBoundary.tsx       跨能力的渲染兜底
@@ -87,13 +99,15 @@ webdist.go                       //go:embed all:web/dist（根包，package main
 ```
 
 🔴 **没有 `router/`、顶层 `pages/`、`shared/domain/`、`hooks/`、`store/`** ——
-不是漏了，是母本第二节那条「目录是长出来的」：两个 feature 各管各的状态、
-零个跨页面共享状态，第二页用 `Sider + Menu` 的选中态切换即可（判据见 §7）。
+不是漏了，是母本第二节那条「目录是长出来的」：五个 feature 各管各的状态、
+零个跨页面共享状态，多页用 `Sider + Menu` 的选中态切换即可（判据见 §7）。
 出现跨页面共享状态时才建目录，别为了结构完整先铺空壳。
 
 `features/servers/` 里为什么有 `service.ts`：`applySudo` 是「先检查 → 判断是否已配好 →
 问密码 → apply → 失败回查」的五步编排，属业务细节，不该写在页面里；
 而 `api.ts` 只做「一个函数一个接口」，不写判断。判据见母本 §4 那张表。
+反过来 `features/monitor/` 没有 `service.ts`：它唯一的编排是「取数 + 请求竞态」，
+属页面 UI 状态，判定全在 Go 侧；硬凑一层编排只会多一个空壳（§14）。
 
 ## 3. 产物怎么进二进制
 
@@ -238,14 +252,15 @@ npm run dev        # 5175；/api 代理到 127.0.0.1:7788（先起 ops ui）
 
 | 加什么 | 触发条件 | 现在为什么没有 |
 | :--- | :--- | :--- |
-| `react-router` | 出现**第二页**，且需要「刷新后停在那页」或「把链接发给别人」 | 第二页（备份能力部署）已出现，但两个条件都不满足：本机回环 + 地址栏带一次性 token，链接发给别人也用不了；「刷新后停在哪个导航项」没有业务价值。用 `Sider + Menu` 的选中态切换，还顺带躲开「刷新时 URL 丢了 token」 |
-| `zustand`（或别的 store） | 三个以上视图共享异步状态 | 两个 feature 各管各的 `useState` + `useCallback`；任务日志是单视图内部状态，没有跨视图共享 |
+| `react-router` | 出现**第二页**，且需要「刷新后停在那页」或「把链接发给别人」 | 第二页（备份能力部署）早已出现、现在共 5 页，但两个条件都不满足：本机回环 + 地址栏带一次性 token，链接发给别人也用不了；「刷新后停在哪个导航项」没有业务价值。用 `Sider + Menu` 的选中态切换，还顺带躲开「刷新时 URL 丢了 token」 |
+| `zustand`（或别的 store） | 三个以上视图共享异步状态 | 五个 feature 各管各的 `useState` + `useCallback`；任务日志是单视图内部状态，没有跨视图共享 |
 
 单页回退已经在 Go 侧做好了（非 `/api`、非 `/assets` 的 GET 都回 `index.html`），
-加视图、加导航项都**不用动 Go**。
+加视图、加导航项都**不用动 Go 的路由**（该能力自己的 API 另算，见 §14.2）。
 
 **2026-11-06 起导航放左侧**：`Layout.Sider + Menu`（窗口 < 860px 退化成顶部横向 Menu）。
-两个视图是导航项，以后 P2 监控 / P3 部署加视图不用再往顶部标签栏里挤；
+视图就是导航项（2026-11-07 夜已 5 个，含 P2+「备份监控」），以后 P3 部署加视图
+不用再往顶部标签栏里挤；
 窄窗口只是布局变化，切换仍是一次点击。访问过的页面保持挂载、非当前页用 `hidden` 藏起来，
 语义与原 `Tabs` 一致：切回来不重新取数，检查结果和备份任务日志都不丢。
 仍是**零路由**：选中态只在内存里，刷新回默认的服务器管理页。
@@ -270,7 +285,7 @@ npm run dev        # 5175；/api 代理到 127.0.0.1:7788（先起 ops ui）
 - 界面进程多了一份**内存里的任务日志**（上限 256 KB，不落盘、不进 `ops-ui.log`）；
   一个界面同时只跑一个备份任务。
 - 换来的是：类型约束、组件现成、P3 的 `Steps` / `Progress` / 日志容器不用手写，
-  以及**判定与编排第一次有了测试**（`test/` 28 个用例，其中 7 个覆盖 backup 的编排与判定）。
+  以及**判定与编排第一次有了测试**（`web/test/` 85 个用例，其中 7 个覆盖备份监控的展示层）。
 
 ---
 
@@ -918,4 +933,71 @@ Enter/Space 键盘可达的，不只靠鼠标。改完 `web/` 仍需 `npm run bu
 `ops component image-load minio --server k1 --image-tar <本机 .tar> --dry-run`、
 `ops component images --server <源机>`、
 `ops component image-copy minio --server k1 --from-server <源机> --dry-run`。
+
+---
+
+## 14. 备份监控页（P2+，2026-11-07 夜）
+
+> 能力的采集协议、只读账号口径与阶段划分在
+> [backup-monitor.md](backup-monitor.md) §5 / §12；本节只讲界面这一层。
+> **真机浏览器验收待做**：本机 `go test` / `npm test` / build 全绿，尚未连过真实备份机。
+
+### 14.1 第 5 个导航项，仍然是零路由
+
+`App.tsx` 的 `PageKey` 加 `monitor`、`NAV_ITEMS` 加「备份监控」（放在「备份能力部署」
+之后，一个是装、一个是看），`Layout.Content` 里加一个 `hidden` 的 pane：
+访问过的页面保持挂载（§7），切回来不重新取数。Go 侧的**单页回退一行没改**——
+导航项本来就不用动服务端；这次动的是新增了一个 API（下表）。
+
+页面是纯只读的：没有重跑 / 恢复 / 装依赖 / 改配置的入口，也没有确认弹窗。
+「立即刷新」只重新采集，不算写操作（不改远端、不写本机配置）。
+
+### 14.2 接口与缓存
+
+| 项 | 口径 |
+| :--- | :--- |
+| 接口 | `GET /api/monitor/status?name=<清单里的 name>[&force=1]`；`force=1` 只由「立即刷新」发 |
+| 鉴权 | 与其它 API 同一套：只听回环、token + `Origin`；静态产物仍不过 token（§4） |
+| 门禁 | 严格 `LoadConfig` + `LoadServers`（要连远端，不许用 `FallbackConfig` 冒充目标机）；`name` 空 400、未知 404 |
+| 账号 | `monitor.CollectForServer` 内强制专用只读 `monitor`，界面拿不到安装账号 |
+| 采集 | `context.Background()` + `Collect` 自带 30s 超时，不用 `r.Context()`；刷新页面不掐断 |
+| 缓存 | 服务端 30s TTL、强制刷新 5s 最小间隔、`monitorMu` 串行：多标签页刷新合并成一次 SSH |
+| 失败 | 连不上 / 配置错一律 **200 + 完整快照**（`cached`、`config_error`、`notice` 是页面提示位）；配置错不缓存 |
+
+🔴 **没有走 `ops status --json` 子进程**：`BackupRunner` 把 stdout / stderr 接进同一个
+writer，而 CLI 在 danger 时会往 stderr 打一行 WARN，JSON 会被污染；`ui` 直接 import
+`monitor` 包（与 `ui → component` 同向、无环），进程内直采，缓存与注入缝也好测。
+两个入口共用 `internal/monitor/collect.go` 的 `CollectForServer`，判据只有一份 `assess()`。
+
+响应把 `monitor.Status` 原样放在 `status` 字段里，外加显示用的元信息：
+`server` / `cached` / `age_seconds` / `notice` / `config_error` /
+`config_path` / `servers_file` / `thresholds`。数值未采到是 `null` 不是 `0`，
+`problems` 恒为数组（§11.4 的同款坑，前端 `normalizeView` 再兜一层）。
+
+### 14.3 页面
+
+- 页头：目标服务器下拉（与 CLI 的 `Resolve` 同序：清单 `default` > 唯一
+  `role=backup`，选不出来就要人显式选）、「自动刷新」开关、显式「立即刷新」按钮。
+- 问题清单：danger 红 / warn 黄；配置错单独一条 warning + 「去配置页」，
+  不与快照里那条 danger 重复显示；强制刷新被限流回一条 info。
+- 四张卡（连接 / PostgreSQL / MinIO / 磁盘）只渲染后端字段：`null → —`、
+  `0` 老实显示 `0.0`；磁盘那条进度条只是把已有的 `used_pct` 画成宽度。
+  底部是远端主机、采集时间、缓存年龄、本机 `ops.env` 与 `servers.json` 路径、
+  只读展示的三个判定阈值。
+- 60s 自动刷新只在 `active=true`（当前页）时跑，切去别的页停定时器；
+  配置页保存清单后 `version` 变化会重新拉目标机列表。
+- 🔴 **前端不算指标**：`utils/format.ts` 只有单位拼接、数组兜底、默认机选择与文案；
+  danger / 阈值 / 新鲜度全在 Go 侧。本 feature 没有 `service.ts`（判据见 §2）。
+
+### 14.4 回归要点
+
+`go test ./internal/ui ./internal/monitor`（401 / 门禁 / 完整快照 / 30s TTL /
+5s 限流 / 配置错不缓存 / 脱敏 / 连接失败仍完整快照）、
+`web/test/monitor.test.ts`（`null` 与 `0` 的区别、数组兜底、默认机同序）、
+`cd web && npm test && npm run typecheck && npm run build`，
+最后 `go build -o ops.exe .`（改了 `web/` 必须重建产物，见 §3 / 硬约束 19）。
+
+真机验收（都不改远端）：`ops status --server <备份机>` 与浏览器页面对照同一份快照；
+点「立即刷新」两次看 5s 限流提示；临时不配 `monitor` 看「去配置页」引导；
+在备份机上确认只读账号能读到心跳 / 日志 / `.dump`，且没有任何文件被写。
 

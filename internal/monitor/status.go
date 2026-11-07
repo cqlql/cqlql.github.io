@@ -354,8 +354,9 @@ func valueOr(v, fallback string) string {
 	return v
 }
 
-// failureStatus 给「配置 / 用法错」也回一份完整快照（--json 三种退出码都输出快照）。
-func failureStatus(host, reason string) Status {
+// FailureStatus 给「配置 / 用法错」也回一份完整快照（--json 三种退出码都输出快照）。
+// P2+ 网页在严格 LoadConfig / LoadServers 失败时同样用它，避免界面自己拼一套空快照。
+func FailureStatus(host, reason string) Status {
 	s := emptyStatus()
 	s.Host = host
 	s.CheckedAt = time.Now().Format(time.RFC3339)

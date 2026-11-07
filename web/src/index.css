@@ -623,3 +623,121 @@ pre {
   border-radius: 8px;
   background: #fafbfc;
 }
+
+/* ---- P2+ 备份监控页（只读四张卡 + 问题清单） ----
+   与 .component-* 同一套 light 主题变量；不写整页 inline style。 */
+.monitor-head-actions {
+  justify-content: flex-end;
+}
+
+.monitor-auto {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ops-muted);
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.monitor-problems {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.monitor-problems:empty {
+  display: none;
+}
+
+.monitor-alert-body {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.monitor-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 12px;
+}
+
+.monitor-card {
+  padding: 14px 16px;
+}
+
+.monitor-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.monitor-card-head h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.monitor-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0;
+  border-bottom: 1px solid #f0f2f5;
+  font-size: 13px;
+}
+
+.monitor-rows .monitor-row:last-child {
+  border-bottom: 0;
+}
+
+.monitor-row > span {
+  flex: 0 0 auto;
+  color: var(--ops-muted);
+}
+
+.monitor-row > strong {
+  font-weight: 500;
+  text-align: right;
+  word-break: break-all;
+}
+
+.monitor-row > strong.mono {
+  font-family: ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace;
+  font-size: 12px;
+}
+
+/* 磁盘已用率只是一条展示条：宽度直接取后端下发的 used_pct，不产生新指标。 */
+.monitor-bar {
+  height: 6px;
+  margin-top: 10px;
+  border-radius: 3px;
+  background: #eef1f5;
+  overflow: hidden;
+}
+
+.monitor-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: var(--ops-link);
+}
+
+.monitor-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 20px;
+  margin-top: 12px;
+  padding: 12px 16px;
+  color: var(--ops-muted);
+  font-size: 12px;
+}
+
+.monitor-foot code {
+  color: var(--ops-text);
+  word-break: break-all;
+}

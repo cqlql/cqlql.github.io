@@ -60,29 +60,22 @@ func CmdStatus(args []string) int {
 		return 0
 	}
 	if err != nil {
-		return emitFailure(opt.JSON, "", err.Error(), 2)
+		return emitFailure(opt.JSON, FailureStatus("", err.Error()), 2)
 	}
 
 	cfg, err := shared.LoadConfig()
 	if err != nil {
-		return emitFailure(opt.JSON, "", "读取配置失败："+err.Error(), 2)
+		return emitFailure(opt.JSON, FailureStatus("", "读取配置失败："+err.Error()), 2)
 	}
 	list, err := shared.LoadServers(cfg)
 	if err != nil {
-		return emitFailure(opt.JSON, "", "读取服务器清单失败："+err.Error(), 2)
+		return emitFailure(opt.JSON, FailureStatus("", "读取服务器清单失败："+err.Error()), 2)
 	}
-	srv, err := list.Resolve(opt.Server, cfg.DefaultServer)
+	// 选机与只读账号强制在 CollectForServer 里，与 P2+ 网页共用同一条链路。
+	st, err := CollectForServer(context.Background(), cfg, list, opt.Server)
 	if err != nil {
-		return emitFailure(opt.JSON, "", "选择目标机失败："+err.Error(), 2)
+		return emitFailure(opt.JSON, st, 2)
 	}
-	t, err := srv.MonitorSSHTarget()
-	if err != nil {
-		return emitFailure(opt.JSON, srv.Name, "只读监控账号未配好："+err.Error(), 2)
-	}
-
-	// host 只展示 user@host:port，不带私钥路径，也不带 sudo 密码。
-	host := fmt.Sprintf("%s@%s:%d", t.User, t.Host, t.Port)
-	st := Collect(context.Background(), t, ConfigFrom(cfg), host)
 	code := 0
 	if hasDanger(st) {
 		code = 1
@@ -105,8 +98,8 @@ func CmdStatus(args []string) int {
 }
 
 // emitFailure 让配置 / 用法错也回一份字段齐全的快照，而不是一行报错。
-func emitFailure(jsonOut bool, host, reason string, code int) int {
-	s := failureStatus(host, reason)
+// 传入的是 CollectForServer / FailureStatus 已经造好的那份，CLI 与网页口径一致。
+func emitFailure(jsonOut bool, s Status, code int) int {
 	if jsonOut {
 		_ = json.NewEncoder(os.Stdout).Encode(s)
 		return code

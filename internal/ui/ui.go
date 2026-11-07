@@ -66,6 +66,13 @@ type uiState struct {
 	runner BackupRunner
 	task   *backupTask
 
+	// ---- P2+ 备份监控（只读，见 monitor.go）----
+	// 缓存 / 时间 / 采集器都可注入：单测不连真实 SSH，也不靠 sleep 等 TTL。
+	monitorMu    sync.Mutex
+	monitorCache map[string]monitorCacheEntry
+	probeMonitor monitorProbe
+	monitorNow   func() time.Time
+
 	// ---- 「重启自己」的事实（见 restart.go）----
 	// bootID 是**这个进程实例**的标识，/api/health 会带上它。不能用 PID 代替：
 	// 重启之后 PID 一定变，但「服务还在」与「重启成功了」必须能分开 —— 交接失败时
@@ -423,6 +430,9 @@ func (u *uiState) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case r.Method == http.MethodGet && r.URL.Path == "/api/backup/deps":
 		// 只读依赖状态；安装走 POST /api/backup/run 的 mode=deps。
 		u.handleBackupDeps(w, r)
+	case r.Method == http.MethodGet && r.URL.Path == "/api/monitor/status":
+		// P2+ 备份监控：只读快照 + 30s 缓存；连不上也回完整快照（见 monitor.go）。
+		u.handleMonitorStatus(w, r)
 	case r.Method == http.MethodGet && r.URL.Path == "/api/components/status":
 		u.handleComponentStatus(w, r)
 	case r.Method == http.MethodGet && r.URL.Path == "/api/components/images":
