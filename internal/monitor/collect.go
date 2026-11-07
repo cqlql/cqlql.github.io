@@ -2,10 +2,10 @@ package monitor
 
 // CLI（ops status）与网页（GET /api/monitor/status）共用的采集入口。
 //
-// 🔴 两处只走这一条链路：清单选机 → 强制专用只读 monitor 账号 → Collect。
-//    否则界面很容易「为了省事」复用安装账号 user/key，把只读页变成有 sudo 的入口
-//    （AGENTS.md 硬约束 9）。
-// 🔴 配置 / 账号错也返回一份**完整快照**（connection.ok=false + danger），
+// 🔴 两处只走这一条链路：清单选机 → StatusSSHTarget（清单里的 user/key）→ Collect。
+//    2026-11-08 起不再单设只读账号：账号只有 servers.json 一个事实源。
+//    「只读」由远端脚本保证（不写文件、不提权），target 不带 sudo 密码。
+// 🔴 配置错也返回一份**完整快照**（connection.ok=false + danger），
 //    err 只表示「本机没配好」：CLI 据此退出 2，界面据此给「去配置页」引导、不缓存。
 // 🔴 错误文本统一过 connectionError 脱敏：私钥路径不进 JSON / 日志。
 
@@ -27,10 +27,7 @@ func CollectForServer(ctx context.Context, cfg *shared.Config, list *shared.Serv
 	if err != nil {
 		return configFailure(name, "选择目标机失败："+err.Error())
 	}
-	t, err := srv.MonitorSSHTarget()
-	if err != nil {
-		return configFailure(srv.Name, "只读监控账号未配好："+err.Error())
-	}
+	t := srv.StatusSSHTarget()
 	// host 只展示 user@host:port，不带私钥路径，也不带 sudo 密码。
 	host := fmt.Sprintf("%s@%s:%d", t.User, t.Host, t.Port)
 	return Collect(ctx, t, ConfigFrom(cfg), host), nil

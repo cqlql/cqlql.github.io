@@ -1,7 +1,10 @@
 > 状态：**P2a CLI 与 P2+ 界面均已实现（2026-11-07 夜）；真机验收仍待做**。
-> `ops status --server <name> [--json]`、红线单测、只读账号强制、8 个 `ops.env` 键，
-> 以及界面的 `GET /api/monitor/status` + 四张卡页已落地；键表在 [config.md](config.md) §3，
-> 本文 §10 只留指针。§11 是 P2a、§12 是 P2+ 的施工图与同步记录。
+> **2026-11-08 改口径：不再单设只读账号** —— `ops status` 与备份监控页都用清单里的
+> `user`/`key` 登录，「只读」由远端脚本保证（不写文件、不提权、target 不带 sudo 密码）。
+> 曾经的 `monitor` 字段、`MonitorSSHTarget()` 强制校验与配置页账号区块已整体移除，
+> 旧清单里残留的 `monitor` 对象被忽略、不删也不影响加载（见 §6 / §11.2）。
+> `GET /api/monitor/status` + 四张卡页、8 个 `ops.env` 采集键不变；键表在 [config.md](config.md) §3。
+> §11 是 P2a、§12 是 P2+ 的施工图与同步记录。
 > **真机验收待做**：本机 `go vet` / `go test` / `go build` 全绿，断网与错密钥用假 runner 覆盖，
 > 尚未在备份机上跑过真实 `ssh`。
 
@@ -32,10 +35,10 @@
 ## 2. 边界
 
 **做**：PG / MinIO 最后一次成功、最新备份文件、占用、磁盘余量；CLI（含 `--json`）与
-本地网页共用同一份快照；**目标机与连接参数走 [servers.json](servers.md)**，只读账号用
-该条目的 `monitor`。🔴 **P2a 已强制 `monitor`，不再复用 `user/key`**（口径见 §6 / §11）；
-`MonitorSSHTarget()` 要求 `monitor.user` / `monitor.key` 齐全、不等于安装账号、不是 root，
-旧的 `MonitorTarget()` 复用兜底已删除。
+本地网页共用同一份快照；**目标机与连接参数走 [servers.json](servers.md)**。
+🔴 **2026-11-08 起一个账号**：采集与安装共用该条目的 `user`/`key`（口径见 §6 / §11.2），
+`StatusSSHTarget()` 只是把 `NewSSHTarget()` 的 sudo 密码清空；
+只读由脚本保证，不靠换账号降权。旧 `monitor` 字段是历史数据，忽略即可。
 
 **不做**：触发 / 重跑 / 恢复备份（恢复脚本必须有人值守）；修改备份服务器任何文件；
 内嵌终端；定时告警（本机工具不适合常驻）。
@@ -47,7 +50,7 @@
 工具生成一段固定 POSIX sh，经 `ssh -T ... sh -s` 从 **stdin** 执行
 （不拼 `ssh host '命令'`：多行 + 引号 + 路径的转义只有一层才不容易出错）。
 🔴 走 `shared.SSHTarget.RunScript`：**stdout 与 stderr 分开收**，不用现有 `Capture()`
-（`CombinedOutput()` 会把远端警告混进分节文本被误解析）；只读账号不提权、不占
+（`CombinedOutput()` 会把远端警告混进分节文本被误解析）；采集不提权、不占
 sudo 密码的 stdin。路径拼进脚本前统一 `shQuote`，生成逻辑见 §11 的 `probeScript()`。
 远端输出**分节纯文本**，不在远端拼 JSON：以 `==XXX` 开头分节，块内**每行一个字段、
 顺序固定**；**没采到就写一行 `-`**。分节之间顺序可乱，缺行即该块 `collected=false`。
@@ -95,11 +98,12 @@ KB / 字节统一按 `1024` 换算成 MB 并保留 1 位小数；段的 `collect
 
 ### 3.2 不检查 crontab
 
-定时任务由 `install.sh` 装进**备份运行用户**（清单 `user`）的 crontab。
-只读监控账号是另一个人，`crontab -l` 只会返回空，结果是假的「定时任务未安装」。
+定时任务由 `install.sh` 装进**清单 `user`** 的 crontab。工具不查 cron：
+装了定时任务不等于备份真的成功，`last_success.txt` 的新鲜度才是事实；
+解析 crontab 还会把只读页和安装脚本的格式细节绑在一起（组件 / 发行版一变就误报）。
 
-因此**不查 cron**，用 `last_success.txt` 的新鲜度间接判断。要真查得切到运行用户
-（`crontab -u <user> -l`）或放开 `sudo -n`，两者都超出「只读账号」的设定。
+因此用 `last_success.txt` 的新鲜度间接判断。真要查可以 `crontab -l`，但那需要
+「解释定时任务内容」这一层新逻辑，超出「看一眼最近有没有成功」的范围。
 
 ### 3.3 超时与失败
 
@@ -180,7 +184,7 @@ Go 侧类型约定（P2a 定稿，CLI `--json` 与 P2+ 网页共用同一份 `St
   不是静默复用旧数据。
 - 接口：`GET /api/monitor/status?name=<清单里的 name>[&force=1]`。
   🔴 要连远端就走严格 `LoadConfig`（不许拿 `FallbackConfig` 的默认路径冒充目标机）；
-  `name` 只认 `servers.json`，未知 404；只读账号强制在 `monitor` 包。
+  `name` 只认 `servers.json`，未知 404；登录账号就是清单的 `user`/`key`（`StatusSSHTarget()`）。
   🔴 连不上 / 没配好一律 **200 + 完整快照**（`connection.ok=false` + problems），
   不把「备份服务器连不上」变成一行 HTTP 错误把整页打白。
 - **本期不做网页内改配置**：服务器清单与阈值在 `servers.json` / `ops.env`，
@@ -188,17 +192,15 @@ Go 侧类型约定（P2a 定稿，CLI `--json` 与 P2+ 网页共用同一份 `St
 
 ## 6. 安全
 
-1. 备份服务器用**专用只读账号**：不给 sudo、不给写权限；sshd 侧禁 PTY / 端口转发 / agent 转发。
-   账号写在 [servers.json](servers.md) 的 `monitor`，**不复用有 sudo 权限的 `user`**；
-   界面「配置 → 服务器清单 → 只读监控账号」可填写 / 查看状态 / 显式移除，
-   保存时就按下面这份口径校验（[ui.md](ui.md) §12.9），不必手改 JSON。
-   🔴 **P2a 已实现（2026-11-07）**：「必须有 monitor」只在 `status` 采集入口强制
-   （`MonitorSSHTarget()` 要求 `monitor.user` / `monitor.key` 齐全、`monitor.user != user`、
-   不是 root、不带 `sudo.password`、`IsRoot=false`），**不**加进 `LoadServers().normalize()`
-   的全局校验 —— 否则现有 P0/P1/界面清单全部加载失败；`normalize()` 只补一条
-   「`monitor.user == user` 即拒绝」的 schema 护栏。`MonitorTarget()` 复用兜底已删除。
+1. 🔴 **只读的是动作，不是账号**（2026-11-08 定稿）：监控与安装共用清单里的
+   `user`/`key`，不再单设只读账号。`Server.StatusSSHTarget()` 基于 `NewSSHTarget()`
+   但清空 `sudo.password`；远端脚本不写文件、不提权、不调用会写日志 / 推告警的
+   `*_status.sh`，所以「看一眼」不会因为账号有 sudo 就产生副作用。
+   远端收紧 sshd（禁 PTY / 端口转发 / agent 转发）仍建议照做，但不再是采集前提。
    `SSHTarget.RunScript()` 的错误只说 `user@host:port`，不回显 ssh 的 stderr
    （里面可能带私钥路径）；`monitor.connectionError()` 再兜一层脱敏。见 §11。
+   旧清单里残留的 `monitor` 对象只是历史字段：JSON 反序列化忽略，不删也不报错；
+   🔴 别把「必须有 monitor」加回 `normalize()` 或采集入口，那会打挂现有清单。
 2. 私钥只放本机，路径可以写进配置，但**任何输出、错误、日志都不打印它**。
 3. `accept-new` 不是 `no`：首次收录，之后变化直接拒绝。
 4. 工具只读：不调用 `pg_backup_status.sh` / `minio_backup_status.sh`
@@ -207,7 +209,8 @@ Go 侧类型约定（P2a 定稿，CLI `--json` 与 P2+ 网页共用同一份 `St
 
 ## 7. 文件与阶段
 
-P2a 已按下面这份清单落地，只动 CLI，**没有碰 `internal/ui/` 与 `web/`**
+P2a 落地时的文件清单如下（2026-11-08 已按单账号口径调整 `servers.go` 与相关断言，
+见 §11.2）；当时只动 CLI，**没有碰 `internal/ui/` 与 `web/`**
 （`+` 新增、`~` 修改；`menu_test.go` 另补了「第 7 项只读」断言）：
 
     + internal/monitor/config.go          Config / ConfigFrom / probeScript
@@ -217,10 +220,10 @@ P2a 已按下面这份清单落地，只动 CLI，**没有碰 `internal/ui/` 与
     + internal/monitor/probe_test.go      只读脚本扫描 + 路径注入断言
     ~ internal/shared/opsenv.go           8 个键 retired → opsEnvKeys
     ~ internal/shared/config.go          Config.Monitor / defaultConfig / validate
-    ~ internal/shared/servers.go         MonitorSSHTarget / normalize 撞车护栏；删 MonitorTarget
+    ~ internal/shared/servers.go         StatusSSHTarget（清单 user/key，不带 sudo 密码）
     ~ internal/shared/remote.go          RunScript（stdin sh -s，stdout/stderr 分离）
     ~ internal/shared/opsenv_test.go     键登记后 4 处断言（见 §11）
-    ~ internal/servers/servers_test.go   MonitorTarget 回退断言 → 三组成功/失败
+    ~ internal/servers/servers_test.go   TestStatusSSHTargetUsesSingleAccount（单账号 / 历史字段忽略）
     ~ main.go                            commandHandler 注册 status + usage
     ~ internal/launcher/menu.go          probe("status") 条件菜单项
     ~ docs/{config,backup-monitor,servers}.md、AGENTS.md    见 §11「实现时同步」
@@ -248,7 +251,7 @@ P2+ 另起一刀（界面，已落地）：`internal/ui/monitor.go`（GET handle
 | 风险 | 说明与对策 |
 | :--- | :--- |
 | 本机没有 `ssh` | Windows 10+ 默认带 OpenSSH Client；缺失时明确提示「找不到 ssh」 |
-| 只读账号权限不足 | 目录 root 私有时「连得上但读不到」；问题清单写清是哪一项没采到 |
+| 登录账号读不到备份产物 | 目录 root 私有时「连得上但读不到」；问题清单写清是哪一项没采到 |
 | `PASS_UP_OPS_MINIO_DATA` 的 `du` 很慢 | 对象多时几十秒；默认留空 |
 | 主机密钥变化 | 备份服务器重装后会拒绝；按 `ssh` 提示清理旧指纹即可 |
 | 本机时钟不准 | 新鲜度用「远端 now - 远端 last」算，与本机时钟无关 |
@@ -259,7 +262,7 @@ P2+ 另起一刀（界面，已落地）：`internal/ui/monitor.go`（GET handle
 | :--- | :--- | :--- |
 | 独立本地 Go 工具 | 后端加 API + admin 页面 | 不建表 / 不加权限 / 不改后端；工具坏了不影响生产 |
 | 本机 `ssh` CLI | 纯 Go SSH 库 | 复用 `known_hosts` / agent / ssh config，少一个依赖与一套密钥管理 |
-| 不查 crontab | `crontab -u <运行用户> -l` 或 `sudo -n` | 只读监控账号读不到别人的 crontab，读到空会误报「未安装」 |
+| 不查 crontab | `crontab -l` + 解析定时任务 | 装了 cron 不等于备份成功，心跳新鲜度才是事实；解析 cron 会把只读页绑到安装脚本的格式细节上 |
 | `du` MinIO 数据目录可选 | 默认全量 `du` | 对象多时几十秒；「只看备份」不值得每次等 |
 
 ## 10. 配置键
@@ -267,8 +270,8 @@ P2+ 另起一刀（界面，已落地）：`internal/ui/monitor.go`（GET handle
 **8 个键已实现**，键表（默认值 / 校验口径）见 [config.md](config.md) §3，
 代码事实源是 `internal/shared/opsenv.go` 的 `opsEnvKeys` 与 `config.go` 的
 `MonitorConfig` / `DefaultMonitor*` 常量。本文不复述键表：路径与阈值是全局默认，
-多台备份机要不同值时再在清单里加 server 级覆盖；监控账号强制来自清单的 `monitor`
-（见 §6 / §11）。
+多台备份机要不同值时再在清单里加 server 级覆盖；登录账号就是清单的 `user`/`key`
+（与账号无关的 8 个采集键，见 §6 / §11.2）。
 
 `retiredOpsEnvKeys()` 里只剩 P3–P4 方案键、已删除的旧主机键与「其实是进程环境变量」
 的覆盖键；`go test` 的 `TestConfigDocOnlyDefinesCurrentConfig` 按 `deploy.md` §8 的
@@ -277,8 +280,9 @@ P2+ 另起一刀（界面，已落地）：`internal/ui/monitor.go`（GET handle
 ## 11. P2a 实现设计与落地记录（2026-11-07 已实现）
 
 > 本节既是施工图也是现状：P2+ 已按此复用 `Collect()` / `Status`，没有另算指标（见 §12）。
-> 落地时按两个拍板决策执行（强制只读账号、三条红线单测先行），
-> 退出码语义（`1` = 有 danger）与 probe 脚本放 Go 常量两处默认口径也已照做。
+> 🔴 **2026-11-08 口径变更**：「强制只读账号」这个拍板决策**已撤销**，改为单账号
+> （见 §11.2 / §6）；三条红线单测先行、退出码语义（`1` = 有 danger）与
+> probe 脚本放 Go 常量两处默认口径不变。
 > 真机验收仍未做，见 §11.4。
 
 ### 11.1 分层与接口
@@ -293,19 +297,25 @@ P2+ 另起一刀（界面，已落地）：`internal/ui/monitor.go`（GET handle
     func parseSections(out string) Status       // 纯函数，固定文本 fixture 可测
     func assess(s *Status, cfg Config)          // danger / warn 阈值只在这里定义一次
     func probeScript(cfg Config) string         // 路径全部 shared.ShQuote 后注入
-    func (s *Server) MonitorSSHTarget() (*SSHTarget, error)   // 已替换 MonitorTarget()
+    func (s *Server) StatusSSHTarget() *SSHTarget            // 单账号：user/key，清空 sudo 密码
 
 `RunScript` 走 `ssh -T ... sh -s`，stdin 喂脚本，stdout / stderr 分开收，255 沿用
 `sshExitTransport` 判定；30s 总超时常量 `monitor.CollectTimeout` 由 CLI 与 P2+ 共用。
 `probe.sh` 不落 `deploy/` 目录：路径要动态注入，Go 常量 + `ShQuote` 比模板替换安全
 （也省一套 embed 与只读扫描的接线）。
 
-### 11.2 两个拍板决策（均已落地）
+### 11.2 决策与口径变更
 
-| 决策 | 落地口径 | 为什么不那么做 |
+| 决策 | 时间 | 现行口径 |
 | :--- | :--- | :--- |
-| 强制只读账号 | 「必须有 monitor」只在 `status` 采集入口 `MonitorSSHTarget()` 强制；`normalize()` 只补 `monitor.user == user` 拒绝；删 `MonitorTarget()` 兜底 | 放进 `normalize()` 全局校验会让现有 P0/P1/界面清单全部加载失败，它们不需要 monitor |
-| 三条红线单测先行 | `status_test.go` 先写、先红；采集与判定靠 `ScriptRunner` 注入假输出分离 | 不写需要真实 SSH 的单测（全项目惯例） |
+| 三条红线单测先行 | 2026-11-07 拍板，**仍有效** | `status_test.go` 先写、先红；采集与判定靠 `ScriptRunner` 注入假输出分离，不写需要真实 SSH 的单测 |
+| 强制专用只读账号 | 2026-11-07 拍板，**2026-11-08 撤销** | 曾要求 `monitor.user/key` 齐全、不等于安装账号、非 root，并在 `normalize()` 加撞车护栏。撤销原因：多一套账号、私钥与配置入口，而「只读」本来由远端脚本保证，账号级降权的收益抵不过维护成本。现在 `StatusSSHTarget()` 用清单 `user/key` 并**清空 sudo 密码**；`monitor` 字段、撞车护栏、配置页账号区块与保存强校验一并删除，旧清单里的历史字段被忽略 |
+
+撤销时同步删掉的：`shared.Server.Monitor` / `MonitorSSHTarget()`、
+`config_edit.go` 的 `monitor_*` 白名单与 `validateMonitorAccount()`、
+`config.go` 视图的三个账号字段、前端「只读监控账号」表单与跳转定位，
+以及 `servers_test.go` / `config_test.go` 里对应的断言。
+🔴 回归时别把这些加回来，也别把「必须有 monitor」挪进 `normalize()`。
 
 红线单测：`TestFreshnessUsesRemoteEpochs`（固定 epoch fixture，换 TZ 结果不变）、
 `TestDashMeansNotCollected`（`-` → `null` / `collected=false`，绝不 0）、
@@ -323,7 +333,7 @@ P2+ 另起一刀（界面，已落地）：`internal/ui/monitor.go`（GET handle
 | `opsenv_test.go` `AppliesEveryKey` | 新键没给值直接 `Fatalf` | `values` + `checks` 各补 8 个 |
 | `opsenv_test.go` `ConfigDocOnly...` | `ghosts` 20→12，`< 20` 断言红 | 改成按 `deploy.md` §8 的 P3 键表动态核对，别留魔法数 |
 | `opsenv_test.go` 文档键归类 | 键表搬回 config.md | 不用改；`seen >= 20` 仍绿（去重后约 40 个键） |
-| `servers_test.go` `MonitorTarget` 回退断言 | 方法删除 | 改成五组：缺 monitor / 缺 key / 撞车 / root / 正常，并断言 target 无 sudo 密码 |
+| `servers_test.go` `MonitorTarget` 回退断言 | 方法删除 | 现为 `TestStatusSSHTargetUsesSingleAccount`：复用清单 user/key、不带 sudo 密码、历史 `monitor` 字段被忽略、root 登录也能加载 |
 | `launcher/menu_test.go` | 新增第 7 项 | `testProbe` 认 `status`，断言第 7 项存在且只发只读 `status --server <name>` |
 
 ### 11.4 顺序与验收
@@ -333,11 +343,11 @@ P2+ 另起一刀（界面，已落地）：`internal/ui/monitor.go`（GET handle
 
 **已验**：`go vet ./...` + `go test ./...` + `go build ./...` 全绿；断网 / 错密钥路径
 由 `fakeRunner` 覆盖（完整 JSON + 退出码 1）；`ops init` 模板含 8 个新键，旧 `ops.env`
-不含新键仍走默认值；未配 `monitor` 明确报错；输出里没有私钥路径。
+不含新键仍走默认值；输出里没有私钥路径。
 
 **待真机验收**：`ops status --server <备份机>` 出四段卡片、`--json` 字段与 §4 一致；
-真实断网 / 错密钥仍返回完整 JSON 且退出码 1；备份机上确认只读账号能读到心跳、
-日志与 `.dump`，且远端没有任何文件被写。
+真实断网 / 错密钥仍返回完整 JSON 且退出码 1；备份机上确认清单账号能读到心跳、
+日志与 `.dump`，且远端没有任何文件被写（不必另配只读账号）。
 
 **落地时已同步**：`docs/config.md` §1 键数 6→14、§3 接回键表；
 `docs/servers.md` §3 的 `monitor` 行改「P2a 必填」并删「缺省复用」；
@@ -353,12 +363,12 @@ P2+ 另起一刀（界面，已落地）：`internal/ui/monitor.go`（GET handle
     ops status ─────────┐
                         ├→ monitor.CollectForServer(cfg, list, name)
     GET /api/monitor/status ─┘        ↓
-                        Resolve → MonitorSSHTarget → Collect
+                        Resolve → StatusSSHTarget → Collect
                                       ↓
                         parseSections → assess → Status（完整快照）
 
-`internal/monitor/collect.go` 是新增的那一块胶水：把「清单选机 → 强制只读账号 →
-采集」从 CLI 抽出来，两个入口共用。配置 / 账号没配好时它返回
+`internal/monitor/collect.go` 是新增的那一块胶水：把「清单选机 → StatusSSHTarget
+（清单 user/key）→ 采集」从 CLI 抽出来，两个入口共用。配置没准备好时它返回
 `monitor.FailureStatus`（一份字段齐全、带 danger 的快照）+ `error`：
 CLI 据此退出 `2` 并照常支持 `--json`，界面据此显示「去配置页」引导且**不缓存**。
 
@@ -377,8 +387,8 @@ CLI 据此退出 `2` 并照常支持 `--json`，界面据此显示「去配置�
    token 与 `Origin` 由 `ServeHTTP` 统一校验，静态产物仍不过 token。
 2. **主机只认清单**：严格 `shared.LoadConfig` + `LoadServers`（要连远端，不许拿
    `FallbackConfig` 的默认路径冒充目标机），`name` 空 400、未知 404。
-3. **账号强制在能力包内**：`MonitorSSHTarget()` 要求专用只读 `monitor`，
-   界面拿不到安装账号，也不会因为「网页想省事」退化成有 sudo 的那个人。
+3. **单账号、采集不提权**：`StatusSSHTarget()` 用清单 `user/key` 并清空 sudo 密码；
+   远端脚本只读、不写文件、不提权。页面没有任何账号输入或改账号的入口。
 4. **缓存与限流**：30s TTL、5s 最小强制刷新间隔、`monitorMu` 串行化采集；
    多标签页同时刷新合并成一次 SSH，被限流时回 `notice` + 旧快照，不是静默复用。
 5. **失败也是完整快照**：连不上 / 配置错一律 `200` + `connection.ok=false` +
@@ -403,9 +413,9 @@ CLI 据此退出 `2` 并照常支持 `--json`，界面据此显示「去配置�
 **已验**：`go vet` / `go test -count=1 ./...` / `go build` 全绿，其中
 `internal/ui/monitor_test.go` 覆盖 401 / 门禁 / 完整快照 / 30s TTL / 5s 限流 /
 配置错不缓存 / 脱敏 / 连接失败仍完整快照；`internal/monitor/collect_test.go`
-覆盖缺 monitor 与未知 name 两条「不连 SSH 就停下」的路径。
+覆盖未知 name 这条「不连 SSH 就停下」的路径与错误文本脱敏。
 前端 `npm test` 85/85 + `typecheck` + `build`，产物已重建进 `ops.exe`。
 
 **真机待做**：在备份机上跑一次 `ops status --server <name>`，并在浏览器里看
-四张卡 / 问题清单 / 立即刷新 / 限流提示 / 配置错引导；确认只读账号能读到心跳、
+四张卡 / 问题清单 / 立即刷新 / 限流提示 / 配置错引导；确认清单账号能读到心跳、
 日志与 `.dump`，且远端没有任何文件被写。

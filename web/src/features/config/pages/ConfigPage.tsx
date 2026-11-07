@@ -1,6 +1,6 @@
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import type { ChangeEvent } from 'react'
-import { Alert, Button, Checkbox, Input, Modal, Segmented, Select, Tag, Typography } from 'antd'
+import { Alert, Button, Input, Modal, Segmented, Select, Tag, Typography } from 'antd'
 
 import { configApi } from '../api.ts'
 import type {
@@ -24,7 +24,6 @@ import {
   fillableDefaults,
   newServerInitial,
   serverInitial,
-  setServerFieldValue,
   splitCompare,
 } from '../utils/draft.ts'
 import type { CompareTone, ConfirmKind } from '../utils/draft.ts'
@@ -44,11 +43,9 @@ import type { CompareTone, ConfirmKind } from '../utils/draft.ts'
 interface ConfigPageProps {
   /** 保存了 servers.json 时通知 App，让一直挂载着的服务器管理页重新取数。 */
   onServersChanged: () => void
-  /** 从「备份监控」的报错引导跳来时 +1：滚到服务器清单区（含只读账号）。 */
-  focusServersToken: number
 }
 
-export function ConfigPage({ onServersChanged, focusServersToken }: ConfigPageProps) {
+export function ConfigPage({ onServersChanged }: ConfigPageProps) {
   const [data, setData] = useState<ConfigView | null>(null)
   const [serverName, setServerName] = useState('')
   const [serverDraft, setServerDraft] = useState<Record<string, string>>({})
@@ -86,15 +83,6 @@ export function ConfigPage({ onServersChanged, focusServersToken }: ConfigPagePr
   useEffect(() => {
     void load()
   }, [load])
-
-  // 页面一直挂载、切回来不重新取数，滚动位置同样保留；所以从监控页的引导跳来时
-  // 要显式定位，否则人可能还停在上次看 MinIO env 的中段，看不到只读账号区块。
-  const serversRef = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    if (focusServersToken > 0) {
-      serversRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' })
-    }
-  }, [focusServersToken])
 
   const currentServer = adding ? undefined : data?.servers.find((s) => s.name === serverName)
   const currentEnv = data?.envs.find((e) => e.component === envComponent)
@@ -174,7 +162,7 @@ export function ConfigPage({ onServersChanged, focusServersToken }: ConfigPagePr
   }, [pending, serverBase, serverDraft, envBase, envDraft, envClear, newName])
 
   const setServerField = (key: string, value: string) =>
-    setServerDraft((prev) => setServerFieldValue(prev, key, value))
+    setServerDraft((prev) => ({ ...prev, [key]: value }))
   const setEnvField = (key: string, value: string) => {
     setEnvDraft((prev) => ({ ...prev, [key]: value }))
     // 填了新值就自动撤销该键的「清空」，两个动作不并存。
@@ -315,7 +303,7 @@ export function ConfigPage({ onServersChanged, focusServersToken }: ConfigPagePr
         description="servers.json 决定本机怎么登录备份端；backup/*.env 决定备份脚本每天怎么连主服务器拉 dump。两者互不相干，别拿登录账号去解释备份日志里的用户。"
       />
 
-      <div className="card config-panel" ref={serversRef}>
+      <div className="card config-panel">
         <h3>服务器清单{adding ? ' · 新增一台' : ''}</h3>
         {adding && (
           <Alert
@@ -398,53 +386,6 @@ export function ConfigPage({ onServersChanged, focusServersToken }: ConfigPagePr
               onChange={(e) => setServerField('sudo_password', e.target.value)}
             />
           </label>
-        </div>
-
-        {/* P2+：备份监控页报「缺只读账号」时，来这里补。与上面的登录账号是两个身份。 */}
-        <div className="config-monitor">
-          <div className="config-monitor-head">
-            <strong>只读监控账号</strong>
-            <Tag color={adding ? 'blue' : currentServer?.monitor_configured ? 'green' : 'orange'}>
-              {adding ? '新增时填写' : currentServer?.monitor_configured ? '已配置' : '未配置（备份监控页不可用）'}
-            </Tag>
-            <span>仅用于只读采集备份状态，与上面的登录账号必须是两个人</span>
-          </div>
-          <div className="config-grid">
-            <label className="config-field">
-              <span>只读账号用户名</span>
-              <Input
-                value={serverDraft.monitor_user ?? ''}
-                disabled={serverDraft.monitor_clear === 'yes'}
-                placeholder="例如 passup-ro（不能等于登录账号，不能是 root）"
-                onChange={(e) => setServerField('monitor_user', e.target.value)}
-              />
-            </label>
-            <label className="config-field">
-              <span>只读账号私钥路径</span>
-              <Input.Password
-                value={serverDraft.monitor_key ?? ''}
-                autoComplete="off"
-                disabled={serverDraft.monitor_clear === 'yes'}
-                placeholder={currentServer?.monitor_key_configured
-                  ? '已配置，留空保持不变'
-                  : '本机私钥绝对路径，例如 C:/Users/<你>/.ssh/id_ed25519_ro'}
-                onChange={(e) => setServerField('monitor_key', e.target.value)}
-              />
-            </label>
-          </div>
-          <div className="config-monitor-foot">
-            <Checkbox
-              checked={serverDraft.monitor_clear === 'yes'}
-              disabled={busy}
-              onChange={(e) => setServerField('monitor_clear', e.target.checked ? 'yes' : '')}
-            >
-              移除这个只读账号（显式勾选才会删除）
-            </Checkbox>
-            <span>
-              私钥路径不回显；保存前会校验账号不撞车、不是 root、私钥文件存在。
-              只写本机 servers.json，保存后回「备份监控」页点「立即刷新」。
-            </span>
-          </div>
         </div>
 
         <div className="config-chain">

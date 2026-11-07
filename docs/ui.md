@@ -17,9 +17,8 @@
 > `PG_SSH_KEY` 保存时只认私钥文件绝对路径、日志不再回显路径（§12.8）。
 > **2026-11-07 深夜追加第 5 个导航项「备份监控」**（P2+，纯只读）：四张卡 +
 > 问题清单 + 60s 自动刷新，与 `ops status` 共用一份快照（§14 / [backup-monitor.md](backup-monitor.md) §12）。
-> **2026-11-08 追加**：配置页「服务器清单」区可编辑只读监控账号
-> （`monitor.user` / `monitor.key`、状态标记与显式移除，见 §12.9）；
-> 从备份监控页的报错引导跳来会自动定位到该区块。
+> **2026-11-08 改口径**：备份监控不再分设只读账号，安装与采集共用清单的
+> `user`/`key`；配置页没有第二套账号表单（§12.9），旧 `monitor` 字段被忽略。
 > 未实现的 P3–P4 视图按本文件 §7 的触发条件再加。
 
 # 界面（`ops ui`）
@@ -306,7 +305,7 @@ P1 的 `ops backup deploy` 早已实现并真机验证，却只能从命令行 /
 不是权限模型问题——只要**入口依旧是显式的**，就不该拦着。
 
 没改的三条：① 双击**不自动**触发任何写操作，落地页仍是服务器管理（只读）页；
-② 安装账号与只读账号不复用；③ 主机只来自 `servers.json`。
+② 安装与只读采集共用清单里的同一个账号（只读由脚本保证）；③ 主机只来自 `servers.json`。
 变的只有一条：界面**允许**有安装入口，但它必须比 CLI 更严，而不是更松。
 
 ### 9.2 六道门（服务端 enforce，前端只是交互）
@@ -581,7 +580,7 @@ sudo 包装层，于是「配置了 cql，日志却说 root」看起来像配置
 | 接口 | 作用 | 写哪里 |
 |---|---|---|
 | `GET /api/config` | 清单字段 + 两份 env 字段 + `exec_chain` | 只读 |
-| `POST /api/config/servers` | 保存清单里的白名单字段（含只读监控账号，§12.9）；`mode=add` 时**追加一台服务器**（§12.6） | 本机 `servers.json` |
+| `POST /api/config/servers` | 保存清单里的白名单字段；`mode=add` 时**追加一台服务器**（§12.6） | 本机 `servers.json` |
 | `POST /api/config/backup-env` | 保存一份本机备份配置 | 本机 `backup/*.env` |
 | `POST /api/config/sync-env` | 显式同步到远端 | 远端 `<组件>/backup.env` |
 
@@ -595,13 +594,11 @@ sudo 包装层，于是「配置了 cql，日志却说 root」看起来像配置
    组件只认 `pg|minio|all`。
 3. 字段白名单：编辑已有清单时不改 `name`（主键，`servers.state.json` 与 default 都按它
    索引）；`mode=add` 时 `name` 必填、不许重名，其余字段仍只认同一份白名单；
-   env 只改「模板定义过或文件里已有」的键，注释与未知行原样保留；
-   `monitor_user` / `monitor_key` / `monitor_clear` 是写进 `monitor` 对象的白名单字段（§12.9）。
+   env 只改「模板定义过或文件里已有」的键，注释与未知行原样保留。
 4. 🔴 **值按 shell 字面量转义**：env 会被远端 `install.sh` / 备份脚本 `source`，
    `$(...)`、反引号、双引号、反斜杠不转义就是命令注入。`quoteEnvValue` 统一处理。
 5. 写 0600 + 先留 `.bak` + 原子替换；清单写前把 `.tmp` 交给 `shared.LoadServers`
-   做全量校验（字段格式、`sudo.mode` 组合、default 指向、私钥存在性），失败原文件一字不动；
-   本次动了只读账号时再过一次 `Server.MonitorSSHTarget()` 强校验（§12.9）。
+   做全量校验（字段格式、`sudo.mode` 组合、default 指向、私钥存在性），失败原文件一字不动。
    改了 `user` / `sudo.mode` 会提示重新「一键免密 sudo」并清掉该 name 的检查缓存——
    drop-in 是 `/etc/sudoers.d/90-<user>-nopasswd`，按用户名写的。
 6. 备份预检 / 安装 / 自检在跑时 **409**；占位符（`CHANGE_ME` / `YOUR_`）配置拒绝同步。
@@ -808,41 +805,25 @@ Origin + `confirm=="yes"`，0600 + `.bak` + 原子替换照旧。清空只写本
 **没变**：双击落地页只读；同步仍整份覆盖；路径仍由服务端解析、接口不收路径；
 `clear` 不是「删除这一行」，写成空值才能让 `configured=false` 且脚本走 `${KEY:-}` 兜底。
 
-### 12.9 只读监控账号（2026-11-08 追加）
+### 12.9 单账号口径（2026-11-08）
 
-P2+ 上线后第一条真机反馈：备份监控页报「服务器 k4 缺少只读监控账号」，但点
-「去配置页」过去只有 env 编辑——`servers.json` 的 `monitor` 一直被列为
-「不参与编辑的字段」，界面里根本没有地方补。这一刀把闭环补上。
+曾短暂引入的「配置 → 服务器清单 → 只读监控账号」区块、`monitor_*` 白名单字段、
+保存时的 `MonitorSSHTarget()` 强校验与跳转定位，**已整体移除**。
 
-- **位置**：「配置 → 服务器清单」下方的「只读监控账号」分组（与登录账号视觉上分开，
-  避免填错人）：用户名、私钥路径、状态 Tag（已配置 / 未配置）、「移除这个只读账号」
-  勾选。新增服务器模式下同样可填。
-- **字段**：白名单加 `monitor_user` / `monitor_key` / `monitor_clear`，写进
-  `servers.json` 的 `monitor` 对象而不是顶层；`monitor_clear=yes` 才删除整个对象，
-  与「凭证留空保持不变」严格分开（同 §12.8 的 clear 思路，但这是删对象、不是写空值）。
-  同时提交清空与新值直接 400。
-- **回显**：`GET /api/config` 下发 `monitor_user`（用户名不是凭证）与
-  `monitor_key_configured` / `monitor_configured` 两个布尔；
-  🔴 **私钥路径绝不回显**（硬约束 8），输入框留空 = 保持不变。
-- **保存门禁**：仍走 `confirm=="yes"` + 白名单 + `.tmp` 全量校验；
-  🔴 额外**只在「本次动了只读账号」时**调 `Server.MonitorSSHTarget()` 做强校验
-  （user/key 齐全、不等于安装账号、不是 root、sudo.mode 不是 root），失败回滚、
-  原文件一字不动。schema 的 `normalize()` 故意不全局强制 `monitor`
-  （P0/P1 的写操作不需要它），所以这层校验只能加在写入路径上，不能挪回 schema。
-- **跳转定位**：从备份监控页点「去配置页」时，App 给配置页一个 `focusServersToken`，
-  页面滚到服务器清单区——页面常驻挂载、切回来滚动位置保留，不定位的话人可能
-  还停在上次看 MinIO env 的中段，仍然找不到这一块。
-- **保存后**：只写本机 `servers.json`；`onServersChanged` 让清单页与监控页重新取数，
-  回「备份监控」点「立即刷新」即可（配置错不进缓存，见 §14.2）。
+- 2026-11-08 起安装、检查与备份监控共用清单里的 `user`/`key`；
+  配置页「服务器清单」只编辑这一套账号，没有第二套表单。
+- 「只读」指远端采集脚本不写文件、不提权（`StatusSSHTarget()` 清空 sudo 密码），
+  不是给账号降权；账号与边界见 [backup-monitor.md](backup-monitor.md) §6 / §12.1。
+- 旧 `servers.json` 里残留的 `monitor` 对象是历史字段：JSON 反序列化忽略，
+  不删、不报错、不参与校验；配置页用 map 解码保存时会原样保留它。
+- 🔴 别再把「必须有 monitor」加回 `normalize()` 或采集入口：那会让现有清单
+  全部加载失败，也让「一个账号」这件事重新变复杂。
 
 ### 12.10 回归要点
 
-- 只读监控账号（§12.9）：`TestEditServersFileMonitorAccount`（嵌套写入 / 显式移除 /
-  改别的字段不丢 monitor）、`TestEditServersFileRejectsBadMonitorAccount`（撞车 / root /
-  缺 user 或 key / 私钥不存在 / 清空与填写并存，全部回滚）、
-  `TestConfigViewDoesNotLeakMonitorKey`、`TestConfigAPISavesMonitorAccount`、
-  `TestAddServerWithMonitorAccount`；前端 `config.test.ts` 锁住「用户名可回显、
-  私钥路径不进表单」「填写与移除互斥」「只提交显式移除」；
+- 单账号（§12.9）：`TestStatusSSHTargetUsesSingleAccount`（复用清单 user/key、
+  不带 sudo 密码、历史 `monitor` 字段被忽略、root 登录也能加载）与
+  `TestLoadServersValid` 里的 status target 断言；
 - 配置缺失 / 空清单：`TestIndexServedWithoutConfig`（页面仍回 SPA）、
   `TestConfigViewWorksWithoutConfig`（配置页 200 + `setup_error` + 两份 env）、
   `TestConfigEnvSaveWorksWithoutConfig`、`TestAddServerIntoEmptyList` /
@@ -976,7 +957,7 @@ Enter/Space 键盘可达的，不只靠鼠标。改完 `web/` 仍需 `npm run bu
 
 ## 14. 备份监控页（P2+，2026-11-07 夜）
 
-> 能力的采集协议、只读账号口径与阶段划分在
+> 能力的采集协议、单账号口径与阶段划分在
 > [backup-monitor.md](backup-monitor.md) §5 / §12；本节只讲界面这一层。
 > **真机浏览器验收待做**：本机 `go test` / `npm test` / build 全绿，尚未连过真实备份机。
 
@@ -997,7 +978,7 @@ Enter/Space 键盘可达的，不只靠鼠标。改完 `web/` 仍需 `npm run bu
 | 接口 | `GET /api/monitor/status?name=<清单里的 name>[&force=1]`；`force=1` 只由「立即刷新」发 |
 | 鉴权 | 与其它 API 同一套：只听回环、token + `Origin`；静态产物仍不过 token（§4） |
 | 门禁 | 严格 `LoadConfig` + `LoadServers`（要连远端，不许用 `FallbackConfig` 冒充目标机）；`name` 空 400、未知 404 |
-| 账号 | `monitor.CollectForServer` 内强制专用只读 `monitor`，界面拿不到安装账号 |
+| 账号 | 清单的 `user`/`key`（`StatusSSHTarget()`），与安装同一个账号；不带 sudo 密码，只读由远端脚本保证 |
 | 采集 | `context.Background()` + `Collect` 自带 30s 超时，不用 `r.Context()`；刷新页面不掐断 |
 | 缓存 | 服务端 30s TTL、强制刷新 5s 最小间隔、`monitorMu` 串行：多标签页刷新合并成一次 SSH |
 | 失败 | 连不上 / 配置错一律 **200 + 完整快照**（`cached`、`config_error`、`notice` 是页面提示位）；配置错不缓存 |
@@ -1036,7 +1017,6 @@ writer，而 CLI 在 danger 时会往 stderr 打一行 WARN，JSON 会被污染�
 最后 `go build -o ops.exe .`（改了 `web/` 必须重建产物，见 §3 / 硬约束 19）。
 
 真机验收（都不改远端）：`ops status --server <备份机>` 与浏览器页面对照同一份快照；
-点「立即刷新」两次看 5s 限流提示；临时不配 `monitor` 看「去配置页」引导，
-并在「配置 → 服务器清单 → 只读监控账号」补上后回来刷新（§12.9）；
-在备份机上确认只读账号能读到心跳 / 日志 / `.dump`，且没有任何文件被写。
+点「立即刷新」两次看 5s 限流提示；在备份机上确认清单账号能读到心跳 / 日志 /
+`.dump`，且没有任何文件被写（安装与监控同一个账号，不必另配只读账号）。
 

@@ -4,8 +4,9 @@ package ui
 //
 // 🔴 只读：与 `ops status --json` 共用 monitor.CollectForServer / Status，
 //    不写远端、不提权、不占后台任务锁、不需要 confirm；页面上没有重跑 / 恢复入口。
-// 🔴 主机只认 servers.json 的 name（未知 404），账号强制 monitor 只读账号
-//    （在 monitor 包内），私钥路径既不进 JSON 也不进日志。
+// 🔴 主机只认 servers.json 的 name（未知 404）；登录账号用清单的 user/key
+//    （2026-11-08 起不再分设只读账号），远端脚本只读、不提权，
+//    私钥路径既不进 JSON 也不进日志。
 // 🔴 本机时钟只用来算「缓存多旧」；备份新鲜度仍是远端两个 epoch 相减（monitor 包）。
 // 🔴 缓存 30s、强制刷新最小间隔 5s、采集串行：防止多标签页把备份机 SSH 打满
 //    （docs/backup-monitor.md §5）。配置错不缓存，改完配置立刻能重试。
@@ -114,7 +115,7 @@ func (u *uiState) monitorSnapshot(cfg *shared.Config, list *shared.ServerList, n
 	}
 	st, err := probe(cfg, list, name)
 	if err != nil {
-		// 配置 / 只读账号没配好：每次请求都该重新试，别让旧结论挡住刚补好的配置。
+		// 配置没准备好：每次请求都该重新试，别让旧结论挡住刚补好的配置。
 		// 文案取快照里已脱敏的 Connection.Error，不直接用 err.Error()：
 		// ssh / 配置报错可能带私钥路径（AGENTS.md 硬约束 8）。
 		delete(u.monitorCache, name)

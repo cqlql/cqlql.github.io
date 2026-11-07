@@ -130,7 +130,7 @@ func (t *SSHTarget) addr() string {
 // RunScript 把固定脚本从 stdin 喂给远端 `sh -s`，stdout / stderr 分开收。
 //
 // 🔴 不用 Capture()：CombinedOutput() 会把远端警告混进分节纯文本被误解析
-//    （docs/backup-monitor.md §3.1）。只读账号不提权，stdin 全程只给脚本。
+//    （docs/backup-monitor.md §3.1）。采集不提权，stdin 全程只给脚本。
 // 🔴 错误里只说 user@host:port，不回显远端 stderr —— ssh 的
 //    「Identity file ... not accessible」会带出私钥路径（硬约束 8）。
 func (t *SSHTarget) RunScript(ctx context.Context, script string) (string, error) {

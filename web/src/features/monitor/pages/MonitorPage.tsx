@@ -16,7 +16,7 @@ import type { MonitorTargetsView, MonitorView } from '../types.ts'
 import { formatShortTime } from '../../../shared/utils/time.ts'
 
 interface MonitorPageProps {
-  /** 配置缺失 / 只读账号没配好时，把人送到能补的那页。 */
+  /** 本机配置没准备好时，把人送到能补的那页。 */
   onGoConfig: () => void
   /** 配置页改了 servers.json 后 +1：本页一直挂着，得重新拉清单。 */
   version: number
@@ -185,12 +185,12 @@ export function MonitorPage({ onGoConfig, version, active }: MonitorPageProps) {
           <Alert
             type="warning"
             showIcon
-            message="本机配置 / 只读账号没配好"
+            message="本机配置还没准备好"
             description={
               <div className="monitor-alert-body">
                 <span>
-                  {view.config_error}　缺只读账号时，在「配置 → 服务器清单 → 只读监控账号」
-                  填用户名与本机私钥路径（不能等于登录账号、不能是 root），保存后回来点「立即刷新」。
+                  {view.config_error}　可在「配置」页检查 ops.env 与 servers.json；
+                  补完回来点「立即刷新」。
                 </span>
                 <Button size="small" onClick={onGoConfig}>去配置页</Button>
               </div>

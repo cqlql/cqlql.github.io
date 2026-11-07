@@ -76,34 +76,7 @@ export function serverInitial(s: ConfigServer): Record<string, string> {
     sudo_mode: s.sudo_mode,
     key: '',
     sudo_password: '',
-    // 只读账号用户名可回显；私钥路径不回显（留空 = 保持不变），
-    // monitor_clear 走显式勾选，不靠「把输入框删空」这种含糊动作。
-    monitor_user: s.monitor_user ?? '',
-    monitor_key: '',
-    monitor_clear: '',
   }
-}
-
-/**
- * 服务器表单改一个字段：填写新值与「移除只读账号」互斥（新值优先）。
- *
- * 抽成纯函数是因为这个互斥关系属于判定，不属于页面 UI 状态，
- * 放在 `utils/` 才能被 node --test 直接覆盖（同 envClear 的 setEnvField）。
- */
-export function setServerFieldValue(
-  draft: Record<string, string>,
-  key: string,
-  value: string,
-): Record<string, string> {
-  const next = { ...draft, [key]: value }
-  if ((key === 'monitor_user' || key === 'monitor_key') && value !== '') {
-    next.monitor_clear = ''
-  }
-  if (key === 'monitor_clear' && value === 'yes') {
-    next.monitor_user = ''
-    next.monitor_key = ''
-  }
-  return next
 }
 
 /**
@@ -120,9 +93,6 @@ export function newServerInitial(): Record<string, string> {
     sudo_mode: 'nopasswd',
     key: '',
     sudo_password: '',
-    monitor_user: '',
-    monitor_key: '',
-    monitor_clear: '',
   }
 }
 

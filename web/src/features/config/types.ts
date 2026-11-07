@@ -16,10 +16,6 @@ export interface ConfigServer {
   password_configured: boolean
   note?: string
   exec_chain: string
-  /** P2+ 只读监控账号：用户名可回显；私钥路径只给布尔标记，绝不下发路径本身。 */
-  monitor_user?: string
-  monitor_key_configured?: boolean
-  monitor_configured?: boolean
 }
 
 export interface EnvField {

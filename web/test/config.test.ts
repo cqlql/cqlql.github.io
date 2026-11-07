@@ -23,7 +23,6 @@ import {
   normalizeCompareView,
   normalizeConfigView,
   serverInitial,
-  setServerFieldValue,
   splitCompare,
 } from '../src/features/config/utils/draft.ts'
 
@@ -294,48 +293,4 @@ test('正常响应归一化后字段不变', () => {
   assert.equal(got.servers[0].name, 'k1')
   assert.equal(got.envs[0].fields.length, fields.length)
   assert.equal(got.sync_enabled, true)
-})
-
-// ---- P2+ 只读监控账号：表单初值、互斥与「显式移除」 ----
-
-test('serverInitial 带出只读账号用户名，但绝不把私钥路径带进表单', () => {
-  const configured: ConfigServer = {
-    ...server,
-    monitor_user: 'passup-ro',
-    monitor_key_configured: true,
-    monitor_configured: true,
-  }
-  const initial = serverInitial(configured)
-  assert.equal(initial.monitor_user, 'passup-ro')
-  assert.equal(initial.monitor_key, '')
-  assert.equal(initial.monitor_clear, '')
-  // 旧 exe 不下发这些字段时也不能冒出 undefined 流进输入框
-  const legacy = serverInitial(server)
-  assert.equal(legacy.monitor_user, '')
-  assert.deepEqual([legacy.monitor_key, legacy.monitor_clear], ['', ''])
-  const fresh = newServerInitial()
-  assert.deepEqual([fresh.monitor_user, fresh.monitor_key, fresh.monitor_clear], ['', '', ''])
-})
-
-test('填写只读账号与「移除只读账号」互斥（新值优先）', () => {
-  const initial = serverInitial({ ...server, monitor_user: 'passup-ro' })
-  const cleared = setServerFieldValue(initial, 'monitor_clear', 'yes')
-  assert.equal(cleared.monitor_clear, 'yes')
-  assert.equal(cleared.monitor_user, '')
-  assert.equal(cleared.monitor_key, '')
-
-  const filledAgain = setServerFieldValue(cleared, 'monitor_user', 'new-ro')
-  assert.equal(filledAgain.monitor_clear, '')
-  assert.equal(filledAgain.monitor_user, 'new-ro')
-  const keyFilled = setServerFieldValue(cleared, 'monitor_key', 'C:/keys/ro')
-  assert.equal(keyFilled.monitor_clear, '')
-})
-
-test('changedFields 只提交显式移除；输入框留空不会被当成清空', () => {
-  const initial = serverInitial({ ...server, monitor_user: 'passup-ro' })
-  const cleared = setServerFieldValue(initial, 'monitor_clear', 'yes')
-  assert.deepEqual(changedFields(initial, cleared), { monitor_clear: 'yes' })
-  assert.deepEqual(changedFields(initial, { ...initial, monitor_key: '' }), {})
-  const edited = setServerFieldValue(initial, 'monitor_user', 'ro2')
-  assert.deepEqual(changedFields(initial, edited), { monitor_user: 'ro2' })
 })

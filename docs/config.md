@@ -103,7 +103,8 @@ JSON 结构、字段语义与校验规则见 [servers.md](servers.md) §3，**�
 🔴 路径键必须是**远端绝对路径**且不含 `..`（`LoadConfig().validate()` 先卡一道，
 `probeScript()` 再对每段 `ShQuote`）；阈值必须是正数，磁盘百分比不超过 100。
 `PASS_UP_OPS_MINIO_DATA` 留空才表示「不采数据目录」；其余路径键留空用上表默认值。
-监控账号来自清单的 `monitor`，**不复用**安装账号，见 [servers.md](servers.md) §3。
+采集登录用的就是清单里的 `user`/`key`（2026-11-08 起不再分设只读账号），
+见 [servers.md](servers.md) §3；本节这些键只管采集路径与告警阈值，与账号无关。
 
 ## 4. 备份能力部署（P1）
 

@@ -68,9 +68,6 @@ export default function App() {
   // 配置页改了 servers.json 后，服务器管理页要重新取数：它一直挂载着，
   // 切回来不会重新挂载，光靠「切页」刷新不到新加的那台机器。
   const [serversVersion, setServersVersion] = useState(0)
-  // 从「备份监控」的报错引导跳来时 +1：配置页可能还停在之前滚动到的 env 区域，
-  // 不定位的话人点过去仍看不到「服务器清单 → 只读监控账号」。
-  const [configFocusServers, setConfigFocusServers] = useState(0)
   const [stopped, setStopped] = useState(false)
   const narrow = useNarrow()
 
@@ -84,10 +81,6 @@ export default function App() {
   }, [openPage])
 
   const bumpServers = useCallback(() => setServersVersion((v) => v + 1), [])
-  const goConfigWithServers = useCallback(() => {
-    setConfigFocusServers((v) => v + 1)
-    openPage('config')
-  }, [openPage])
   const onStopped = useCallback(() => setStopped(true), [])
 
   const nav = (
@@ -142,7 +135,7 @@ export default function App() {
             {visited.includes('monitor') && (
               <ErrorBoundary>
                 <MonitorPage
-                  onGoConfig={goConfigWithServers}
+                  onGoConfig={() => openPage('config')}
                   version={serversVersion}
                   active={page === 'monitor'}
                 />
@@ -154,9 +147,7 @@ export default function App() {
           </div>
           <div className="app-pane" hidden={page !== 'config'}>
             {visited.includes('config') && (
-              <ErrorBoundary>
-                <ConfigPage onServersChanged={bumpServers} focusServersToken={configFocusServers} />
-              </ErrorBoundary>
+              <ErrorBoundary><ConfigPage onServersChanged={bumpServers} /></ErrorBoundary>
             )}
           </div>
         </Layout.Content>

@@ -35,10 +35,6 @@ import (
 var serverEditableFields = map[string]bool{
 	"role": true, "host": true, "port": true, "user": true,
 	"key": true, "note": true, "sudo_mode": true, "sudo_password": true,
-	// P2+「配置」页的只读监控账号：写进 servers.json 的 monitor 对象，
-	// 不是顶层字段。monitor_clear=yes 是显式「移除只读账号」，与凭证留空
-	// 「保持不变」的语义分开（同 env 的 clear 列表）。
-	"monitor_user": true, "monitor_key": true, "monitor_clear": true,
 }
 
 type serverEditResult struct {
@@ -56,9 +52,6 @@ func editServersFile(path, name string, fields map[string]string) (serverEditRes
 		if !serverEditableFields[k] {
 			return res, fmt.Errorf("不允许修改的字段：%s", k)
 		}
-	}
-	if fields["monitor_clear"] == "yes" && (fields["monitor_user"] != "" || fields["monitor_key"] != "") {
-		return res, fmt.Errorf("不能同时移除只读账号又填写新值")
 	}
 	raw, err := os.ReadFile(path)
 	if err != nil {
@@ -116,22 +109,6 @@ func editServersFile(path, name string, fields map[string]string) (serverEditRes
 			} else {
 				sudo["password"] = v
 			}
-		case "monitor_user", "monitor_key":
-			monitor, ok := item["monitor"].(map[string]any)
-			if !ok {
-				monitor = map[string]any{}
-				item["monitor"] = monitor
-			}
-			if k == "monitor_user" {
-				monitor["user"] = strings.TrimSpace(v)
-			} else {
-				monitor["key"] = strings.TrimSpace(v)
-			}
-		case "monitor_clear":
-			if v != "yes" {
-				continue
-			}
-			delete(item, "monitor")
 		default:
 			item[k] = v
 		}
@@ -160,10 +137,6 @@ func editServersFile(path, name string, fields map[string]string) (serverEditRes
 		_ = os.Remove(tmp)
 		return res, fmt.Errorf("修改后的清单校验不通过，未写入：%w", err)
 	}
-	if err := validateMonitorAccount(tmp, name, fields); err != nil {
-		_ = os.Remove(tmp)
-		return res, fmt.Errorf("只读监控账号校验不通过，未写入：%w", err)
-	}
 	if err := writeWithBackup(path, tmp, out); err != nil {
 		return res, err
 	}
@@ -171,32 +144,6 @@ func editServersFile(path, name string, fields map[string]string) (serverEditRes
 		return res, fmt.Errorf("没有需要保存的修改")
 	}
 	return res, nil
-}
-
-// validateMonitorAccount 只在「本次动了只读账号」时追加一道强校验。
-//
-// schema 的 normalize() 允许 monitor 部分配置（P0/P1 用不到它，全局必填会打挂现有清单），
-// 但配置页一旦保存这个区块，就必须是 `ops status` / 备份监控页真正能用的账号：
-// user/key 齐全、不等于安装账号、不是 root、sudo.mode 不是 root。
-// 否则人填完当场看不出问题，要到监控页才报「缺只读账号」。
-// 私钥存在性由 LoadServers 的 normalize 先挡一道，错误里不打印路径。
-func validateMonitorAccount(tmpPath, name string, fields map[string]string) error {
-	if fields["monitor_user"] == "" && fields["monitor_key"] == "" && fields["monitor_clear"] == "" {
-		return nil // 改 host / note 等字段时，别拿历史清单里的旧 monitor 来挡路
-	}
-	list, err := shared.LoadServers(&shared.Config{ServersFile: tmpPath})
-	if err != nil {
-		return err
-	}
-	s, err := list.Get(name)
-	if err != nil {
-		return err
-	}
-	if s.Monitor == nil {
-		return nil // 显式移除只读账号是合法状态
-	}
-	_, err = s.MonitorSSHTarget()
-	return err
 }
 
 // addServersFile 在清单里追加一台服务器。
@@ -225,9 +172,6 @@ func addServersFile(path string, fields map[string]string) (serverEditResult, er
 	name := strings.TrimSpace(fields["name"])
 	if name == "" {
 		return res, fmt.Errorf("请填写服务器名称（name）")
-	}
-	if fields["monitor_clear"] == "yes" && (fields["monitor_user"] != "" || fields["monitor_key"] != "") {
-		return res, fmt.Errorf("不能同时移除只读账号又填写新值")
 	}
 
 	raw, err := os.ReadFile(path)
@@ -285,22 +229,6 @@ func addServersFile(path string, fields map[string]string) (serverEditResult, er
 			} else {
 				sudo["password"] = v
 			}
-		case "monitor_user", "monitor_key":
-			monitor, ok := item["monitor"].(map[string]any)
-			if !ok {
-				monitor = map[string]any{}
-				item["monitor"] = monitor
-			}
-			if k == "monitor_user" {
-				monitor["user"] = v
-			} else {
-				monitor["key"] = v
-			}
-		case "monitor_clear":
-			if v != "yes" {
-				continue
-			}
-			delete(item, "monitor")
 		default:
 			item[k] = v
 		}
@@ -327,10 +255,6 @@ func addServersFile(path string, fields map[string]string) (serverEditResult, er
 	if _, err := shared.LoadServers(&shared.Config{ServersFile: tmp}); err != nil {
 		_ = os.Remove(tmp)
 		return res, fmt.Errorf("新增后的清单校验不通过，未写入：%w", err)
-	}
-	if err := validateMonitorAccount(tmp, name, fields); err != nil {
-		_ = os.Remove(tmp)
-		return res, fmt.Errorf("只读监控账号校验不通过，未写入：%w", err)
 	}
 	if err := writeWithBackup(path, tmp, out); err != nil {
 		return res, err

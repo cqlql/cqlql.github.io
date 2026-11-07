@@ -56,72 +56,47 @@ func TestLoadServersValid(t *testing.T) {
 	if !filepath.IsAbs(list.Servers[0].Key) {
 		t.Errorf("key 应展开为绝对路径")
 	}
-	if list.Servers[0].Monitor == nil || list.Servers[0].Monitor.User != "passup-ro" {
-		t.Errorf("monitor.user = %+v", list.Servers[0].Monitor)
-	}
-	// 🔴 没有「未填 monitor 就复用 user/key」的兜底了：缺 key 会在采集入口报错。
-	if _, err := list.Servers[0].MonitorSSHTarget(); err == nil {
-		t.Error("monitor.key 缺失时 MonitorSSHTarget 应明确报错，不该静默复用安装私钥")
+	// 2026-11-08 起单账号：采集就用 user/key，不带 sudo 密码（脚本只读、不提权）。
+	// 上面 JSON 里特意留着历史 "monitor" 字段：反序列化忽略，不影响加载。
+	st := list.Servers[0].StatusSSHTarget()
+	if st.User != "cql" || !filepath.IsAbs(st.Key) || st.SudoPassword != "" {
+		t.Errorf("status target 不对：%+v", st)
 	}
 }
 
-// 只读账号强制：缺 monitor / 缺 key / 撞车 / root 都拒绝；正常条目不带 sudo 密码。
-func TestMonitorSSHTargetRequiresDedicatedReadOnlyAccount(t *testing.T) {
-	key := filepath.Join(t.TempDir(), "id_ed25519_ro")
+// 单账号：status 与安装共用清单的 user/key；采集不提权、不带 sudo 密码。
+// 旧清单里残留的 monitor 对象只是历史数据，不生效也不影响加载。
+func TestStatusSSHTargetUsesSingleAccount(t *testing.T) {
+	key := filepath.Join(t.TempDir(), "id_ed25519")
 	if err := os.WriteFile(key, []byte("key"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	roKeyJSON := filepath.ToSlash(key)
-	// monitorAccount 是未导出类型，统一走 LoadServers 的 JSON 路径构造。
-	body := func(monitor string) string {
-		return `{"servers":[{"name":"b","role":"backup","host":"h","port":2223,"user":"cql",
-		  "sudo":{"mode":"nopasswd","password":"admin-pw"},
-		  "monitor":` + monitor + `}]}`
-	}
-	load := func(monitor string) (*shared.Server, error) {
-		list, err := shared.LoadServers(writeServersFile(t, body(monitor)))
-		if err != nil {
-			return nil, err
-		}
-		return &list.Servers[0], nil
-	}
-
-	for _, tc := range []struct{ name, monitor, want string }{
-		{"缺 monitor", `null`, "缺少只读监控账号"},
-		{"缺 monitor.key", `{"user":"passup-ro"}`, "缺少只读监控账号"},
-		{"只读账号是 root", `{"user":"root","key":"` + roKeyJSON + `"}`, "不能是 root"},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			s, err := load(tc.monitor)
-			if err != nil {
-				t.Fatalf("清单加载失败：%v", err)
-			}
-			if _, err := s.MonitorSSHTarget(); err == nil || !strings.Contains(err.Error(), tc.want) {
-				t.Errorf("期望报错 %q：%v", tc.want, err)
-			}
-		})
-	}
-
-	// 撞车由 normalize() 的 schema 护栏直接拒绝（全局只挡这一种，不强制每台都配）。
-	if _, err := load(`{"user":"cql","key":"` + roKeyJSON + `"}`); err == nil ||
-		!strings.Contains(err.Error(), "monitor.user 不能与 user 相同") {
-		t.Errorf("monitor.user 撞车应在 normalize 里被拒：%v", err)
-	}
-
-	s, err := load(`{"user":"passup-ro","key":"` + roKeyJSON + `"}`)
+	keyJSON := filepath.ToSlash(key)
+	body := `{"servers":[{"name":"b","role":"backup","host":"h","port":2223,
+	  "user":"cql","key":"` + keyJSON + `",
+	  "sudo":{"mode":"nopasswd","password":"admin-pw"},
+	  "monitor":{"user":"passup-ro","key":"` + keyJSON + `"}}]}`
+	list, err := shared.LoadServers(writeServersFile(t, body))
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("历史 monitor 字段不该影响加载：%v", err)
 	}
-	target, err := s.MonitorSSHTarget()
+	target := list.Servers[0].StatusSSHTarget()
+	if target.User != "cql" || target.Host != "h" || target.Port != 2223 {
+		t.Errorf("target 没用清单里的账号 / 主机：%+v", target)
+	}
+	if !filepath.IsAbs(target.Key) || target.SudoPassword != "" {
+		t.Errorf("采集要复用私钥，但不许带 sudo 密码：%+v", target)
+	}
+
+	// root 登录同样能采集：只读由远端脚本保证，不再按账号身份拒绝。
+	rootList, err := shared.LoadServers(writeServersFile(t,
+		`{"servers":[{"name":"r","role":"backup","host":"h","user":"root","sudo":{"mode":"root"}}]}`))
 	if err != nil {
-		t.Fatalf("正常只读账号应可用：%v", err)
+		t.Fatalf("root 清单应能加载：%v", err)
 	}
-	if target.User != "passup-ro" || target.Host != "h" || target.Port != 2223 ||
-		target.Key != roKeyJSON {
-		t.Errorf("target 字段不对：%+v", target)
-	}
-	if target.SudoPassword != "" || target.IsRoot {
-		t.Error("只读 target 不许带 sudo 密码 / 不许是 root（采集不提权）")
+	rootTarget := rootList.Servers[0].StatusSSHTarget()
+	if rootTarget.User != "root" || rootTarget.SudoPassword != "" {
+		t.Errorf("root 登录的采集 target 不对：%+v", rootTarget)
 	}
 }
 

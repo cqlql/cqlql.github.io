@@ -23,21 +23,18 @@ type SudoConfig struct {
 	Password string `json:"password"`
 }
 
-type monitorAccount struct {
-	User string `json:"user"`
-	Key  string `json:"key"`
-}
-
+// 一台服务器只有一个账号（user/key），安装与只读采集共用，不再分设只读账号。
+// 旧 servers.json 里可能还留着历史 `monitor` 对象：JSON 反序列化会忽略未知字段，
+// 不删、不报错，也不参与任何校验（2026-11-08 起）。
 type Server struct {
-	Name    string          `json:"name"`
-	Role    string          `json:"role"`
-	Host    string          `json:"host"`
-	Port    int             `json:"port"`
-	User    string          `json:"user"`
-	Key     string          `json:"key"`
-	Sudo    SudoConfig      `json:"sudo"`
-	Monitor *monitorAccount `json:"monitor"`
-	Note    string          `json:"note"`
+	Name string     `json:"name"`
+	Role string     `json:"role"`
+	Host string     `json:"host"`
+	Port int        `json:"port"`
+	User string     `json:"user"`
+	Key  string     `json:"key"`
+	Sudo SudoConfig `json:"sudo"`
+	Note string     `json:"note"`
 }
 
 type ServerList struct {
@@ -146,23 +143,6 @@ func (l *ServerList) normalize() error {
 				return fmt.Errorf("%s: %s 的 key 不存在或不可用（私钥路径不打印）", l.Path, s.Name)
 			}
 		}
-		if s.Monitor != nil {
-			if s.Monitor.User != "" && !userNameRe.MatchString(s.Monitor.User) {
-				return fmt.Errorf("%s: %s 的 monitor.user 非法：%q", l.Path, s.Name, s.Monitor.User)
-			}
-			// 🔴 schema 护栏只挡「撞车」，不要求每台机器都配 monitor：
-			//    P0/P1/界面清单不需要只读账号，全局必填会把它们全部打挂。
-			//    「必须有 monitor」只在 status 采集入口 MonitorSSHTarget() 强制。
-			if s.Monitor.User != "" && s.Monitor.User == s.User {
-				return fmt.Errorf("%s: %s 的 monitor.user 不能与 user 相同（只读账号必须独立）", l.Path, s.Name)
-			}
-			if s.Monitor.Key != "" {
-				s.Monitor.Key = expandAndCheckKey(s.Monitor.Key)
-				if s.Monitor.Key == "" {
-					return fmt.Errorf("%s: %s 的 monitor.key 不存在或不可用（私钥路径不打印）", l.Path, s.Name)
-				}
-			}
-		}
 	}
 	if l.Default != "" && !seen[l.Default] {
 		return fmt.Errorf("%s: default 指向不存在的服务器：%s", l.Path, l.Default)
@@ -227,28 +207,18 @@ func (l *ServerList) Resolve(explicit, cfgDefault string) (*Server, error) {
 	return nil, fmt.Errorf("未指定 --server，且无法自动选择（role=backup 有 %d 台）；请显式给 --server <name>", len(backups))
 }
 
-// MonitorSSHTarget 只给只读采集（ops status / P2a）用，替换旧的 MonitorTarget 兜底。
-// 🔴 强制专用只读账号：monitor.user / monitor.key 齐全、不等于安装账号、不是 root；
-//    target 不带 sudo 密码、IsRoot=false —— 采集不提权，也不占 sudo 密码的 stdin。
-//    🔴 私钥路径只在这份结构里传递，任何输出 / 错误 / 日志都不打印它。
-func (s *Server) MonitorSSHTarget() (*SSHTarget, error) {
-	if s.Monitor == nil || s.Monitor.User == "" || s.Monitor.Key == "" {
-		return nil, fmt.Errorf("服务器 %s 缺少只读监控账号 monitor.user / monitor.key（见 docs/servers.md §3）", s.Name)
-	}
-	if s.Monitor.User == s.User {
-		return nil, fmt.Errorf("服务器 %s 的 monitor.user 不能等于安装账号 user（只读与安装必须分离）", s.Name)
-	}
-	if s.Monitor.User == "root" || s.Sudo.Mode == SudoModeRoot {
-		return nil, fmt.Errorf("服务器 %s 的只读监控账号不能是 root / sudo.mode=root", s.Name)
-	}
-	port := s.Port
-	if port == 0 {
-		port = 22
-	}
-	return &SSHTarget{
-		Host: s.Host, Port: port, User: s.Monitor.User, Key: s.Monitor.Key,
-		SudoPassword: "", IsRoot: false,
-	}, nil
+// StatusSSHTarget 给只读采集（ops status / 备份监控页）用的连接参数。
+//
+// 2026-11-08 起**不再单设只读账号**：登录就用清单里的 user/key，
+// 账号与私钥只有 servers.json 这一个事实源（P0/P1 安装与 P2 监控同一个人）。
+// 🔴 「只读」指的是**跑的脚本不写远端**，不是给账号降权：
+//    RunScript 走 stdin `sh -s`，脚本里没有 sudo / 写命令；target 不带 sudo 密码，
+//    所以即便清单是 sudo.mode=root 也不会提权、不会占 sudo 密码的 stdin。
+// 🔴 私钥路径只在这份结构里传递，任何输出 / 错误 / 日志都不打印它（硬约束 8）。
+func (s *Server) StatusSSHTarget() *SSHTarget {
+	t := NewSSHTarget(s)
+	t.SudoPassword = ""
+	return t
 }
 
 // ---- 最近一次检查结果（仅缓存，不是配置；未检查过显示 —） ----

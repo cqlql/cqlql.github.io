@@ -1,8 +1,9 @@
 package monitor
 
-// ops status 的 CLI 分发：解析参数 → 清单选目标 → 只读账号 → Collect → 渲染 / --json。
+// ops status 的 CLI 分发：解析参数 → 清单选目标 → StatusSSHTarget → Collect → 渲染 / --json。
 //
-// 🔴 主机只来自 servers.json；只读账号只来自该条目的 monitor（硬约束 9 / 12）。
+// 🔴 主机只来自 servers.json；登录账号用该条目的 user/key（2026-11-08 起不再分设只读账号），
+//    远端脚本只读、不提权，不带 sudo 密码（硬约束 9 / 12）。
 // 🔴 退出码：0 无 danger / 1 有 danger（含连不上）/ 2 用法·配置错；
 //    --json 三种情况都输出完整快照，stdout 只有 JSON，别的提示走 stderr。
 // 🔴 任何输出都不打印私钥路径（AGENTS.md 硬约束 8）。
@@ -71,7 +72,7 @@ func CmdStatus(args []string) int {
 	if err != nil {
 		return emitFailure(opt.JSON, FailureStatus("", "读取服务器清单失败："+err.Error()), 2)
 	}
-	// 选机与只读账号强制在 CollectForServer 里，与 P2+ 网页共用同一条链路。
+	// 选机与连接参数在 CollectForServer 里，与 P2+ 网页共用同一条链路。
 	st, err := CollectForServer(context.Background(), cfg, list, opt.Server)
 	if err != nil {
 		return emitFailure(opt.JSON, st, 2)
@@ -169,9 +170,8 @@ func statusUsage() {
 
 --server 只接受 servers.json 里的 name；省略时按 ops.env 的
          PASS_UP_OPS_DEFAULT_SERVER、清单 default、唯一 role=backup 依次退化。
-🔴 只读账号强制来自该条目的 monitor：monitor.user / monitor.key 必须齐全、
-   monitor.user 不能等于安装账号 user，也不许是 root；
-   target 不带 sudo 密码、绝不提权。未配 monitor 会明确报错，不静默复用 user/key。
+🔴 2026-11-08 起不再单设只读账号：登录就用清单里的 user/key（与安装同一个账号）；
+   远端脚本只读、不提权，target 不带 sudo 密码。旧清单里的 monitor 字段被忽略。
 --json  输出完整快照（数值未采到是 null，problems 恒为数组）；连接失败 /
          配置错也一样返回字段齐全的快照。stdout 只有 JSON，提示走 stderr。
 

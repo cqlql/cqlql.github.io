@@ -203,7 +203,7 @@ func TestMonitorForceHasMinimumInterval(t *testing.T) {
 }
 
 func TestMonitorConfigErrorNotCached(t *testing.T) {
-	st := monitor.FailureStatus("bk", "只读监控账号未配好：monitor.user / monitor.key 齐全")
+	st := monitor.FailureStatus("bk", "读取本机配置失败：ops.env 暂不可读")
 	f := &monitorFakeProbe{st: st, err: errors.New("含私钥路径 /home/u/.ssh/id_rsa，不该进响应")}
 	u := monitorState(t, f.run)
 	for i := 0; i < 2; i++ {

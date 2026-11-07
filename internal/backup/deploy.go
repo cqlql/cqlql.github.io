@@ -461,9 +461,9 @@ func runBackupDeploy(args []string, embedded fs.FS) int {
 	}
 
 	fmt.Println()
-	fmt.Println("完成。只读监控账号写在服务器清单的 monitor 字段（P2 使用）：")
-	fmt.Println(`  "monitor": {"user": "...", "key": "..."}`)
-	fmt.Println("可运行 ops servers check " + srv.Name + " 复核 SSH 与免密 sudo。")
+	fmt.Println("完成。备份监控沿用清单里的同一账号，无需另配只读账号：")
+	fmt.Println("  ops status --server " + srv.Name + "   看心跳 / dump / 磁盘")
+	fmt.Println("  ops servers check " + srv.Name + "   复核 SSH 与免密 sudo")
 	return 0
 }
 
