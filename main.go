@@ -93,6 +93,11 @@ func run(args []string) int {
 	if args[0] == distCheckCommand {
 		return cmdDistCheck()
 	}
+	// 启动器用：问 Go 要 ops.env 的真实路径，别在 .cmd 里再拼一份 %APPDATA% 路径。
+	// 同样是内部命令，只输出一行路径、不写文件。
+	if args[0] == configPathCommand {
+		return cmdConfigPath(os.Stdout)
+	}
 	// 开发期生成器：从 env-schema.json 重建模板 / 脚本默认值 / 文档键表。
 	// 同样是内部命令，不进 usage / 菜单；只在仓库根由人显式执行。
 	if args[0] == genBackupEnvCommand {

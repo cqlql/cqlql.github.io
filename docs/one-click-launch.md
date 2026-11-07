@@ -252,6 +252,8 @@ cd /d "%~dp0" + chcp 65001
         （只有 node_modules\.bin\vite.cmd 不在时才先 npm install；build 失败则修复一次再重试）
   → 定位 ops.exe；缺 exe / 刚构建过前端 / 自检说没页面：
         找 Go（PATH → %USERPROFILE%\go\bin → %ProgramFiles%\Go\bin）→ go build -o ops.exe .
+  → 🔴 配置路径问 ops.exe __config-path：拿 Go 真正会读的 ops.env 路径，
+        再从它推出配置目录（ops-ui.log 也在这里）；.cmd 绝不自己拼 %APPDATA% 路径。
   → 缺配置模板：ops init（不覆盖已有配置）
   → 分流：显式子命令 → 原样转发；--menu → 菜单；--fg → 前台 ops ui
   → 日常：ops ui --background --launcher "%~f0" [透传参数]
@@ -263,6 +265,12 @@ cd /d "%~dp0" + chcp 65001
 > **本仓现状（S5 + 2026-11-06 自动补齐）**：`chcp 65001` → 前端产物自检 / 构建
 > → 定位或重编 exe → 首次写配置模板 → 上面那条分流 → 退出码。
 > 单实例、隐藏守护、日志轮转、自动开浏览器全在 Go 侧（见 §4.4）。
+>
+> **2026-11-07 补**：配置路径不再由 `.cmd` 拼。`ops __config-path` 只输出一行
+> `ops.env` 路径，启动器用 `for /f` 捕获并推出配置目录；用
+> `PASS_UP_OPS_ENV` / `PASS_UP_OPS_CONFIG_DIR` / `XDG_CONFIG_HOME` 换目录时，
+> 「首次运行」判定与失败提示里的 `ops-ui.log` 路径都跟着 Go 走。以前只认
+> `PASS_UP_OPS_ENV`，覆盖配置目录时每次双击都被误判成首次运行。
 >
 > 🔴 **判据是「二进制里有没有页面」，不是「磁盘上有没有 dist」**：`ops.exe __dist-check`
 > 查嵌入 FS 里的 `web/dist/index.html` + `assets/`，非零就重编。全新 clone 时 dist 里只有

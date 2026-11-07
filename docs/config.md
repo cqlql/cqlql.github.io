@@ -17,7 +17,10 @@
 ## 1. 文件位置与格式
 
 - 主配置：Windows `%AppData%\pass-up\ops.env`；macOS / Linux `~/.config/pass-up/ops.env`
-- 可用 `PASS_UP_OPS_ENV` 覆盖路径
+- 路径规则只在 `shared.ConfigPath()` 一处：`PASS_UP_OPS_ENV` 直接给文件，否则按
+  `PASS_UP_OPS_CONFIG_DIR` > `os.UserConfigDir()` > `XDG_CONFIG_HOME` > `~/.config` 取目录。
+  🔴 启动器**不在 `.cmd` 里拼路径**，而是调 `ops __config-path`（内部命令，只输出一行路径）
+  问 Go；否则一用覆盖变量，首次运行判定与 `ops-ui.log` 提示就指到另一份配置去了。
 - `ops init` 生成模板；已存在则只打印路径，不覆盖。清单不存在时同时生成空 `servers.json` 模板
 - **服务器清单**是另一个文件（见 §2），不写进 `ops.env`
 

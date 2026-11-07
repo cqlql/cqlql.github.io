@@ -25,8 +25,10 @@ rem    then                        -> go build -o ops.exe .
 rem  Progress prints in this visible window; a failure stops here with a hint.
 rem  Once built, every double-click goes straight to the hidden guardian.
 rem
-rem  Background stdout/stderr: %APPDATA%\pass-up\ops-ui.log (rotated)
-rem  Config lives OUTSIDE the repo: %APPDATA%\pass-up\ops.env
+rem  Background stdout/stderr: <config dir>\ops-ui.log (rotated)
+rem  Config lives OUTSIDE the repo. The path is NOT guessed here:
+rem  `ops.exe __config-path` returns the exact ops.env path Go will read,
+rem  so PASS_UP_OPS_ENV / PASS_UP_OPS_CONFIG_DIR / XDG_CONFIG_HOME all work.
 rem  Desktop shortcut (icon included): ops.exe shortcut
 rem
 rem  This launcher only ever runs the LOCAL binary. It never touches a server.
@@ -39,8 +41,9 @@ title PassUp ops
 cd /d "%~dp0"
 
 set "OPS_EXE=%~dp0ops.exe"
-set "OPS_ENV=%APPDATA%\pass-up\ops.env"
-if defined PASS_UP_OPS_ENV set "OPS_ENV=%PASS_UP_OPS_ENV%"
+rem OPS_ENV / OPS_DIR are filled by :resolve_paths from `ops.exe __config-path`.
+set "OPS_ENV="
+set "OPS_DIR="
 set "NEED_GO="
 
 rem ---- 0) strip the switches that belong to this file only -------------------
@@ -68,6 +71,7 @@ rem here would hang forever as an invisible zombie, so every pause below is
 rem wrapped in `if not defined BG`.
 if not defined BG goto ensure
 if not exist "%OPS_EXE%" goto no_exe
+call :resolve_paths
 goto run_ui
 
 rem ---- 3) frontend assets: THE BINARY is the source of truth ----------------
@@ -183,6 +187,7 @@ exit /b 1
 
 rem ---- 4) first run: write the config template, never overwrite -------------
 :env_check
+call :resolve_paths
 if exist "%OPS_ENV%" goto dispatch
 echo [ops] first run - writing %OPS_ENV%
 "%OPS_EXE%" init
@@ -235,8 +240,26 @@ rem the IF block early and turns the pause into an unconditional one.
 if not "%RC%"=="0" (
   echo.
   echo [ops] ops exited with code %RC%
-  if defined BG echo        details: %APPDATA%\pass-up\ops-ui.log
+  if defined BG if defined OPS_DIR echo        details: %OPS_DIR%ops-ui.log
+  if defined BG if not defined OPS_DIR echo        details: ops-ui.log in the config dir (see ops __config-path)
   echo.
   if not defined BG pause
 )
 exit /b %RC%
+
+rem ---- helpers: config paths belong to the EXE, not to this batch file ------
+rem Go honours PASS_UP_OPS_ENV / PASS_UP_OPS_CONFIG_DIR / XDG_CONFIG_HOME;
+rem a hand-built APPDATA path silently diverged and made EVERY run look like
+rem a "first run" when a test or alternate config dir was in use.
+rem Output contract: exactly one line on stdout, nothing else.
+:resolve_paths
+set "OPS_ENV="
+for /f "delims=" %%i in ('"%OPS_EXE%" __config-path 2^>nul') do if not defined OPS_ENV set "OPS_ENV=%%i"
+if not defined OPS_ENV goto config_path_failed
+for %%i in ("%OPS_ENV%") do set "OPS_DIR=%%~dpi"
+goto :eof
+
+:config_path_failed
+echo [ops] cannot read the config path from ops.exe (__config-path failed).
+if not defined BG pause
+exit /b 1

@@ -5,8 +5,12 @@ import react from '@vitejs/plugin-react'
 // 所以只声明这里用到的那一个成员。
 declare const process: { env: Record<string, string | undefined> }
 
-// ops ui 默认 7788，但**被占用会自动递增**（同机的 suikouji ops 也用 7788）。
-// 开发时用 OPS_UI_PORT 对齐实际端口，例如：OPS_UI_PORT=7789 npm run dev
+// ops ui 从 7788 起，但**被占用会自动递增**（同机的 suikouji ops 也用 7788）。
+// 实际端口由 `ops ui` 写进配置目录的 ui.json；dev 模式刻意**不读** ui.json
+// （那是运行态产物，残留的旧端口反而会把代理指错），用 OPS_UI_PORT 显式跟：
+//   OPS_UI_PORT=7789 npm run dev
+// 🔴 下面的 '7788' 与 internal/ui/ui.go 的 defaultUIPort 是同一事实的两处字面量：
+//    `go test ./internal/ui -run TestViteProxyDefaultPortMatchesUI` 会断言两者一致。
 const opsUIPort = process.env.OPS_UI_PORT ?? '7788'
 
 /**

@@ -55,7 +55,11 @@ func UserConfigDir() string {
 	return filepath.Join(home, ".config", "pass-up")
 }
 
-func configPath() string {
+// ConfigPath 是 ops.env 的**唯一**路径规则：CLI、界面、启动器都问它。
+// PASS_UP_OPS_ENV 直接给文件路径；否则按 UserConfigDir() 的优先级取目录
+// （PASS_UP_OPS_CONFIG_DIR > os.UserConfigDir > XDG_CONFIG_HOME > ~/.config）。
+// 🔴 不要在 .cmd 或其它文件里再拼一份 %APPDATA% 路径：覆盖变量一生效就会漂移。
+func ConfigPath() string {
 	if p := os.Getenv("PASS_UP_OPS_ENV"); p != "" {
 		return p
 	}
@@ -104,11 +108,11 @@ func BackupEnvDir() string {
 // 任何要连远端的动作仍必须走 LoadConfig 的严格校验 —— 拿默认路径去 ssh，
 // 等于把「配置没读到」伪装成「目标机不可达」。
 func FallbackConfig() *Config {
-	return defaultConfig(configPath())
+	return defaultConfig(ConfigPath())
 }
 
 func LoadConfig() (*Config, error) {
-	path := configPath()
+	path := ConfigPath()
 	c := defaultConfig(path)
 
 	f, err := os.Open(path)
@@ -200,7 +204,7 @@ func CmdInit(args []string) int {
 		fmt.Fprintln(os.Stderr, "用法: ops init")
 		return 2
 	}
-	path := configPath()
+	path := ConfigPath()
 	if _, err := os.Stat(path); err == nil {
 		fmt.Printf("配置已存在：%s\n未覆盖。\n", path)
 	} else {

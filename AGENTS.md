@@ -326,6 +326,14 @@
     用 `FallbackConfig()` 兜底，报错显示在配置页、不白屏。
     `go test` 断言模板、默认值与 `docs/*.md` 全部分册里出现的所有键名都已归类；
     config.md 只讲现行配置（P2/P3 方案键表与运行态文件清单已移到对应分册）。
+29. 🔴 **启动器不许自己拼配置路径**（2026-11-07 新增）：`启动运维.cmd` 用
+    `ops __config-path`（内部命令，stdout 恰好一行 ops.env 路径）拿 `shared.ConfigPath()`
+    的结果，再推出配置目录；`PASS_UP_OPS_ENV` / `PASS_UP_OPS_CONFIG_DIR` /
+    `XDG_CONFIG_HOME` 覆盖才不会让「首次运行」判定与 `ops-ui.log` 提示漂移。
+    `.cmd` 必须保持 CRLF（`.gitattributes` 的 `eol=crlf`），`go test` 会断言。
+    🔴 `web/vite.config.ts` 的 dev 代理默认端口 7788 与 `internal/ui/ui.go` 的
+    `defaultUIPort` 用 `go test ./internal/ui` 断言对齐；实际端口写进 `ui.json`，
+    dev 用 `OPS_UI_PORT` 显式跟过去，**不读运行态文件**。
 
 ## 命令与验证
 
