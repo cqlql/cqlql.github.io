@@ -7,11 +7,14 @@ import {
   fetchStatus,
   resumeComponentTask,
   startComponentRun,
+  startDepsRun,
   startImageLoad,
 } from '../service.ts'
 import type { WatchHooks } from '../service.ts'
 import type {
   ActionPlan,
+  BackupDepsRunRequest,
+  BackupDepsView,
   ComponentRunRequest,
   ComponentTask,
   ComponentsStatusView,
@@ -20,6 +23,7 @@ import type {
   SourceImagesView,
 } from '../types.ts'
 import {
+  EMPTY_BACKUP_DEPS,
   actionCopy,
   actionEnabled,
   actionHint,
@@ -27,14 +31,20 @@ import {
   actionPlans,
   checkColor,
   copyReady,
+  depsRunEnabled,
   imageHint,
   installLabel,
+  normalizeBackupDeps,
+  normalizePgMajorInput,
   normalizeProxyInput,
   normalizeSourceImages,
   normalizeStatusView,
+  pgMajorValue,
   preflightOf,
   stateColor,
   stateLabel,
+  uninstallButtonEnabled,
+  uninstallSubmitEnabled,
 } from '../utils/format.ts'
 
 /**
@@ -90,6 +100,19 @@ export function ComponentsPage() {
   const [copyRef, setCopyRef] = useState('')
   const [copyConfirmText, setCopyConfirmText] = useState('')
   const [copyPassword, setCopyPassword] = useState('')
+
+  // 「备份依赖」区：命令行依赖（mc / pg_restore 等）不属于组件目录，
+  // 状态与安装都走备份能力那套接口，写操作仍要 yes + 服务端 --dry-run。
+  const [deps, setDeps] = useState<BackupDepsView>(EMPTY_BACKUP_DEPS)
+  const [depsLoading, setDepsLoading] = useState(false)
+  const [pgMajor, setPgMajor] = useState('')
+  const [depsOpen, setDepsOpen] = useState(false)
+  const [depsMode, setDepsMode] = useState<'deps' | 'deps-uninstall'>('deps')
+  const [depsConfirmText, setDepsConfirmText] = useState('')
+  const [depsPassword, setDepsPassword] = useState('')
+  // 卸载勾选项一律默认不勾，至少选一个才能提交。
+  const [uninstallSelected, setUninstallSelected] = useState<string[]>([])
+  const pgMajorNum = pgMajorValue(pgMajor)
 
   const alive = useRef(true)
   const pollId = useRef(0)
@@ -156,7 +179,21 @@ export function ComponentsPage() {
     return () => { cancelled = true; alive.current = false }
   }, [makeHooks])
 
+  const refreshDeps = useCallback(async (target: string, major?: number) => {
+    if (!target) return
+    setDepsLoading(true)
+    try {
+      const v = normalizeBackupDeps(await componentsApi.deps(target, major))
+      if (alive.current) setDeps(v)
+    } catch (e) {
+      if (alive.current) setDeps({ ...EMPTY_BACKUP_DEPS, error: errText(e) })
+    } finally {
+      if (alive.current) setDepsLoading(false)
+    }
+  }, [])
+
   useEffect(() => { if (name) void refresh(name) }, [name, refresh])
+  useEffect(() => { if (name) void refreshDeps(name, pgMajorNum) }, [name, pgMajorNum, refreshDeps])
   useEffect(() => { if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight }, [log])
 
   const current = useMemo(
@@ -356,6 +393,74 @@ export function ComponentsPage() {
     })()
   }, [copyOk, copyFrom, copyRef, copyPassword, current, name, closeCopy, makeHooks, refresh])
 
+  const closeDeps = useCallback(() => {
+    setDepsOpen(false)
+    setDepsConfirmText('')
+    setDepsPassword('')
+    setUninstallSelected([])
+  }, [])
+
+  const openDeps = useCallback((mode: 'deps' | 'deps-uninstall') => {
+    setDepsMode(mode)
+    setDepsConfirmText('')
+    setDepsPassword('')
+    setUninstallSelected([])
+    setDepsOpen(true)
+  }, [])
+
+  // 安装（mode=deps）与卸载（mode=deps-uninstall）都走 /api/backup/run：
+  // confirm=yes + 一次性密码 + 服务端 dry-run；任务日志仍从本页
+  // /api/components/task 增量读（同一把后台任务锁）。
+  const submitDeps = useCallback(() => {
+    if (depsConfirmText !== 'yes' || !name) return
+    const uninstalling = depsMode === 'deps-uninstall'
+    if (uninstalling) {
+      if (!uninstallButtonEnabled(deps, busy || loading, name) ||
+        !uninstallSubmitEnabled(deps.uninstall, uninstallSelected, depsConfirmText)) return
+    } else if (!depsRunEnabled(deps, busy || loading, name)) return
+    const targets = uninstallSelected
+    const req: BackupDepsRunRequest = {
+      mode: depsMode, name, component: 'all', confirm: 'yes',
+      ...(depsPassword ? { password: depsPassword } : {}),
+      ...(!uninstalling && pgMajorNum ? { pg_major: pgMajorNum } : {}),
+      ...(uninstalling ? { targets } : {}),
+    }
+    const poll = ++pollId.current
+    closeDeps()
+    setBusy(true)
+    setLog('')
+    setTask(null)
+    setNotice({ kind: 'info', text: `${uninstalling ? '卸载依赖' : '安装缺少依赖'}已提交，服务端正在跑 --dry-run 预检…` })
+    void (async () => {
+      try {
+        const t = await startDepsRun(componentsApi, req, makeHooks(poll))
+        setTask(t)
+        setNotice(t.exit_code === 0
+          ? { kind: 'success', text: `${uninstalling ? '依赖已卸载' : '依赖已安装'}，请点「重新检查」复核状态。` }
+          : { kind: 'error', text: `任务结束，退出码 ${t.exit_code}。请看日志并复核远端状态。` })
+      } catch (e) {
+        setNotice({ kind: 'error', text: errText(e) })
+      } finally {
+        setBusy(false)
+        void refresh(name)
+        void refreshDeps(name, pgMajorNum)
+      }
+    })()
+  }, [depsConfirmText, name, depsMode, deps, busy, loading, depsPassword, pgMajorNum,
+    uninstallSelected, closeDeps, makeHooks, refresh, refreshDeps])
+
+  const depsEnabled = depsRunEnabled(deps, busy || loading, name)
+  const uninstallEnabled = uninstallButtonEnabled(deps, busy || loading, name)
+  const uninstalling = depsMode === 'deps-uninstall'
+  const depsModalOk = uninstalling
+    ? uninstallSubmitEnabled(deps.uninstall, uninstallSelected, depsConfirmText)
+    : depsConfirmText === 'yes'
+  const depsTag = !deps.collected
+    ? { color: 'default', text: '未采集到状态' }
+    : deps.missing.length > 0
+      ? { color: 'orange', text: `缺 ${deps.missing.length} 项` }
+      : { color: 'green', text: '已齐全' }
+
   return (
     <div className="page">
       <header className="page-head">
@@ -458,6 +563,98 @@ export function ComponentsPage() {
         <div className="component-note">
           依赖链：① Docker 引擎 → ② MinIO 服务 → ③ mc mirror 备份链路；上游没就绪时下游写动作一律禁用。
           「可更新」由只读体检判定（apt 候选版本 / 目标机已导入镜像），绝不在线查询版本。
+        </div>
+      </section>
+
+      <section className="card component-panel">
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center', marginBottom: 8 }}>
+          <b style={{ fontSize: 14 }}>备份依赖</b>
+          <Tag color={depsTag.color}>{depsTag.text}</Tag>
+          <span className="component-hint">
+            备份链路的命令行工具（mc / pg_restore 等），不属于上面的组件目录；状态来自只读检查
+          </span>
+          <Button
+            size="small"
+            loading={depsLoading}
+            disabled={!name || busy}
+            onClick={() => void refreshDeps(name, pgMajorNum)}
+          >
+            重新检查（只读）
+          </Button>
+          <Button
+            size="small"
+            type="primary"
+            danger
+            disabled={!depsEnabled}
+            title={depsEnabled ? '安装缺失命令' : (deps.error || '没有缺少的依赖，或状态还没采到')}
+            onClick={() => openDeps('deps')}
+          >
+            安装缺少依赖
+          </Button>
+          <Button
+            size="small"
+            danger
+            disabled={!uninstallEnabled}
+            title={uninstallEnabled ? '卸载工具装的命令，供复测' : (deps.error || '状态还没采到，或没有可卸项')}
+            onClick={() => openDeps('deps-uninstall')}
+          >
+            卸载依赖（复测用）
+          </Button>
+        </div>
+
+        {deps.error && <Alert type="warning" showIcon message={deps.error} style={{ marginBottom: 10 }} />}
+
+        <div className="component-table-wrap">
+          <table className="component-table">
+            <thead>
+              <tr><th>命令</th><th>用途</th><th>状态</th><th>版本 / 安装来源</th></tr>
+            </thead>
+            <tbody>
+              {deps.items.length === 0 && (
+                <tr><td colSpan={4} className="empty">尚未采集到依赖状态</td></tr>
+              )}
+              {deps.items.map((it) => (
+                <tr key={it.name}>
+                  <td className="mono">{it.name}</td>
+                  <td className="muted">{it.label}{it.optional ? '（可选）' : ''}</td>
+                  <td><Tag color={it.installed ? 'green' : it.optional ? 'default' : 'orange'}>{it.installed ? '已安装' : it.optional ? '缺失（可选）' : '缺失'}</Tag></td>
+                  <td>{it.version || it.source}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {deps.plan.length > 0 && (
+          <div className="component-box" style={{ marginTop: 10 }}>
+            <div className="component-hint" style={{ marginBottom: 4 }}>这次会装什么（由服务端按缺失项算好）：</div>
+            <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, lineHeight: 1.9 }}>
+              {deps.plan.map((line) => <li key={line}>{line}</li>)}
+            </ul>
+          </div>
+        )}
+
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center', marginTop: 10 }}>
+          <span className="component-hint">PG 主版本（可选）</span>
+          <Input
+            value={pgMajor}
+            onChange={(e) => setPgMajor(normalizePgMajorInput(e.target.value))}
+            placeholder="留空"
+            style={{ width: 90 }}
+            autoComplete="off"
+          />
+          <span className="component-hint">
+            留空装发行版仓库的 postgresql-client；填 16 则按 PostgreSQL 官方 PGDG 仓库装 postgresql-client-16。
+          </span>
+        </div>
+        <div className="component-note">
+          官方文档：
+          {deps.docs.map((d) => (
+            <a key={d.url} href={d.url} target="_blank" rel="noreferrer" style={{ marginLeft: 8 }}>{d.label}</a>
+          ))}
+          {deps.docs.length === 0 && ' PostgreSQL PGDG / MinIO mc'}
+          。安装只补命令，不上传备份脚本、不写 crontab / logrotate / backup.env、不跑备份；
+          与上方组件写动作共用同一把后台任务锁。
         </div>
       </section>
 
@@ -814,6 +1011,69 @@ export function ComponentsPage() {
           一次性 sudo 密码（目标机已配免密 sudo 可留空；源机权限按清单走）：
         </div>
         <Input.Password value={copyPassword} onChange={(e) => setCopyPassword(e.target.value)} placeholder="留空则用免密 sudo" autoComplete="new-password" />
+      </Modal>
+
+      <Modal
+        title={uninstalling ? deps.uninstall.title : '确认安装缺少依赖'}
+        open={depsOpen}
+        onCancel={closeDeps}
+        onOk={submitDeps}
+        okText={uninstalling ? deps.uninstall.submit_label : '确认安装依赖'}
+        cancelText="取消"
+        okButtonProps={{ disabled: !depsModalOk, danger: true }}
+        destroyOnClose
+      >
+        <Alert
+          type="warning" showIcon style={{ marginBottom: 12 }}
+          message="这是远端写操作"
+          description={uninstalling
+            ? `将在 ${name || '目标机'} 上卸载勾选的命令，供「安装缺少依赖」复测：只删工具装的 mc / PG 客户端，不卸系统基础包、不动数据与定时任务。服务端会先跑一次 --dry-run。卸载后备份定时任务下一次执行会失败（预期结果）。`
+            : `将在 ${name || '目标机'} 上安装备份链路缺少的命令：只装包，不上传备份脚本、不写 crontab / logrotate / backup.env、不跑备份。服务端会先跑一次 --dry-run，预检不过不安装。`}
+        />
+        {uninstalling ? (
+          <div className="component-box" style={{ marginBottom: 12 }}>
+            <div className="component-hint" style={{ marginBottom: 6 }}>选择要卸载的命令（默认都不勾，至少选一个）：</div>
+            {deps.uninstall.targets.map((t) => (
+              <div key={t.key} style={{ marginBottom: 6 }}>
+                <Checkbox
+                  checked={uninstallSelected.includes(t.key)}
+                  onChange={(e) => setUninstallSelected((prev) => e.target.checked
+                    ? [...prev, t.key]
+                    : prev.filter((k) => k !== t.key))}
+                >
+                  {t.label}
+                </Checkbox>
+                <div className="component-hint">{t.help}</div>
+              </div>
+            ))}
+            <ul style={{ paddingLeft: 18, margin: '8px 0 0', fontSize: 12, lineHeight: 1.8 }}>
+              {deps.uninstall.impacts.map((line) => <li key={line}>{line}</li>)}
+            </ul>
+          </div>
+        ) : (
+          <ul style={{ paddingLeft: 18, margin: '0 0 12px', fontSize: 13, lineHeight: 1.9 }}>
+            <li>本次要补：{deps.missing.join('、') || '（无）'}</li>
+            {deps.plan.map((line) => <li key={line}>{line}</li>)}
+            <li>sudo 密码只经子进程 stdin 传入，不落盘、不进日志；装完自动复查每个命令。</li>
+            {pgMajorNum && <li>PG 主版本 {pgMajorNum}：按 PGDG 官方 apt 仓库安装版本化客户端。</li>}
+          </ul>
+        )}
+        <div className="component-hint" style={{ marginBottom: 4 }}>请输入 yes 确认：</div>
+        <Input
+          value={depsConfirmText}
+          onChange={(e) => setDepsConfirmText(e.target.value)}
+          placeholder="yes"
+          autoComplete="off"
+        />
+        <div className="component-hint" style={{ margin: '10px 0 4px' }}>
+          一次性 sudo 密码（目标机已配免密 sudo 可留空）：
+        </div>
+        <Input.Password
+          value={depsPassword}
+          onChange={(e) => setDepsPassword(e.target.value)}
+          placeholder="留空则用免密 sudo"
+          autoComplete="new-password"
+        />
       </Modal>
     </div>
   )

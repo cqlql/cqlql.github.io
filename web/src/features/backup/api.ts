@@ -1,5 +1,6 @@
 import { request } from '../../shared/api/http.ts'
 import type {
+  BackupDepsView,
   BackupRunRequest,
   BackupRunResult,
   BackupTask,
@@ -25,4 +26,11 @@ export const backupApi = {
 
   /** 轮询任务状态与增量日志；after 传上一次响应的 next。 */
   task: (after: number) => request<BackupTask>(`/api/backup/task?after=${after}`),
+
+  /** 只读：目标机缺哪些备份命令、版本、安装计划与官方文档（不占任务锁）。 */
+  deps: (name: string, component: string, pgMajor?: number) => {
+    const q = new URLSearchParams({ name, component })
+    if (pgMajor) q.set('pg_major', String(pgMajor))
+    return request<BackupDepsView>(`/api/backup/deps?${q.toString()}`)
+  },
 }

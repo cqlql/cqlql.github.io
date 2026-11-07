@@ -168,9 +168,10 @@ MinIO 与卸载动作不跑 apt/curl，传了直接 400。
 
 ## 6. 界面：一个目录页，不拆导航
 
-「环境组件」是第 3 个导航项（`web/src/features/components/`），一页内四段：
-全局状态条 → 组件目录（点行切详情）→ 选中组件详情 → 任务日志（全局一份）。
-MinIO 专属的「离线镜像」区按 `offline_image` 条件渲染，不污染 Docker 详情。
+「环境组件」是第 3 个导航项（`web/src/features/components/`），一页内五段：
+全局状态条 → 组件目录（点行切详情）→ **备份依赖区（§10）** → 选中组件详情 →
+任务日志（全局一份）。MinIO 专属的「离线镜像」区按 `offline_image` 条件渲染，
+插在详情与日志之间，不污染 Docker 详情。
 判据见 `docs/ui.md` §7（零跨页共享状态）与 §13；交互速览见
 [components-prototype.html](components-prototype.html)（同步维护，冲突以本文为准）。
 
@@ -415,3 +416,36 @@ ops component image-copy minio --server k4 --from-server prod [--image-ref X] [-
 `internal/ui/component_test.go` 的 `TestComponentRunImageCopyGates` /
 `TestComponentRunImageCopyArgs` / `TestComponentImagesReadOnly`；
 `web/test/components.test.ts` 的 `normalizeSourceImages` / `copyReady` / image-copy 请求参数。
+
+## 10. 备份依赖区（2026-11-07 新增）
+
+> **不是注册表里的新组件**。`pg_restore` / `mc` / `cron` / `nc` 是备份链路的**命令行依赖**，
+> 没有「服务状态 / 容器 / 离线镜像 / 更新 / 卸载」那套生命周期，硬塞进 `registry.go`
+> 会白白给它们开出更新 / 卸载权限（§2 的红线）。所以这一区独立渲染，
+> 数据源是 `GET /api/backup/deps`（`ops backup deps --json`），写动作是
+> `POST /api/backup/run` 的 `mode=deps`，与「备份能力部署」页同一套后端。
+
+- 只读状态：`items[]`（命令 / 用途 / 已装 / 版本 / 安装来源）、`missing[]`、`plan[]`
+  （这次会装什么）、`docs[]`（PGDG 与 mc 官方文档）由 Go 侧下发，前端只渲染；
+  `collected=false` 显示「未采集到状态」并禁用安装按钮（硬约束 3）。
+- 写动作同样六道门：`confirm=="yes"` + 服务端 `--dry-run`、name 只认清单、
+  组件固定 `all`、一次性 sudo 密码经 stdin + 日志脱敏、任务脱离请求 + 409。
+  **任务日志仍走 `/api/components/task`**（与组件安装 / 导入共用同一把锁、同一份状态），
+  `startDepsRun` 只是把「发请求」换成 `runDeps`，轮询链路不变。
+- 可选的「PG 主版本」输入框（1..99 纯数字）：留空装发行版 `postgresql-client`，
+  填了按 PostgreSQL 官方 PGDG 仓库装版本化客户端；服务端与 CLI 各验一次。
+- 装完自动复查命令、任务结束自动刷新组件体检与依赖状态；**不上传备份脚本、
+  不写 crontab / logrotate / backup.env、不跑备份、不 `docker pull`**。
+  完整判据与官方安装源见 [backup-deploy.md](backup-deploy.md) §10.2 /
+  [ui.md](ui.md) §9.7。
+- 回归：`web/test/components.test.ts` 的 `normalizeBackupDeps` / `depsRunEnabled` /
+  `startDepsRun`，`internal/ui/deps_test.go`，`internal/backup/deps_test.go`。
+- **卸载（2026-11-07 晚）**：同一区多一个「卸载依赖（复测用）」按钮，
+  走   `POST /api/backup/run` 的 `mode=deps-uninstall`；可勾选项与影响清单来自只读状态里的
+  `uninstall` 计划（Go 侧下发），默认全不勾且至少选一个，仍要输 `yes` + 服务端
+  `--dry-run`。只删 `/usr/local/bin/mc` 与 `postgresql-client[-<n>]` /
+  `postgresql-client-common` 包（后者提供 pg_restore 壳链接，留着会假阳性），
+  不卸系统基础包、不 autoremove、不碰数据与定时任务；装回来点旁边「安装缺少依赖」即可。
+  判据见 [backup-deploy.md](backup-deploy.md) §10.3 / [ui.md](ui.md) §9.7。
+- 交互原型 `components-prototype.html` 本轮**未**补这一区；原型只是交互速览，
+  判据以本文与 `docs/ui.md` §9.7 为准。

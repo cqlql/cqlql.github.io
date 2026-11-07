@@ -629,41 +629,26 @@ func checkAccess(t *shared.SSHTarget, ctx context.Context) error {
 	return nil
 }
 
+// checkDeps 与界面「备份依赖」状态共用同一张清单和同一次只读采集：
+// deploy 只需要「缺什么」，probeDeps 还提供版本 / 安装来源 / 安装计划给页面。
+// 🔴 采不到状态必须如实报错，不能用空输出冒充「依赖齐全」。
 func checkDeps(t *shared.SSHTarget, ctx context.Context, comps []component) (missing, optional []string, err error) {
-	required := map[string]bool{
-		"tar": true, "crontab": true, "ssh": true, "scp": true, "nc": true,
-	}
-	for _, c := range comps {
-		switch c {
-		case compPG:
-			required["pg_restore"] = true
-		case compMinio:
-			required["mc"] = true
-		}
-	}
-	names := make([]string, 0, len(required)+1)
-	for n := range required {
-		names = append(names, n)
-	}
-	names = append(names, "logrotate")
-
-	cmd := `for c in ` + strings.Join(names, " ") + `; do command -v "$c" >/dev/null 2>&1 || echo "$c"; done`
-	out, _, err := t.Capture(ctx, cmd, false)
+	view, err := probeDeps(t, ctx, comps, "", joinComponents(comps), 0)
 	if err != nil {
 		return nil, nil, err
 	}
-	for _, n := range strings.Fields(out) {
-		if n == "logrotate" {
-			optional = append(optional, n)
-		} else {
-			missing = append(missing, n)
-		}
+	if !view.Collected {
+		return nil, nil, fmt.Errorf("依赖检查未正常完成：%s", view.Error)
 	}
-	return missing, optional, nil
+	return view.Missing, view.Optional, nil
 }
 
 func installDeps(t *shared.SSHTarget, ctx context.Context, missing []string) error {
-	code, err := t.Stream(ctx, depsInstallScript(missing), true, nil)
+	return installDepsWithMajor(t, ctx, missing, 0)
+}
+
+func installDepsWithMajor(t *shared.SSHTarget, ctx context.Context, missing []string, pgMajor int) error {
+	code, err := t.Stream(ctx, depsInstallScriptWithMajor(missing, pgMajor), true, nil)
 	if err != nil {
 		return fmt.Errorf("安装依赖失败：%w", err)
 	}
@@ -674,6 +659,13 @@ func installDeps(t *shared.SSHTarget, ctx context.Context, missing []string) err
 }
 
 func depsInstallScript(missing []string) string {
+	return depsInstallScriptWithMajor(missing, 0)
+}
+
+// depsInstallScriptWithMajor 是安装脚本的**唯一**生成器。
+// pgMajor>0 时按 PostgreSQL 官方文档配置 PGDG apt 仓库并装对应主版本客户端；
+// dnf / yum 没有等价的版本化包名保证，仍是原来的系统包（文档里如实说明）。
+func depsInstallScriptWithMajor(missing []string, pgMajor int) string {
 	set := map[string]bool{}
 	for _, m := range missing {
 		set[m] = true
@@ -683,19 +675,34 @@ func depsInstallScript(missing []string) string {
 	// 只有 mc 缺失时，三个包管理器都没有包要装：以前仍会生成 if/elif/elif 骨架，
 	// 空 then 分支在 sh 里是语法错误（实测 `sh: Syntax error: "elif" unexpected`），
 	// 而且白跑一次 apt-get update。所以整段只在真有包时才生成，空分支回 `:`。
-	aptArgs, rpmArgs := aptPackages(set), rpmPackages(set)
+	aptArgs, rpmArgs := aptPackagesWithMajor(set, pgMajor), rpmPackages(set)
 	if len(aptArgs) > 0 || len(rpmArgs) > 0 {
 		b.WriteString("if command -v apt-get >/dev/null 2>&1; then\n")
-		b.WriteString("  apt-get update\n")
-		b.WriteString(installLine("DEBIAN_FRONTEND=noninteractive apt-get install -y ", aptArgs))
+		if pgMajor > 0 && set["pg_restore"] {
+			b.WriteString(pgdgRepoScript())
+		}
+		b.WriteString("  echo '==> 更新包索引（最多 5 分钟）'\n")
+		// 🔴 每一步都有上限：2026-11-07 k4 上 mc 下载无超时挂了 7 分钟，
+		//    界面看起来就是「卡住不动」。再给 apt 加 NEEDRESTART_MODE=l，
+		//    装个客户端不该顺手重启 docker / systemd-logind（旧日志里出现过 deferred 列表）。
+		b.WriteString("  timeout 300 apt-get update\n")
+		b.WriteString(installLine("DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=l timeout 900 apt-get install -y ", aptArgs))
 		b.WriteString("elif command -v dnf >/dev/null 2>&1; then\n")
-		b.WriteString(installLine("dnf install -y ", rpmArgs))
+		b.WriteString(installLine("timeout 900 dnf install -y ", rpmArgs))
 		b.WriteString("elif command -v yum >/dev/null 2>&1; then\n")
-		b.WriteString(installLine("yum install -y ", rpmArgs))
+		b.WriteString(installLine("timeout 900 yum install -y ", rpmArgs))
 		b.WriteString("else\n  echo '没有支持的包管理器（apt/dnf/yum）' >&2; exit 1\nfi\n")
 	}
 	if set["mc"] {
-		b.WriteString(`if ! command -v mc >/dev/null 2>&1; then
+		// 🔴 顺序改了：先离线、后外网。2026-11-07 k4 实测中国镜像 HEAD 200 但 GET
+		//    传了 110 KB 就不再动（curl 默认无超时，任务挂了 7 分钟）；而目标机
+		//    明明已导入 minio 镜像，旧脚本却因私有仓库前缀匹配不到而没走离线路径。
+		b.WriteString(`mc_ok=0
+mc_path=$(command -v mc 2>/dev/null || true)
+if [ -n "$mc_path" ] && [ -x "$mc_path" ] && timeout 15 "$mc_path" --version >/dev/null 2>&1; then mc_ok=1; fi
+# 🔴 与只读探测同一判据：半截下载 / 0644 无执行位 / --version 跑不动，都算「没装」，
+#    下面的 curl -o 或 docker cp 会直接覆盖那个坏文件，不会留下假阳性。
+if [ "$mc_ok" -ne 1 ]; then
   arch=$(uname -m)
   case "$arch" in
     x86_64|amd64) arch=amd64 ;;
@@ -703,35 +710,53 @@ func depsInstallScript(missing []string) string {
     *) echo "不支持的 CPU 架构: $arch" >&2; exit 1 ;;
   esac
   ok=0
-  # dl.min.io 自 2025 起对社区版直接返回 410 Gone（client 与 server 两个路径实测都是），
-  # 官方中国镜像 dl.minio.org.cn 仍正常分发，放前面先试；官方地址保留在列表里，
-  # 以便它哪天恢复后自动回退。都拿不到再从本机 minio 镜像里提取。
-  for url in \
-    "https://dl.minio.org.cn/client/mc/release/linux-$arch/mc" \
-    "https://dl.min.io/client/mc/release/linux-$arch/mc"
-  do
-    if command -v curl >/dev/null 2>&1; then
-      curl -fsSL "$url" -o /usr/local/bin/mc && { ok=1; break; } || rm -f /usr/local/bin/mc
-    elif command -v wget >/dev/null 2>&1; then
-      wget -qO /usr/local/bin/mc "$url" && { ok=1; break; } || rm -f /usr/local/bin/mc
-    fi
-  done
-  # dl.min.io 已停止分发社区版 mc（实测返回 410）：退回从本机 minio 镜像里提取
-  if [ "$ok" -ne 1 ] && command -v docker >/dev/null 2>&1; then
-    img=$(docker images --format '{{.Repository}}:{{.Tag}}' | grep -m1 -E '^(minio/minio|quay.io/minio/minio):' || true)
+  # ① 离线优先：MinIO 容器镜像里自带 mc，不访问外网、不会卡在半截下载。
+  #    镜像名可能带私有仓库前缀（192.168.1.221:5000/minio/minio:...），
+  #    所以匹配 (^|/)minio/minio:，不能只认 minio/minio: 开头。
+  if command -v docker >/dev/null 2>&1; then
+    echo '==> 安装 mc：先查目标机已导入的 MinIO 镜像（离线，不访问外网）'
+    img=$(timeout 20 docker images --format '{{.Repository}}:{{.Tag}}' 2>/dev/null | grep -m1 -E '(^|/)minio/minio:' || true)
     if [ -n "$img" ]; then
-      cid=$(docker create "$img") || cid=""
-      if [ -n "$cid" ] && docker cp "$cid:/usr/bin/mc" /usr/local/bin/mc >/dev/null 2>&1; then
-        ok=1
+      echo "==> 从镜像提取 mc：$img"
+      cid=$(timeout 30 docker create "$img") || cid=""
+      if [ -n "$cid" ]; then
+        for p in /usr/bin/mc /usr/local/bin/mc; do
+          if timeout 30 docker cp "$cid:$p" /usr/local/bin/mc >/dev/null 2>&1; then ok=1; break; fi
+        done
+        timeout 20 docker rm -f "$cid" >/dev/null 2>&1 || true
       fi
-      if [ -n "$cid" ]; then docker rm -f "$cid" >/dev/null 2>&1 || true; fi
+      if [ "$ok" -eq 1 ]; then echo '==> 已从离线镜像提取 mc'; else echo 'WARN: 镜像里没取到 mc，改试官方下载地址'; fi
+    else
+      echo '==> 目标机没有已导入的 MinIO 镜像，改试官方下载地址'
     fi
   fi
+  # ② 官方文档 https://min.io/docs/minio/linux/reference/minio-mc.html#install-mc
+  #    给的地址是 dl.min.io/aistor/...；社区版 dl.min.io/client/... 实测 410，
+  #    中国镜像 dl.minio.org.cn 可连通但大文件传输会挂，所以每个地址都必须有硬超时，
+  #    并且逐个打印进度，界面上再也不会出现「长时间没有输出」的假死。
   if [ "$ok" -ne 1 ]; then
-    echo "无法获取 mc（官方下载地址已失效），请手动安装 mc 到 /usr/local/bin/mc" >&2
+    for url in \
+      "https://dl.minio.org.cn/client/mc/release/linux-$arch/mc" \
+      "https://dl.min.io/aistor/mc/release/linux-$arch/mc" \
+      "https://dl.min.io/client/mc/release/linux-$arch/mc"
+    do
+      echo "==> 下载 mc（最多 90 秒）：$url"
+      if command -v curl >/dev/null 2>&1; then
+        curl -fsSL --connect-timeout 8 --max-time 90 "$url" -o /usr/local/bin/mc && { ok=1; break; } \
+          || { echo "WARN: $url 下载失败或超时"; rm -f /usr/local/bin/mc; }
+      elif command -v wget >/dev/null 2>&1; then
+        timeout 90 wget -q --timeout=8 --tries=1 -O /usr/local/bin/mc "$url" && { ok=1; break; } \
+          || { echo "WARN: $url 下载失败或超时"; rm -f /usr/local/bin/mc; }
+      fi
+    done
+  fi
+  if [ "$ok" -ne 1 ]; then
+    echo "无法获取 mc：离线镜像与三个官方地址都不可用，请手动安装到 /usr/local/bin/mc" >&2
     exit 1
   fi
   chmod +x /usr/local/bin/mc
+  echo '==> mc 安装完成，版本：'
+  /usr/local/bin/mc --version || true
 fi
 `)
 	}
@@ -745,6 +770,40 @@ func installLine(prefix string, args []string) string {
 		return "  :\n"
 	}
 	return "  " + prefix + strings.Join(args, " ") + "\n"
+}
+
+// pgdgRepoScript 按 PostgreSQL 官方文档「Manual Repository Configuration」写
+// /etc/apt/sources.list.d/pgdg.sources。只在用户显式给了 --pg-major 时才生成：
+// 发版仓库的 postgresql-client 在多数机器上够用，PGDG 需要访问公网 apt 仓库，
+// 内网机器上默认启用只会把本来能装好的依赖搞失败。
+func pgdgRepoScript() string {
+	return `  # PGDG 官方 apt 仓库：https://www.postgresql.org/download/linux/debian/
+  if ! command -v pg_restore >/dev/null 2>&1; then
+    . /etc/os-release
+    if [ -z "${VERSION_CODENAME:-}" ]; then echo '取不到发行版 codename，无法配置 PGDG 仓库' >&2; exit 1; fi
+    install -d /usr/share/postgresql-common/pgdg
+    if command -v curl >/dev/null 2>&1; then
+      curl -fsSL --connect-timeout 8 --max-time 60 https://www.postgresql.org/media/keys/ACCC4CF8.asc -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc
+    else
+      timeout 60 wget -q --timeout=8 --tries=1 -O /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+    fi
+    printf '%s\n' 'Types: deb' 'URIs: https://apt.postgresql.org/pub/repos/apt' "Suites: ${VERSION_CODENAME}-pgdg" "Architectures: $(dpkg --print-architecture)" 'Components: main' 'Signed-By: /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc' > /etc/apt/sources.list.d/pgdg.sources
+  fi
+`
+}
+
+// aptPackagesWithMajor：指定主版本时把通用包名换成 PGDG 的版本化包名。
+func aptPackagesWithMajor(set map[string]bool, pgMajor int) []string {
+	pkgs := aptPackages(set)
+	if pgMajor <= 0 {
+		return pkgs
+	}
+	for i, p := range pkgs {
+		if p == "postgresql-client" {
+			pkgs[i] = fmt.Sprintf("postgresql-client-%d", pgMajor)
+		}
+	}
+	return pkgs
 }
 
 func aptPackages(set map[string]bool) []string {
@@ -1233,6 +1292,10 @@ func CmdBackup(args []string, embedded fs.FS) int {
 	switch args[0] {
 	case "deploy":
 		return runBackupDeploy(args[1:], embedded)
+	case "deps":
+		return runBackupDeps(args[1:])
+	case "deps-uninstall":
+		return runBackupDepsUninstall(args[1:])
 	case "verify":
 		return runBackupVerify(args[1:])
 	case "env":
@@ -1299,7 +1362,10 @@ func runBackupEnv(args []string, embedded fs.FS) int {
 func backupUsage() {
 	fmt.Print(`用法:
   ops backup deploy [pg|minio|all] --server <name> [--dry-run] [--force] [--run-now] [--install-deps]
-  ops backup verify [pg|minio|all] --server <name>
+  ops backup deps   [pg|minio|all] --server <name> [--json] [--dry-run] [--pg-major <n>]
+                                       只安装缺失依赖（mc / pg_restore 等），不部署脚本；界面用这个入口
+  ops backup deps-uninstall --server <name> --target <mc|pg_client> [--dry-run]
+                                       只卸载工具装的 mc / PG 客户端，供「装了再卸、卸了再装」复测
   ops backup env       [pg|minio|all]  生成本机配置模板（已存在不覆盖）
   ops backup sync-env  [pg|minio|all] --server <name>
                                        只把本机填好的配置推到远端 backup.env（不重装脚本）
@@ -1316,6 +1382,8 @@ PASS_UP_OPS_BACKUP_SRC_DIR 覆盖成本机目录。
   --force         用本机 backup.env 覆盖远端已有配置（旧配置随 .old 目录保留）
   --run-now       安装成功后立即跑一次备份（写操作，可能较长时间）
   --install-deps  自动安装缺失依赖（apt/dnf/yum；mc 从官方地址下载）
+  --pg-major      仅 backup deps：按 PGDG 官方仓库装 postgresql-client-<n>
+  --target        仅 backup deps-uninstall：mc / pg_client（可重复；至少一个）
   --password-stdin
                   从 stdin 读初始 sudo 密码（没有 --password 参数）；
                   清单里已配 sudo.password 时以清单为准，界面部署走这条

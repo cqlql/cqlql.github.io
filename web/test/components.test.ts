@@ -10,25 +10,34 @@ import {
   canInstall,
   confirmCopy,
   copyReady,
+  depsRunEnabled,
   imageHint,
   installHint,
   installLabel,
   normalizeActions,
+  normalizeBackupDeps,
+  normalizePgMajorInput,
   normalizeProxyInput,
   normalizeSourceImages,
   normalizeStatusView,
+  normalizeUninstallPlan,
+  pgMajorValue,
+  uninstallButtonEnabled,
+  uninstallSubmitEnabled,
   preflightOf,
   stateLabel,
 } from '../src/features/components/utils/format.ts'
 import {
   startComponentInstall,
   startComponentRun,
+  startDepsRun,
   startImageLoad,
   watchComponentTask,
 } from '../src/features/components/service.ts'
-import type { ImageUploadApi, TaskApi } from '../src/features/components/service.ts'
+import type { DepsRunApi, ImageUploadApi, TaskApi } from '../src/features/components/service.ts'
 import type {
   ActionPlan,
+  BackupDepsRunRequest,
   ComponentRunRequest,
   ComponentStatus,
   ComponentsStatusView,
@@ -335,4 +344,73 @@ test('startComponentRun：image-copy 带 from_server 与源机镜像引用', asy
   assert.equal(sent?.from_server, 'prod')
   assert.equal(sent?.image_ref, 'minio/minio:RELEASE.x')
   assert.equal(t.mode, 'component.image-copy')
+})
+
+test('备份依赖区：状态归一化、安装按钮门与 PG 主版本', () => {
+  const v = normalizeBackupDeps({
+    server: 'k1', collected: true, missing: ['mc', 'pg_restore'],
+    items: null, plan: null, docs: null,
+  })
+  assert.deepEqual(v.items, [])
+  assert.deepEqual(v.plan, [])
+  assert.equal(v.component, 'all')
+  assert.equal(depsRunEnabled(v, false, 'k1'), true)
+  assert.equal(depsRunEnabled(v, true, 'k1'), false, '任务在跑不放行')
+  assert.equal(depsRunEnabled(normalizeBackupDeps(null), false, 'k1'), false, '没采到不放行')
+  assert.equal(depsRunEnabled(normalizeBackupDeps({ collected: true, missing: [] }), false, 'k1'), false)
+  assert.equal(normalizePgMajorInput('1a6'), '16')
+  assert.equal(pgMajorValue('16'), 16)
+  assert.equal(pgMajorValue('0'), undefined)
+})
+
+test('startDepsRun：mode=deps 请求 + 复用本页任务日志端点', async () => {
+  let sent: BackupDepsRunRequest | undefined
+  const seen: number[] = []
+  const api: DepsRunApi = {
+    runDeps: async (req) => { sent = req; return { started: true } },
+    task: async (after) => {
+      seen.push(after)
+      return task({ mode: 'deps', component: 'all', running: false, done: true })
+    },
+  }
+  const t = await startDepsRun(api, {
+    mode: 'deps', name: 'k1', component: 'all', confirm: 'yes', pg_major: 16,
+  }, { onChunk: () => {}, onTask: () => {}, sleep: async () => {} })
+  assert.equal(sent?.mode, 'deps')
+  assert.equal(sent?.confirm, 'yes')
+  assert.equal(sent?.pg_major, 16)
+  assert.equal(sent?.component, 'all')
+  assert.deepEqual(seen, [0])
+  assert.equal(t.mode, 'deps')
+})
+
+test('备份依赖区卸载：计划归一化、按钮门与 targets 透传', () => {
+  const plan = normalizeUninstallPlan({
+    title: '确认卸载备份依赖', targets: [{ key: 'mc', label: '卸载 mc', help: '' }],
+    impacts: ['不卸系统基础包'], submit_label: '确认卸载',
+  })
+  const v = normalizeBackupDeps({ collected: true, missing: [], uninstall: plan })
+  assert.equal(uninstallButtonEnabled(v, false, 'k1'), true)
+  assert.equal(uninstallButtonEnabled(v, true, 'k1'), false)
+  assert.equal(uninstallButtonEnabled(normalizeBackupDeps(null), false, 'k1'), false)
+  assert.equal(uninstallSubmitEnabled(plan, [], 'yes'), false)
+  assert.equal(uninstallSubmitEnabled(plan, ['mc'], 'yes'), true)
+  assert.equal(uninstallSubmitEnabled(plan, ['cron'], 'yes'), false)
+  assert.deepEqual(normalizeUninstallPlan(null).targets, [])
+})
+
+test('startDepsRun：mode=deps-uninstall 带 targets', async () => {
+  let sent: BackupDepsRunRequest | undefined
+  const api: DepsRunApi = {
+    runDeps: async (req) => { sent = req; return { started: true } },
+    task: async () => task({ mode: 'deps-uninstall', component: 'all' }),
+  }
+  const t = await startDepsRun(api, {
+    mode: 'deps-uninstall', name: 'k1', component: 'all', confirm: 'yes',
+    targets: ['mc', 'pg_client'],
+  }, { onChunk: () => {}, onTask: () => {}, sleep: async () => {} })
+  assert.equal(sent?.mode, 'deps-uninstall')
+  assert.deepEqual(sent?.targets, ['mc', 'pg_client'])
+  assert.equal(sent?.pg_major, undefined)
+  assert.equal(t.mode, 'deps-uninstall')
 })

@@ -1,6 +1,11 @@
 import type {
   ActionPlan,
+  BackupDepsView,
   CheckState,
+  DepDoc,
+  DepItem,
+  DepsUninstallPlan,
+  DepsUninstallTarget,
   ComponentCheck,
   ComponentState,
   ComponentStatus,
@@ -322,4 +327,72 @@ export function copyReady(
     return { ok: false, hint: '来源机本地没有名字里带 minio 的镜像，换个来源或先在本机导入 tar。' }
   }
   return { ok: true, hint: `来源机有 ${source.images.length} 个 MinIO 镜像；本机只做中转，不落盘、不进镜像仓库。` }
+}
+
+/* ---- 备份依赖区（与备份部署页同一后端，按 feature 边界各存一份最小投影）---- */
+
+export const EMPTY_UNINSTALL_PLAN: DepsUninstallPlan = {
+  title: '确认卸载备份依赖', description: '', targets: [], impacts: [], submit_label: '确认卸载',
+}
+
+export const EMPTY_BACKUP_DEPS: BackupDepsView = {
+  server: '', component: 'all', collected: false,
+  items: [], missing: [], optional: [], plan: [], docs: [],
+  uninstall: EMPTY_UNINSTALL_PLAN,
+}
+
+/** 卸载计划也走防空数组归一化（旧二进制 / 失败响应没有这个字段）。 */
+export function normalizeUninstallPlan(raw: unknown): DepsUninstallPlan {
+  const v = (raw && typeof raw === 'object' ? raw : {}) as Partial<DepsUninstallPlan>
+  return {
+    title: typeof v.title === 'string' ? v.title : EMPTY_UNINSTALL_PLAN.title,
+    description: typeof v.description === 'string' ? v.description : '',
+    targets: list<DepsUninstallTarget>(v.targets).filter((t) => t && typeof t.key === 'string'),
+    impacts: list<string>(v.impacts),
+    submit_label: typeof v.submit_label === 'string' ? v.submit_label : EMPTY_UNINSTALL_PLAN.submit_label,
+  }
+}
+
+/** 后端失败回 ok=true + data.error；数组一律兜成 []，别让 .map 打白页。 */
+export function normalizeBackupDeps(raw: unknown): BackupDepsView {
+  const v = (raw && typeof raw === 'object' ? raw : {}) as Partial<BackupDepsView>
+  return {
+    server: typeof v.server === 'string' ? v.server : '',
+    component: typeof v.component === 'string' ? v.component : 'all',
+    collected: v.collected === true,
+    error: typeof v.error === 'string' ? v.error : '',
+    items: list<DepItem>(v.items).filter((i) => i && typeof i.name === 'string'),
+    missing: list<string>(v.missing),
+    optional: list<string>(v.optional),
+    plan: list<string>(v.plan),
+    docs: list<DepDoc>(v.docs),
+    pg_major: typeof v.pg_major === 'number' ? v.pg_major : undefined,
+    uninstall: normalizeUninstallPlan(v.uninstall),
+  }
+}
+
+/** 输入框只留数字，最长 2 位；空串 = 发行版仓库。 */
+export function normalizePgMajorInput(raw: string): string {
+  return raw.replace(/\D/g, '').slice(0, 2)
+}
+
+export function pgMajorValue(raw: string): number | undefined {
+  const n = Number(normalizePgMajorInput(raw))
+  return Number.isInteger(n) && n >= 1 && n <= 99 ? n : undefined
+}
+
+/** 能否点「安装缺少依赖」：采到状态 + 确实有缺 + 没在跑 + 选了机器。 */
+export function depsRunEnabled(view: BackupDepsView, busy: boolean, name: string): boolean {
+  return view.collected && view.missing.length > 0 && !busy && name.trim() !== ''
+}
+
+/** 能否点「卸载依赖」：采到状态 + 有可卸项 + 没在跑 + 选了机器。 */
+export function uninstallButtonEnabled(view: BackupDepsView, busy: boolean, name: string): boolean {
+  return view.collected && view.uninstall.targets.length > 0 && !busy && name.trim() !== ''
+}
+
+/** 卸载弹窗能否提交：输 yes + 至少勾一个 + 勾的选项都在服务端计划里。 */
+export function uninstallSubmitEnabled(plan: DepsUninstallPlan, selected: string[], yes: string): boolean {
+  return yes === 'yes' && selected.length > 0 &&
+    selected.every((k) => plan.targets.some((t) => t.key === k))
 }

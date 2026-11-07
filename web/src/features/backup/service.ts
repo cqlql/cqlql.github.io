@@ -1,4 +1,10 @@
-import type { BackupRunRequest, BackupRunResult, BackupTask } from './types.ts'
+import type {
+  BackupDepsView,
+  BackupRunRequest,
+  BackupRunResult,
+  BackupTask,
+} from './types.ts'
+import { normalizeDepsView } from './utils/format.ts'
 
 /**
  * 编排层：启动任务 + 轮询增量日志。
@@ -14,6 +20,21 @@ import type { BackupRunRequest, BackupRunResult, BackupTask } from './types.ts'
 export interface BackupApi {
   run: (req: BackupRunRequest) => Promise<BackupRunResult>
   task: (after: number) => Promise<BackupTask>
+}
+
+/** 只读依赖状态；单独一个接口，免得污染 BackupApi 的既有假实现。 */
+export interface DepsApi {
+  deps: (name: string, component: string, pgMajor?: number) => Promise<BackupDepsView>
+}
+
+/** 失败响应也可能是 ok=true + data.error，这里统一过一层防空数组归一化。 */
+export async function fetchDeps(
+  api: DepsApi,
+  name: string,
+  component: string,
+  pgMajor?: number,
+): Promise<BackupDepsView> {
+  return normalizeDepsView(await api.deps(name, component, pgMajor))
 }
 
 export interface WatchHooks {

@@ -420,6 +420,9 @@ func (u *uiState) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		u.handleBackupRun(w, r)
 	case r.Method == http.MethodGet && r.URL.Path == "/api/backup/task":
 		u.handleBackupTask(w, r)
+	case r.Method == http.MethodGet && r.URL.Path == "/api/backup/deps":
+		// 只读依赖状态；安装走 POST /api/backup/run 的 mode=deps。
+		u.handleBackupDeps(w, r)
 	case r.Method == http.MethodGet && r.URL.Path == "/api/components/status":
 		u.handleComponentStatus(w, r)
 	case r.Method == http.MethodGet && r.URL.Path == "/api/components/images":

@@ -1,5 +1,7 @@
 import { request, requestForm } from '../../shared/api/http.ts'
 import type {
+  BackupDepsRunRequest,
+  BackupDepsView,
   ComponentRunRequest,
   ComponentTask,
   ComponentsStatusView,
@@ -28,6 +30,20 @@ export const componentsApi = {
 
   /** 与备份部署共用后台任务锁；这里只读增量日志。 */
   task: (after: number) => request<ComponentTask>(`/api/components/task?after=${after}`),
+
+  /** 只读：备份链路的命令行依赖（mc / pg_restore 等），不属于组件目录。 */
+  deps: (name: string, pgMajor?: number) => {
+    const q = new URLSearchParams({ name, component: 'all' })
+    if (pgMajor) q.set('pg_major', String(pgMajor))
+    return request<BackupDepsView>(`/api/backup/deps?${q.toString()}`)
+  },
+
+  /** 写操作：安装缺少依赖，服务端同样要 confirm=="yes" 并先跑 --dry-run。 */
+  runDeps: (req: BackupDepsRunRequest) =>
+    request<{ started: boolean }>('/api/backup/run', {
+      method: 'POST',
+      body: JSON.stringify(req),
+    }),
 
   /** 离线镜像 tar：服务端自己生成临时路径，接口不接收任何本机路径。 */
   uploadImage: (form: FormData) =>

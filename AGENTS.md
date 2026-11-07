@@ -55,6 +55,17 @@
 > 「作用对象是整个工具还是这一页的数据」，见 `docs/ui.md` §7。
 > `/api/shortcut` / `/api/shutdown` 的接口归属同步移到 `features/system/api.ts`；
 > 关界面后整壳换成静态说明页，窄屏三个按钮只留图标。
+> **2026-11-07 晚界面补上「卸载依赖」**：`ops backup deps-uninstall --target mc|pg_client`
+> + `/api/backup/run` 的 `mode=deps-uninstall`，供「卸了再装」复测；只删工具装的
+> mc / PG 客户端，不卸系统基础包、不 autoremove、不碰数据与定时任务；
+> 卸载计划由 Go 侧下发、勾选项默认全不勾且至少选一个，门禁与安装完全相同。
+> 见 `docs/backup-deploy.md` §10.3 / `docs/ui.md` §9.7 / 硬约束 30。
+> **2026-11-07 界面可安装「缺少依赖」**：新增独立 CLI `ops backup deps`
+> （`--json` 只读状态 / `--dry-run` 只报告 / 正式只装命令，不部署脚本），界面在
+> 「备份能力部署」与「环境组件」两页各加一个只读依赖清单 + 显式「安装缺少依赖」；
+> 走 `POST /api/backup/run` 的 `mode=deps`，同样要 `confirm=yes` 与服务端 `--dry-run`。
+> PG 客户端可选按官方 PGDG apt 仓库装版本化包（`--pg-major`），mc 补上官方文档地址；
+> 见 `docs/backup-deploy.md` §10.2 / `docs/ui.md` §9.7 / 硬约束 30。
 > **2026-11-07 配置页显示 schema 默认值 + 显式「填入推荐默认值」**：换电脑后一片
 > 「未配置」的真因是 `GET /api/config` 不带 `env-schema.json` 的 `default`；现在只提示、
 > 不自动写文件，凭证与 `default` 为空的键恒空，落盘仍要点保存 + `yes`。
@@ -65,15 +76,16 @@
 ## 项目概述
 
 - 本地单二进制运维工具，**已实现**：`ops servers list/check/apply-sudo` 管服务器与免密 sudo；
-  `ops backup deploy/verify/env/sync-env` 安装、升级、预检备份能力、生成配置模板、
-  单独同步配置到远端
+  `ops backup deploy/verify/env/sync-env/deps/deps-uninstall` 安装、升级、预检备份能力、
+  生成配置模板、单独同步配置到远端、单独安装 / 卸载缺失依赖
   （备份脚本本体就在本仓 `deploy/backup/`，编进二进制）；
   `ops component list/install/update/uninstall/image-load/images/image-copy` 管备份端环境组件
   （Docker 引擎与 MinIO 服务，只读体检 / 安装 / 更新 / 卸载 / 离线镜像导入 /
   从另一台已登记服务器直接复制镜像，
   脚本在 `deploy/component/` 编进二进制，见 `docs/components.md`）；
-  `ops ui` 默认只读查看服务器清单与检查结果；「备份能力部署」页另有预检 / 安装 / 自检
-  三个显式入口（安装要输 yes，服务端先跑 `--dry-run`，见 `docs/ui.md` §9）；
+  `ops ui` 默认只读查看服务器清单与检查结果；「备份能力部署」页另有预检 / 安装 / 自检 /
+  安装缺少依赖四个显式入口（两个安装都要输 yes，服务端先跑 `--dry-run`，见 `docs/ui.md` §9）；
+  「环境组件」页另有同一份「备份依赖」区（见 `docs/components.md` §10）；
   顶部工具栏另有「重启」（本机动作，可选先重建 + 换 exe，见 `docs/ui.md` §11）
   （前端是 React 工程，源码 `web/`，构建后嵌入二进制）；
   双击 `启动运维.cmd` 直接开这个网页面板（后台隐藏守护 + 自动开浏览器 + 单实例）；
@@ -176,6 +188,9 @@
     ⑤ 任务**脱离 HTTP 请求**（禁用 `r.Context()`），刷新页面不打断已开始的远端安装；
        单任务互斥（并发 409）、日志 `?after=` 增量轮询、上限 256 KB；
     ⑥ 界面不开放 `--force` / `--run-now` / `--install-deps`，这些仍走 CLI。
+       `mode=deps` / `mode=deps-uninstall` 跑的是**独立子命令** `ops backup deps` /
+       `ops backup deps-uninstall`（同样过 ①–⑤），不是 `deploy --install-deps`：
+       绝不顺带重部署脚本（硬约束 30）。
     `ui` **不 import `backup`**：执行器 `BackupRunner` 由 `main.go` 注入，根包 `backuprun.go`
     再起一个自己执行同一条 CLI 命令（输出接任务日志）。详见 `docs/ui.md` §9。
 22. 🔴 **界面重启必须过六道门**（2026-11-06 新增）：
@@ -342,6 +357,27 @@
     🔴 `web/vite.config.ts` 的 dev 代理默认端口 7788 与 `internal/ui/ui.go` 的
     `defaultUIPort` 用 `go test ./internal/ui` 断言对齐；实际端口写进 `ui.json`，
     dev 用 `OPS_UI_PORT` 显式跟过去，**不读运行态文件**。
+30. 🔴 **界面「安装缺少依赖」只装命令，绝不顺带部署**（2026-11-07 新增）：
+    `GET /api/backup/deps` 只读（`ops backup deps --json`），写动作只走
+    `POST /api/backup/run` 的 `mode=deps`（`confirm=="yes"` + 服务端 `--dry-run` +
+    与 deploy 共用任务锁 409）；`name` 只认清单、组件只认 `all|pg|minio`、
+    `pg_major` 只接受 1..99 纯数字（CLI 侧 `validatePgMajor` 再挡一次）。
+    🔴 界面**不发** `--install-deps` / `--force` / `--run-now`；依赖清单、安装计划、
+    官方文档链接由 Go 侧下发，前端只渲染；`collected=false` 是「没采到」，禁用安装按钮。
+    安装源按官方文档：默认发行版 `postgresql-client`，指定 `--pg-major` 才配置 PGDG
+    官方 apt 仓库；mc **先从目标机已导入的 MinIO 镜像离线提取**（私有仓库前缀的镜像名
+    也要认），取不到才按官方文档地址下载，绝不 `docker pull`。
+    🔴 依赖探测不能只问 `command -v`：dash 对 0644 的半截下载文件也返回路径，
+    必须再验 `[ -x ]`；`pg_restore` / `mc` 还须 `--version` 真能跑通 ——
+    `postgresql-client-common` 留下的 `/usr/bin/pg_restore`（pg_wrapper 壳链接）
+    可执行但 `--version` 报「未安装任何客户端包」，只看文件就会误判「已安装」。
+    🔴 每一步 `apt` / `curl` / `wget` / `docker` 都有硬超时且逐条打印进度：
+    2026-11-07 k4 曾因 mc 下载无超时挂 7 分钟、界面假死。
+    🔴 **卸载只删工具装的东西**：`targets` 白名单只有 `mc`（`/usr/local/bin/mc`）
+    与 `pg_client`（`apt remove postgresql-client[-<n>]`），默认全不勾且至少一个；
+    不卸 cron / nc / ssh / tar / logrotate，不 autoremove / purge，不碰 `~/.mc`、
+    容器 / 镜像、PGDG 源、服务端、crontab / backup.env；卸载后自动复查。
+    详见 `docs/backup-deploy.md` §10.2 / §10.3 与 `docs/ui.md` §9.7。
 
 ## 命令与验证
 

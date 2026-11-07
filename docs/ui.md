@@ -123,7 +123,8 @@ webdist.go                       //go:embed all:web/dist（根包，package main
 | `/favicon.ico` | **否** | 图标字节与桌面快捷方式同源（`ui.IconBytes`），不含任何信息 |
 | 其它 `GET`（页面） | 是 | 401 回**中文说明页**：该用 CLI 打印的带 `?token=` 的地址打开 |
 | `/api/*` | 是 | 401 回 JSON 信封 `{"ok":false,"error":"token 无效"}` |
-| `/api/backup/run` | 是 | `POST`，额外校验 `Origin`；`mode=deploy` 必须带 `confirm:"yes"` 且过服务端预检门；只认清单 name（见 §9） |
+| `/api/backup/run` | 是 | `POST`，额外校验 `Origin`；`mode=deploy` / `deps` / `deps-uninstall` 必须带 `confirm:"yes"` 且过服务端预检门；只认清单 name（见 §9 / §9.7） |
+| `/api/backup/deps` | 是 | `GET`，只读依赖状态（`ops backup deps --json`），不占任务锁、不需要 confirm（见 §9.7） |
 | `/api/backup/task` | 是 | `GET`，只读任务状态与增量日志；日志已脱敏，不含密码 |
 | `/api/shortcut` | 是 | `POST`，额外校验 `Origin`；只碰本机桌面（建 `.lnk`），**不依赖配置是否齐全** |
 | `/api/open-servers-file` | 是 | `POST`，额外校验 `Origin`；本机动作：用 VSCode（找不到回退系统默认程序）打开 `servers.json`；**路径由服务端从 `ops.env` 解析，接口不读请求体** |
@@ -292,12 +293,13 @@ P1 的 `ops backup deploy` 早已实现并真机验证，却只能从命令行 /
 
 | # | 门 | 在哪 | 绕过会怎样 |
 | :--- | :--- | :--- | :--- |
-| 1 | `mode=deploy` 必须 `confirm:"yes"` | `handleBackupRun` | 直接调 API 返回 400，一次命令都不跑 |
-| 2 | 服务端先跑 `--dry-run`，非 0 不安装 | `runBackupTask` | 前端没点预检也拦得住；日志写「预检没过」 |
+| 1 | `mode=deploy` / `deps` / `deps-uninstall` 必须 `confirm:"yes"` | `handleBackupRun` | 直接调 API 返回 400，一次命令都不跑 |
+| 2 | 三个写模式服务端先跑 `--dry-run`，非 0 不执行 | `runBackupTask` | 前端没点预检也拦得住；日志写「预检没过」 |
 | 3 | `name` 只认清单、`component` 只认 `all/pg/minio` | `handleBackupRun` | 未知 name → 404；不代理任意主机 |
 | 4 | 密码单次内存 → 子进程 stdin；日志按行脱敏 | `BackupRunner` / `backupLogWriter` | 明文不进命令行、不落盘、不进 `ops-ui.log` |
 | 5 | 任务脱离 `r.Context()`，单任务互斥，日志上限 256 KB | `backupTask` | 刷新页面不打断远端安装；并发 409 |
-| 6 | 不发 `--force` / `--run-now` / `--install-deps` | `backupCommandArgs` | 这几个仍是 CLI 专属 |
+| 6 | 不发 `--force` / `--run-now` / `--install-deps` | `backupCommandArgs` | 这几个仍是 CLI 专属；`deps` / `deps-uninstall` 走独立子命令，不是 `deploy --install-deps`（§9.7） |
+| 7 | `targets` 只给 `deps-uninstall`，白名单 `mc\|pg_client`、至少一个 | `normalizeUninstallTargets` | 任意字符串不会变成远端 `rm` / `apt remove` 的参数 |
 
 另外所有写 `POST` 都过 token + `Origin`（§4）；部署期间点「一键免密 sudo」返回 409，
 避免两个写动作同时改远端、出事分不清是谁。
@@ -306,8 +308,15 @@ P1 的 `ops backup deploy` 早已实现并真机验证，却只能从命令行 /
 
 ```
 POST /api/backup/run
-  { mode: "preflight"|"deploy"|"verify", name, component, password?, confirm? }
+  { mode: "preflight"|"deploy"|"verify"|"deps"|"deps-uninstall", name, component,
+    password?, confirm?, pg_major?, targets? }  pg_major 只给 deps（1..99 纯数字）；
+                                              targets 只给 deps-uninstall（mc / pg_client，至少一个）
   → { started, mode, server, component }        立刻返回，任务在后台 goroutine
+
+GET  /api/backup/deps?name=<清单 name>&component=all|pg|minio[&pg_major=<n>]
+  → { server, component, collected, items[], missing[], optional[], plan[], docs[],
+       uninstall{ title, description, targets[], impacts[], submit_label }, error? }
+    只读（`ops backup deps --json`）；失败也回 ok=true + data.error，数组一律 []
 
 GET  /api/backup/task?after=N
   → { running, done, mode, server, component, exit_code, log, next, started_at?, ended_at? }
@@ -315,7 +324,9 @@ GET  /api/backup/task?after=N
 ```
 
 `preflight` = `backup deploy --dry-run`（只读）、`verify` = `backup verify`，
-`deploy` = 服务端先 `--dry-run` 再 `backup deploy`。
+`deploy` = 服务端先 `--dry-run` 再 `backup deploy`，
+`deps` = 服务端先 `--dry-run` 再 `backup deps`，
+`deps-uninstall` = 服务端先 `--dry-run` 再 `backup deps-uninstall`（§9.7）。
 任务状态只在**内存**里，进程一退就没了；不做取消接口——杀本机进程不等于远端会回滚，
 给一个「取消」按钮只会让人误以为远端停了。
 
@@ -346,6 +357,45 @@ StrictMode 下 effect 会跑两次，用递增的 `pollId` 让旧轮询自己退
   apply-sudo 与部署互斥、增量日志；
 - `npm test`：`watchTask` 按 `next` 续传、`shouldStop` 只停轮询不停任务、重载后接回；
 - 真机：预检失败时远端文件没变；日志里搜不到明文密码；安装途中刷新，回来能看到完成。
+
+### 9.7 界面安装「缺少依赖」（2026-11-07）
+
+**动机**：预检日志里一句 `ERROR: 缺少依赖: mc, pg_restore` 之后，人得另开终端跑
+`ops backup deploy --install-deps`——而这个开关会顺带**重部署整套脚本**。装两个命令行工具
+不该有这种副作用，所以新增独立子命令 `ops backup deps`（见
+[backup-deploy.md](backup-deploy.md) §10.2），界面在两页提供同一个能力：
+
+| 页面 | 位置 | 数据源 / 写动作 |
+| :--- | :--- | :--- |
+| 备份能力部署 | 按钮区下方的「备份依赖」卡片 | `GET /api/backup/deps` + `mode=deps` |
+| 环境组件 | 组件目录下方新增「备份依赖」区（不属于组件目录） | 同上，任务日志仍走 `/api/components/task`（同一把锁） |
+
+- 状态卡片只读：`items[]`（命令 / 用途 / 已装 / 版本 / 安装来源）、`missing[]`、
+  `plan[]`（这次会装什么）、`docs[]`（PGDG 与 mc 官方文档）**全部由 Go 侧算好下发**，
+  前端只渲染 + 一个 busy 门。`collected=false` = 没采到，安装按钮直接禁用（硬约束 3）。
+  「已安装」判据是 `[ -x ]` 且 `pg_restore` / `mc` 的 `--version` 真能跑通：
+  半截下载文件、`postgresql-client-common` 留下的 pg_wrapper 壳链接都不算已装。
+- 写动作与 `deploy` 共用六道门：`confirm=="yes"`（人输 `yes`）、服务端 `--dry-run`、
+  `name` 只认清单、组件白名单、密码单次内存→stdin + 日志脱敏、任务脱离请求 + 409。
+  **不发** `--install-deps` / `--force` / `--run-now`。
+- `pg_major`（可选，1..99 纯数字）只属于 `deps`：给了就按 PostgreSQL 官方 PGDG apt 仓库
+  装 `postgresql-client-<n>`，不给则装发行版仓库的 `postgresql-client`。服务端与 CLI
+  各验一次字符集，绝不让它变成任意字符串拼进远端 apt 包名。
+- 安装完自动复查每个命令、任务结束自动刷新只读状态；预检日志里出现「缺少依赖」时，
+  备份页额外给一条可直接点的引导。
+**卸载（2026-11-07 晚追加，供「卸了再装」复测）**：`mode=deps-uninstall` +
+`targets: ["mc" | "pg_client"]`，同样六道门，另加一条 `targets` 白名单门。
+只读状态里多带一份 `uninstall` 计划（标题 / 可勾选项 / 影响清单 / 提交文案），
+两页弹窗都只渲染它；**勾选项默认全不勾、至少选一个**才能提交。
+只删 `/usr/local/bin/mc` 与 `postgresql-client[-<n>]` 包，不卸 cron / nc / ssh / tar /
+logrotate，不 autoremove / purge，不碰 `~/.mc`、容器 / 镜像、PGDG 源、服务端、
+crontab / backup.env；卸载后自动复查命令是否真的消失。判据见
+[backup-deploy.md](backup-deploy.md) §10.3、[components.md](components.md) §10。
+
+- 回归：`internal/backup/deps_test.go` / `deps_uninstall_test.go`（参数门 / 只读探测 /
+  官方源 / 卸载边界 / 采不到≠已装）、`internal/ui/deps_test.go`（GET 只读与白名单、
+  deps 与 deps-uninstall 的 confirm 门 / 预检门 / targets 白名单 / 409）、
+  `web/test/{backup,components}.test.ts`（归一化、按钮门、请求参数）。
 
 ## 10. 点清单路径直接用 VSCode 打开（2026-11-06）
 

@@ -1,4 +1,5 @@
 import type {
+  BackupDepsRunRequest,
   ComponentRunRequest,
   ComponentTask,
   ComponentsStatusView,
@@ -20,6 +21,23 @@ export interface TaskApi {
 export interface ComponentApi extends TaskApi {
   status: (name: string) => Promise<ComponentsStatusView>
   run: (req: ComponentRunRequest) => Promise<{ started: boolean }>
+}
+
+/**
+ * 「安装缺少依赖」走 /api/backup/run 的 mode=deps，但任务日志仍从本页的
+ * /api/components/task 增量读（两边是同一把后台任务锁、同一份任务状态）。
+ */
+export interface DepsRunApi extends TaskApi {
+  runDeps: (req: BackupDepsRunRequest) => Promise<{ started: boolean }>
+}
+
+export async function startDepsRun(
+  api: DepsRunApi,
+  req: BackupDepsRunRequest,
+  hooks: WatchHooks,
+): Promise<ComponentTask> {
+  await api.runDeps(req)
+  return watchComponentTask(api, hooks, 0)
 }
 
 /** 离线镜像导入也走同一个任务端点 / 同一把后台任务锁。 */

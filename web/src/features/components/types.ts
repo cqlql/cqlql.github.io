@@ -142,6 +142,66 @@ export interface ComponentRunRequest {
   ack_downstream?: boolean
 }
 
+/**
+ * 「备份依赖」区：与备份能力部署页共用 GET /api/backup/deps + POST /api/backup/run
+ * 的 mode=deps，但按 feature 边界只声明本页用到的最小投影，不 import backup 的类型。
+ */
+export interface DepItem {
+  name: string
+  label: string
+  component: string
+  installed: boolean
+  version: string
+  optional: boolean
+  source: string
+  doc: string
+}
+
+export interface DepDoc {
+  label: string
+  url: string
+}
+
+export interface DepsUninstallTarget {
+  key: string
+  label: string
+  help: string
+}
+
+/** 卸载弹窗的判据与文案由 Go 侧下发，前端只渲染。 */
+export interface DepsUninstallPlan {
+  title: string
+  description: string
+  targets: DepsUninstallTarget[]
+  impacts: string[]
+  submit_label: string
+}
+
+export interface BackupDepsView {
+  server: string
+  component: string
+  collected: boolean
+  error?: string
+  items: DepItem[]
+  missing: string[]
+  optional: string[]
+  plan: string[]
+  docs: DepDoc[]
+  pg_major?: number
+  uninstall: DepsUninstallPlan
+}
+
+export interface BackupDepsRunRequest {
+  mode: 'deps' | 'deps-uninstall'
+  name: string
+  component: string
+  confirm: 'yes'
+  password?: string
+  pg_major?: number
+  /** 仅 mode=deps-uninstall：mc / pg_client，服务端白名单再验一次。 */
+  targets?: string[]
+}
+
 export interface ComponentTask {
   running: boolean
   done: boolean

@@ -7,7 +7,9 @@ package ui
 //   - 目标机只认 servers.json 里的 name，未知 name 直接 404，不接受任意 host；
 //   - sudo 密码只在本次请求的内存里，经子进程 stdin 交给 CLI，不落盘、不进日志；
 //   - 任务脱离 HTTP 请求运行：刷新页面不会打断已经开始的远端安装；
-//   - 一台机器同时只跑一个任务（409），界面不开放 --force/--run-now/--install-deps。
+//   - 一台机器同时只跑一个任务（409），界面不开放 --force/--run-now/--install-deps；
+//   - 2026-11-07 起另有 mode=deps：只装缺失命令（mc / pg_restore 等），等价于
+//     独立的 `ops backup deps`，同样要 confirm==yes + 服务端 --dry-run（见 deps.go）。
 //
 // 执行器 BackupRunner 由 main 注入（ui 不能 import backup），日志经 backupLogWriter
 // 回流到页面，写入时按行脱敏，避免任何远端回显把密码带进任务日志。
@@ -34,6 +36,12 @@ const (
 	backupPreflight BackupMode = "preflight"
 	backupDeploy    BackupMode = "deploy"
 	backupVerify    BackupMode = "verify"
+	// backupDeps 只装缺失依赖，不部署脚本：界面里是第五个写动作，
+	// 与 deploy 共用同一把任务锁和同一道服务端预检门。
+	backupDeps BackupMode = "deps"
+	// backupDepsUninstall 只卸工具装的 mc / PG 客户端（供复测），
+	// 同样走 confirm + 服务端 --dry-run + 任务锁，targets 另有白名单。
+	backupDepsUninstall BackupMode = "deps-uninstall"
 )
 
 // 日志留在内存里给页面轮询；上限只是防止一个跑飞的子进程把界面进程撑爆。
@@ -205,11 +213,16 @@ type backupRunRequest struct {
 	Component string `json:"component"`
 	Password  string `json:"password"`
 	Confirm   string `json:"confirm"`
+	// PgMajor 只给 mode=deps：按 PGDG 官方仓库装 postgresql-client-<n>。
+	// 0 / 省略 = 发行版仓库的 postgresql-client。字符集与范围由服务端再验一次。
+	PgMajor int `json:"pg_major,omitempty"`
+	// Targets 只给 mode=deps-uninstall：mc / pg_client，至少一个，服务端白名单再验一次。
+	Targets []string `json:"targets,omitempty"`
 }
 
 func parseBackupMode(s string) (BackupMode, bool) {
 	switch BackupMode(s) {
-	case backupPreflight, backupDeploy, backupVerify:
+	case backupPreflight, backupDeploy, backupVerify, backupDeps, backupDepsUninstall:
 		return BackupMode(s), true
 	default:
 		return "", false
@@ -235,6 +248,13 @@ func backupCommandArgs(mode BackupMode, name, component string) []string {
 		return []string{"deploy", component, "--server", name, "--dry-run"}
 	case backupDeploy:
 		return []string{"deploy", component, "--server", name}
+	case backupDeps:
+		// 独立的 `ops backup deps`：不传 --install-deps（那是 deploy 的附加开关，
+		// 会顺带跑完整部署），也不开放 --force / --run-now。
+		return []string{"deps", component, "--server", name}
+	case backupDepsUninstall:
+		// 卸载不接受组件参数（固定 all）；--target 由 handleBackupRun 按白名单追加。
+		return []string{"deps-uninstall", "--server", name}
 	default:
 		return []string{"verify", component, "--server", name}
 	}
@@ -255,7 +275,7 @@ func (u *uiState) handleBackupRun(w http.ResponseWriter, r *http.Request) {
 	}
 	mode, ok := parseBackupMode(req.Mode)
 	if !ok {
-		writeAPI(w, http.StatusBadRequest, apiResponse{Error: "未知模式（可选 preflight / deploy / verify）"})
+		writeAPI(w, http.StatusBadRequest, apiResponse{Error: "未知模式（可选 preflight / deploy / verify / deps / deps-uninstall）"})
 		return
 	}
 	component, ok := normalizeComponent(req.Component)
@@ -267,9 +287,34 @@ func (u *uiState) handleBackupRun(w http.ResponseWriter, r *http.Request) {
 		writeAPI(w, http.StatusBadRequest, apiResponse{Error: "请先选择目标服务器（只接受清单里的 name）"})
 		return
 	}
-	if mode == backupDeploy && req.Confirm != "yes" {
-		writeAPI(w, http.StatusBadRequest, apiResponse{Error: "安装是写操作：请输入 yes 确认"})
+	writeMode := mode == backupDeploy || mode == backupDeps || mode == backupDepsUninstall
+	if writeMode && req.Confirm != "yes" {
+		writeAPI(w, http.StatusBadRequest, apiResponse{Error: "这是远端写操作：请输入 yes 确认"})
 		return
+	}
+	// 🔴 --pg-major 只属于 deps，且只接受纯数字 1..99：它会拼进远端 apt 包名。
+	if mode != backupDeps && req.PgMajor != 0 {
+		writeAPI(w, http.StatusBadRequest, apiResponse{Error: "pg_major 只用于安装缺少依赖（mode=deps）"})
+		return
+	}
+	if req.PgMajor < 0 || req.PgMajor > 99 {
+		writeAPI(w, http.StatusBadRequest, apiResponse{Error: "pg_major 超出范围（1..99）"})
+		return
+	}
+	// 🔴 targets 只属于 deps-uninstall，且必须由服务端按白名单裁决：
+	//    「卸什么」绝不由前端字符串直接变成远端 rm / apt remove 的参数。
+	if mode != backupDepsUninstall && len(req.Targets) > 0 {
+		writeAPI(w, http.StatusBadRequest, apiResponse{Error: "targets 只用于卸载备份依赖（mode=deps-uninstall）"})
+		return
+	}
+	targets := []string{}
+	if mode == backupDepsUninstall {
+		var err error
+		targets, err = normalizeUninstallTargets(req.Targets)
+		if err != nil {
+			writeAPI(w, http.StatusBadRequest, apiResponse{Error: err.Error()})
+			return
+		}
 	}
 	if u.runner == nil {
 		writeAPI(w, http.StatusNotImplemented, apiResponse{Error: "这个构建没有备份部署能力"})
@@ -293,8 +338,14 @@ func (u *uiState) handleBackupRun(w http.ResponseWriter, r *http.Request) {
 		writeAPI(w, http.StatusConflict, apiResponse{Error: "已有备份任务在运行，等它结束再试"})
 		return
 	}
-	go u.runBackupTask(task, mode, req.Name, component,
-		backupCommandArgs(mode, req.Name, component), req.Password)
+	args := backupCommandArgs(mode, req.Name, component)
+	if mode == backupDeps && req.PgMajor > 0 {
+		args = append(args, "--pg-major", strconv.Itoa(req.PgMajor))
+	}
+	for _, t := range targets {
+		args = append(args, "--target", t)
+	}
+	go u.runBackupTask(task, mode, req.Name, component, args, req.Password)
 
 	writeAPI(w, http.StatusOK, apiResponse{OK: true, Data: map[string]any{
 		"started":   true,
@@ -309,19 +360,31 @@ func (u *uiState) runBackupTask(t *backupTask, mode BackupMode, server, componen
 	fmt.Fprintf(lw, "==> 开始：%s %s（目标：%s）\n", modeLabel(mode), component, server)
 
 	code := 0
-	if mode == backupDeploy {
-		// 预检门放在**服务端**：前端不点预检、或直接调 API，也绕不过这一步。
-		// 菜单里是「预检通过 + 输入 yes」，这里是同一条规则。
+	// 🔴 三个写模式共用一个服务端预检门：deploy / deps / deps-uninstall
+	//    都先跑 --dry-run，前端不点预检、或直接调 API，都绕不过这一步。
+	writeMode := mode == backupDeploy || mode == backupDeps || mode == backupDepsUninstall
+	if writeMode {
+		action := "安装"
+		if mode == backupDepsUninstall {
+			action = "卸载"
+		}
 		fmt.Fprintln(lw, "==> 服务端预检（--dry-run，不改远端）")
 		pre := append(append([]string{}, args...), "--dry-run")
 		code = u.runner(pre, password, lw)
 		if code != 0 {
-			fmt.Fprintln(lw, "预检没过，不执行安装；远端没有被修改。")
+			fmt.Fprintf(lw, "预检没过，不执行%s；远端没有被修改。\n", action)
 			lw.Flush()
 			t.finish(code)
 			return
 		}
-		fmt.Fprintln(lw, "==> 预检通过，开始安装（会写远端 crontab / logrotate / 目录）")
+		switch mode {
+		case backupDeps:
+			fmt.Fprintln(lw, "==> 预检通过，开始安装缺失依赖（只装命令，不部署脚本 / 不写 crontab / 不跑备份）")
+		case backupDepsUninstall:
+			fmt.Fprintln(lw, "==> 预检通过，开始卸载勾选的依赖（只删工具装的东西，不 autoremove / 不碰数据与定时任务）")
+		default:
+			fmt.Fprintln(lw, "==> 预检通过，开始安装（会写远端 crontab / logrotate / 目录）")
+		}
 	}
 	code = u.runner(args, password, lw)
 	if code == 0 {
@@ -339,6 +402,10 @@ func modeLabel(m BackupMode) string {
 		return "备份部署预检"
 	case backupDeploy:
 		return "安装 / 升级备份能力"
+	case backupDeps:
+		return "安装缺少依赖"
+	case backupDepsUninstall:
+		return "卸载备份依赖"
 	case componentInstallMode:
 		return "安装环境组件"
 	case componentUpdateMode:

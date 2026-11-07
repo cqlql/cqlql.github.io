@@ -53,9 +53,27 @@ ops backup deploy [pg|minio|all] [--server <name>] [--dry-run] [--force] [--run-
     --run-now       安装成功后立刻跑一次备份（默认关闭：这是写操作，且可能很重）
     --install-deps  安装缺失依赖（apt/dnf/yum；mc 官方下载失效时从本机 minio 镜像提取）；
                     --dry-run 下只报告不安装
+    --pg-major      只用于下面的 backup deps
     --password-stdin
                     从 stdin 读初始 sudo 密码（**没有 --password 参数**）；
                     清单里已配 sudo.password 时以清单为准，界面部署走这条
+
+ops backup deps [pg|minio|all] --server <name> [--json] [--dry-run] [--pg-major <n>]
+    只安装缺失依赖（mc / pg_restore / cron / nc / ...），不上传脚本、不写 crontab /
+    logrotate / backup.env、不跑备份；装完自动复查
+    --json          只读结构化状态（界面 GET /api/backup/deps 的数据源）
+    --dry-run       只报告缺失项与安装计划，不改远端任何文件
+    --pg-major <n>  按 PostgreSQL 官方 PGDG apt 仓库装 postgresql-client-<n>；
+                    不给则装发行版仓库的 postgresql-client
+    --password-stdin 同 deploy
+
+ops backup deps-uninstall --server <name> --target <mc|pg_client> [--target ...] [--dry-run]
+    只卸载工具装的 mc / PG 客户端，供「卸了再装」复测；界面同款动作，要输 yes
+    --target mc         只删 /usr/local/bin/mc（不碰 ~/.mc / 容器 / 镜像）
+    --target pg_client  apt remove postgresql-client / postgresql-client-<n>
+                        / postgresql-client-common（不 autoremove / purge、不删 PGDG 源、不动服务端）
+    --dry-run           只打印将执行的远端命令，不改远端任何文件
+    不提供卸载 cron / nc / ssh / scp / tar / logrotate（系统基础包）
 
 ops backup verify [pg|minio|all] [--server <name>] [--password-stdin]
     只跑远端 preflight_check.sh，不安装、不备份
@@ -86,7 +104,8 @@ ops backup compare-env [pg|minio|all] --server <name>
   经 **ssh stdin** 走 `sudo -S -p ''`，密码不出现在命令行/日志），**运行期固定为同一个
   `user`，不提权**；依赖命令 `ssh` / `scp` / `pg_restore` /
   `mc` / `logrotate` / `crontab` 逐项报告；缺失时**默认只报告**，加 `--install-deps` 才安装
-  （`--dry-run` 永不安装）；
+  （`--dry-run` 永不安装）；只想补命令时走独立的 `ops backup deps`（§10.2），
+  不会顺带重部署脚本；
 - 磁盘余量、`/data` 与日志目录可写；
 - **目录漂移检查**：运行用户与 root 两份 `crontab -l` 里带 `#PG_BACKUP` / `#MINIO_BACKUP`
   的行会包含脚本绝对路径（迁移期两种都要看，旧任务还留在 root 名下）。
@@ -240,13 +259,14 @@ stdout/stderr 汇成任务日志，页面用 `GET /api/backup/task?after=N` 轮�
 
 🔴 六道门（[AGENTS.md](../AGENTS.md) 硬约束 21）：
 
-1. `mode=deploy` 必须带 `confirm:"yes"`，前端要手输 `yes`；
-2. 服务端先自己跑一遍 `--dry-run`，非 0 就不安装 —— 前端有没有点过预检都一样；
+1. `mode=deploy` / `mode=deps` / `mode=deps-uninstall` 必须带 `confirm:"yes"`，前端要手输 `yes`；
+2. 三个写模式服务端都先自己跑一遍 `--dry-run`，非 0 就不执行 —— 前端有没有点过预检都一样；
 3. `name` 只认 `servers.json`（未知返回 404），`component` 白名单 `all|pg|minio`；
 4. 初始 sudo 密码只在单次请求内存，经子进程 stdin 交给 CLI；日志按行脱敏成 `***`，任务结束清空；
 5. 任务脱离 HTTP 请求（**不用 `r.Context()`**）：刷新 / 关标签页不会掐断已开始的远端安装；
    单任务互斥（并发 409），日志上限 256 KB；
-6. 界面不开放 `--force` / `--run-now` / `--install-deps`，需要时仍走 CLI 或 `--menu`。
+6. 界面不开放 `--force` / `--run-now` / `--install-deps`，需要时仍走 CLI 或 `--menu`；
+   `mode=deps` 跑的是独立子命令 `ops backup deps`，不是 `deploy --install-deps`（§10.2）。
 
 **为什么用子进程**：`CmdBackup` 的输出全是 `fmt.Print*` 打到 `os.Stdout`，
 网页要拿日志就得改 30 多处输出、或临时替换全局 stdout（并发不安全）。
@@ -269,3 +289,98 @@ stdout/stderr 汇成任务日志，页面用 `GET /api/backup/task?after=N` 轮�
 
 CLI 上等价的两种做法：`ops backup sync-env pg --server <name>`（只换配置，推荐），
 或 `ops backup deploy pg --server <name> --force`（会重装一遍脚本并跑自检）。
+
+### 10.2 界面安装「缺少依赖」（2026-11-07）
+
+**判据**：`deploy --install-deps` 是为了「部署时顺手补齐」，它会走完上传脚本、换目录、
+logrotate、install.sh、preflight 自检。预检只报 `ERROR: 缺少依赖: mc, pg_restore` 时，
+人不该为了装两个命令行工具而重部署一整套。所以依赖安装独立成 `ops backup deps`：
+
+| | `backup deploy --install-deps` | `backup deps` |
+| :--- | :--- | :--- |
+| 上传 / 换目录 / install.sh / crontab / logrotate | 会 | **不碰** |
+| 跑 preflight / 备份 | 会（preflight） | 不跑 |
+| 装完复查依赖 | 复查一次后继续部署 | 复查一次即结束 |
+| 界面入口 | 无（CLI / `--menu` 专属） | 「备份依赖」区（两个页面） |
+
+- 只读探测一条远端命令：逐项 `command -v`，另取 `pg_restore --version` / `mc --version`；
+  没有 `DEPS_CHECK_OK=yes` 结束标记就是 `collected=false`，**绝不拿空输出当「依赖齐全」**。
+  `--json` 输出 `items / missing / optional / plan / docs`，界面状态与安装计划和 CLI 同源。
+- `--dry-run` 只打印缺失项、安装计划与官方文档；正式安装才提权，装完自动复查，
+  仍缺就如实报错。只读探测本身不提权、不写远端文件。
+- **安装源按官方文档**（用户给的两份）：
+  - PostgreSQL：<https://www.postgresql.org/download/linux/debian/>。默认装发行版仓库的
+    `postgresql-client`（内网机器不额外依赖公网）；指定 `--pg-major 16` 时按「Manual
+    Repository Configuration」写 `/etc/apt/sources.list.d/pgdg.sources`（导入
+    `ACCC4CF8.asc`、`${VERSION_CODENAME}-pgdg`）、装 `postgresql-client-16`，
+    避免 `pg_restore` 版本低于服务端时误判 dump 损坏。主版本只接受 1..99 纯数字，
+    CLI 与界面各验一次。dnf/yum 没有等价的版本化包名保证，仍用系统包并在文档里说明。
+  - MinIO mc：<https://min.io/docs/minio/linux/reference/minio-mc.html#install-mc>。
+    官方文档当前给 `dl.min.io/aistor/mc/release/linux-<arch>/mc`；社区版
+    `dl.min.io/client/...` 实测 410，官方中国镜像 `dl.minio.org.cn` 可连通。
+    **顺序是「离线优先」**：先 `docker images` 找目标机已导入的 MinIO 镜像
+    （镜像名带私有仓库前缀 `192.168.1.221:5000/minio/minio:...` 也要认，
+    旧脚本只匹配 `^minio/minio:` 会漏掉），`docker create` + `docker cp` 取出
+    `/usr/bin/mc` 或 `/usr/local/bin/mc`；没有镜像才依次试
+    「中国镜像 → 官方 AIStor 地址 → 社区版地址」。全程**绝不 `docker pull`**。
+  - 🔴 **2026-11-07 k4 假死踩坑**：中国镜像 HEAD 200（0.09s）但 GET 传了 110 KB
+    后不再动；`curl -fsSL` 默认没有总超时，任务挂了 7 分钟，界面日志停在
+    apt 的 needrestart 输出，看起来像「卡死」。现在每个下载都有
+    `--connect-timeout 8 --max-time 90`（wget 同样包 `timeout 90`），
+    `apt-get update` / `install`、`docker images/create/cp` 也各有硬超时，
+    且每一步 `echo '==> …'` 打印进度；apt 另加 `NEEDRESTART_MODE=l`，
+    装客户端不重启 `docker.service` / `systemd-logind.service`。
+  - 🔴 **同一场的第二个坑：假阳性**。那个半截文件是 110 KB 截断 ELF、权限 0644，
+    远端 `sh`（dash）的 `command -v mc` **仍返回路径**，于是只读状态报「依赖齐全」、
+    安装脚本也直接跳过 mc，备份真跑起来才会失败。    现在探测与安装共用同一判据：
+    `command -v` 拿到路径后还要 `[ -x "$p" ]`，`pg_restore` / `mc` 另要求
+    `--version` 真能跑通；不满足就当缺失，由 `curl -o` / `docker cp` 覆盖那个坏文件。
+  - 🔴 **同日晚第三个坑：pg_wrapper 空壳**。用户勾「卸载 PostgreSQL 客户端」后，
+    `postgresql-client[-<n>]` 确实被卸掉了，但 `postgresql-client-common` 还在，
+    它提供 `/usr/bin/pg_restore -> ../share/postgresql-common/pg_wrapper`。
+    `pg_restore --version` 实际报 `Error: You must install at least one
+    postgresql-client-<version> package`（exit 1），而旧探测只看文件可执行 →
+    「已安装」假阳性、卸载复查失败、界面显示「卸不掉」。修法：探测加 `--version`
+    实跑，卸载包名正则纳入 `postgresql-client-common`（`-common` 分支），
+    影响清单里写明它为什么必须一起卸。
+- 界面写动作：`POST /api/backup/run` 的 `mode=deps`，六道门与 `deploy` 完全相同
+  （`confirm=yes`、服务端 `--dry-run`、name/组件白名单、密码 stdin + 脱敏、任务脱离请求
+  + 409）；界面**不发** `--install-deps` / `--force` / `--run-now`。详见 [ui.md](ui.md) §9.7、
+  [AGENTS.md](../AGENTS.md) 硬约束 30。
+
+回归：`internal/backup/deps_test.go`、`internal/ui/deps_test.go`、
+`web/test/{backup,components}.test.ts`。
+
+### 10.3 卸载依赖（2026-11-07 晚，供「卸了再装」复测）
+
+**动机**：修完下载假死后，要验证「重新安装」这条链路，就得先把刚装好的 mc / PG 客户端
+卸掉；让人手敲 `rm` / `apt remove` 既容易误删，也绕过了界面六道门。所以卸载做成
+`deps` 的镜像动作，而不是一个后台脚本。
+
+| | `backup deps` | `backup deps-uninstall` |
+| :--- | :--- | :--- |
+| 远端动作 | 离线镜像提取 mc / apt 装客户端 | 删 `/usr/local/bin/mc` / `apt remove postgresql-client[-<n>]` |
+| 参数 | 可选 `--pg-major` | 必填 `--target mc` / `--target pg_client`（可重复、至少一个） |
+| 复查 | 每个命令可用 | 被卸的命令确实消失；仍在就如实报错并提示 `WARN` |
+| 不动 | crontab / logrotate / backup.env / 脚本 | 同左，另不碰 `~/.mc`、容器 / 镜像、PGDG 源、服务端 |
+
+- **只删工具装的东西**：`mc` 只删 `/usr/local/bin/mc` 这一个文件；PG 客户端的包名来自
+  远端 `dpkg-query -W 'postgresql-client*'` 的只读输出，严格匹配
+  `postgresql-client` / `postgresql-client-<数字>` / **`postgresql-client-common`**，
+  不用 `purge`、不 `autoremove`（那会连带删别的包），也不删
+  `/etc/apt/sources.list.d/pgdg.sources`。`postgresql-client-common` 必须一起卸：
+  它单独留着会有一个可执行但跑不通的 `/usr/bin/pg_restore` 壳链接（§10.2 第三个坑）；
+  若该包被其它程序依赖，`apt-get remove` 会自行拒绝，日志如实报错，**不加强制参数**。
+- 🔴 **不提供卸载 `cron` / `nc` / `ssh` / `scp` / `tar` / `logrotate`**：这些是系统基础包，
+  卸掉会破坏目标机；白名单 `mc|pg_client` 由 CLI 与界面后端各验一次，
+  任意字符串都变不成远端 `rm` / `apt remove` 的参数。
+- 界面：`GET /api/backup/deps` 随只读状态多带一份 `uninstall` 计划（标题 / 可勾选项 /
+  影响清单 / 提交文案），两页弹窗只渲染；**勾选项默认全不勾、至少一个**才能提交。
+  写动作是 `POST /api/backup/run` 的 `mode=deps-uninstall`，与 `deps` 共用
+  `confirm=yes`、服务端 `--dry-run`、name 白名单、密码 stdin + 脱敏、任务锁 409。
+- 卸载后备份定时任务下一次执行会失败是**预期结果**，不要为消掉报错去删 crontab /
+  改配置；装回来点「安装缺少依赖」即可（`docs/ui.md` §9.7）。
+
+回归：`internal/backup/deps_uninstall_test.go`（参数门 / 脚本边界 / 计划下发）、
+`internal/ui/deps_test.go`（卸载的 confirm 门 / 预检门 / targets 白名单）、
+`web/test/{backup,components}.test.ts`（计划归一化 / 按钮门 / targets 透传）。

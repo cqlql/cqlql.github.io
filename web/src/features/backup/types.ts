@@ -1,7 +1,7 @@
 // 与 Go 侧 internal/ui/backup.go 的 backupRunRequest / backupTaskView 逐字对齐。
 // 只被 backup 这一个能力用，所以留在 feature 内，不提到 shared/。
 
-export type BackupMode = 'preflight' | 'deploy' | 'verify'
+export type BackupMode = 'preflight' | 'deploy' | 'verify' | 'deps' | 'deps-uninstall'
 export type BackupComponent = 'all' | 'pg' | 'minio'
 
 /** /api/servers 在本能力里只需要这两个字段，不 import servers feature 的类型。 */
@@ -25,6 +25,57 @@ export interface BackupRunRequest {
   password?: string
   /** 安装必须是字面量 'yes'；后端会拒绝其它值。 */
   confirm?: string
+  /** 仅 mode=deps：按 PGDG 官方仓库装 postgresql-client-<n>；省略走发行版仓库。 */
+  pg_major?: number
+  /** 仅 mode=deps-uninstall：要卸的目标（mc / pg_client），至少一个，服务端白名单再验一次。 */
+  targets?: string[]
+}
+
+/** 卸载弹窗的可勾选项；计划与影响清单全部由 Go 侧下发。 */
+export interface DepsUninstallTarget {
+  key: string
+  label: string
+  help: string
+}
+
+export interface DepsUninstallPlan {
+  title: string
+  description: string
+  targets: DepsUninstallTarget[]
+  impacts: string[]
+  submit_label: string
+}
+
+/** GET /api/backup/deps 的只读状态；判定与安装计划由 Go 侧算好，前端只渲染。 */
+export interface DepItem {
+  name: string
+  label: string
+  component: string
+  installed: boolean
+  version: string
+  optional: boolean
+  source: string
+  doc: string
+}
+
+export interface DepDoc {
+  label: string
+  url: string
+}
+
+export interface BackupDepsView {
+  server: string
+  component: string
+  collected: boolean
+  error?: string
+  items: DepItem[]
+  missing: string[]
+  optional: string[]
+  plan: string[]
+  docs: DepDoc[]
+  pg_major?: number
+  /** 卸载弹窗的标题 / 可勾选项 / 影响清单，前端只渲染。 */
+  uninstall: DepsUninstallPlan
 }
 
 export interface BackupRunResult {
