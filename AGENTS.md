@@ -407,6 +407,9 @@ ops menu --help
 - 配置键与默认值只在 `docs/config.md` 维护；其它文档只引用键名，不复述默认值。
 - 「为什么这么设计 / 哪些方案被否」并进对应分册的决策节，不单独开文档。
 - 新增能力 = 本表加一行 + 新建分册；**不要往已有分册里堆**。
+- `docs/components-prototype.html` 是单文件原型：改前先 `grep -n "@section"` 定点读，
+  分区语义见 `docs/components-prototype-map.md`（只索引该文件内部，本表仍是唯一能力索引）；
+  新增区块要同步补锚点 + 更新该表。
 - 本仓未建 `docs/doc-conventions.md` 全量副本（避免重复通用条款）；仓库正式初始化时按母本
   `§5` 实例化。
 

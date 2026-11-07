@@ -4,7 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>环境组件 · 可扩展目录原型</title>
+<!-- ==== @section index ==== 分区索引入口；改本页前先查 docs/components-prototype-map.md -->
 <style>
+/* ==== @section css-base ==== 变量 / 全局 / 导航 / 工具条 / 场景条 / 标签 */
 :root{
   --bg:#f4f6f9; --surface:#fff; --border:#e5e9f0; --text:#1f2329;
   --muted:#6b7280; --primary:#1677ff; --primary-bg:#e6f4ff;
@@ -54,6 +56,7 @@ code,.mono{font-family:ui-monospace,Consolas,"Courier New",monospace;font-size:1
 .tag.err{background:var(--err-bg);color:var(--err);border-color:#ffccc7}
 .tag.info{background:var(--info-bg);color:var(--info);border-color:#91caff}
 .tag.off{background:#f3f4f6;color:#9aa3af;border-color:var(--border)}
+/* ==== @section css-cards ==== 卡片 / 表格 / 详情 / 离线镜像 / 任务日志 / 配置摘要 */
 .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;
   padding:16px;margin-bottom:14px}
 .card h2{margin:0 0 12px;font-size:14px;font-weight:600;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
@@ -157,6 +160,7 @@ details.card ul{margin:8px 0 0;padding-left:20px;font-size:12px;color:var(--mute
 details.card code{background:var(--code-bg);padding:1px 5px;border-radius:4px;color:var(--text)}
 details.card pre{background:var(--code-bg);border-radius:8px;padding:10px 12px;
   font:12px/1.7 ui-monospace,Consolas,monospace;color:var(--text);overflow:auto;margin:8px 0}
+/* ==== @section css-modal ==== 确认弹窗 / 表单 / toast / 预检 / 响应式 */
 .modal-mask{position:fixed;inset:0;background:rgba(0,0,0,.32);
   display:flex;align-items:flex-start;justify-content:center;padding-top:9vh;z-index:20;overflow:auto}
 .modal{width:520px;max-width:calc(100vw - 32px);background:#fff;border-radius:10px;
@@ -206,6 +210,7 @@ details.card pre{background:var(--code-bg);border-radius:8px;padding:10px 12px;
 }
 </style>
 </head>
+<!-- ==== @section html-shell ==== 导航 / 工具条 / 场景切换条 / 说明 banner / 页头 -->
 <body>
 <div class="shell">
   <aside class="sider">
@@ -254,7 +259,7 @@ details.card pre{background:var(--code-bg);border-radius:8px;padding:10px 12px;
         <span class="tag neutral">一个导航项 · 零跨页状态</span>
       </div>
 
-      <!-- 全局状态条（常驻，不随选中组件变化） -->
+      <!-- ==== @section card-global ==== 全局状态条 / 依赖链 / 执行身份（常驻） -->
       <div class="card">
         <div class="target-row">
           <label>目标服务器</label>
@@ -290,7 +295,7 @@ details.card pre{background:var(--code-bg);border-radius:8px;padding:10px 12px;
         </div>
       </div>
 
-      <!-- 组件目录 -->
+      <!-- ==== @section card-catalog ==== 组件目录表 / 未来组件位 -->
       <div class="card">
         <h2>组件目录 <small id="checkMeta">—</small></h2>
         <div class="table-wrap">
@@ -312,7 +317,7 @@ details.card pre{background:var(--code-bg);border-radius:8px;padding:10px 12px;
         <div class="hintline">点任意一行切换下方详情；状态、可用动作与阻塞原因由组件状态 + 依赖拓扑 + 后端动作计划推导，不是硬编码两张卡。「可更新」只看只读体检（apt 候选版本 / 已导入镜像），绝不在线查版本。</div>
       </div>
 
-      <!-- 选中组件详情 -->
+      <!-- ==== @section card-detail ==== 选中组件详情 / 三个动词按钮 / 预检 / 离线镜像区 -->
       <div class="card">
         <div class="detail-head">
           <b id="detailTitle">—</b><span id="detailTag"></span>
@@ -370,7 +375,7 @@ details.card pre{background:var(--code-bg);border-radius:8px;padding:10px 12px;
         <div class="busy-line" id="busyLine" hidden>任务进行中：新的写请求会被服务端以 <b>409</b> 拒绝；刷新页面不打断已在跑的远端任务。</div>
       </div>
 
-      <!-- 全量体检（默认折叠） -->
+      <!-- ==== @section card-checks ==== 全量环境体检（默认折叠） -->
       <details class="card">
         <summary>全量环境体检（默认折叠 · 跨组件原始检查项）</summary>
         <div class="table-wrap" style="margin-top:12px">
@@ -382,7 +387,7 @@ details.card pre{background:var(--code-bg);border-radius:8px;padding:10px 12px;
         <div class="chain">「连不上」不等于「未安装」：ssh 自身失败（exit 255）单独归类，不会误报成组件缺失。离线模式下不探测外网镜像源。</div>
       </details>
 
-      <!-- 任务日志（全局一份） -->
+      <!-- ==== @section card-task ==== 任务日志 / 阶段条（全局一份） -->
       <div class="card">
         <h2>任务日志 <small id="taskState">空闲</small></h2>
         <div class="phases" id="phases"></div>
@@ -390,7 +395,7 @@ details.card pre{background:var(--code-bg);border-radius:8px;padding:10px 12px;
         <div class="hintline">全局单任务互斥（与备份部署<b>同一把任务锁</b>）、增量轮询（<code>?after=</code>）、上限 256 KB、凭证一律打成 <code>***</code>；任务脱离 HTTP 请求。影响清单与阻塞原因由 Go 侧算，前端只渲染。</div>
       </div>
 
-      <!-- 配置摘要（全局共享） -->
+      <!-- ==== @section card-config ==== 配置摘要（跨组件共享上下文） -->
       <div class="card">
         <h2>配置摘要 <small>跨组件共享上下文；改配置请去「配置」页，那里有独立的确认门</small></h2>
         <div class="kv">
@@ -417,7 +422,7 @@ details.card pre{background:var(--code-bg);border-radius:8px;padding:10px 12px;
         </div>
       </div>
 
-      <!-- 设计注记 -->
+      <!-- ==== @section card-notes ==== 设计注记 / 红线 / CLI / 接口 / 同步记录 -->
       <details class="card">
         <summary>设计注记 · 为什么是「目录 + 详情」、实现时要守的红线（点开）</summary>
         <ul>
@@ -541,6 +546,7 @@ ops component image-load minio --server &lt;name&gt; --image-tar &lt;本机 .tar
   </main>
 </div>
 
+<!-- ==== @section html-modal ==== 确认弹窗 DOM：yes / 附加勾选 / 目标镜像 / 代理 / 密码 -->
 <div class="modal-mask" id="mask" hidden>
   <div class="modal">
     <h3 id="mTitle"></h3>
@@ -581,6 +587,7 @@ ops component image-load minio --server &lt;name&gt; --image-tar &lt;本机 .tar
 <div class="toast" id="toast" hidden></div>
 
 <script>
+// ==== @section fn-helpers ==== 通用工具：$ / tag / row / group
 "use strict";
 const $ = id => document.getElementById(id);
 
@@ -588,6 +595,7 @@ const tag = (tone, text) => `<span class="tag ${tone}">${text}</span>`;
 const row = (k, v, tone, label) => `<tr><td class="k">${k}</td><td class="v">${v}</td><td class="s">${tag(tone,label)}</td></tr>`;
 const group = t => `<tr class="group"><td colspan="3">${t}</td></tr>`;
 
+// ==== @section data-state-tags ==== 五态标签映射（对齐 status.go / format.ts）
 // 与 internal/component/status.go 同一套五态（外加 planned 占位），
 // 标签取 web/src/features/components/utils/format.ts 的 STATE_LABELS。
 // 🔴 unknown 不是 missing：采不到状态时所有写按钮禁用（硬约束 3）。
@@ -598,6 +606,7 @@ const STATE_TAG = {
 const STATE_LABEL = Object.fromEntries(Object.entries(STATE_TAG).map(([k, v]) => [k, v[1]]));
 const compTag = st => { const x = STATE_TAG[st] || STATE_TAG.unknown; return tag(x[0], x[1]); };
 
+// ==== @section data-components ==== COMPONENTS：组件声明（registry.go 的演示镜像）
 // 演示用的组件声明镜像；真源是 internal/component/registry.go（Go 侧唯一声明）。
 // 这里的 verbs 对应注册表 Verbs，真实界面按后端 actions[id][] 的
 // available / reasons / impacts / checks / images 渲染（见 docs/components.md §8）。
@@ -608,6 +617,7 @@ const COMPONENTS = [
     phase:"ready", verbs:["install","update","uninstall"] }
 ];
 
+// ==== @section data-scenes ==== 七个场景的静态数据（场景键见 components-prototype-map.md）
 const SCENES = {
   absent: {
     docker:"missing", minio:"missing",
@@ -788,6 +798,7 @@ const SCENES = {
   }
 };
 
+// ==== @section data-runtime ==== 运行时状态：场景 / 选中 / busy / 已导入镜像 / 代理
 let scene = "absent";
 let selectedComp = "docker";
 let busy = false;
@@ -795,6 +806,7 @@ let pickedFile = "";
 let loadedImages = [];
 let lastProxy = "";
 
+// ==== @section fn-derive ==== 派生取值：状态 / 版本 / 镜像 / 依赖 / ready 判定
 const stateOf = id => SCENES[scene][id];
 const verOf = id => id === "docker" ? SCENES[scene].dockerVer : SCENES[scene].minioVer;
 const collected = () => SCENES[scene].collected !== false;
@@ -822,6 +834,7 @@ const depReady = c => {
 const depTone = st => st === "degraded" ? "warn" : st === "update" ? "info"
   : isReady(st) ? "ok" : st === "missing" ? "err" : "off";
 
+// ==== @section fn-preflight ==== 安装预检演示：blockers / warnings
 // 演示用的安装预检：真实现是 component.Evaluate / EvaluateMinio（Go 侧只读结论），
 // 页面只负责把 blockers / warnings 显示出来，并让写按钮跟着 available 走。
 function preflightFor(id) {
@@ -858,6 +871,7 @@ function preflightFor(id) {
   return { ready: blockers.length === 0, blockers, warnings };
 }
 
+// ==== @section fn-plan ==== 动作计划演示：available / reasons / images（对齐 BuildActions）
 const VERB_LABEL = { install:"安装", update:"更新", uninstall:"卸载" };
 
 // 演示用的动作计划：真实现由 Go 侧 BuildActions 算好，前端只读 available / reasons。
@@ -906,6 +920,7 @@ function planFor(id, verb) {
   return { id, verb, label, available: reasons.length === 0, reasons, images };
 }
 
+// ==== @section fn-render ==== 主渲染：目录 / 详情 / 按钮门 / 提示 / 阶段条 / toast
 function rowsFor(id, source) {
   const label = id === "docker" ? "① Docker" : "② MinIO";
   const out = []; let on = false;
@@ -1039,13 +1054,14 @@ function toast(msg, warn) {
   toastTimer = setTimeout(() => { t.hidden = true; }, 2600);
 }
 
+// ==== @section fn-scene-events ==== 场景切换 / 目录选中 / 镜像文件选择 / 重新检查 事件
 $("btnCheck").addEventListener("click", () => {
   toast("已发起只读体检（原型模拟，不连真实远端）");
   $("checkMeta").textContent = "检查中 …";
   setTimeout(() => { render(); toast("体检完成 · 未改动远端"); }, 700);
 });
 
-// 切场景时默认选「有话说」的那个组件：只装上游的看 Docker，只差下游 / 下游要修复的看 MinIO。
+// ==== @section data-scene-focus ==== SCENE_FOCUS：切场景时默认选中「有话说」的组件
 const SCENE_FOCUS = {
   absent:"docker", dockerOnly:"minio", healthy:"docker",
   minioUpdate:"minio", dockerUpdate:"docker", minioDegraded:"minio", failed:"docker"
@@ -1078,10 +1094,12 @@ $("fileInput").addEventListener("change", e => {
   toast("已选择本机镜像包，点「导入到远端」才真正上传");
 });
 
+// ==== @section data-confirm ==== CONFIRM：按 组件:动词 抄平的弹窗文案（BuildActions 演示镜像）
 // 弹窗文案：title / description / impacts / checks / images 都以
 // internal/component/actions.go 的 BuildActions 为准（这里按动词 + 组件抄平）。
 // 真实现里这些字段由后端下发，前端不写文案；本页只为演示交互。
 const CONFIRM = {
+  // ==== @section confirm-docker-install ==== 安装 Docker 弹窗文案
   "docker:install": {
     title:"确认安装 Docker 引擎",
     sub:"k1 · 会安装系统包、写 /etc/apt/sources.list.d/docker.sources、启用 docker.service，并把清单用户加入 docker 组。",
@@ -1106,6 +1124,7 @@ const CONFIRM = {
     ],
     after:"dockerOnly", afterComp:"minio", done:"安装完成（原型模拟）"
   },
+  // ==== @section confirm-docker-update ==== 更新 Docker 弹窗文案
   "docker:update": {
     title:"确认更新 Docker 引擎",
     sub:"k1 · 按官方 apt 仓库只升级 docker-ce 系列包，然后重启 docker.service。",
@@ -1130,6 +1149,7 @@ const CONFIRM = {
     ],
     after:"healthy", done:"更新完成（原型模拟）"
   },
+  // ==== @section confirm-docker-uninstall ==== 卸载 Docker 弹窗文案
   "docker:uninstall": {
     title:"确认卸载 Docker 引擎",
     sub:"k1 · 停 docker.service 并 apt purge 引擎包；会连带停止下游 MinIO 备份服务。",
@@ -1154,6 +1174,7 @@ const CONFIRM = {
     ],
     after:"absent", afterComp:"docker", done:"卸载完成（数据已保留）"
   },
+  // ==== @section confirm-minio-install ==== 安装 MinIO 弹窗文案
   "minio:install": {
     title:"确认安装 MinIO 服务",
     sub:"k1 · 会用目标机已导入的离线镜像创建容器，写 /data/minio 并暴露 9000 / 9001 端口。",
@@ -1179,6 +1200,7 @@ const CONFIRM = {
     ],
     after:"healthy", done:"安装完成（原型模拟）"
   },
+  // ==== @section confirm-minio-update ==== 更新 MinIO 弹窗文案
   "minio:update": {
     title:"确认更新 MinIO 服务",
     sub:"k1 · 只重建 MinIO 容器换到新离线镜像；Docker 引擎一个包都不动。",
@@ -1203,6 +1225,7 @@ const CONFIRM = {
     ],
     after:"healthy", done:"更新完成（原型模拟）"
   },
+  // ==== @section confirm-minio-uninstall ==== 卸载 MinIO 弹窗文案
   "minio:uninstall": {
     title:"确认卸载 MinIO 服务",
     sub:"k1 · 移除 MinIO 容器，Docker 引擎与 /data/minio 数据默认保留。",
@@ -1226,6 +1249,7 @@ const CONFIRM = {
     ],
     after:"dockerOnly", afterComp:"minio", done:"卸载完成（数据已保留）"
   },
+  // ==== @section confirm-minio-image-load ==== 导入离线镜像弹窗文案
   "minio:image-load": {
     title:"确认导入 MinIO 离线镜像",
     sub:"本机文件 → 上传目标机 → docker load（只服务 MinIO）",
@@ -1249,7 +1273,7 @@ const CONFIRM = {
   }
 };
 
-// ---- 统一确认弹窗：yes + 附加勾选 + 目标镜像 + apt 代理 + 一次性 sudo 密码 ----
+// ==== @section fn-modal ==== 确认弹窗逻辑：代理校验 / 提交门 / 打开与关闭
 let pending = null;   // { id, verb, conf, plan }
 const PROXY_RE = /^http:\/\/([A-Za-z0-9][A-Za-z0-9.-]*):(\d{1,5})$/;
 // 与 Go 侧 component.ValidProxy / 前端 normalizeProxyInput 同一条规则（仅体验层，服务端还验）。
@@ -1322,6 +1346,7 @@ function openConfirm(id, verb) {
   $("mYes").focus();
 }
 function closeConfirm() { $("mask").hidden = true; pending = null; }
+// ==== @section fn-events ==== 事件绑定：弹窗输入门 / 动词按钮 / 任务模拟 / 服务器切换
 $("mCancel").addEventListener("click", closeConfirm);
 $("mask").addEventListener("click", e => { if (e.target === $("mask")) closeConfirm(); });
 $("mYes").addEventListener("input", () => { $("mOk").disabled = !canSubmit(); });
@@ -1397,7 +1422,7 @@ $("serverSel").addEventListener("change", e => {
   toast("切换到 " + e.target.value + " · 清单之外的 name 服务端一律 404（原型不切数据）");
 });
 
-// 原型评审便利：?scene=minioDegraded&comp=minio 可直接打开指定场景与选中组件
+// ==== @section fn-init ==== URL 参数直达场景 + 首屏 render()（评审便利）
 const qs = new URLSearchParams(location.search);
 if (qs.get("scene") && SCENES[qs.get("scene")]) {
   scene = qs.get("scene");
