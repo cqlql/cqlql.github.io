@@ -447,5 +447,8 @@ ops component image-copy minio --server k4 --from-server prod [--image-ref X] [-
   `postgresql-client-common` 包（后者提供 pg_restore 壳链接，留着会假阳性），
   不卸系统基础包、不 autoremove、不碰数据与定时任务；装回来点旁边「安装缺少依赖」即可。
   判据见 [backup-deploy.md](backup-deploy.md) §10.3 / [ui.md](ui.md) §9.7。
-- 交互原型 `components-prototype.html` 本轮**未**补这一区；原型只是交互速览，
-  判据以本文与 `docs/ui.md` §9.7 为准。
+- 交互原型 `components-prototype.html` **已同步这一区**（2026-11-07 夜，`card-deps` 锚点：
+  只读状态表 / 安装与卸载两套弹窗 / PG 主版本 / 官方文档 / 未采集禁用 / 卸了再装复测），
+  并补齐 `image-copy` 的来源服务器选择、弹窗内源机镜像下拉与 `copyReady` 门禁；
+  分区索引见 `components-prototype-map.md`。原型只是交互速览，
+  判据仍以本文与 `docs/ui.md` §9.7 为准。

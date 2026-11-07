@@ -831,7 +831,8 @@ Origin + `confirm=="yes"`，0600 + `.bak` + 原子替换照旧。清空只写本
 这里只记界面相关的边界。交互原型
 [components-prototype.html](components-prototype.html) 按 §12 的约定**保留并同步维护**
 （2026-11-07 已按实现回改 CLI / 注册表 / 接口 / 代理 / `/data`，并去掉全部
-「设计态 · 未接入」标注），读的时候以本节与 `components.md` 的判据为准。
+「设计态 · 未接入」标注；同夜补齐「备份依赖」区与 `image-copy` 的来源机清单门禁，
+见 `components-prototype-map.md`），读的时候以本节与 `components.md` 的判据为准。
 
 **为什么是一个页而不是两个**：Docker → MinIO → mc mirror 是同一条引导链路，
 依赖门、任务锁、增量日志都是同一份状态；拆成两个导航页会第一次引入跨页共享状态，

@@ -56,7 +56,7 @@ code,.mono{font-family:ui-monospace,Consolas,"Courier New",monospace;font-size:1
 .tag.err{background:var(--err-bg);color:var(--err);border-color:#ffccc7}
 .tag.info{background:var(--info-bg);color:var(--info);border-color:#91caff}
 .tag.off{background:#f3f4f6;color:#9aa3af;border-color:var(--border)}
-/* ==== @section css-cards ==== 卡片 / 表格 / 详情 / 离线镜像 / 任务日志 / 配置摘要 */
+/* ==== @section css-cards ==== 卡片 / 表格 / 详情 / 备份依赖 / 离线镜像 / 任务日志 / 配置摘要 */
 .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;
   padding:16px;margin-bottom:14px}
 .card h2{margin:0 0 12px;font-size:14px;font-weight:600;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
@@ -160,6 +160,10 @@ details.card ul{margin:8px 0 0;padding-left:20px;font-size:12px;color:var(--mute
 details.card code{background:var(--code-bg);padding:1px 5px;border-radius:4px;color:var(--text)}
 details.card pre{background:var(--code-bg);border-radius:8px;padding:10px 12px;
   font:12px/1.7 ui-monospace,Consolas,monospace;color:var(--text);overflow:auto;margin:8px 0}
+/* 2026-11-07 夜：备份依赖区（组件目录之外的独立卡片） */
+input.deps-input{border:1px solid var(--border);border-radius:6px;padding:6px 9px;
+  font-size:13px;font-family:inherit;color:var(--text);background:#fff;width:210px}
+input.deps-input:disabled{background:#f5f6f8;color:#9aa3af}
 /* ==== @section css-modal ==== 确认弹窗 / 表单 / toast / 预检 / 响应式 */
 .modal-mask{position:fixed;inset:0;background:rgba(0,0,0,.32);
   display:flex;align-items:flex-start;justify-content:center;padding-top:9vh;z-index:20;overflow:auto}
@@ -235,14 +239,15 @@ details.card pre{background:var(--code-bg);border-radius:8px;padding:10px 12px;
         <button class="chip" data-scene="dockerUpdate">引擎可升级</button>
         <button class="chip" data-scene="minioDegraded">MinIO 需修复（degraded）</button>
         <button class="chip" data-scene="failed">检查失败 / SSH 不通</button>
-        <span class="badge">与实现同步 · 2026-11-07 · 五态 + 动作计划下发</span>
+        <span class="badge">与实现同步 · 2026-11-07 夜 · 五态 + 动作计划下发 + 备份依赖区 + image-copy 源机门禁</span>
       </div>
       <div class="banner info" style="margin-top:0;margin-bottom:16px">
         <span class="ico">i</span>
         <span><b>交互速览，不是实现</b>：静态数据、不连真实远端、不执行任何动作。
-        四个写动词 <code>install</code> / <code>update</code> / <code>uninstall</code> /
-        <code>image-load</code> <b>均已接入</b>；按钮能否点、阻塞原因、影响清单、
-        附加勾选、目标镜像与 apt 代理都由 Go 侧 <code>BuildActions</code> 算好后随 status
+        五个组件写动词 <code>install</code> / <code>update</code> / <code>uninstall</code> /
+        <code>image-load</code> / <code>image-copy</code> <b>均已接入</b>；组件目录下方另有
+        「备份依赖」区的两个写动作（<code>deps</code> / <code>deps-uninstall</code>）。
+        按钮能否点、阻塞原因、影响清单、附加勾选、目标镜像与 apt 代理都由 Go 侧算好后随只读状态
         下发，前端只渲染 <code>available</code> + 一个 busy 门。状态是五态
         <code>missing</code> / <code>ok</code> / <code>update</code> / <code>degraded</code> /
         <code>unknown</code>（另有 <code>planned</code> 占位）。判据见
@@ -254,7 +259,7 @@ details.card pre{background:var(--code-bg);border-radius:8px;padding:10px 12px;
       <div class="page-head">
         <div>
           <h1>环境组件</h1>
-          <div class="meta"><b>可扩展的组件目录</b>：新增组件只在 Go 注册表加一条声明，页面自动多一行；默认只读体检，写操作要输 <code>yes</code> 并由服务端先跑 <code>--dry-run</code>。已落地 <code>install</code> / <code>update</code> / <code>uninstall</code> / <code>image-load</code></div>
+          <div class="meta"><b>可扩展的组件目录</b>：新增组件只在 Go 注册表加一条声明，页面自动多一行；默认只读体检，写操作要输 <code>yes</code> 并由服务端先跑 <code>--dry-run</code>。已落地 <code>install</code> / <code>update</code> / <code>uninstall</code> / <code>image-load</code> / <code>image-copy</code>，另有「备份依赖」区的安装 / 卸载</div>
         </div>
         <span class="tag neutral">一个导航项 · 零跨页状态</span>
       </div>
@@ -317,6 +322,36 @@ details.card pre{background:var(--code-bg);border-radius:8px;padding:10px 12px;
         <div class="hintline">点任意一行切换下方详情；状态、可用动作与阻塞原因由组件状态 + 依赖拓扑 + 后端动作计划推导，不是硬编码两张卡。「可更新」只看只读体检（apt 候选版本 / 已导入镜像），绝不在线查版本。</div>
       </div>
 
+      <!-- ==== @section card-deps ==== 备份依赖区（不属于组件目录；与备份能力部署页同一后端） -->
+      <div class="card">
+        <h2>备份依赖 <small>命令行工具，不是注册表组件 —— 没有服务状态 / 容器 / 离线镜像 / 更新 / 卸载生命周期</small></h2>
+        <div id="depsAlert" class="banner err" hidden></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th style="width:118px">命令</th><th>用途</th><th style="width:96px">状态</th><th style="width:140px">版本</th><th>安装来源</th></tr></thead>
+            <tbody id="depsRows"></tbody>
+          </table>
+        </div>
+        <div class="chain" id="depsPlan"></div>
+        <div class="hintline" id="depsDocs"></div>
+        <div class="target-row" style="margin-top:12px">
+          <label>PG 主版本（可选）</label>
+          <input class="deps-input mono" id="depsPgMajor" placeholder="留空 = 发行版 postgresql-client" autocomplete="off" maxlength="2">
+          <span class="tag off">1..99 纯数字 · 服务端再验一次</span>
+          <span style="flex:1"></span>
+          <button class="act" id="btnDepsUninstall">卸载依赖（复测用）</button>
+          <button class="act primary" id="btnDepsInstall">安装缺少依赖</button>
+        </div>
+        <div class="hintline" id="depsHint"></div>
+        <div class="hintline">
+          只读状态来自 <code>GET /api/backup/deps</code>（<code>ops backup deps --json</code>，不占任务锁）；
+          写动作走 <code>POST /api/backup/run</code> 的 <code>mode=deps</code> / <code>deps-uninstall</code>，
+          与「备份能力部署」页同一套后端，但<b>任务日志仍走本页的 <code>/api/components/task</code></b>（同一把任务锁）。
+          <code>collected=false</code> = 查不动，不是没装，安装按钮直接禁用（硬约束 3）。
+          判据见 <code>docs/components.md §10</code> / <code>docs/ui.md §9.7</code>。
+        </div>
+      </div>
+
       <!-- ==== @section card-detail ==== 选中组件详情 / 三个动词按钮 / 预检 / 离线镜像区 -->
       <div class="card">
         <div class="detail-head">
@@ -362,10 +397,19 @@ details.card pre{background:var(--code-bg);border-radius:8px;padding:10px 12px;
               <small>链路：源机 <code>docker save</code> → 本机 pipe → 目标机 0600 临时 tar →
               <code>docker load</code> → 删临时文件。不经任何镜像仓库、<b>不是 docker pull</b>；
               源机只认 <code>servers.json</code> 的 name（源 ≠ 目标），候选镜像只来自源机只读清单
-              <code>ops component images</code>；源机 docker 权限「先无 sudo、再试 sudo」两路都试；
-              上限同 2 GiB，超了就地中断。见 <code>docs/components.md §9</code>。</small>
+              <code>ops component images</code> / <code>GET /api/components/images?name=&lt;源机&gt;</code>；
+              源机 docker 权限「先无 sudo、再试 sudo」两路都试；<b>查不动（collected=false）不等于没有镜像</b>，
+              此时按钮一律禁用。上限同 2 GiB，超了就地中断。见 <code>docs/components.md §9</code>。</small>
             </div>
+            <label style="font-size:12px;color:var(--muted)">来源服务器</label>
+            <select id="sourceSel">
+              <option value="prod">prod · 有 2 个 MinIO 镜像</option>
+              <option value="k2">k2 · 清单可读，无 MinIO 镜像</option>
+              <option value="k4">k4 · docker 查不动（collected=false）</option>
+              <option value="k1">k1 · 当前目标机（源 ≠ 目标）</option>
+            </select>
             <button class="act" id="btnCopy">从服务器复制…</button>
+            <div class="hintline" id="copyHint" style="width:100%;margin-top:2px"></div>
           </div>
           <div class="file-pill" id="filePill" hidden>
             <span class="tag info">待导入</span>
@@ -387,9 +431,9 @@ details.card pre{background:var(--code-bg);border-radius:8px;padding:10px 12px;
         <div class="busy-line" id="busyLine" hidden>任务进行中：新的写请求会被服务端以 <b>409</b> 拒绝；刷新页面不打断已在跑的远端任务。</div>
       </div>
 
-      <!-- ==== @section card-checks ==== 全量环境体检（默认折叠） -->
+      <!-- ==== @section card-checks ==== 全量环境体检（原型演示区 · 实现页当前不渲染；默认折叠） -->
       <details class="card">
-        <summary>全量环境体检（默认折叠 · 跨组件原始检查项）</summary>
+        <summary>全量环境体检（原型演示区 · 实现页当前不渲染；默认折叠 · 跨组件原始检查项）</summary>
         <div class="table-wrap" style="margin-top:12px">
           <table>
             <thead><tr><th style="width:190px">检查项</th><th>实测值 / 期望</th><th style="width:112px">状态</th></tr></thead>
@@ -407,9 +451,9 @@ details.card pre{background:var(--code-bg);border-radius:8px;padding:10px 12px;
         <div class="hintline">全局单任务互斥（与备份部署<b>同一把任务锁</b>）、增量轮询（<code>?after=</code>）、上限 256 KB、凭证一律打成 <code>***</code>；任务脱离 HTTP 请求。影响清单与阻塞原因由 Go 侧算，前端只渲染。</div>
       </div>
 
-      <!-- ==== @section card-config ==== 配置摘要（跨组件共享上下文） -->
+      <!-- ==== @section card-config ==== 配置摘要（原型演示区 · 实现页当前不渲染；跨组件共享上下文） -->
       <div class="card">
-        <h2>配置摘要 <small>跨组件共享上下文；改配置请去「配置」页，那里有独立的确认门</small></h2>
+        <h2>配置摘要 <small>原型演示区 · 实现页当前不渲染；跨组件共享上下文；改配置请去「配置」页，那里有独立的确认门</small></h2>
         <div class="kv">
           <div class="item"><div class="k">DEST_URL（本机 minio.env）</div>
             <div class="v"><span class="bad">http://127.0.0.1:8007</span>
@@ -441,7 +485,8 @@ details.card pre{background:var(--code-bg);border-radius:8px;padding:10px 12px;
           <li><b>本页的用处</b>：把「一个组件目录 + 选中详情」的交互讲清楚，比读文档快；
             但它是<b>交互速览</b>（静态数据、不连远端），与 <code>docs/components.md</code> /
             <code>docs/ui.md §13</code> <b>同步维护</b>，冲突时以文档判据为准。
-            2026-11-07 起四个写动词<b>全部已接入</b>，状态补齐为
+            2026-11-07 起五个组件写动词（含 <code>image-copy</code>）与「备份依赖」区两个写动作
+            <b>全部已接入</b>，状态补齐为
             <code>missing / ok / update / degraded / unknown</code>（外加 <code>planned</code> 占位），
             本页按实现口径写。</li>
           <li><b>为什么是目录 + 详情</b>：以后还会加别的安装项，全塞一页会装不下；
@@ -460,10 +505,13 @@ details.card pre{background:var(--code-bg);border-radius:8px;padding:10px 12px;
             下游 MinIO，弹窗强警示且<b>必须</b>额外勾选（<code>ack_downstream</code> 必填，
             服务端 <code>ValidateActionFlags</code> 再验一次，见
             <code>docs/components.md §8.3</code>）。</li>
-          <li><b>零跨页共享状态</b>：目录 / 详情 / 依赖链 / 任务日志 / 配置摘要都在同一页；
+          <li><b>零跨页共享状态</b>：目录 / 详情 / 依赖链 / 任务日志 / 备份依赖区都在同一页；
             后台任务单实例互斥（并发 409），<code>GET /api/components/task?after=</code>
-            增量日志全局一份，且与备份部署<b>共用同一把任务锁</b>。符合 <code>docs/ui.md §7</code>。</li>
-          <li><b>六道门</b>（已实现，四个写动词各一套）：<code>POST</code> +
+            增量日志全局一份，且与备份部署<b>共用同一把任务锁</b>。符合 <code>docs/ui.md §7</code>。
+            本页「全量环境体检」「配置摘要」两张卡是<b>原型演示区</b>：实现页 status 仍下发
+            <code>checks</code> / <code>raw</code> / <code>local</code>，但当前不渲染这两块，
+            不要把演示卡片当成现行界面。</li>
+          <li><b>六道门</b>（已实现，五个组件写动词各一套；备份依赖的安装 / 卸载同款）：<code>POST</code> +
             <code>confirm=="yes"</code> + 页面输 <code>yes</code> → 服务端先跑
             <code>--dry-run</code> → <code>name</code> 只认 <code>servers.json</code>（未知 404）、
             动词只认注册表白名单 + 附加参数门 → 密码只经 stdin（界面单次请求内存，
@@ -501,23 +549,41 @@ ops component update docker --server &lt;name&gt; [--proxy &lt;http://host:port&
 ops component update minio  --server &lt;name&gt; [--image-ref &lt;已导入镜像:标签&gt;] [--dry-run] [--password-stdin]
 ops component uninstall docker --server &lt;name&gt; --ack-downstream [--dry-run] [--password-stdin]
 ops component uninstall minio  --server &lt;name&gt; [--purge-data] [--dry-run] [--password-stdin]
-ops component image-load minio --server &lt;name&gt; --image-tar &lt;本机 .tar&gt; [--dry-run]</pre>
+ops component image-load minio --server &lt;name&gt; --image-tar &lt;本机 .tar&gt; [--dry-run]
+ops component images --server &lt;源机&gt; [--json]                    # 只读：源机本地 MinIO 镜像（复制候选）
+ops component image-copy minio --server &lt;name&gt; --from-server &lt;源机 name&gt; [--image-ref &lt;源机镜像:标签&gt;] [--dry-run]
+ops backup deps all --server &lt;name&gt; [--json] [--dry-run] [--pg-major &lt;1..99&gt;] [--password-stdin]
+ops backup deps-uninstall --server &lt;name&gt; --target &lt;mc|pg_client&gt; [--target ...] [--dry-run]</pre>
             <code>--server</code> 只认清单里的 name；<code>--proxy</code> 只给
             <code>install docker</code> / <code>update docker</code> 用（两者都跑 apt），
             格式严格校验、只本次生效；MinIO 与卸载动作传了直接 400；
-            <code>--image-ref</code> 只用于 <code>update minio</code>、且必须在体检采到的
-            已导入镜像白名单里（省略时取第一个候选）；
+            <code>--image-ref</code> 在 <code>update minio</code> 时必须在体检采到的
+            已导入镜像白名单里（省略时取第一个候选），在 <code>image-copy</code> 时按源机清单校验（见下）；
             <code>--purge-data</code> 默认关、<code>--ack-downstream</code> 是卸引擎必填；
             <code>--dry-run</code> 绝不改远端。装 MinIO 时 <code>/data</code> 不存在会
-            <code>mkdir -p</code> 并警告根分区（k4）。</li>
+            <code>mkdir -p</code> 并警告根分区（k4）。<br>
+            <code>images</code> 只读源机清单、不跑体检、不写远端；<code>image-copy</code> 的
+            <code>--from-server</code> 必填且必须是另一台已登记 name（源 ≠ 目标，同机 400），
+            <code>--image-ref</code> 只需过字符集、「必须在源机本地存在」由 CLI 侧清单再验。
+            备份依赖两条是<b>独立子命令</b>，不发 <code>--install-deps</code> /
+            <code>--force</code> / <code>--run-now</code>，卸载的 <code>--target</code> 可重复、
+            服务端白名单再验一次。</li>
           <li><b>现行接口</b>（不是草案）：<code>GET /api/components/status?name=</code>
             （含 <code>actions</code> 动作计划）、
-            <code>POST /api/components/run</code>（<code>{verb:"install"|"update"|"uninstall",
-            component, name, confirm:"yes", password?, proxy?, image_ref?, purge_data?,
-            ack_downstream?}</code>，附加参数由服务端 <code>ValidateActionFlags</code> 再验）、
+            <code>POST /api/components/run</code>（<code>{verb:"install"|"update"|"uninstall"|"image-copy",
+            component, name, confirm:"yes", password?, proxy?, image_ref?, from_server?, purge_data?,
+            ack_downstream?}</code>，附加参数由服务端 <code>ValidateActionFlags</code> 再验；
+            <code>image-copy</code> 不走这道参数门，改成 <code>from_server</code> 必填且必须是清单里
+            另一台服务器，<code>image_ref</code> 只过字符集）、
+            <code>GET /api/components/images?name=&lt;源机&gt;</code>（只读源机镜像清单，
+            失败回 <code>collected=false</code> + <code>error</code>，不许当成「没有镜像」）、
             <code>POST /api/components/image</code>（multipart，<code>verb=image-load</code> + <code>image</code>，
             服务端 <code>os.CreateTemp</code>、不接收本机路径）、
-            <code>GET /api/components/task?after=</code>。全部要 token，写操作校验 Origin。</li>
+            <code>GET /api/components/task?after=</code>（与备份部署同一把任务锁）、
+            <code>GET /api/backup/deps</code> + <code>POST /api/backup/run</code>
+            （<code>mode=deps</code> / <code>deps-uninstall</code>，附 <code>pg_major</code> /
+            <code>targets</code>，任务日志仍走 <code>components/task</code>）。
+            全部要 token，写操作校验 Origin。</li>
           <li><b>构建顺序</b>：改了 <code>web/</code> 或 <code>deploy/component/**</code> 都要
             <code>npm test &amp;&amp; npm run typecheck &amp;&amp; npm run build</code> →
             <code>go vet ./... &amp;&amp; go test ./... &amp;&amp; go build -o ops.exe .</code>；
@@ -541,6 +607,19 @@ ops component image-load minio --server &lt;name&gt; --image-tar &lt;本机 .tar
             影响清单逐条抄 <code>internal/component/actions.go</code> 的 <code>impacts</code>
             （含「下游当前状态」与「删数据只在勾选分支」）；目录页「可用动作 n/3」
             改回实现的「接入」列，不再在前端算动作数。</li>
+          <li><b>2026-11-07 image-copy 落地</b>（<code>08c7f1f7</code>）：离线镜像区多一条
+            「从另一台已登记服务器复制」链路（源机 <code>docker save</code> → 本机 pipe 不落盘 →
+            目标机 <code>docker load</code>），当时只补了按钮与弹窗文案，
+            <b>没回改本页的 CLI / 接口清单与写动词计数</b>。</li>
+          <li><b>2026-11-07 晚 备份依赖区落地</b>（<code>7bf7c6bf</code>）：
+            <code>ops backup deps</code> / <code>deps-uninstall</code> + 两页的「备份依赖」卡片，
+            当时原型<b>整块未补</b>（<code>docs/components.md §10</code> 曾明文记录）。</li>
+          <li><b>2026-11-07 夜（本轮回改）</b>：按现行实现补齐 <code>card-deps</code>
+            （只读状态表 / 安装与卸载两套弹窗 / PG 主版本 / 官方文档 / 未采集禁用 / 卸了再装复测），
+            并把 <code>image-copy</code> 补成完整链路：来源服务器选择、弹窗里的源机镜像下拉、
+            <code>copyReady</code> 门禁（源机 <code>collected</code> + 候选镜像 + 目标 Docker 就绪 + busy）。
+            🔴 修掉旧版把「目标机已导入镜像 <code>imgs.length</code>」当复制门禁的判据反向错误；
+            同步 CLI / 接口清单、写动词计数、badge 与分区索引。</li>
         </ul>
       </details>
       <div class="footnote" style="margin-top:10px">
@@ -551,14 +630,18 @@ ops component image-load minio --server &lt;name&gt; --image-tar &lt;本机 .tar
         2026-11-06 晚换电脑后接 k4（192.168.1.204）：同系统但<b>只有一块 22 G 系统盘、无 <code>/data</code></b>，
         因此「/data 不存在」从硬 blocker 改为警告 + <code>mkdir -p</code>；
         <code>download.docker.com</code> 偶发 reset，装 Docker 可选本次 apt 代理。<br>
-        本页 2026-11-07 与实现 / 文档同步；七个场景的数据仍是演示用的静态值，不是当前远端状态
-        （<code>degraded</code> 场景按 <code>docs/components.md §8.6</code> 补，§8.1 表仍只列六种典型组合）。
+        本页 2026-11-07 夜与实现 / 文档同步；七个场景的数据仍是演示用的静态值，不是当前远端状态
+        （<code>degraded</code> 场景按 <code>docs/components.md §8.6</code> 补，§8.1 表仍只列六种典型组合）。<br>
+        备份依赖与来源机镜像清单同样是演示值：<code>failed</code> 场景演示「组件体检与依赖状态都采不到，
+        写按钮一律禁用」，其余场景可走「缺 mc → 安装 → 卸载 → 再装」的复测闭环；
+        源机 <code>k2</code>（清单可读但无 MinIO 镜像）与 <code>k4</code>（查不动）演示
+        「没采到 ≠ 没有镜像」这条红线。
       </div>
     </div>
   </main>
 </div>
 
-<!-- ==== @section html-modal ==== 确认弹窗 DOM：yes / 附加勾选 / 目标镜像 / 代理 / 密码 -->
+<!-- ==== @section html-modal ==== 确认弹窗 DOM：yes / 附加勾选 / 目标镜像 / 来源机镜像 / 代理 / 密码 -->
 <div class="modal-mask" id="mask" hidden>
   <div class="modal">
     <h3 id="mTitle"></h3>
@@ -571,6 +654,14 @@ ops component image-load minio --server &lt;name&gt; --image-tar &lt;本机 .tar
         <div class="t">目标镜像（只能选目标机<b>已离线导入</b>的，绝不 <code>docker pull</code>）</div>
         <select id="mImage"></select>
         <div class="hintline" style="margin-top:6px">没看到新版本？先到下方「MinIO 离线镜像」区导入新的 <code>.tar</code>，再点「重新检查」。选中值作为 <code>--image-ref</code> 回传，CLI 会再验一次是否在体检候选里。</div>
+      </div>
+    </div>
+    <div id="mSourceBox" hidden>
+      <div class="box">
+        <div class="t">来源机镜像（只读清单 <code>GET /api/components/images?name=&lt;源机&gt;</code>，<b>不是 docker pull</b>）</div>
+        <select id="mSourceImage"></select>
+        <div class="hintline" style="margin-top:6px">选中值作为 <code>--image-ref</code> 回传，CLI 侧会再验一次它是否真在源机清单里；
+        源机只认 <code>servers.json</code> 的 name，且不能等于目标机（同机 400）。</div>
       </div>
     </div>
     <div id="mOptions"></div>
@@ -607,7 +698,7 @@ const tag = (tone, text) => `<span class="tag ${tone}">${text}</span>`;
 const row = (k, v, tone, label) => `<tr><td class="k">${k}</td><td class="v">${v}</td><td class="s">${tag(tone,label)}</td></tr>`;
 const group = t => `<tr class="group"><td colspan="3">${t}</td></tr>`;
 
-// ==== @section data-state-tags ==== 五态标签映射（对齐 status.go / format.ts）
+// ==== @section data-state-tags ==== 五态 + planned 占位标签映射（对齐 status.go / format.ts）
 // 与 internal/component/status.go 同一套五态（外加 planned 占位），
 // 标签取 web/src/features/components/utils/format.ts 的 STATE_LABELS。
 // 🔴 unknown 不是 missing：采不到状态时所有写按钮禁用（硬约束 3）。
@@ -810,13 +901,48 @@ const SCENES = {
   }
 };
 
-// ==== @section data-runtime ==== 运行时状态：场景 / 选中 / busy / 已导入镜像 / 代理
+// ==== @section data-deps ==== 备份依赖演示数据（Go 侧 GET /api/backup/deps 的投影）
+// 真源是 internal/backup/deps.go + deps_uninstall.go：items / plan / docs / uninstall 全由后端下发，
+// 前端只渲染。这里的 depsState 是「远端有没有装」的演示状态，供「卸了再装」复测闭环。
+const DEPS_DOCS = [
+  { label:"PostgreSQL 官方 PGDG apt 仓库", url:"https://www.postgresql.org/download/linux/ubuntu/" },
+  { label:"MinIO Client (mc) 官方文档", url:"https://min.io/docs/minio/linux/reference/minio-mc.html" }
+];
+const DEPS_UNINSTALL = {
+  title:"确认卸载备份依赖",
+  description:"只删工具装的 mc / PG 客户端，供「卸了再装」复测；不动数据与定时任务。",
+  targets:[
+    { key:"mc", label:"mc（/usr/local/bin/mc）", help:"MinIO 客户端二进制" },
+    { key:"pg_client", label:"PG 客户端（postgresql-client[-N] / postgresql-client-common）",
+      help:"后者提供 pg_restore 壳链接，留着会假阳性" }
+  ],
+  impacts:[
+    "不卸 cron / nc / ssh / tar / logrotate 等系统基础包，不 autoremove、不 purge。",
+    "不碰 ~/.mc、容器 / 镜像、PGDG 源、服务端、crontab / backup.env。",
+    "卸载后自动复查命令是否真的消失；装回来点旁边「安装缺少依赖」。"
+  ],
+  submit_label:"确认卸载"
+};
+const DEPS_BASE = [
+  { name:"pg_restore", label:"PostgreSQL 恢复", target:"pg_client", version:"16.4",
+    source:"postgresql-client-16（PGDG apt）", system:false },
+  { name:"mc", label:"MinIO 客户端 mirror", target:"mc", version:"RELEASE.2026-08-06",
+    source:"/usr/local/bin/mc（官方二进制）", system:false },
+  { name:"cron", label:"定时备份", version:"3.0pl1", source:"发行版基础包", system:true },
+  { name:"nc", label:"端口探测", version:"1.10", source:"发行版基础包", system:true },
+  { name:"tar", label:"打包 / 校验", version:"1.35", source:"发行版基础包", system:true },
+  { name:"ssh", label:"登录远端", version:"9.6p1", source:"发行版基础包", system:true }
+];
+let depsState = { pg_client:true, mc:false };
+
+// ==== @section data-runtime ==== 运行时状态：场景 / 选中 / busy / 已导入镜像 / 来源机 / 代理
 let scene = "absent";
 let selectedComp = "docker";
 let busy = false;
 let pickedFile = "";
 let loadedImages = [];
 let lastProxy = "";
+let sourceServer = "prod";   // 「从服务器复制」的来源机，只认 servers.json 的 name（源 ≠ 目标）
 
 // ==== @section fn-derive ==== 派生取值：状态 / 版本 / 镜像 / 依赖 / ready 判定
 const stateOf = id => SCENES[scene][id];
@@ -845,6 +971,41 @@ const depReady = c => {
 };
 const depTone = st => st === "degraded" ? "warn" : st === "update" ? "info"
   : isReady(st) ? "ok" : st === "missing" ? "err" : "off";
+
+// ==== @section fn-copy ==== image-copy 门禁演示：源机只读清单 + copyReady（对齐 format.ts）
+// 🔴 候选镜像来自「来源机」的只读清单 GET /api/components/images?name=<源机>，
+//    不是目标机已导入的镜像；collected=false 是「查不动」，不许当成「没有镜像」放行（硬约束 3）。
+const SOURCE_IMAGES = {
+  prod: { collected:true, elevated:false, error:"",
+    images:["minio/minio:RELEASE.2026-10-21","minio/minio:RELEASE.2026-08-06"] },
+  k2:   { collected:true, elevated:true, error:"", images:[] },
+  k4:   { collected:false, elevated:false, error:"docker: permission denied（无 sudo / sudo 两路都失败）", images:[] }
+};
+const sourceView = () => SOURCE_IMAGES[sourceServer] || null;
+const targetName = () => $("serverSel").value;
+function copyReady() {
+  const src = sourceView();
+  if (busy) return { ok:false, hint:"远端任务运行中：等它结束再复制。" };
+  if (!collected()) return { ok:false, hint:"只读体检没采到状态（ssh exit 255）：先点「重新检查」。" };
+  if (!isReady(stateOf("docker"))) {
+    return { ok:false, hint:"目标机 Docker 引擎还没就绪：先安装 Docker，才能 docker load。" };
+  }
+  if (!src) return { ok:false, hint:"先选一台来源服务器，再点「从服务器复制」。" };
+  if (sourceServer === targetName()) {
+    return { ok:false, hint:"来源机不能就是目标机（服务端 400）：换一台已登记的服务器。" };
+  }
+  if (!src.collected) {
+    return { ok:false, hint:`来源机镜像清单没采到（${src.error || "原因未知"}）；查不动不等于没有镜像。` };
+  }
+  if (!src.images.length) {
+    return { ok:false, hint:"来源机本地没有名字里带 minio 的镜像，换个来源或先在本机导入 tar。" };
+  }
+  return { ok:true, hint:`来源机有 ${src.images.length} 个 MinIO 镜像；本机只做中转，不落盘、不进镜像仓库。` };
+}
+function copyPlan() {
+  const c = copyReady();
+  return { available:c.ok, reasons:c.ok ? [] : [c.hint], images:[], label:"复制" };
+}
 
 // ==== @section fn-preflight ==== 安装预检演示：blockers / warnings
 // 演示用的安装预检：真实现是 component.Evaluate / EvaluateMinio（Go 侧只读结论），
@@ -930,6 +1091,76 @@ function planFor(id, verb) {
     ? minioCandidates().map(x => ({ reference: x[0] }))
     : [];
   return { id, verb, label, available: reasons.length === 0, reasons, images };
+}
+
+// ==== @section fn-deps ==== 备份依赖区演示：只读视图 / 两个按钮门 / 表格渲染
+// 与 web/src/features/components/utils/format.ts 的 depsRunEnabled /
+// uninstallButtonEnabled / uninstallSubmitEnabled 同一套判据；真实现的状态与计划全由 Go 侧下发。
+const pgMajorOf = () => {
+  const raw = $("depsPgMajor").value.trim();
+  return /^[1-9]\d?$/.test(raw) ? Number(raw) : null;   // 留空 / 非法 = 不传，装发行版包
+};
+function depsView() {
+  const items = DEPS_BASE.map(x => Object.assign({}, x, {
+    installed: x.system ? true : !!depsState[x.target]
+  }));
+  const missing = items.filter(x => !x.installed).map(x => x.name);
+  const n = pgMajorOf();
+  const plan = [];
+  if (missing.includes("pg_restore")) {
+    plan.push(n ? `按 PostgreSQL 官方 PGDG apt 仓库装 postgresql-client-${n}` : "按发行版仓库装 postgresql-client（PG 主版本留空）");
+  }
+  if (missing.includes("mc")) plan.push("从 MinIO 官方地址下载 mc 二进制到 /usr/local/bin/mc");
+  if (!plan.length) plan.push("没有缺失依赖：本次不会安装任何东西");
+  return {
+    collected: collected(),   // 演示简化：ssh 不通时组件体检与依赖状态都采不到
+    items, missing, pgMajor:n, plan, docs:DEPS_DOCS, uninstall:DEPS_UNINSTALL
+  };
+}
+const depsRunEnabled = v => v.collected && v.missing.length > 0 && !busy;
+const depsUninstallEnabled = v => v.collected && v.uninstall.targets.length > 0 && !busy
+  && v.uninstall.targets.some(t => !!depsState[t.key]);
+
+function renderDeps() {
+  const v = depsView();
+  $("depsRows").innerHTML = v.items.map(x =>
+    `<tr><td class="k"><code>${x.name}</code></td><td>${x.label}</td>
+     <td>${v.collected ? (x.installed ? tag("ok","已装") : tag("err","缺少")) : tag("off","未采集")}</td>
+     <td class="mono">${v.collected && x.installed ? x.version : "—"}</td><td>${x.source}</td></tr>`
+  ).join("");
+  $("depsPlan").innerHTML =
+    `<b>本次会装（Go 侧 plan[]）</b>：${v.missing.length ? "缺少 " + v.missing.join(" / ") + " → " : ""}${v.plan.join("；")}` +
+    `<br><b>卸载计划</b>：可勾 ${v.uninstall.targets.map(t => t.key).join(" / ")}，默认全不勾、至少选一个才能提交；` +
+    `提交文案「${v.uninstall.submit_label}」也由后端下发。`;
+  $("depsDocs").innerHTML = "官方文档（Go 侧 docs[]）：" + v.docs.map(d =>
+    `<a href="${d.url}" target="_blank" rel="noopener">${d.label}</a>`).join(" · ");
+  const alert = $("depsAlert");
+  alert.hidden = v.collected;
+  alert.innerHTML = v.collected ? "" :
+    `<span class="ico">⛔</span><span><b>未采集到依赖状态</b>（collected=false）：查不动不等于没装，安装 / 卸载一律禁用（硬约束 3）。</span>`;
+  $("btnDepsInstall").disabled = !depsRunEnabled(v);
+  $("btnDepsInstall").title = depsRunEnabled(v) ? "安装缺少依赖（要输 yes）"
+    : (v.collected ? (busy ? "任务运行中" : "没有缺失依赖，不需要安装") : "只读状态没采到，先查清楚再装");
+  $("btnDepsUninstall").disabled = !depsUninstallEnabled(v);
+  $("btnDepsUninstall").title = depsUninstallEnabled(v) ? "卸载依赖（复测用，要输 yes）"
+    : (v.collected ? (busy ? "任务运行中" : "没有可卸的工具") : "只读状态没采到，先查清楚再卸");
+  $("depsPgMajor").disabled = busy;
+  $("depsHint").textContent =
+    "按钮门：安装 = 采到状态 + 确实有缺 + 没在跑；卸载 = 采到状态 + 有可卸项 + 没在跑。" +
+    " 卸了再点安装即可复测，任务结束自动复查命令是否真的存在 / 消失。";
+}
+function depsPlanFor(verb) {
+  const v = depsView();
+  const isInstall = verb === "deps";
+  const available = isInstall ? depsRunEnabled(v) : depsUninstallEnabled(v);
+  const reasons = [];
+  if (!available) {
+    if (busy) reasons.push("远端任务运行中：等它结束再提交（服务端单任务 409）。");
+    else if (!v.collected) reasons.push("只读依赖状态没采到（collected=false）：查不动不等于没装 / 没可卸项。");
+    else if (isInstall) reasons.push("没有缺失依赖：本次不需要安装。");
+    else reasons.push("没有可卸的工具：mc 与 PG 客户端都不在。");
+  }
+  return { available, reasons, images:[], label:isInstall ? "安装缺少依赖" : "卸载依赖" };
 }
 
 // ==== @section fn-render ==== 主渲染：目录 / 详情 / 按钮门 / 提示 / 阶段条 / toast
@@ -1027,8 +1258,11 @@ function render(resetOutput) {
   $("btnCheck").disabled = busy;
   // 导入镜像同样是写动作：采不到状态 / Docker 未就绪 / 没选文件都不放行（与 imageEnabled 同口径）。
   $("btnLoad").disabled = busy || !ok || !pickedFile || !isReady(stateOf("docker"));
-  // 从服务器复制：同样是写动作，且必须源机有候选镜像（对应 copyReady）。
-  $("btnCopy").disabled = busy || !ok || !isReady(stateOf("docker")) || !imgs.length;
+  // 从服务器复制：门禁与实现 copyReady 同源 —— 看「来源机」只读清单，不是目标机已导入镜像。
+  const copy = copyReady();
+  $("btnCopy").disabled = !copy.ok;
+  $("btnCopy").title = copy.hint;
+  $("copyHint").textContent = copy.hint;
   $("busyLine").hidden = !busy;
   $("imageSection").hidden = c.id !== "minio";
 
@@ -1044,6 +1278,9 @@ function render(resetOutput) {
   $("imageRows").innerHTML = imgs.length
     ? imgs.map(x => `<tr><td><code>${x[0]}</code>${x[0] === currentImage() ? ' <span class="tag info">当前容器</span>' : ""}</td><td class="mono">${x[1]}</td><td>${x[2]}</td><td>${x[3]}</td></tr>`).join("")
     : `<tr><td colspan="4" style="color:#9aa3af">无 —— 请先从本机选择镜像 tar 导入</td></tr>`;
+
+  // 备份依赖区与组件目录同级刷新：任务结束 / 切场景后都按最新只读状态重画。
+  renderDeps();
 
   if (!busy && resetOutput !== false) {
     $("log").innerHTML = s.log.map(l => `<span class="${l.includes("失败") || l.includes("255") ? "warn" : ""}">${l}</span>`).join("\n");
@@ -1108,9 +1345,10 @@ $("fileInput").addEventListener("change", e => {
   toast("已选择本机镜像包，点「导入到远端」才真正上传");
 });
 
-// ==== @section data-confirm ==== CONFIRM：按 组件:动词 抄平的弹窗文案（BuildActions 演示镜像）
+// ==== @section data-confirm ==== CONFIRM：按 组件:动词 抄平的弹窗文案（演示镜像）
 // 弹窗文案：title / description / impacts / checks / images 都以
 // internal/component/actions.go 的 BuildActions 为准（这里按动词 + 组件抄平）。
+// deps:* 两条抄 Go 侧备份依赖计划（plan / uninstall），不属于 BuildActions。
 // 真实现里这些字段由后端下发，前端不写文案；本页只为演示交互。
 const CONFIRM = {
   // ==== @section confirm-docker-install ==== 安装 Docker 弹窗文案
@@ -1292,7 +1530,7 @@ const CONFIRM = {
     alert:["warn","这是跨主机写操作：会把来源服务器上已有的镜像直接灌到目标机。本机只做管道中转、不落磁盘，不经任何镜像仓库、不执行 docker pull。"],
     impacts:[
       "源机只认 servers.json 的 name（--from-server，源 ≠ 目标，未知 404）。",
-      "候选镜像只来自源机只读清单（ops component images / GET /api/components/images），传 --image-ref 也必须在里面。",
+      "候选镜像只来自源机只读清单（ops component images / GET /api/components/images），弹窗里必须显式选一个，传 --image-ref 也必须在里面。",
       "源机 docker 权限「先无 sudo、再试 sudo」两路都试，只跑 info / images / save 这类只读命令。",
       "传输上限与 image-load 同一个 2 GiB，超了就地中断并删目标机临时文件。",
       "不启动 / 不重建容器，不动 /data/minio、Docker 引擎、crontab、backup.env。",
@@ -1300,14 +1538,64 @@ const CONFIRM = {
     ],
     checks:[], proxy:false,
     phases:["读源机镜像清单","源机 docker save","本机 pipe 中转","目标机 docker load","清理临时 tar"],
-    lines:[
-      "[check] 源机 prod：清单 ✓ / docker 权限 ✓（无 sudo）/ 引用白名单 ✓",
-      "[1/3] source: docker save minio/minio:RELEASE.2026-10-21 → stdout",
+    lines: ctx => [
+      `[check] 源机 ${ctx.sourceServer}：只读清单 ✓ / docker 权限 ✓（无 sudo）/ 引用白名单 ✓`,
+      `[1/3] source: docker save ${ctx.imageRef} → stdout（--image-ref 按源机清单校验）`,
       "[2/3] 本机 pipe 中转（不落盘）… 224 MB",
       "[3/3] target: cat > /tmp/passup-component-minio-image.tar → docker load -i → rm -f",
       "[done] 镜像已到目标机；现在可以单独安装或更新 MinIO"
     ],
     after:null, done:"镜像已复制（原型模拟）"
+  },
+  // ==== @section confirm-deps-install ==== 安装缺少依赖弹窗文案（mode=deps）
+  "deps:deps": {
+    title:"确认安装缺少的备份依赖",
+    sub:"ops backup deps · 只装命令行工具，不部署脚本 / 不写 crontab / 不跑备份",
+    alert:["warn","这是远端写操作：服务端先跑 --dry-run 预检，一次性 sudo 密码只经 stdin；不发 --install-deps / --force / --run-now。"],
+    impacts: () => [
+      "本次只装只读状态里 missing[] 的命令，不上传备份脚本、不写 crontab / logrotate / backup.env。",
+      `PG 主版本：${pgMajorOf() ? `填了 ${pgMajorOf()}，按官方 PGDG apt 仓库装版本化客户端` : "留空，装发行版仓库的 postgresql-client"}（1..99 纯数字，服务端与 CLI 各验一次）。`,
+      "mc 从 MinIO 官方地址下载到 /usr/local/bin/mc；装完自动复查每个命令真能跑通。",
+      "不 docker pull、不装 / 不更新 / 不卸载任何组件，任务日志仍走 /api/components/task（同一把任务锁）。"
+    ],
+    checks:[], proxy:false,
+    phases:["dry-run 预检","安装缺失客户端","自动复查命令","刷新只读状态"],
+    lines: ctx => {
+      const out = ["[dry-run] ops backup deps --dry-run → 只报告缺失项，不改远端"];
+      if (!depsState.pg_client) {
+        out.push(ctx.depsMajor
+          ? `[1/2] PGDG apt 仓库：postgresql-client-${ctx.depsMajor} …`
+          : "[1/2] 发行版 apt：postgresql-client …");
+      }
+      if (!depsState.mc) out.push("[2/2] mc：MinIO 官方二进制 → /usr/local/bin/mc");
+      out.push("[check] pg_restore --version ✓ / mc --version ✓（半截文件与壳链接都不算已装）");
+      out.push("[done] 依赖就绪；未上传备份脚本、未写 crontab、未跑备份");
+      return out;
+    },
+    after:null, done:"缺少依赖已安装（原型模拟）", submit_label:"确认安装"
+  },
+  // ==== @section confirm-deps-uninstall ==== 卸载依赖弹窗文案（mode=deps-uninstall）
+  "deps:deps-uninstall": {
+    title:"确认卸载备份依赖（复测用）",
+    sub:"ops backup deps-uninstall --target mc|pg_client · 只删工具装的那两个",
+    alert:["danger","勾选项默认全不勾、至少选一个才能提交；只删 mc 与 PG 客户端，不卸系统基础包、不 autoremove / purge，不碰数据与定时任务。"],
+    impacts:[
+      "可勾目标由只读状态里的 uninstall.targets 下发（mc / pg_client），标题 / 影响清单 / 提交文案同样来自 Go 侧。",
+      "pg_client 会连 postgresql-client-common 一起删（它留下的 pg_wrapper 壳链接会造成假阳性）。",
+      "不碰 ~/.mc、容器 / 镜像、PGDG 源、服务端、crontab / backup.env；卸载后自动复查命令是否真的消失。",
+      "卸完点旁边「安装缺少依赖」即可复测；任务日志仍与组件安装共用同一把任务锁。"
+    ],
+    // targets 由 openConfirm 渲染成「默认全不勾、至少选一个」的复选框，不是 required 必勾。
+    targets: DEPS_UNINSTALL.targets, checkMode:"any", proxy:false,
+    phases:["dry-run 预检","卸载选中目标","自动复查命令","刷新只读状态"],
+    lines: ctx => [
+      "[dry-run] ops backup deps-uninstall --dry-run → 只报告将删的目标，不改远端",
+      `[1/2] targets=${ctx.depsTargets.join(",") || "（未选）"} · 服务端白名单再验一次`,
+      "[2/2] 只移除 /usr/local/bin/mc 与 postgresql-client[-N] / postgresql-client-common",
+      "[check] pg_restore / mc --version → 已消失（不误判壳链接）",
+      "[done] 卸载完成；cron / nc / ssh / tar / logrotate、数据与定时任务均未改动"
+    ],
+    after:null, done:"备份依赖已卸载（原型模拟）", submit_label:"确认卸载"
   }
 };
 
@@ -1329,28 +1617,39 @@ function canSubmit() {
   if (req && !req.checked) return false;
   if (!$("mImageBox").hidden && !$("mImage").value) return false;
   if (!$("mProxyBox").hidden && $("mProxyOn").checked && !validProxy($("mProxy").value)) return false;
+  // 卸载依赖：「至少勾一个」，不是「全部必勾」（对齐 uninstallSubmitEnabled）。
+  if (pending.verb === "deps-uninstall") {
+    const boxes = Array.from($("mOptions").querySelectorAll("input[data-target]"));
+    if (boxes.length && !boxes.some(x => x.checked)) return false;
+  }
+  // 从服务器复制：必须在弹窗里显式选一个源机候选镜像，不悄悄挑第一个。
+  if (pending.verb === "image-copy" && !$("mSourceImage").value) return false;
   return true;
 }
 
 function openConfirm(id, verb) {
   const conf = CONFIRM[id + ":" + verb];
   if (!conf) return;
-  const plan = verb === "image-load"
-    ? { available: collected() && !!pickedFile,
-        reasons: [!collected() ? "只读体检没采到状态，先点「重新检查」" : "请先选择本机 .tar 镜像包"],
-        images: [] }
-    : verb === "image-copy"
-      ? { available: collected() && compImages().length > 0,
-          reasons: [!collected() ? "只读体检没采到状态，先点「重新检查」" : "源机本地没有可复制的 MinIO 镜像"],
-          images: [] }
-      : planFor(id, verb);
+  let plan;
+  if (verb === "deps" || verb === "deps-uninstall") {
+    plan = depsPlanFor(verb);
+  } else if (verb === "image-load") {
+    plan = { available: collected() && !!pickedFile,
+      reasons: [!collected() ? "只读体检没采到状态，先点「重新检查」" : "请先选择本机 .tar 镜像包"],
+      images: [] };
+  } else if (verb === "image-copy") {
+    plan = copyPlan();
+  } else {
+    plan = planFor(id, verb);
+  }
   if (busy || !plan.available) {
     toast("该动作当前不可执行：" + (plan.reasons[0] || "后端未下发动作计划"), true);
     return;
   }
   pending = { id, verb, conf, plan };
+  const isCopy = verb === "image-copy";
   $("mTitle").textContent = conf.title;
-  $("mSub").textContent = conf.sub;
+  $("mSub").textContent = conf.sub + (isCopy ? ` · 来源机 ${sourceServer}（源 ≠ 目标 ${targetName()}）` : "");
   const a = $("mAlert");
   a.className = conf.alert[0] === "danger" ? "danger" : "warn";
   a.innerHTML = conf.alert[1];
@@ -1363,12 +1662,30 @@ function openConfirm(id, verb) {
   $("mImage").innerHTML = images.map((x, i) =>
     `<option value="${x.reference}"${i === 0 ? " selected" : ""}>${x.reference}</option>`).join("");
 
+  // 来源机镜像：只列 GET /api/components/images?name=<源机> 的只读清单，选中值作 --image-ref。
+  $("mSourceBox").hidden = !isCopy;
+  if (isCopy) {
+    const src = sourceView();
+    const refs = src && src.collected ? src.images : [];
+    $("mSourceImage").innerHTML = refs.map((ref, i) =>
+      `<option value="${ref}"${i === 0 ? " selected" : ""}>${ref}</option>`).join("");
+  }
+
   // 附加勾选：required=true 必须勾（卸引擎），其余默认不勾（删数据）。
-  $("mOptions").innerHTML = conf.checks.length
-    ? `<div class="yes-label" style="margin-top:2px">附加确认</div>` + conf.checks.map(o =>
-        `<label class="opt ${o.required ? "risk" : ""}"><input type="checkbox" value="${o.key}"${o.required ? " data-required" : ""}>
-         <span>${o.label}<small>${o.help || ""}</small></span></label>`).join("")
-    : "";
+  // 卸载依赖是第三种模式 checkMode=any：默认全不勾、至少选一个（Go 侧 uninstall.targets）。
+  if (conf.checkMode === "any") {
+    $("mOptions").innerHTML =
+      `<div class="yes-label" style="margin-top:2px">要卸载的目标（默认全不勾，至少选一个）</div>` +
+      conf.targets.map(t =>
+        `<label class="opt"><input type="checkbox" data-target="${t.key}" value="${t.key}">
+         <span>${t.label}<small>${t.help || ""}</small></span></label>`).join("");
+  } else {
+    $("mOptions").innerHTML = conf.checks.length
+      ? `<div class="yes-label" style="margin-top:2px">附加确认</div>` + conf.checks.map(o =>
+          `<label class="opt ${o.required ? "risk" : ""}"><input type="checkbox" value="${o.key}"${o.required ? " data-required" : ""}>
+           <span>${o.label}<small>${o.help || ""}</small></span></label>`).join("")
+      : "";
+  }
 
   // apt 代理：只给 install / update docker（两者都跑 apt），格式错就禁用提交。
   $("mProxyBox").hidden = !conf.proxy;
@@ -1378,22 +1695,24 @@ function openConfirm(id, verb) {
   $("mProxyErr").hidden = true;
 
   $("mProtoNote").textContent =
-    "四个动词均已接入：影响清单 / 附加勾选 / 目标镜像 / 能否执行都由 Go 侧 BuildActions 算好随 status 下发，本页是演示文案；判据见 docs/components.md §8.4";
+    "五个组件写动词（含 image-copy）与两个备份依赖写动作均已接入：能否执行 / 影响清单 / 附加勾选 / 目标镜像 / 卸载计划都由 Go 侧算好随只读状态下发，本页只演示交互；判据见 docs/components.md §8.4 / §10";
   $("mYes").value = "";
   $("mPwd").value = "";
-  $("mOk").textContent = "确认" + (verb === "image-load" ? "导入" : verb === "image-copy" ? "复制" : plan.label);
+  $("mOk").textContent = conf.submit_label ||
+    ("确认" + (verb === "image-load" ? "导入" : verb === "image-copy" ? "复制" : plan.label));
   $("mOk").disabled = true;
-  $("mOk").className = "act " + (verb === "uninstall" ? "danger" : "primary");
+  $("mOk").className = "act " + (verb === "uninstall" || verb === "deps-uninstall" ? "danger" : "primary");
   $("mask").hidden = false;
   $("mYes").focus();
 }
 function closeConfirm() { $("mask").hidden = true; pending = null; }
-// ==== @section fn-events ==== 事件绑定：弹窗输入门 / 动词按钮 / 任务模拟 / 服务器切换
+// ==== @section fn-events ==== 事件绑定：弹窗输入门 / 动词按钮 / 来源机与依赖输入 / 任务模拟 / 服务器切换
 $("mCancel").addEventListener("click", closeConfirm);
 $("mask").addEventListener("click", e => { if (e.target === $("mask")) closeConfirm(); });
 $("mYes").addEventListener("input", () => { $("mOk").disabled = !canSubmit(); });
 $("mOptions").addEventListener("change", () => { $("mOk").disabled = !canSubmit(); });
 $("mImage").addEventListener("change", () => { $("mOk").disabled = !canSubmit(); });
+$("mSourceImage").addEventListener("change", () => { $("mOk").disabled = !canSubmit(); });
 $("mProxyOn").addEventListener("change", () => {
   $("mProxy").disabled = !$("mProxyOn").checked;
   $("mProxyErr").hidden = !($("mProxyOn").checked && !validProxy($("mProxy").value));
@@ -1412,6 +1731,18 @@ $("btnLoad").addEventListener("click", () => {
   openConfirm("minio", "image-load");
 });
 $("btnCopy").addEventListener("click", () => openConfirm("minio", "image-copy"));
+$("btnDepsInstall").addEventListener("click", () => openConfirm("deps", "deps"));
+$("btnDepsUninstall").addEventListener("click", () => openConfirm("deps", "deps-uninstall"));
+
+$("depsPgMajor").addEventListener("input", e => {
+  e.target.value = e.target.value.replace(/\D/g, "").slice(0, 2);   // 对齐 normalizePgMajorInput
+  renderDeps();
+});
+$("sourceSel").addEventListener("change", e => {
+  sourceServer = e.target.value;
+  render(false);
+  toast("来源机 " + sourceServer + " · 只读镜像清单重查（原型模拟）");
+});
 
 $("mOk").addEventListener("click", () => {
   const p = pending;
@@ -1423,7 +1754,17 @@ $("mOk").addEventListener("click", () => {
     lastProxy = proxyUsed;
     try { localStorage.setItem("passup.component.aptProxy", proxyUsed); } catch (_) { /* 隐私模式忽略 */ }
   }
+  // 提交前收齐弹窗里的选择：既模拟命令参数，也让日志反映本次实际选了什么。
+  const ctx = {
+    sourceServer,
+    imageRef: p.verb === "image-copy" ? $("mSourceImage").value : "",
+    depsMajor: p.verb === "deps" ? pgMajorOf() : null,
+    depsTargets: p.verb === "deps-uninstall"
+      ? Array.from($("mOptions").querySelectorAll("input[data-target]:checked")).map(x => x.dataset.target)
+      : []
+  };
   const conf = p.conf;
+  const lines = typeof conf.lines === "function" ? conf.lines(ctx) : conf.lines;
   closeConfirm();
   busy = true;
   render();
@@ -1432,8 +1773,8 @@ $("mOk").addEventListener("click", () => {
   let i = 0;
   const total = conf.phases.length;
   const step = () => {
-    if (i < conf.lines.length) {
-      const line = conf.lines[i];
+    if (i < lines.length) {
+      const line = lines[i];
       const cls = line.startsWith("[done]") ? "ok" : line.startsWith("[warn]") ? "warn"
                 : line.startsWith("[dry-run]") ? "sec" : line.includes("***") ? "sec" : "";
       const el = document.createElement("span");
@@ -1441,7 +1782,7 @@ $("mOk").addEventListener("click", () => {
       el.textContent = (i ? "\n" : "") + line;
       $("log").appendChild(el);
       $("log").scrollTop = $("log").scrollHeight;
-      renderPhases(conf.phases, Math.min(total - 1, Math.floor(i / Math.max(1, conf.lines.length / total))));
+      renderPhases(conf.phases, Math.min(total - 1, Math.floor(i / Math.max(1, lines.length / total))));
       i++;
       setTimeout(step, 190);
     } else {
@@ -1453,6 +1794,12 @@ $("mOk").addEventListener("click", () => {
         $("filePill").hidden = true; pickedFile = "";
         loadedImages.push(["minio:RELEASE.2026-10-21","sha256:9b2e77…","224 MB","刚刚（本次导入）"]);
       }
+      if (p.verb === "image-copy" && ctx.imageRef) {
+        loadedImages.push([ctx.imageRef.replace("minio/minio:", "minio:"), "sha256:copied…", "224 MB", "刚刚（从源机复制）"]);
+      }
+      // 任务结束自动复查：装完补齐缺的工具，卸完按勾选把对应工具置为未装（供「卸了再装」复测）。
+      if (p.verb === "deps") depsState = { pg_client:true, mc:true };
+      if (p.verb === "deps-uninstall") ctx.depsTargets.forEach(t => { depsState[t] = false; });
       render(false);
       $("taskState").textContent = "已完成 · 退出码 0";
       toast(conf.done || "任务完成（原型模拟）");
@@ -1462,6 +1809,7 @@ $("mOk").addEventListener("click", () => {
 });
 
 $("serverSel").addEventListener("change", e => {
+  render(false);   // 源 ≠ 目标这道门跟着目标机变
   toast("切换到 " + e.target.value + " · 清单之外的 name 服务端一律 404（原型不切数据）");
 });
 
