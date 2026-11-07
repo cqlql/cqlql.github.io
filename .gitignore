@@ -7,6 +7,7 @@
 
 # IDE / 工具会话数据，不是项目源码
 .workbuddy-ai/
+.workbuddy/
 
 # 本机配置：含私钥路径与 sudo 凭据，见 docs/config.md
 ops.env

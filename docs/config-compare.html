@@ -242,6 +242,12 @@ td.status{width:120px}
         抓取是只读动作，失败时如实显示原因、不猜一个值；「同步」是独立的远端写操作，
         必须显式点击 + 输 yes。远端执行身份是 user + sudo.mode 推导的结果，页面只读展示。
       </p>
+      <p class="footnote">
+        字段标签 / 分组 / 演示默认值以 <code>internal/shared/env-schema.json</code> 为准
+        （本页只演示部分键，判据见 <code>docs/config.md</code> §4）；其余 IP、库名、桶名与凭证
+        都是刻意造的假数据，用来演示「远端值 ≠ 本机值」。<code>go test ./...</code> 会断言本页
+        标签、分组与几个默认值没有和 schema 漂移。
+      </p>
     </div>
   </main>
 </div>
@@ -261,6 +267,14 @@ td.status{width:120px}
 <div class="toast" id="toast" hidden></div>
 
 <script>
+/*
+ * 🔴 字段判据来自 internal/shared/env-schema.json（唯一事实源，见 docs/config.md §4）。
+ *    META.labels / META.groups 只演示**部分**键（子集速览），标签与分组名必须和 schema 一致；
+ *    PG_REMOTE / MINIO_REMOTE 里的 PG_LOCAL_RETENTION_DAYS、CRON_SCHEDULE_* 是演示默认值，
+ *    也要和 schema 一致。`go test ./...` 的 TestEnvSchemaPrototypeAligned 会逐项比对，红了就回改这里。
+ *    其余值（IP、库名、桶名、凭证、SSH 路径）是刻意造的假数据，用来演示「远端与本机不同」，
+ *    不代表默认值，也不参与比对。原型是设计稿不是实现，判据见 docs/ui.md §12。
+ */
 const SECRET = /PASSWORD|PASSWD|SECRET|TOKEN|KEY/;
 
 const PG_REMOTE = {
@@ -299,7 +313,7 @@ const META = {
       PG_SSH_KEY:'备份端私钥路径', PG_SSH_OPTS:'SSH 额外选项',
       PG_BACKUP_ROOT:'备份根目录', PG_BACKUP_LOG_DIR:'日志目录',
       PG_LOCAL_RETENTION_DAYS:'本地保留天数', PG_RESTORE_JOBS:'恢复并发数',
-      CRON_SCHEDULE_BACKUP:'备份定时', CRON_SCHEDULE_HEALTH:'巡检定时'
+      CRON_SCHEDULE_BACKUP:'备份定时（cron）', CRON_SCHEDULE_HEALTH:'巡检定时（cron）'
     },
     groups:[
       {name:'主服务器', keys:['PG_CONTAINER_NAME','PG_DB_USER','PG_DB_NAME']},
@@ -315,7 +329,7 @@ const META = {
       SRC_URL:'源 MinIO 地址', SRC_KEY:'源端 Access Key', SRC_SECRET:'源端 Secret Key',
       SRC_BUCKETS:'源桶列表', DEST_URL:'目标 MinIO 地址', DEST_KEY:'目标 Access Key',
       DEST_SECRET:'目标 Secret Key', DEST_BUCKET_PREFIX:'备份桶前缀',
-      CRON_SCHEDULE_BACKUP:'备份定时', CRON_SCHEDULE_HEALTH:'巡检定时'
+      CRON_SCHEDULE_BACKUP:'备份定时（cron）', CRON_SCHEDULE_HEALTH:'巡检定时（cron）'
     },
     groups:[
       {name:'源端', keys:['SRC_URL','SRC_KEY','SRC_SECRET','SRC_BUCKETS']},

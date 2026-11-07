@@ -605,6 +605,12 @@ ops backup sync-env [pg|minio|all] --server <name>
 判据为准，原型与判据不一致时一律以本节为准。环境组件页的同款处置见 §13 /
 [components.md](components.md) §8。
 
+🔴 原型 `META` 里的字段标签 / 分组名、以及 `PG_REMOTE` / `MINIO_REMOTE` 里少数几个
+**演示默认值**，判据是 [internal/shared/env-schema.json](../internal/shared/env-schema.json)
+（见 [config.md](config.md) §4），不是原型自己定；它只演示部分键，其余 IP / 库名 / 凭证是
+刻意造的「远端与本机不同」假数据。`go test ./...` 的 `TestEnvSchemaPrototypeAligned`
+会逐项比对，改了 schema 忘了回改原型会直接红。
+
 ### 12.6 配置不全不挡路 + 在界面里加第一台服务器（2026-11-06 追加）
 
 **为什么**：换电脑后 `ops init` 生成的是空 `servers.json`，原来的 `serveIndex` 会回一页

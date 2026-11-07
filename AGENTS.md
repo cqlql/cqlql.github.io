@@ -309,6 +309,16 @@
        保存后由 `onServersChanged` 让一直挂载着的落地页重新取数。
     详见 `docs/one-click-launch.md` §4.1 / `docs/ui.md` §12。
 
+27. 🔴 **`backup.env` 的键只在 `internal/shared/env-schema.json` 定义一次**（2026-11-07 新增）：
+    模板、脚本兜底字面量、Makefile、界面白名单、文档键表、交互原型字段表全是生成物或断言对象
+    （见 `docs/config.md` §4）。改一个键 / 默认值：改 schema → 仓库根跑
+    `go run . __gen-backup-env`（开发期内部命令，不进 usage / 菜单）→ `go build`；
+    漏跑生成器 `go test ./...` 直接红。
+    🔴 生成器只同步**已经写了字面量**的默认值，绝不改远端脚本执行逻辑：
+    `${KEY:-}` 是空兜底（`set -u` 防空 + `install.sh` / `preflight` 判断「有没有显式配置」），
+    填成默认值会让 `[ -z ]` 恒假 / `[ -n ]` 恒真；也别把脚本改成 `source defaults.env`
+    ——生产备份机的行为本机无法真机验证。
+
 ## 命令与验证
 
 ```
@@ -316,6 +326,9 @@
 go vet ./...
 go test ./...
 go build ./...
+
+# 改了 backup.env 的键 / 默认值（见 docs/config.md §4、硬约束 27）
+go run . __gen-backup-env   # 仓库根；生成后必须 go build（脚本与模板都 embed 进 exe）
 
 # 前端（改了 web/ 一律两个都跑；test/ 不在 tsconfig 的 include 里）
 cd web && npm install
@@ -424,7 +437,9 @@ ops menu --help
 
 - 🔴 **唯一索引就是下面的「文档速查」表**；不新建 `docs/README.md` 或第二个索引。
 - 每份 `docs/*.md` 第一行必须是 `> 状态：...`；状态过期比没有文档更危险。
-- 配置键与默认值只在 `docs/config.md` 维护；其它文档只引用键名，不复述默认值。
+- 配置键分两套，都不许复述默认值：本机 `ops.env` 的 `PASS_UP_OPS_*` 只在 `docs/config.md`
+  定义；远端 `backup.env` 的键只在 `internal/shared/env-schema.json` 定义（生成物见 `docs/config.md` §4）。
+  其它文档只引用键名。
 - 「为什么这么设计 / 哪些方案被否」并进对应分册的决策节，不单独开文档。
 - 新增能力 = 本表加一行 + 新建分册；**不要往已有分册里堆**。
 - `docs/components-prototype.html` 是单文件原型：改前先 `grep -n "@section"` 定点读，
@@ -444,6 +459,6 @@ ops menu --help
 | 备份监控（P2 · 方案，未实现） | `docs/backup-monitor.md` | 只读采集；时间差在远端算；`-` 不是 0 |
 | 单机一键 Docker 部署（P3–P4 · 方案，未实现） | `docs/deploy.md` | `.env` 去 CRLF；镜像前缀必须等于 compose；Flyway 单向 |
 | 一键启动与桌面快捷方式（S2/S3/S5 ✅，S4 人工验收待做） | `docs/one-click-launch.md` | 双击直达网页面板（隐藏守护 + 单实例）；`.lnk` 只指启动器；图标用独立 `.ico`；名字校验挡路径穿越；双击绝不触发写操作，页面写操作要显式确认 |
-| 配置（唯一维护处） | `docs/config.md` | 所有 `PASS_UP_OPS_*` 只在这里定义一次 |
+| 配置（唯一维护处） | `docs/config.md` | 所有 `PASS_UP_OPS_*` 只在这里定义一次；`backup.env` 的键只在 `internal/shared/env-schema.json`，模板 / 脚本兜底 / 白名单 / 键表都是生成物，漏跑生成器 `go test` 会红 |
 | 文档治理 | `cqlql-notes/docs/工程/文档约定.md` | 新加文档前先过 4 问；索引只有一份 |
 | 目录与依赖 | `cqlql-notes/docs/工程/目录结构规范.md` + 本文「目录与边界」 | 依赖单向；`shared` 不得反向 import 能力包；跨包符号必须导出 |

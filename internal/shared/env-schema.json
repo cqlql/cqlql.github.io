@@ -1,0 +1,282 @@
+{
+  "$comment": "备份环境变量的唯一事实源。改键、默认值、分组、标签、凭证标记只改这里，然后运行 ops __gen-backup-env 重新生成 backup.env.example、脚本里的 ${KEY:-默认值} 字面量与 docs/config.md 的键表；go test 会挡住漏生成。default 是运行时默认值（空串 = 必须人填），placeholder 只用于模板提示、不参与运行时。",
+  "components": {
+    "pg": [
+      {
+        "key": "PG_CONTAINER_NAME",
+        "default": "postgres",
+        "label": "主服务器 PG 容器名",
+        "group": "主服务器",
+        "notes": ["与 docker/docker-compose.base.yml 的 container_name 保持一致，位于主服务器上"]
+      },
+      {
+        "key": "PG_DB_USER",
+        "default": "postgres",
+        "label": "数据库用户",
+        "group": "主服务器",
+        "notes": ["与 docker/.env 的 POSTGRES_USER / POSTGRES_DB 保持一致"]
+      },
+      {
+        "key": "PG_DB_NAME",
+        "default": "pass_up",
+        "label": "业务库名",
+        "group": "主服务器"
+      },
+      {
+        "key": "PG_SSH_HOST",
+        "default": "",
+        "label": "主服务器地址",
+        "group": "SSH 连接（备份端 → 主服务器）",
+        "notes": ["主服务器地址（IP 或域名）；pull 模式：备份端通过 SSH 从主服务器拉取 dump"]
+      },
+      {
+        "key": "PG_SSH_PORT",
+        "default": "22",
+        "label": "SSH 端口",
+        "group": "SSH 连接（备份端 → 主服务器）"
+      },
+      {
+        "key": "PG_SSH_USER",
+        "default": "root",
+        "label": "SSH 登录用户",
+        "group": "SSH 连接（备份端 → 主服务器）",
+        "notes": ["需有权限执行 docker exec"]
+      },
+      {
+        "key": "PG_SSH_KEY",
+        "default": "",
+        "label": "备份端私钥路径",
+        "group": "SSH 连接（备份端 → 主服务器）",
+        "secret": true,
+        "notes": ["用于免密登录主服务器的 SSH 私钥路径"]
+      },
+      {
+        "key": "PG_SSH_OPTS",
+        "default": "-o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new",
+        "label": "SSH 额外选项",
+        "group": "SSH 连接（备份端 → 主服务器）",
+        "notes": [
+          "默认禁交互 + 10s 连接超时 + 首次收录主机密钥（变化即拒绝）。",
+          "与 pg_backup.sh / pg_restore.sh 的兜底默认值、ops 自身 ssh 封装口径一致。",
+          "注意：不要用 StrictHostKeyChecking=no（关掉主机密钥校验）；BatchMode=yes 下不加 accept-new，",
+          "cron 首次连接一台没进 known_hosts 的主机会直接失败。accept-new 需 OpenSSH >= 7.6。",
+          "留空不写这一项时，脚本会用上面这串内置默认值。"
+        ]
+      },
+      {
+        "key": "PG_BACKUP_ROOT",
+        "default": "/data/backups/postgres",
+        "label": "备份根目录",
+        "group": "备份端",
+        "notes": ["脚本会自动在其下创建 daily / weekly / monthly 分级子目录"]
+      },
+      {
+        "key": "PG_BACKUP_LOG_DIR",
+        "default": "/var/log/pg-backup",
+        "label": "日志目录",
+        "group": "备份端",
+        "notes": ["pg_backup.sh / pg_backup_status.sh 共用，需与脚本内兜底默认值一致"]
+      },
+      {
+        "key": "PG_LOCAL_RETENTION_DAYS",
+        "default": "7",
+        "label": "本地保留天数",
+        "group": "备份端",
+        "notes": ["本地 daily 目录保留天数；改这里会同步到所有脚本兜底值"]
+      },
+      {
+        "key": "PG_WEEKLY_RETENTION_DAYS",
+        "default": "30",
+        "label": "周备保留天数",
+        "group": "备份端",
+        "notes": ["每周一生成的备份"]
+      },
+      {
+        "key": "PG_MONTHLY_RETENTION_DAYS",
+        "default": "365",
+        "label": "月备保留天数",
+        "group": "备份端",
+        "notes": ["每月 1 号生成的备份"]
+      },
+      {
+        "key": "PG_RESTORE_JOBS",
+        "default": "4",
+        "label": "恢复并发数",
+        "group": "备份端",
+        "notes": ["pg_restore 并行线程数（按 CPU 核数调整，单机一般 4）"]
+      },
+      {
+        "key": "CRON_SCHEDULE_BACKUP",
+        "default": "0 3 * * *",
+        "label": "备份定时（cron）",
+        "group": "定时任务",
+        "notes": ["Makefile / install.sh 统一读取，避免多处重复定义", "默认每天凌晨 3:00，错开 MinIO 的 2:00"]
+      },
+      {
+        "key": "CRON_SCHEDULE_HEALTH",
+        "default": "0 9 * * *",
+        "label": "巡检定时（cron）",
+        "group": "定时任务",
+        "notes": ["默认每天 9:00"]
+      },
+      {
+        "key": "BACKUP_HEALTH_THRESHOLD_HOURS",
+        "default": "26",
+        "label": "健康阈值（小时）",
+        "group": "巡检",
+        "notes": ["距上次成功超过该值即告警（每日 Cron 跑建议 ~26，留 2h 余量）"]
+      },
+      {
+        "key": "BACKUP_DISK_MOUNT",
+        "default": "/data",
+        "label": "数据盘挂载点",
+        "group": "巡检",
+        "notes": ["巡检 df 用，监控备份写入盘是否写满，如 /data /mnt/backup"]
+      },
+      {
+        "key": "BACKUP_DISK_CRIT_PCT",
+        "default": "90",
+        "label": "磁盘告警百分比",
+        "group": "巡检",
+        "notes": ["备份端磁盘使用率达到该值即判定异常并告警"]
+      },
+      {
+        "key": "ALERT_WEBHOOK",
+        "default": "",
+        "label": "告警 Webhook",
+        "group": "巡检",
+        "secret": true,
+        "notes": ["异常时主动推送告警的 Webhook（飞书/钉钉/企微机器人地址），留空则仅打印不推送"]
+      }
+    ],
+    "minio": [
+      {
+        "key": "SRC_URL",
+        "default": "http://127.0.0.1:8007",
+        "label": "源 MinIO 地址",
+        "group": "源端",
+        "notes": ["生产端（源）MinIO 配置"]
+      },
+      {
+        "key": "SRC_KEY",
+        "default": "",
+        "placeholder": "CHANGE_ME_PROD_ACCESS_KEY",
+        "label": "源端 Access Key",
+        "group": "源端",
+        "secret": true
+      },
+      {
+        "key": "SRC_SECRET",
+        "default": "",
+        "placeholder": "CHANGE_ME_PROD_SECRET_KEY",
+        "label": "源端 Secret Key",
+        "group": "源端",
+        "secret": true
+      },
+      {
+        "key": "SRC_BUCKETS",
+        "default": "passup-public passup-private passup-temp",
+        "label": "源桶列表",
+        "group": "源端",
+        "notes": ["需要备份的桶列表（空格分隔）", "当前项目桶: passup-public passup-private passup-temp"]
+      },
+      {
+        "key": "DEST_URL",
+        "default": "http://127.0.0.1:9000",
+        "label": "目标 MinIO 地址",
+        "group": "备份端",
+        "notes": ["脚本运行在备份端本机，DEST_URL 通常指向本机 MinIO（如 127.0.0.1:9000 或本机数据盘）"]
+      },
+      {
+        "key": "DEST_KEY",
+        "default": "",
+        "placeholder": "YOUR_BACKUP_ACCESS_KEY",
+        "label": "目标 Access Key",
+        "group": "备份端",
+        "secret": true
+      },
+      {
+        "key": "DEST_SECRET",
+        "default": "",
+        "placeholder": "YOUR_BACKUP_SECRET_KEY",
+        "label": "目标 Secret Key",
+        "group": "备份端",
+        "secret": true
+      },
+      {
+        "key": "DEST_BUCKET_PREFIX",
+        "default": "passup-backup-",
+        "label": "备份桶前缀",
+        "group": "备份端",
+        "notes": ["备份桶名 = 前缀 + 生产端桶名，如 passup-backup-passup-public"]
+      },
+      {
+        "key": "MINIO_CONTAINER_NAME",
+        "default": "",
+        "label": "MinIO 容器名",
+        "group": "备份端",
+        "notes": [
+          "preflight_check.sh 读取，用于 docker inspect 核对容器数据目录",
+          "是否真实挂载到宿主机数据盘；留空则跳过该项检查"
+        ]
+      },
+      {
+        "key": "UPLOAD_LIMIT",
+        "default": "",
+        "label": "上传限速",
+        "group": "备份端",
+        "notes": ["是否启用上传限速（公网传输建议限制，如 \"50M\"；局域网留空即可）"]
+      },
+      {
+        "key": "BACKUP_LOG_DIR",
+        "default": "/var/log/minio-backup",
+        "label": "日志目录",
+        "group": "备份端",
+        "notes": ["minio_backup.sh / minio_backup_status.sh 共用"]
+      },
+      {
+        "key": "CRON_SCHEDULE_BACKUP",
+        "default": "0 2 * * *",
+        "label": "备份定时（cron）",
+        "group": "定时任务",
+        "notes": ["Makefile / install.sh 统一读取，避免多处重复定义", "默认每天凌晨 2:00"]
+      },
+      {
+        "key": "CRON_SCHEDULE_HEALTH",
+        "default": "0 8 * * *",
+        "label": "巡检定时（cron）",
+        "group": "定时任务",
+        "notes": ["默认每天 8:00"]
+      },
+      {
+        "key": "BACKUP_DISK_MOUNT",
+        "default": "/data",
+        "label": "数据盘挂载点",
+        "group": "巡检",
+        "notes": ["巡检 df 用，监控备份写入盘是否写满，如 /data /mnt/backup"]
+      },
+      {
+        "key": "BACKUP_HEALTH_THRESHOLD_HOURS",
+        "default": "26",
+        "label": "健康阈值（小时）",
+        "group": "巡检",
+        "notes": ["距上次成功超过该值即告警（每日 Cron 跑建议 ~26，留 2h 余量）"]
+      },
+      {
+        "key": "BACKUP_DISK_CRIT_PCT",
+        "default": "90",
+        "label": "磁盘告警百分比",
+        "group": "巡检",
+        "notes": ["备份端磁盘使用率达到该值即判定异常并告警"]
+      },
+      {
+        "key": "ALERT_WEBHOOK",
+        "default": "",
+        "label": "告警 Webhook",
+        "group": "巡检",
+        "secret": true,
+        "notes": ["异常时主动推送告警的 Webhook（飞书/钉钉/企微机器人地址），留空则仅打印不推送"]
+      }
+    ]
+  }
+}

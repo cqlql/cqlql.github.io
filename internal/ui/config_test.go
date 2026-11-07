@@ -62,7 +62,7 @@ func TestReadEnvFieldsMasksSecrets(t *testing.T) {
 	if err := os.WriteFile(p, []byte(content), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	fields, existing, err := readEnvFields(p, pgEnvDefs)
+	fields, existing, err := readEnvFields(p, shared.EnvDefs("pg"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -99,7 +99,7 @@ func TestEditEnvFile(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	changed, err := editEnvFile(p, pgEnvDefs, map[string]string{
+	changed, err := editEnvFile(p, shared.EnvDefs("pg"), map[string]string{
 		"PG_SSH_HOST":        "10.0.0.9",
 		"PG_SSH_KEY":         "/root/.ssh/$(id)",
 		"PG_SSH_USER":        "", // 空值 = 保持不变
@@ -136,10 +136,10 @@ func TestEditEnvFileRejectsBadInput(t *testing.T) {
 	if err := os.WriteFile(p, []byte(original), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := editEnvFile(p, pgEnvDefs, map[string]string{"PATH": "/bin"}); err == nil {
+	if _, err := editEnvFile(p, shared.EnvDefs("pg"), map[string]string{"PATH": "/bin"}); err == nil {
 		t.Error("未知键竟然通过了")
 	}
-	if _, err := editEnvFile(p, pgEnvDefs, map[string]string{"PG_SSH_HOST": "a\nb"}); err == nil {
+	if _, err := editEnvFile(p, shared.EnvDefs("pg"), map[string]string{"PG_SSH_HOST": "a\nb"}); err == nil {
 		t.Error("带换行的值竟然通过了")
 	}
 	got, _ := os.ReadFile(p)

@@ -295,64 +295,15 @@ var (
 
 const maxEnvValueLen = 2048
 
-type envKeyDef struct {
-	Key    string
-	Label  string
-	Group  string
-	Secret bool
-}
-
-// 白名单 = 模板定义过的键；文件里已有的键也允许改（见 editEnvFile）。
-// 与 deploy/backup/<组件>/backup.env.example 逐字对齐，新增键先改模板再改这里。
-var pgEnvDefs = []envKeyDef{
-	{"PG_CONTAINER_NAME", "主服务器 PG 容器名", "主服务器", false},
-	{"PG_DB_USER", "数据库用户", "主服务器", false},
-	{"PG_DB_NAME", "业务库名", "主服务器", false},
-	{"PG_SSH_HOST", "主服务器地址", "SSH 连接（备份端 → 主服务器）", false},
-	{"PG_SSH_PORT", "SSH 端口", "SSH 连接（备份端 → 主服务器）", false},
-	{"PG_SSH_USER", "SSH 登录用户", "SSH 连接（备份端 → 主服务器）", false},
-	{"PG_SSH_KEY", "备份端私钥路径", "SSH 连接（备份端 → 主服务器）", true},
-	{"PG_SSH_OPTS", "SSH 额外选项", "SSH 连接（备份端 → 主服务器）", false},
-	{"PG_BACKUP_ROOT", "备份根目录", "备份端", false},
-	{"PG_BACKUP_LOG_DIR", "日志目录", "备份端", false},
-	{"PG_LOCAL_RETENTION_DAYS", "本地保留天数", "备份端", false},
-	{"PG_WEEKLY_RETENTION_DAYS", "周备保留天数", "备份端", false},
-	{"PG_MONTHLY_RETENTION_DAYS", "月备保留天数", "备份端", false},
-	{"PG_RESTORE_JOBS", "恢复并发数", "备份端", false},
-	{"CRON_SCHEDULE_BACKUP", "备份定时（cron）", "定时任务", false},
-	{"CRON_SCHEDULE_HEALTH", "巡检定时（cron）", "定时任务", false},
-	{"BACKUP_HEALTH_THRESHOLD_HOURS", "健康阈值（小时）", "巡检", false},
-	{"BACKUP_DISK_MOUNT", "数据盘挂载点", "巡检", false},
-	{"BACKUP_DISK_CRIT_PCT", "磁盘告警百分比", "巡检", false},
-	{"ALERT_WEBHOOK", "告警 Webhook", "巡检", true},
-}
-
-var minioEnvDefs = []envKeyDef{
-	{"SRC_URL", "源 MinIO 地址", "源端", false},
-	{"SRC_KEY", "源端 Access Key", "源端", true},
-	{"SRC_SECRET", "源端 Secret Key", "源端", true},
-	{"SRC_BUCKETS", "源桶列表", "源端", false},
-	{"DEST_URL", "目标 MinIO 地址", "备份端", false},
-	{"DEST_KEY", "目标 Access Key", "备份端", true},
-	{"DEST_SECRET", "目标 Secret Key", "备份端", true},
-	{"DEST_BUCKET_PREFIX", "备份桶前缀", "备份端", false},
-	{"MINIO_CONTAINER_NAME", "MinIO 容器名", "备份端", false},
-	{"UPLOAD_LIMIT", "上传限速", "备份端", false},
-	{"BACKUP_LOG_DIR", "日志目录", "备份端", false},
-	{"CRON_SCHEDULE_BACKUP", "备份定时（cron）", "定时任务", false},
-	{"CRON_SCHEDULE_HEALTH", "巡检定时（cron）", "定时任务", false},
-	{"BACKUP_DISK_MOUNT", "数据盘挂载点", "巡检", false},
-	{"BACKUP_HEALTH_THRESHOLD_HOURS", "健康阈值（小时）", "巡检", false},
-	{"BACKUP_DISK_CRIT_PCT", "磁盘告警百分比", "巡检", false},
-	{"ALERT_WEBHOOK", "告警 Webhook", "巡检", true},
-}
+// 白名单不再手抄：运行时直接读 internal/shared/env-schema.json（唯一事实源）。
+// 以前这里抄了两张表（20 + 17 键），改模板键必须记得同步，漏一次新键就在页面上不可见；
+// 现在配置页、远端值对照、模板、脚本默认值全部问同一份 schema。见 docs/config.md §4。
+type envKeyDef = shared.EnvKeyDef
 
 func envDefsFor(component string) ([]envKeyDef, bool) {
 	switch component {
-	case "pg":
-		return pgEnvDefs, true
-	case "minio":
-		return minioEnvDefs, true
+	case "pg", "minio":
+		return shared.EnvDefs(component), true
 	default:
 		return nil, false
 	}
