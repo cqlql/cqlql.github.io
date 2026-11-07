@@ -11,7 +11,8 @@ func TestMenuItemsOnlyImplementedVerbs(t *testing.T) {
 	keys := map[string]bool{}
 	for _, item := range menuItems(testProbe) {
 		keys[item.Key] = true
-		if strings.Contains(item.label, "ops status") || strings.Contains(item.label, "ops deploy") {
+		// status 已在 P2a 落地；未实现的动词仍不许出现在菜单里。
+		if strings.Contains(item.label, "ops deploy") || strings.Contains(item.label, "ops rollback") {
 			t.Errorf("菜单列出了未实现的动词：%s", item.label)
 		}
 	}
@@ -22,6 +23,21 @@ func TestMenuItemsOnlyImplementedVerbs(t *testing.T) {
 	}
 	if testProbe("ui") && !keys["6"] {
 		t.Error("ui 已注册，菜单却没有「打开网页面板」")
+	}
+	if testProbe("status") && !keys["7"] {
+		t.Error("status 已注册，菜单却没有「查看备份状态」")
+	}
+}
+
+func TestMenuStatusActionIsReadOnly(t *testing.T) {
+	var calls [][]string
+	m := newTestMenu("", 0, &calls)
+	m.choose = func() (string, bool) { return "backup-01", true }
+	if rc := m.runAction("7"); rc != 0 {
+		t.Fatalf("runAction = %d", rc)
+	}
+	if len(calls) != 1 || strings.Join(calls[0], " ") != "status --server backup-01" {
+		t.Fatalf("status 菜单项应只读且透传目标机：%v", calls)
 	}
 }
 
@@ -108,4 +124,4 @@ func TestMenuTargetServerPassedThrough(t *testing.T) {
 	}
 }
 
-func testProbe(name string) bool { return name == "ui" }
+func testProbe(name string) bool { return name == "ui" || name == "status" }

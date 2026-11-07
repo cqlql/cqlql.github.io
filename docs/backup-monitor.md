@@ -1,11 +1,13 @@
-> 状态：**方案（代码未实现）**（2026-11-07）；未实现方案的配置键表从 config.md §3 移入本文 §10。
-> **2026-11-07 补 P2a 实现设计（§11）**：分节协议、接口签名、文件清单、红线单测与
-> 「只读账号强制」决策已定稿；**代码仍未实现**，键表也仍留在本文 §10、不进 config.md。
+> 状态：**P2a CLI 已实现（2026-11-07）；P2+ 界面仍为方案、代码未实现**。
+> `ops status --server <name> [--json]`、红线单测、只读账号强制、8 个 `ops.env` 键已落地；
+> 键表已搬回 [config.md](config.md) §3，本文 §10 改成指针。
+> **真机验收待做**：本机 `go vet` / `go test` / `go build` 全绿，断网与错密钥用假 runner 覆盖，
+> 尚未在备份机上跑过真实 `ssh`。§11 是落地后的施工图与同步记录。
 
 # 备份监控
 
-> 分册；唯一索引见 [AGENTS.md](../AGENTS.md)；本方案的键表见本文 §10，
-> 现行 `ops.env` / `backup.env` 的键见 [config.md](config.md)。
+> 分册；唯一索引见 [AGENTS.md](../AGENTS.md)；现行 `ops.env`（含 P2a 的 8 个监控键）
+> / `backup.env` 的键表见 [config.md](config.md) §3 / §4。
 > 本文只覆盖**只读监控**；备份能力的安装/升级（写 crontab、logrotate）见
 > [backup-deploy.md](backup-deploy.md)。
 
@@ -21,7 +23,7 @@
 失败会推钉钉，但日常想知道「最近一次成功是什么时候、备份多大、磁盘还剩多少」，
 仍然只能登录备份服务器手工敲命令。
 
-目标：`ops status --server <name>` 或 `ops ui` 直接看到这些事实，**只读**。
+目标：`ops status --server <name>`（P2a 已实现）或 `ops ui`（P2+ 方案）直接看到这些事实，**只读**。
 
 **前提**：备份能力已安装（见 [backup-deploy.md](backup-deploy.md)）。
 若尚未安装，`status` 返回「心跳文件不存在」属于正确结果，先跑 `ops backup deploy`。
@@ -30,8 +32,9 @@
 
 **做**：PG / MinIO 最后一次成功、最新备份文件、占用、磁盘余量；CLI（含 `--json`）与
 本地网页共用同一份快照；**目标机与连接参数走 [servers.json](servers.md)**，只读账号用
-该条目的 `monitor`。🔴 **P2 落地后强制 `monitor`，不再复用 `user/key`**（口径见 §6 / §11）；
-当前代码里 `MonitorTarget()` 的复用兜底是实现时要删掉的，别照抄。
+该条目的 `monitor`。🔴 **P2a 已强制 `monitor`，不再复用 `user/key`**（口径见 §6 / §11）；
+`MonitorSSHTarget()` 要求 `monitor.user` / `monitor.key` 齐全、不等于安装账号、不是 root，
+旧的 `MonitorTarget()` 复用兜底已删除。
 
 **不做**：触发 / 重跑 / 恢复备份（恢复脚本必须有人值守）；修改备份服务器任何文件；
 内嵌终端；定时告警（本机工具不适合常驻）。
@@ -75,6 +78,9 @@ sudo 密码的 stdin。路径拼进脚本前统一 `shQuote`，生成逻辑见 �
 `parseSections()` 按 `==XXX` 切块、块内按上面列出的行序取值；
 `age_hours = (META.now_epoch - last_success_epoch) / 3600`，
 **Go 侧只做减法**，不碰本机时钟（对应单测见 §11）。
+KB / 字节统一按 `1024` 换算成 MB 并保留 1 位小数；段的 `collected` 判据是
+「分节齐全 + 至少一个字段成功解析」，缺行或全 `-` 都是 `false`，但已采到的字段仍保留
+（例如心跳没采到、dump 采到了，仍显示 dump 并在问题清单里报心跳异常）。
 
 三条硬规则：
 
@@ -174,11 +180,13 @@ Go 侧类型约定（P2a 定稿，CLI `--json` 与 P2+ 网页共用同一份 `St
 
 1. 备份服务器用**专用只读账号**：不给 sudo、不给写权限；sshd 侧禁 PTY / 端口转发 / agent 转发。
    账号写在 [servers.json](servers.md) 的 `monitor`，**不复用有 sudo 权限的 `user`**。
-   🔴 **P2 落地口径（2026-11-07 拍板）**：「必须有 monitor」只在 `status` 采集入口强制
+   🔴 **P2a 已实现（2026-11-07）**：「必须有 monitor」只在 `status` 采集入口强制
    （`MonitorSSHTarget()` 要求 `monitor.user` / `monitor.key` 齐全、`monitor.user != user`、
-   不带 `sudo.password`、`IsRoot=false`），**不**加进 `LoadServers().normalize()` 的全局校验 ——
-   否则现有 P0/P1/界面清单全部加载失败；`normalize()` 只补一条「`monitor.user == user`
-   即拒绝」的 schema 护栏。`MonitorTarget()` 的复用兜底一并删除。见 §11。
+   不是 root、不带 `sudo.password`、`IsRoot=false`），**不**加进 `LoadServers().normalize()`
+   的全局校验 —— 否则现有 P0/P1/界面清单全部加载失败；`normalize()` 只补一条
+   「`monitor.user == user` 即拒绝」的 schema 护栏。`MonitorTarget()` 复用兜底已删除。
+   `SSHTarget.RunScript()` 的错误只说 `user@host:port`，不回显 ssh 的 stderr
+   （里面可能带私钥路径）；`monitor.connectionError()` 再兜一层脱敏。见 §11。
 2. 私钥只放本机，路径可以写进配置，但**任何输出、错误、日志都不打印它**。
 3. `accept-new` 不是 `no`：首次收录，之后变化直接拒绝。
 4. 工具只读：不调用 `pg_backup_status.sh` / `minio_backup_status.sh`
@@ -187,7 +195,8 @@ Go 侧类型约定（P2a 定稿，CLI `--json` 与 P2+ 网页共用同一份 `St
 
 ## 7. 文件与阶段
 
-P2a 只动 CLI，**不涉及 `internal/ui/` 与 `web/`**（`+` 新增、`~` 修改）：
+P2a 已按下面这份清单落地，只动 CLI，**没有碰 `internal/ui/` 与 `web/`**
+（`+` 新增、`~` 修改；`menu_test.go` 另补了「第 7 项只读」断言）：
 
     + internal/monitor/config.go          Config / ConfigFrom / probeScript
     + internal/monitor/status.go          Status / ScriptRunner / Collect / parseSections / assess
@@ -210,8 +219,8 @@ P2+ 另起一刀（界面）：`internal/ui/` 加一个 GET handler + 30s 缓存
 
 | 阶段 | 内容 | 验收 |
 | :--- | :--- | :--- |
-| P2a | `status --server <name>`（含 `--json`）+ 红线单测 | 本机连测试机；`go vet` / `go test` / `go build` 全绿；断网仍返回完整快照 |
-| P2+ | `ui`：页面 + 缓存 + token/Origin | 浏览器能看到四张卡与问题清单 |
+| P2a ✅ | `status --server <name>`（含 `--json`）+ 红线单测 | `go vet` / `go test` / `go build` 全绿；断网 / 错密钥用假 runner 返回完整快照；**真机连测试机待做** |
+| P2+（方案） | `ui`：页面 + 缓存 + token/Origin | 浏览器能看到四张卡与问题清单 |
 
 **前置**：备份能力已安装（见 [backup-deploy.md](backup-deploy.md)）。
 未安装时 `status` 只能返回「心跳文件不存在」——这是正确结果，不是工具故障。
@@ -238,40 +247,24 @@ P2+ 另起一刀（界面）：`internal/ui/` 加一个 GET handler + 30s 缓存
 | 不查 crontab | `crontab -u <运行用户> -l` 或 `sudo -n` | 只读监控账号读不到别人的 crontab，读到空会误报「未安装」 |
 | `du` MinIO 数据目录可选 | 默认全量 `du` | 对象多时几十秒；「只看备份」不值得每次等 |
 
-## 10. 配置键（方案，未实现）
+## 10. 配置键
 
-> 2026-11-07 从 [config.md](config.md) §3 移来：未实现方案不该在「现行配置」文档里
-> 占一节，也不该让人照着填进 `ops.env`。
+**8 个键已实现**，键表（默认值 / 校验口径）见 [config.md](config.md) §3，
+代码事实源是 `internal/shared/opsenv.go` 的 `opsEnvKeys` 与 `config.go` 的
+`MonitorConfig` / `DefaultMonitor*` 常量。本文不复述键表：路径与阈值是全局默认，
+多台备份机要不同值时再在清单里加 server 级覆盖；监控账号强制来自清单的 `monitor`
+（见 §6 / §11）。
 
-🔴 **本节是设计稿**：当前版本**没有任何代码读这些键**，写进 `ops.env` 会被
-`LoadConfig()` 直接拒绝并提示「备份监控（P2）方案尚未实现」（原因表见
-`internal/shared/opsenv.go` 的 `retiredOpsEnvKeys`）。实现时先在 `opsEnvKeys` 登记，
-再删掉本节提示。
+`retiredOpsEnvKeys()` 里只剩 P3–P4 方案键、已删除的旧主机键与「其实是进程环境变量」
+的覆盖键；`go test` 的 `TestConfigDocOnlyDefinesCurrentConfig` 按 `deploy.md` §8 的
+方案键表动态核对数量，不再留「20 个幽灵键」这种随阶段变化的魔法数。
 
-路径与阈值是**全局默认**；多台备份服务器需要不同值时，再在清单里加 server 级覆盖。
+## 11. P2a 实现设计与落地记录（2026-11-07 已实现）
 
-| 键 | 默认 | 说明 |
-| :--- | :--- | :--- |
-| `PASS_UP_OPS_PG_ROOT` | `/data/backups/postgres` | 备份根目录（含 daily/weekly/monthly） |
-| `PASS_UP_OPS_PG_LOG` | `/var/log/pg-backup` | 心跳与日志目录 |
-| `PASS_UP_OPS_MINIO_LOG` | `/var/log/minio-backup` | 心跳与日志目录 |
-| `PASS_UP_OPS_MINIO_DATA` | 空 | 可选；填了会 `du` 整个数据目录，对象多时很慢 |
-| `PASS_UP_OPS_DISK` | `/data` | 做 `df` 的挂载点 |
-| `PASS_UP_OPS_PG_STALE_HOURS` | `26` | 超过即判异常（每天一次，留 2h 余量） |
-| `PASS_UP_OPS_MINIO_STALE_HOURS` | `26` | 同上 |
-| `PASS_UP_OPS_DISK_WARN_PCT` | `90` | 已用率达到即判异常 |
-
-监控账号来自清单的 `monitor`；🔴 **P2 落地后强制填写，不再有「未填复用 `user/key`」的兜底**
-（见 §6 / §11）。实现时先把 8 个键在 `opsEnvKeys` 登记，再把本节键表搬回
-`docs/config.md` §3、本节改成一句指针 —— **代码没落地之前不要搬**：config.md 讲现行配置，
-列一堆读不到的键等于撒谎，`go test` 的 `TestConfigDocOnlyDefinesCurrentConfig` 也会红。
-
-## 11. P2a 实现设计（2026-11-07 定稿，代码未实现）
-
-> 本节是「下一刀」的施工图，不是现状。开工前先读 §1–§10；本节与那些章节冲突时，
-> 以本节为准（它是后来拍板的口径），落地后把状态行与本节标题一起改成「已实现」。
-> 已拍板的只有「强制只读账号」与「三条红线单测先行」；退出码语义（`1` = 有 danger）
-> 与 probe 脚本放 Go 常量这两处仍是**默认口径**，开工前可改，改了同步改本节与 §4。
+> 本节既是施工图也是现状：P2+ 接界面时直接复用 `Collect()` / `Status`，不要另算指标。
+> 落地时按两个拍板决策执行（强制只读账号、三条红线单测先行），
+> 退出码语义（`1` = 有 danger）与 probe 脚本放 Go 常量两处默认口径也已照做。
+> 真机验收仍未做，见 §11.4。
 
 ### 11.1 分层与接口
 
@@ -285,14 +278,14 @@ P2+ 另起一刀（界面）：`internal/ui/` 加一个 GET handler + 30s 缓存
     func parseSections(out string) Status       // 纯函数，固定文本 fixture 可测
     func assess(s *Status, cfg Config)          // danger / warn 阈值只在这里定义一次
     func probeScript(cfg Config) string         // 路径全部 shared.ShQuote 后注入
-    func (s *Server) MonitorSSHTarget() (*SSHTarget, error)   // 替换 MonitorTarget()
+    func (s *Server) MonitorSSHTarget() (*SSHTarget, error)   // 已替换 MonitorTarget()
 
 `RunScript` 走 `ssh -T ... sh -s`，stdin 喂脚本，stdout / stderr 分开收，255 沿用
 `sshExitTransport` 判定；30s 总超时常量 `monitor.CollectTimeout` 由 CLI 与 P2+ 共用。
 `probe.sh` 不落 `deploy/` 目录：路径要动态注入，Go 常量 + `ShQuote` 比模板替换安全
 （也省一套 embed 与只读扫描的接线）。
 
-### 11.2 两个拍板决策
+### 11.2 两个拍板决策（均已落地）
 
 | 决策 | 落地口径 | 为什么不那么做 |
 | :--- | :--- | :--- |
@@ -307,26 +300,30 @@ P2+ 另起一刀（界面）：`internal/ui/` 加一个 GET handler + 30s 缓存
 `probe_test.go` 按 `componentdist_test.go` 同口径扫只读脚本禁用 token，并断言不出现
 `pg_backup_status.sh` / `minio_backup_status.sh`。
 
-### 11.3 会被联动打红的护栏（最容易漏）
+### 11.3 联动护栏（已同步，回归时别再改回去）
 
-| 测试 | 原因 | 改法 |
+| 测试 | 原因 | 落地后的改法 |
 | :--- | :--- | :--- |
-| `opsenv_test.go` 幽灵键用例 | P2 键变合法 | 删 P2 用例，保留 P3 |
+| `opsenv_test.go` 幽灵键用例 | P2 键变合法 | 删 P2 用例，保留 P3；另加「P2 键可加载 / 非法值被拒」两个正向用例 |
 | `opsenv_test.go` `AppliesEveryKey` | 新键没给值直接 `Fatalf` | `values` + `checks` 各补 8 个 |
-| `opsenv_test.go` `ConfigDocOnly...` | `ghosts` 20→12，`< 20` 断言红 | 改成按剩余 P3 键动态判定，别留魔法数 |
-| `opsenv_test.go` 文档键归类 | 键表搬回 config.md | 不用改，但要跑一遍确认 `seen >= 20` |
-| `servers_test.go` `MonitorTarget` 回退断言 | 方法删除 | 改成三组：缺 monitor / user 撞车 / 正常，并断言 target 无 sudo 密码 |
+| `opsenv_test.go` `ConfigDocOnly...` | `ghosts` 20→12，`< 20` 断言红 | 改成按 `deploy.md` §8 的 P3 键表动态核对，别留魔法数 |
+| `opsenv_test.go` 文档键归类 | 键表搬回 config.md | 不用改；`seen >= 20` 仍绿（去重后约 40 个键） |
+| `servers_test.go` `MonitorTarget` 回退断言 | 方法删除 | 改成五组：缺 monitor / 缺 key / 撞车 / root / 正常，并断言 target 无 sudo 密码 |
+| `launcher/menu_test.go` | 新增第 7 项 | `testProbe` 认 `status`，断言第 7 项存在且只发只读 `status --server <name>` |
 
 ### 11.4 顺序与验收
 
-单测（红）→ `monitor` 三个实现文件 → `shared` 四处 → `main.go` / 菜单接线 →
-护栏同步 → 文档同步 → 真机验收。P2a **不改** `internal/ui/*` 与 `web/*`。
+已按「单测（红）→ `monitor` 三个实现文件 → `shared` 四处 → `main.go` / 菜单接线 →
+护栏同步 → 文档同步」落地；P2a **没有改** `internal/ui/*` 与 `web/*`。
 
-判据：`go vet ./...` + `go test ./...` + `go build ./...` 全绿；真机
-`ops status --server <备份机>` 出四段卡片、`--json` 字段与 §4 一致；断网 / 错密钥
-仍返回完整 JSON 且退出码 1；`ops init` 模板含 8 个新键、旧 `ops.env` 不含新键仍可用；
-未配 `monitor` 明确报错而非静默复用；任何输出里没有私钥路径。
+**已验**：`go vet ./...` + `go test ./...` + `go build ./...` 全绿；断网 / 错密钥路径
+由 `fakeRunner` 覆盖（完整 JSON + 退出码 1）；`ops init` 模板含 8 个新键，旧 `ops.env`
+不含新键仍走默认值；未配 `monitor` 明确报错；输出里没有私钥路径。
 
-**实现时同步**（现在不要动）：`docs/config.md` §1 键数 6→14、§3 接回键表；
-`docs/servers.md` §3 的 `monitor` 行改「P2 必填」并删「缺省复用」；
-`AGENTS.md` 状态行 / 硬约束 9 / 文档速查表；本文件状态行与本节标题。
+**待真机验收**：`ops status --server <备份机>` 出四段卡片、`--json` 字段与 §4 一致；
+真实断网 / 错密钥仍返回完整 JSON 且退出码 1；备份机上确认只读账号能读到心跳、
+日志与 `.dump`，且远端没有任何文件被写。
+
+**落地时已同步**：`docs/config.md` §1 键数 6→14、§3 接回键表；
+`docs/servers.md` §3 的 `monitor` 行改「P2a 必填」并删「缺省复用」；
+`AGENTS.md` 状态行 / 硬约束 9 / 命令表 / 文档速查表；本文件状态行、§10 与本节标题。

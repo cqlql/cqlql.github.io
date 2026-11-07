@@ -3,7 +3,8 @@
 > 状态：**P0 服务器管理（含一键免密 sudo）已实现并真机验证**；
 > P1 备份能力部署已实现并真机验证；一键启动与桌面快捷方式（S2/S3/S5 + 图标同源）已实现，
 > **双击 `启动运维.cmd` 直接开网页面板**（隐藏守护 / 单实例 / 自动开浏览器 / 关闭界面），
-> S4 真机人工验收待做；P2 监控、P3–P4 应用部署仍为方案、代码未实现（2026-11-05）。
+> S4 真机人工验收待做；**P2a 备份监控 CLI 已实现（真机验收待做）**，
+> P2+ 界面与 P3–P4 应用部署仍为方案、代码未实现（2026-11-07 更新）。
 > **2026-11-06 界面新增「重启」**（顶部工具栏）：可选「先重建」（npm test / typecheck /
 > build → `go build -o ops.next.exe .`）、换 exe、同端口同 token 接手、`boot_id` 判定，
 > 见 `docs/ui.md` §11 / 硬约束 22。
@@ -75,11 +76,15 @@
 > `clear` 列表，空值仍恒为「保持不变」，凭证填错不必再手改文件；`PG_SSH_KEY` 保存时
 > 只认私钥文件绝对路径，`preflight_pg.sh` 不再把路径打进日志。
 > 见 `docs/ui.md` §12.8 / 硬约束 23 ⑨。
-> **2026-11-07 定稿 P2a 实现设计（代码仍未实现）**：分节协议、接口签名、文件清单、
-> 红线单测与「只读账号强制」两个拍板结论写进 `docs/backup-monitor.md` §11；下一步先做
-> P2a CLI，P3–P4 仍为方案。🔴 **设计稿不等于现状**：§10 键表仍留方案文档、不进
-> `docs/config.md`，「已实现」措辞、键表与 `servers.md` 的 `monitor` 必填都要等代码落地再改。
-> 只放「每次动代码都要遵守」的红线：一句结论 + 一个指针。判据、流程、踩坑都在 `docs/`。
+> **2026-11-07 晚 P2a 备份监控 CLI 落地**：`ops status --server <name> [--json]`
+> + `internal/monitor/{config,status,cli}.go` + 红线单测（远端 epoch / `-` 不是 0 /
+> 连不上仍回完整快照）；8 个 `ops.env` 键从 retired 接进 `opsEnvKeys`，键表搬回
+> `docs/config.md` §3，`docs/servers.md` §3 的 `monitor` 改「P2a 必填」。
+> `shared.SSHTarget.RunScript` 走 stdin `sh -s`、stdout/stderr 分离；
+> `MonitorSSHTarget()` 强制专用只读账号，删掉 `MonitorTarget()` 复用兜底。
+> `main.go` 注册 `status`，菜单第 7 项按 `probe("status")` 条件出现。
+> P2+ 界面、P3–P4 仍为方案；**真机连备份机验收待做**。
+> 🔴 只放「每次动代码都要遵守」的红线：一句结论 + 一个指针。判据、流程、踩坑都在 `docs/`。
 > 通用文档规则以 `cqlql-notes/docs/工程/文档约定.md` 为准。
 
 ## 项目概述
@@ -92,6 +97,8 @@
   （Docker 引擎与 MinIO 服务，只读体检 / 安装 / 更新 / 卸载 / 离线镜像导入 /
   从另一台已登记服务器直接复制镜像，
   脚本在 `deploy/component/` 编进二进制，见 `docs/components.md`）；
+  `ops status --server <name> [--json]` 只读采集备份状态（PG 心跳 / 最新 dump /
+  MinIO 心跳 / 磁盘 + 问题清单；退出码 0 无 danger / 1 有 danger / 2 配置错）；
   `ops ui` 默认只读查看服务器清单与检查结果；「备份能力部署」页另有预检 / 安装 / 自检 /
   安装缺少依赖四个显式入口（两个安装都要输 yes，服务端先跑 `--dry-run`，见 `docs/ui.md` §9）；
   「环境组件」页另有同一份「备份依赖」区（见 `docs/components.md` §10）；
@@ -99,7 +106,7 @@
   （前端是 React 工程，源码 `web/`，构建后嵌入二进制）；
   双击 `启动运维.cmd` 直接开这个网页面板（后台隐藏守护 + 自动开浏览器 + 单实例）；
   `ops menu` 是显式的交互菜单入口，`ops shortcut` 建桌面 `.lnk`。见 `docs/one-click-launch.md`。
-- **仍是方案、代码未实现**：`ops status`（P2 备份监控）、`ops deploy` / `ops rollback`
+- **仍是方案、代码未实现**：`ops ui` 里的备份监控页（P2+）、`ops deploy` / `ops rollback`
   （P3–P4 单机 Docker 部署）；设计见 `docs/backup-monitor.md` / `docs/deploy.md`。
 - 代码按能力分包：`main.go` 只做命令分发，`internal/<能力>/` 放实现，
   `internal/shared/` 放配置、ssh 封装与服务器清单模型。详见「目录与边界」。
@@ -126,15 +133,17 @@
 7. 🔴 **Flyway 单向**：镜像可回滚，数据库不回滚；回滚后起不来要如实说明。
    详见 `docs/deploy.md`。
 8. 🔴 **私钥路径不打印**：可以写进配置，但不出现在任何输出、错误与日志。
-9. 🔴 **安装账号与只读账号分离**：`status`（P2 规划）与界面**默认视图**只看与检查；
+9. 🔴 **安装账号与只读账号分离**：`status`（P2a 已实现）与界面**默认视图**只看与检查；
    写 crontab / logrotate / 目录 / sudoers 只走显式动作（`ops backup deploy`、`ops servers apply-sudo`、
    或界面「备份能力部署」里输过 yes 的安装），**不复用只读账号**。
    🔴 界面**不会自动**触发安装：双击落地页仍是只读的，安装必须是人点按钮 + 二次确认
    + 服务端预检门（判据见硬约束 21）。
    sudo 密码只经 **stdin**（CLI `--password-stdin` / 界面单次请求内存 → 子进程 stdin），
    清单可选的 `sudo.password` 用完建议删除；**禁止 `--password` 参数**。
-   🔴 P2 落地时只读账号必须来自清单 `monitor` 且不等于安装账号；「必须有 monitor」
-   只在 `status` 采集入口强制，不加进清单全局校验（否则打挂 P0/P1/界面）。
+   🔴 **P2a 已落地**：`MonitorSSHTarget()` 要求只读账号来自清单 `monitor`、
+   `user/key` 齐全、不等于安装账号、不是 root、不带 sudo 密码、不提权；
+   「必须有 monitor」只在 `status` 采集入口强制，不加进清单全局校验
+   （`normalize()` 只挡 `monitor.user == user` 撞车），否则打挂 P0/P1/界面。
    详见 `docs/backup-deploy.md` §2、`docs/servers.md`、`docs/backup-monitor.md` §6 / §11。
 10. 🔴 **`--dry-run` 不改远端**：即使同时给 `--install-deps` 也不安装，只报告缺失项。
 11. 🔴 **整目录切换必须保留未部署组件的 `backup.env`**：只部署 `pg` 时，`minio/backup.env`
@@ -363,7 +372,7 @@
     环境变量覆盖键一句人话原因。非本项目前缀的键仍忽略；界面 `configForEditing`
     用 `FallbackConfig()` 兜底，报错显示在配置页、不白屏。
     `go test` 断言模板、默认值与 `docs/*.md` 全部分册里出现的所有键名都已归类；
-    config.md 只讲现行配置（P2/P3 方案键表与运行态文件清单已移到对应分册）。
+    config.md 只讲现行配置（P2a 的 8 个键已接回 §3；P3–P4 方案键表与运行态文件清单仍在对应分册）。
 29. 🔴 **启动器不许自己拼配置路径**（2026-11-07 新增）：`启动运维.cmd` 用
     `ops __config-path`（内部命令，stdout 恰好一行 ops.env 路径）拿 `shared.ConfigPath()`
     的结果，再推出配置目录；`PASS_UP_OPS_ENV` / `PASS_UP_OPS_CONFIG_DIR` /
@@ -413,6 +422,8 @@ ops init
 ops servers list
 ops servers check all
 ops servers apply-sudo <name> --password-stdin
+ops status --server <name> [--json]   # 只读；退出码 1 = 有 danger（含连不上）
+ops status --help
 ops backup deploy --server <name> --dry-run
 ops backup deploy --server <name> --install-deps
 ops backup deploy --server <name> --password-stdin   # 初始 sudo 密码从 stdin 读（界面走这条）
@@ -433,8 +444,9 @@ ops shortcut [--name <名字>] [--remove]
 ops menu --help
 ```
 
-上面只列 `main.go` 注册表里**已实现**的命令；`ops status` / `ops deploy` / `ops rollback`
-尚未实现，不要照抄执行。子命令选项以各能力的 `--help` 为准。
+上面只列 `main.go` 注册表里**已实现**的命令；`ops deploy` / `ops rollback` 与界面里的
+备份监控页（P2+）尚未实现，不要照抄执行。`ops status` 已实现但只读账号强制来自清单
+`monitor`，未配会明确报错并回 `2`；子命令选项以各能力的 `--help` 为准。
 本机二进制：`go build -o ops.exe .`（`启动运维.cmd` 按仓根 `ops.exe` 定位，不要挪）。
 双击 `启动运维.cmd` 无参 → 后台网页 + 自动开浏览器；`--fg` 前台 `ops ui`（保留窗口）、
 `--menu` 交互菜单、`--bg` 后台守护专用；带子命令（`help` / `servers list` …）原样转发。
@@ -505,20 +517,21 @@ ops menu --help
   现在只是调 `shared.AcquireSingleton` 的薄包装（互斥体实现只在 shared 一份）。
 - 命令入口统一 `Cmd<动词>`（如 `backup.CmdBackup`、`servers.CmdServers`）；
   能力的 CLI 分发与 usage 归各自包，测试文件也随能力归位。
-- `docs/backup-monitor.md` §7 与 `docs/deploy.md` §5 的文件树是 P2/P3–P4 的**计划**，
-  `status.go` / `deploy.go` / `rollback.go` 目前都不存在；落地时在 `internal/<能力>/` 下建包。
+- `docs/deploy.md` §5 的文件树仍是 P3–P4 的**计划**，`deploy.go` / `rollback.go` 不存在；
+  P2a 的 `internal/monitor/{config,status,cli}.go` 已落地（见 `docs/backup-monitor.md` §7）。
+  新增能力继续在 `internal/<能力>/` 下建包。
 
 ## 文档规则
 
 - 🔴 **唯一索引就是下面的「文档速查」表**；不新建 `docs/README.md` 或第二个索引。
 - 每份 `docs/*.md` 第一行必须是 `> 状态：...`；状态过期比没有文档更危险。
-- 配置键分两套，都不许复述默认值：本机 `ops.env` 的 6 个 `PASS_UP_OPS_*` 键只在
+- 配置键分两套，都不许复述默认值：本机 `ops.env` 的 14 个 `PASS_UP_OPS_*` 键只在
   `internal/shared/opsenv.go` 的 `opsEnvKeys` 定义（`ops init` 模板与 `LoadConfig`
   解析都由它驱动）；远端 `backup.env` 的键只在 `internal/shared/env-schema.json`
   定义（生成物见 `docs/config.md` §4）。`docs/config.md` 是说明，其它文档只引用键名。
-- 🔴 `docs/config.md` **只讲现行配置**：未实现方案（P2/P3）的键表放对应分册
-  （`backup-monitor.md §10` / `deploy.md §8`），运行态文件清单放
-  `one-click-launch.md §4.4`；config.md 的 §3 / §5 只留指针，**不许再抄回来**。
+- 🔴 `docs/config.md` **只讲现行配置**：P2a 的 8 个监控键已在 §3（代码已读），
+  P3–P4 未实现方案的键表仍在 `deploy.md §8`，运行态文件清单放
+  `one-click-launch.md §4.4`；config.md 的 §5 只留指针，**不许把方案键抄回来**。
   `go test` 断言 config.md 不含方案键与运行态文件表，且全部分册的键名都已归类。
 - 「为什么这么设计 / 哪些方案被否」并进对应分册的决策节，不单独开文档。
 - 新增能力 = 本表加一行 + 新建分册；**不要往已有分册里堆**。
@@ -536,7 +549,7 @@ ops menu --help
 | 界面（`ops ui` · Vite + React + antd，左侧 Sider + Menu） | `docs/ui.md` | 静态产物不过 token、API 才是边界；产物不进 Git 但 `.gitkeep` 必进；未构建要回说明页；单实例 + 配置不全也起页面；界面安装要过六道门（§9） |
 | 备份脚本（`deploy/backup/**`，已迁入本仓） | `docs/backup-scripts.md` | 脚本编在二进制里，改了必须 `go build`；目录里不许有真实凭证；恢复脚本禁止入 Crontab |
 | 备份能力部署（P1 ✅，监控的前置；CLI + 界面） | `docs/backup-deploy.md` | 复用 `install.sh`；不覆盖 `backup.env`；不静默迁移目录；logrotate 由工具落盘；界面安装必须 yes + 服务端预检门 |
-| 备份监控（P2 · 方案，代码未实现；P2a 设计见 §11） | `docs/backup-monitor.md` | 只读采集；时间差在远端算；`-` 不是 0；只读账号强制 `monitor` 且不复用安装账号；方案键表在本文 §10，不进 config.md |
+| 备份监控（P2a CLI ✅ / P2+ 界面方案；真机验收待做） | `docs/backup-monitor.md` | 只读采集；时间差在远端算；`-` 不是 0；只读账号强制 `monitor` 且不复用安装账号；8 个键已进 `docs/config.md` §3 |
 | 单机一键 Docker 部署（P3–P4 · 方案，未实现） | `docs/deploy.md` | `.env` 去 CRLF；镜像前缀必须等于 compose；Flyway 单向；方案键表在本文 §8，不进 config.md |
 | 一键启动与桌面快捷方式（S2/S3/S5 ✅，S4 人工验收待做） | `docs/one-click-launch.md` | 双击直达网页面板（隐藏守护 + 单实例）；`.lnk` 只指启动器；图标用独立 `.ico`；名字校验挡路径穿越；双击绝不触发写操作，页面写操作要显式确认 |
 | 配置（唯一维护处） | `docs/config.md` | `ops.env` 的键只在 `internal/shared/opsenv.go`（未知 `PASS_UP_OPS_*` 直接报错）；`backup.env` 的键只在 `internal/shared/env-schema.json`，模板 / 脚本兜底 / 白名单 / 键表都是生成物，漏跑生成器 `go test` 会红 |

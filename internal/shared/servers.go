@@ -150,6 +150,12 @@ func (l *ServerList) normalize() error {
 			if s.Monitor.User != "" && !userNameRe.MatchString(s.Monitor.User) {
 				return fmt.Errorf("%s: %s 的 monitor.user 非法：%q", l.Path, s.Name, s.Monitor.User)
 			}
+			// 🔴 schema 护栏只挡「撞车」，不要求每台机器都配 monitor：
+			//    P0/P1/界面清单不需要只读账号，全局必填会把它们全部打挂。
+			//    「必须有 monitor」只在 status 采集入口 MonitorSSHTarget() 强制。
+			if s.Monitor.User != "" && s.Monitor.User == s.User {
+				return fmt.Errorf("%s: %s 的 monitor.user 不能与 user 相同（只读账号必须独立）", l.Path, s.Name)
+			}
 			if s.Monitor.Key != "" {
 				s.Monitor.Key = expandAndCheckKey(s.Monitor.Key)
 				if s.Monitor.Key == "" {
@@ -221,18 +227,28 @@ func (l *ServerList) Resolve(explicit, cfgDefault string) (*Server, error) {
 	return nil, fmt.Errorf("未指定 --server，且无法自动选择（role=backup 有 %d 台）；请显式给 --server <name>", len(backups))
 }
 
-// MonitorTarget 返回只读监控使用的账号；未配置 monitor 时复用登录账号。
-func (s *Server) MonitorTarget() (user, key string) {
-	user, key = s.User, s.Key
-	if s.Monitor != nil {
-		if s.Monitor.User != "" {
-			user = s.Monitor.User
-		}
-		if s.Monitor.Key != "" {
-			key = s.Monitor.Key
-		}
+// MonitorSSHTarget 只给只读采集（ops status / P2a）用，替换旧的 MonitorTarget 兜底。
+// 🔴 强制专用只读账号：monitor.user / monitor.key 齐全、不等于安装账号、不是 root；
+//    target 不带 sudo 密码、IsRoot=false —— 采集不提权，也不占 sudo 密码的 stdin。
+//    🔴 私钥路径只在这份结构里传递，任何输出 / 错误 / 日志都不打印它。
+func (s *Server) MonitorSSHTarget() (*SSHTarget, error) {
+	if s.Monitor == nil || s.Monitor.User == "" || s.Monitor.Key == "" {
+		return nil, fmt.Errorf("服务器 %s 缺少只读监控账号 monitor.user / monitor.key（见 docs/servers.md §3）", s.Name)
 	}
-	return user, key
+	if s.Monitor.User == s.User {
+		return nil, fmt.Errorf("服务器 %s 的 monitor.user 不能等于安装账号 user（只读与安装必须分离）", s.Name)
+	}
+	if s.Monitor.User == "root" || s.Sudo.Mode == SudoModeRoot {
+		return nil, fmt.Errorf("服务器 %s 的只读监控账号不能是 root / sudo.mode=root", s.Name)
+	}
+	port := s.Port
+	if port == 0 {
+		port = 22
+	}
+	return &SSHTarget{
+		Host: s.Host, Port: port, User: s.Monitor.User, Key: s.Monitor.Key,
+		SudoPassword: "", IsRoot: false,
+	}, nil
 }
 
 // ---- 最近一次检查结果（仅缓存，不是配置；未检查过显示 —） ----

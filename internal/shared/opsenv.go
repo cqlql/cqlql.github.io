@@ -101,6 +101,70 @@ var opsEnvKeys = []OpsEnvKeyDef{
 			}
 		},
 	},
+	{
+		Key:           "PASS_UP_OPS_PG_ROOT",
+		Label:         "PG 备份根目录",
+		TemplateValue: DefaultMonitorPGRoot,
+		GapBefore:     true,
+		Notes: []string{
+			"备份监控（P2a；只读采集，路径都是备份机上的远端绝对路径）",
+			"含 daily/weekly/monthly；留空用默认值",
+		},
+		Apply: func(c *Config, v string) { c.setMonitorPath(&c.Monitor.PGRoot, v) },
+	},
+	{
+		Key:           "PASS_UP_OPS_PG_LOG",
+		Label:         "PG 心跳 / 日志目录",
+		TemplateValue: DefaultMonitorPGLog,
+		Apply:         func(c *Config, v string) { c.setMonitorPath(&c.Monitor.PGLog, v) },
+	},
+	{
+		Key:           "PASS_UP_OPS_MINIO_LOG",
+		Label:         "MinIO 心跳 / 日志目录",
+		TemplateValue: DefaultMonitorMinioLog,
+		Apply:         func(c *Config, v string) { c.setMonitorPath(&c.Monitor.MinioLog, v) },
+	},
+	{
+		Key:   "PASS_UP_OPS_MINIO_DATA",
+		Label: "MinIO 数据目录（可选）",
+		Notes: []string{
+			"留空 = 不采数据目录占用（对象多时全量 du 很慢）；填了必须是远端绝对路径",
+		},
+		Apply: func(c *Config, v string) { c.Monitor.MinioData = v },
+	},
+	{
+		Key:           "PASS_UP_OPS_DISK",
+		Label:         "df 的挂载点",
+		TemplateValue: DefaultMonitorDisk,
+		Apply:         func(c *Config, v string) { c.setMonitorPath(&c.Monitor.Disk, v) },
+	},
+	{
+		Key:           "PASS_UP_OPS_PG_STALE_HOURS",
+		Label:         "PG 心跳超时阈值（小时）",
+		TemplateValue: fmt.Sprint(DefaultMonitorPGStaleHours),
+		GapBefore:     true,
+		Notes:         []string{"每天一次，留 2h 余量；超过即判异常"},
+		Apply: func(c *Config, v string) {
+			c.setMonitorNumber("PASS_UP_OPS_PG_STALE_HOURS", v, &c.Monitor.PGStaleHours, 0)
+		},
+	},
+	{
+		Key:           "PASS_UP_OPS_MINIO_STALE_HOURS",
+		Label:         "MinIO 心跳超时阈值（小时）",
+		TemplateValue: fmt.Sprint(DefaultMonitorMinioStaleHours),
+		Apply: func(c *Config, v string) {
+			c.setMonitorNumber("PASS_UP_OPS_MINIO_STALE_HOURS", v, &c.Monitor.MinioStaleHours, 0)
+		},
+	},
+	{
+		Key:           "PASS_UP_OPS_DISK_WARN_PCT",
+		Label:         "磁盘已用率告警阈值（%）",
+		TemplateValue: fmt.Sprint(DefaultMonitorDiskWarnPct),
+		Notes:         []string{"达到即判异常；取值 1–100"},
+		Apply: func(c *Config, v string) {
+			c.setMonitorNumber("PASS_UP_OPS_DISK_WARN_PCT", v, &c.Monitor.DiskWarnPct, 100)
+		},
+	},
 }
 
 // OpsEnvKeys 返回键定义副本（Notes 也复制，别让调用方改到事实源）。
@@ -140,9 +204,9 @@ func RenderOpsEnvTemplate() string {
 
 // retiredOpsEnvKeys：文档里出现过、但当前版本不读的键。
 //
-// 2026-11-07 诊断抓到 20 个 P2/P3「幽灵键」在 Go 里 0 命中（原在 config.md §3/§5，
-// 第 3 步已移到 backup-monitor.md §10 / deploy.md §8）；另有已删除的旧主机键，
-// 以及三个其实是进程环境变量、不是文件键的覆盖键。
+// 2026-11-07 诊断抓到 20 个 P2/P3「幽灵键」在 Go 里 0 命中（原在 config.md §3/§5）；
+// P2a 落地后 8 个 P2 键已登记进 opsEnvKeys，剩下 12 个 P3 方案键留在 deploy.md §8。
+// 另有已删除的旧主机键，以及三个其实是进程环境变量、不是文件键的覆盖键。
 // 人照着方案文档把它们填进 ops.env 时，笼统回一句「未知键」会让人以为自己拼错了；
 // 这里给出「为什么它不生效、去哪看」的一句人话。方案落地时这张表要同步瘦身。
 func retiredOpsEnvKeys() map[string]string {
@@ -158,10 +222,6 @@ func retiredOpsEnvKeys() map[string]string {
 		"PASS_UP_OPS_BACKUP_HOST", "PASS_UP_OPS_BACKUP_PORT", "PASS_UP_OPS_BACKUP_USER", "PASS_UP_OPS_BACKUP_KEY",
 		"PASS_UP_OPS_BACKUP_ADMIN_USER", "PASS_UP_OPS_BACKUP_ADMIN_KEY", "PASS_UP_OPS_BACKUP_ADMIN_PASSWORD",
 		"PASS_UP_OPS_DEPLOY_HOST", "PASS_UP_OPS_DEPLOY_PORT", "PASS_UP_OPS_DEPLOY_USER", "PASS_UP_OPS_DEPLOY_KEY")
-	put("备份监控（P2）方案尚未实现，当前版本不读取该键（见 docs/backup-monitor.md §10）",
-		"PASS_UP_OPS_PG_ROOT", "PASS_UP_OPS_PG_LOG", "PASS_UP_OPS_MINIO_LOG", "PASS_UP_OPS_MINIO_DATA",
-		"PASS_UP_OPS_DISK", "PASS_UP_OPS_PG_STALE_HOURS", "PASS_UP_OPS_MINIO_STALE_HOURS",
-		"PASS_UP_OPS_DISK_WARN_PCT")
 	put("应用部署（P3–P4）方案尚未实现，当前版本不读取该键（见 docs/deploy.md §8）",
 		"PASS_UP_OPS_DEPLOY_DIR", "PASS_UP_OPS_DEPLOY_IMAGE_PREFIX", "PASS_UP_OPS_DEPLOY_REGISTRY",
 		"PASS_UP_OPS_BACKEND_DIR", "PASS_UP_OPS_AI_DIR", "PASS_UP_OPS_WEB_DIR", "PASS_UP_OPS_IMAGE_TAG",

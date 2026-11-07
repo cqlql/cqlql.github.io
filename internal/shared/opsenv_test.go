@@ -1,6 +1,7 @@
 package shared
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -123,6 +124,14 @@ func TestLoadConfigAppliesEveryKey(t *testing.T) {
 		"PASS_UP_OPS_BACKUP_SRC_DIR":        filepath.Join(dir, "scripts"),
 		"PASS_UP_OPS_BACKUP_PG_ENV_FILE":    filepath.Join(dir, "postgres.env"),
 		"PASS_UP_OPS_BACKUP_MINIO_ENV_FILE": filepath.Join(dir, "minio.env"),
+		"PASS_UP_OPS_PG_ROOT":               "/data/backups/pg-x",
+		"PASS_UP_OPS_PG_LOG":                "/var/log/pg-x",
+		"PASS_UP_OPS_MINIO_LOG":             "/var/log/minio-x",
+		"PASS_UP_OPS_MINIO_DATA":            "/data/minio-x",
+		"PASS_UP_OPS_DISK":                  "/mnt/data",
+		"PASS_UP_OPS_PG_STALE_HOURS":        "30",
+		"PASS_UP_OPS_MINIO_STALE_HOURS":     "31",
+		"PASS_UP_OPS_DISK_WARN_PCT":         "95",
 	}
 	var lines []string
 	for _, d := range OpsEnvKeys() {
@@ -139,12 +148,20 @@ func TestLoadConfigAppliesEveryKey(t *testing.T) {
 		t.Fatalf("LoadConfig: %v", err)
 	}
 	checks := map[string]struct{ got, want string }{
-		"ServersFile":   {cfg.ServersFile, values["PASS_UP_OPS_SERVERS_FILE"]},
-		"DefaultServer": {cfg.DefaultServer, values["PASS_UP_OPS_DEFAULT_SERVER"]},
-		"DeployDir":     {cfg.DeployDir, values["PASS_UP_OPS_BACKUP_DEPLOY_DIR"]},
-		"SrcDir":        {cfg.SrcDir, values["PASS_UP_OPS_BACKUP_SRC_DIR"]},
-		"PGEnvFile":     {cfg.PGEnvFile, values["PASS_UP_OPS_BACKUP_PG_ENV_FILE"]},
-		"MinioEnvFile":  {cfg.MinioEnvFile, values["PASS_UP_OPS_BACKUP_MINIO_ENV_FILE"]},
+		"ServersFile":             {cfg.ServersFile, values["PASS_UP_OPS_SERVERS_FILE"]},
+		"DefaultServer":           {cfg.DefaultServer, values["PASS_UP_OPS_DEFAULT_SERVER"]},
+		"DeployDir":               {cfg.DeployDir, values["PASS_UP_OPS_BACKUP_DEPLOY_DIR"]},
+		"SrcDir":                  {cfg.SrcDir, values["PASS_UP_OPS_BACKUP_SRC_DIR"]},
+		"PGEnvFile":               {cfg.PGEnvFile, values["PASS_UP_OPS_BACKUP_PG_ENV_FILE"]},
+		"MinioEnvFile":            {cfg.MinioEnvFile, values["PASS_UP_OPS_BACKUP_MINIO_ENV_FILE"]},
+		"Monitor.PGRoot":          {cfg.Monitor.PGRoot, values["PASS_UP_OPS_PG_ROOT"]},
+		"Monitor.PGLog":           {cfg.Monitor.PGLog, values["PASS_UP_OPS_PG_LOG"]},
+		"Monitor.MinioLog":        {cfg.Monitor.MinioLog, values["PASS_UP_OPS_MINIO_LOG"]},
+		"Monitor.MinioData":       {cfg.Monitor.MinioData, values["PASS_UP_OPS_MINIO_DATA"]},
+		"Monitor.Disk":            {cfg.Monitor.Disk, values["PASS_UP_OPS_DISK"]},
+		"Monitor.PGStaleHours":    {fmt.Sprint(cfg.Monitor.PGStaleHours), "30"},
+		"Monitor.MinioStaleHours": {fmt.Sprint(cfg.Monitor.MinioStaleHours), "31"},
+		"Monitor.DiskWarnPct":     {fmt.Sprint(cfg.Monitor.DiskWarnPct), "95"},
 	}
 	for field, c := range checks {
 		if c.got != c.want {
@@ -159,7 +176,6 @@ func TestLoadConfigRejectsUnknownOpsEnvKey(t *testing.T) {
 		name, line, want string
 	}{
 		{"拼错", "PASS_UP_OPS_DEFAULT_SERVR=bk", "可能是拼写错误"},
-		{"P2 幽灵键", "PASS_UP_OPS_PG_ROOT=/data/backups/postgres", "备份监控（P2）方案尚未实现"},
 		{"P3 幽灵键", "PASS_UP_OPS_DEPLOY_DIR=/opt/passup", "应用部署（P3–P4）方案尚未实现"},
 		{"环境变量误写进文件", "PASS_UP_OPS_CONFIG_DIR=C:\\tmp", "这是进程环境变量"},
 		{"已删除的旧主机键", "PASS_UP_OPS_BACKUP_HOST=10.0.0.1", "已迁移到服务器清单"},
@@ -181,6 +197,50 @@ func TestLoadConfigRejectsUnknownOpsEnvKey(t *testing.T) {
 				if !strings.Contains(err.Error(), d.Key) {
 					t.Errorf("错误信息没列出合法键 %s", d.Key)
 				}
+			}
+		})
+	}
+}
+
+// P2a 落地后 8 个监控键是合法键：模板、解析、运行时默认值都要能读出来。
+func TestLoadConfigAcceptsP2MonitorKeys(t *testing.T) {
+	writeOpsEnv(t,
+		"PASS_UP_OPS_PG_ROOT=/data/backups/pg",
+		"PASS_UP_OPS_MINIO_DATA=",
+		"PASS_UP_OPS_PG_STALE_HOURS=30",
+		"PASS_UP_OPS_DISK_WARN_PCT=95",
+	)
+	cfg, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("P2 键已从 retired 移到 opsEnvKeys，不该再被拒绝：%v", err)
+	}
+	if cfg.Monitor.PGRoot != "/data/backups/pg" || cfg.Monitor.MinioData != "" ||
+		cfg.Monitor.PGStaleHours != 30 || cfg.Monitor.DiskWarnPct != 95 {
+		t.Errorf("监控键没生效：%+v", cfg.Monitor)
+	}
+	// 没写的键仍走运行时默认值，不许退化成 0（0 会让 stale 判定恒真）。
+	if cfg.Monitor.MinioStaleHours != DefaultMonitorMinioStaleHours ||
+		cfg.Monitor.Disk != DefaultMonitorDisk {
+		t.Errorf("未显式配置的键丢了默认值：%+v", cfg.Monitor)
+	}
+}
+
+// 键合法但值非法：路径必须是安全的远端绝对路径，阈值必须是正数。
+func TestLoadConfigRejectsInvalidP2MonitorValues(t *testing.T) {
+	cases := []struct{ name, line, want string }{
+		{"坏阈值", "PASS_UP_OPS_PG_STALE_HOURS=abc", "必须是正数"},
+		{"零阈值", "PASS_UP_OPS_MINIO_STALE_HOURS=0", "必须是正数"},
+		{"超范围百分比", "PASS_UP_OPS_DISK_WARN_PCT=120", "1–100"},
+		{"相对路径", "PASS_UP_OPS_PG_ROOT=data/backups", "以 / 开头"},
+		{"路径穿越", "PASS_UP_OPS_MINIO_DATA=/data/../etc", "不含 .."},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			writeOpsEnv(t, tc.line)
+			if _, err := LoadConfig(); err == nil {
+				t.Fatalf("%q 应被拒绝，实际通过", tc.line)
+			} else if !strings.Contains(err.Error(), tc.want) {
+				t.Errorf("错误信息缺少 %q：%v", tc.want, err)
 			}
 		})
 	}
@@ -244,18 +304,37 @@ func TestConfigDocOnlyDefinesCurrentConfig(t *testing.T) {
 	}
 	text := string(data)
 
-	ghosts := 0
-	for k, reason := range retiredOpsEnvKeys() {
-		if !strings.Contains(reason, "尚未实现") {
-			continue
-		}
-		ghosts++
-		if strings.Contains(text, "`"+k+"`") {
-			t.Errorf("%s 仍复述了未实现方案的键 %s；键表应留在对应分册", rel, k)
+	// P2a 落地后 8 个 P2 键已是合法键，剩下的「未实现」键只来自 deploy.md §8。
+	// 数量按方案文档的键表动态算，不留 20 这种随阶段变化的魔法数。
+	deploy, err := os.ReadFile("../../docs/deploy.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	deployKeys := map[string]bool{}
+	for _, m := range regexp.MustCompile("`(PASS_UP_OPS_[A-Z_]+)`").FindAllStringSubmatch(string(deploy), -1) {
+		deployKeys[m[1]] = true
+	}
+	retired := retiredOpsEnvKeys()
+	notImplemented := 0
+	for _, reason := range retired {
+		if strings.Contains(reason, "尚未实现") {
+			notImplemented++
 		}
 	}
-	if ghosts < 20 {
-		t.Errorf("原因表里只有 %d 个「尚未实现」的键，分类可能失效，断言等于空转", ghosts)
+	if len(deployKeys) != notImplemented || notImplemented == 0 {
+		t.Errorf("deploy.md §8 的方案键有 %d 个，retiredOpsEnvKeys 里标「尚未实现」的有 %d 个，两边应一致且非空",
+			len(deployKeys), notImplemented)
+	}
+	for k := range deployKeys {
+		reason, ok := retired[k]
+		if !ok || !strings.Contains(reason, "尚未实现") {
+			t.Errorf("%s 是方案键，却没在 retiredOpsEnvKeys 里标「尚未实现」", k)
+		}
+	}
+	for k, reason := range retired {
+		if strings.Contains(reason, "尚未实现") && strings.Contains(text, "`"+k+"`") {
+			t.Errorf("%s 仍复述了未实现方案的键 %s；键表应留在对应分册", rel, k)
+		}
 	}
 	if regexp.MustCompile("(?m)^\\|\\s*`ui\\.json`\\s*\\|").MatchString(text) {
 		t.Errorf("%s 仍带运行态文件清单表；判据应在 one-click-launch.md §4.4", rel)
@@ -265,5 +344,5 @@ func TestConfigDocOnlyDefinesCurrentConfig(t *testing.T) {
 			t.Errorf("%s 缺少指向 %s 的指针", rel, doc)
 		}
 	}
-	t.Logf("config.md 已不含 %d 个方案键与运行态文件表", ghosts)
+	t.Logf("config.md 已不含 %d 个方案键与运行态文件表", notImplemented)
 }

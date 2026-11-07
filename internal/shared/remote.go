@@ -1,6 +1,7 @@
 package shared
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -115,6 +116,44 @@ func (t *SSHTarget) Capture(ctx context.Context, cmd string, root bool) (string,
 		return string(out), code, fmt.Errorf("ssh 连接失败（exit 255）：%s", strings.TrimSpace(string(out)))
 	}
 	return string(out), code, nil
+}
+
+// addr 是「user@host:port」展示串：只用于给人看的错误信息，绝不含私钥路径。
+func (t *SSHTarget) addr() string {
+	dest := t.Host
+	if t.User != "" {
+		dest = t.User + "@" + dest
+	}
+	return fmt.Sprintf("%s:%d", dest, t.Port)
+}
+
+// RunScript 把固定脚本从 stdin 喂给远端 `sh -s`，stdout / stderr 分开收。
+//
+// 🔴 不用 Capture()：CombinedOutput() 会把远端警告混进分节纯文本被误解析
+//    （docs/backup-monitor.md §3.1）。只读账号不提权，stdin 全程只给脚本。
+// 🔴 错误里只说 user@host:port，不回显远端 stderr —— ssh 的
+//    「Identity file ... not accessible」会带出私钥路径（硬约束 8）。
+func (t *SSHTarget) RunScript(ctx context.Context, script string) (string, error) {
+	c := exec.CommandContext(ctx, "ssh", t.sshArgs("sh -s")...)
+	HideConsole(c)
+	c.Stdin = strings.NewReader(script)
+	var stdout, stderr bytes.Buffer
+	c.Stdout = &stdout
+	c.Stderr = &stderr
+	err := c.Run()
+	if err == nil {
+		return stdout.String(), nil
+	}
+	var ee *exec.ExitError
+	if errors.As(err, &ee) {
+		code := ee.ExitCode()
+		if code == sshExitTransport {
+			return stdout.String(), fmt.Errorf(
+				"ssh 连接失败（exit 255）：无法连到 %s（认证 / 网络 / 主机密钥变化）", t.addr())
+		}
+		return stdout.String(), fmt.Errorf("远端只读脚本失败（exit %d，%s）", code, t.addr())
+	}
+	return stdout.String(), fmt.Errorf("本机 ssh 执行失败（检查是否安装 OpenSSH Client）：%v", err)
 }
 
 // Stream 用于安装 / 自检 / 首跑：输出直接给人看，stdin 可接 tar 流。

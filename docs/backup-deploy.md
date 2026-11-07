@@ -27,7 +27,7 @@
 | :--- | :--- | :--- |
 | 动作 | 只读采集 | 写目录 / crontab / logrotate |
 | 账号 | 清单的 `monitor`（只读） | 安装期 `user` + `sudo`；运行期就是 `user` 本人 |
-| 入口 | `status`（P2 规划）、界面默认视图、预检 `--dry-run`、`backup verify` | `ops backup deploy`、界面「备份能力部署」里输过 `yes` 的安装 |
+| 入口 | `status`（P2a 已实现）、界面默认视图、预检 `--dry-run`、`backup verify` | `ops backup deploy`、界面「备份能力部署」里输过 `yes` 的安装 |
 
 🔴 **绝不自动触发安装**：双击落地页只读、`status` 只读；界面安装要人点按钮 + 输 `yes`
 + 服务端预检通过。**安装账号与只读账号绝不复用**。

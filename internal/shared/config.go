@@ -3,9 +3,11 @@ package shared
 import (
 	"bufio"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -15,6 +17,32 @@ const ConfigDirEnv = "PASS_UP_OPS_CONFIG_DIR"
 // Config 是 ops.env 解析后的结果；键定义（`ops init` 模板 / 默认值 / 赋值语义）
 // 只在 opsenv.go 的 opsEnvKeys 里维护一次。
 // 主机 / 端口 / SSH 用户 / 私钥 / sudo 凭据只在服务器清单（servers.json）里。
+// 备份监控（P2a）的默认值：ops init 模板字面量与 defaultConfig() 运行时默认值
+// 共用这一份常量，避免「模板写了 26、运行时却是 0」。
+const (
+	DefaultMonitorPGRoot          = "/data/backups/postgres"
+	DefaultMonitorPGLog           = "/var/log/pg-backup"
+	DefaultMonitorMinioLog        = "/var/log/minio-backup"
+	DefaultMonitorDisk            = "/data"
+	DefaultMonitorPGStaleHours    = 26.0
+	DefaultMonitorMinioStaleHours = 26.0
+	DefaultMonitorDiskWarnPct     = 90.0
+)
+
+// MonitorConfig 是 ops.env 里 P2 只读采集的路径与判定阈值。
+// 路径都是**远端绝对路径**（配置加载时校验），MinioData 留空表示不采数据目录。
+type MonitorConfig struct {
+	PGRoot    string
+	PGLog     string
+	MinioLog  string
+	MinioData string
+	Disk      string
+
+	PGStaleHours    float64
+	MinioStaleHours float64
+	DiskWarnPct     float64
+}
+
 type Config struct {
 	Path string
 
@@ -25,6 +53,11 @@ type Config struct {
 	SrcDir       string
 	PGEnvFile    string
 	MinioEnvFile string
+
+	Monitor MonitorConfig
+
+	// configErrors 收集「键合法但值非法」：Apply 不返回 error，统一在 validate() 报。
+	configErrors []string
 }
 
 const serversTemplate = `{
@@ -91,7 +124,42 @@ func defaultConfig(path string) *Config {
 		SrcDir:       "",
 		PGEnvFile:    filepath.Join(envDir, "postgres.env"),
 		MinioEnvFile: filepath.Join(envDir, "minio.env"),
+		Monitor: MonitorConfig{
+			PGRoot:          DefaultMonitorPGRoot,
+			PGLog:           DefaultMonitorPGLog,
+			MinioLog:        DefaultMonitorMinioLog,
+			Disk:            DefaultMonitorDisk,
+			PGStaleHours:    DefaultMonitorPGStaleHours,
+			MinioStaleHours: DefaultMonitorMinioStaleHours,
+			DiskWarnPct:     DefaultMonitorDiskWarnPct,
+		},
 	}
+}
+
+// setMonitorPath 是 P2 路径键共用的赋值语义：留空用运行时默认值；
+// MinioData 例外（默认就是空 = 不采），显式写空也保持不采。
+func (c *Config) setMonitorPath(dst *string, v string) {
+	if v != "" {
+		*dst = v
+	}
+}
+
+// setMonitorNumber 把「键合法但值非法」收进 configErrors，由 validate() 统一报，
+// 不让非法阈值静默退化成 0（0 会把「超过阈值」判成恒真）。
+func (c *Config) setMonitorNumber(key, v string, dst *float64, max float64) {
+	if v == "" {
+		return
+	}
+	x, err := strconv.ParseFloat(strings.TrimSpace(v), 64)
+	if err != nil || math.IsNaN(x) || math.IsInf(x, 0) || x <= 0 || (max > 0 && x > max) {
+		hint := "正数"
+		if max > 0 {
+			hint = fmt.Sprintf("1–%g 之间的正数", max)
+		}
+		c.configErrors = append(c.configErrors, fmt.Sprintf("%s 必须是%s：%q", key, hint, v))
+		return
+	}
+	*dst = x
 }
 
 // BackupEnvDir 是本机备份配置目录（backup/{postgres,minio}.env）。
@@ -162,11 +230,47 @@ func LoadConfig() (*Config, error) {
 }
 
 func (c *Config) validate() error {
+	if len(c.configErrors) > 0 {
+		return fmt.Errorf("ops.env 配置错误：%s", strings.Join(c.configErrors, "；"))
+	}
 	if c.ServersFile == "" {
 		return fmt.Errorf("服务器清单路径为空")
 	}
 	if !remotePathRe.MatchString(c.DeployDir) || strings.Contains(c.DeployDir, "..") {
 		return fmt.Errorf("PASS_UP_OPS_BACKUP_DEPLOY_DIR 必须是以 / 开头且不含 .. 的安全远端路径：%q", c.DeployDir)
+	}
+	// P2 采集路径会拼进远端 sh 脚本：先在这里卡死绝对路径与 ..，
+	// probeScript() 再对每段做 ShQuote（两道防线，见 docs/backup-monitor.md §3.1）。
+	paths := []struct{ key, value string }{
+		{"PASS_UP_OPS_PG_ROOT", c.Monitor.PGRoot},
+		{"PASS_UP_OPS_PG_LOG", c.Monitor.PGLog},
+		{"PASS_UP_OPS_MINIO_LOG", c.Monitor.MinioLog},
+		{"PASS_UP_OPS_DISK", c.Monitor.Disk},
+	}
+	if c.Monitor.MinioData != "" {
+		paths = append(paths, struct{ key, value string }{"PASS_UP_OPS_MINIO_DATA", c.Monitor.MinioData})
+	}
+	for _, p := range paths {
+		if !remotePathRe.MatchString(p.value) || strings.Contains(p.value, "..") {
+			return fmt.Errorf("%s 必须是以 / 开头且不含 .. 的安全远端路径：%q", p.key, p.value)
+		}
+	}
+	for _, t := range []struct {
+		key   string
+		value float64
+		max   float64
+	}{
+		{"PASS_UP_OPS_PG_STALE_HOURS", c.Monitor.PGStaleHours, 0},
+		{"PASS_UP_OPS_MINIO_STALE_HOURS", c.Monitor.MinioStaleHours, 0},
+		{"PASS_UP_OPS_DISK_WARN_PCT", c.Monitor.DiskWarnPct, 100},
+	} {
+		if t.value <= 0 || (t.max > 0 && t.value > t.max) {
+			hint := "正数"
+			if t.max > 0 {
+				hint = fmt.Sprintf("1–%g 之间的正数", t.max)
+			}
+			return fmt.Errorf("%s 必须是%s：%g", t.key, hint, t.value)
+		}
 	}
 	return nil
 }

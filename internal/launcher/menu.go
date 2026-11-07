@@ -37,7 +37,7 @@ type menuAction struct {
 	label string
 }
 
-// menuItems 只列已实现的动词。ui 是 P2 的切换点：能力已注册就多一项，
+// menuItems 只列已实现的动词。ui / status 靠 probe 条件注册：能力已实现就多一项，
 // 未注册时菜单、.lnk、.cmd 的形状都不用改。
 func menuItems(probe func(string) bool) []menuAction {
 	items := []menuAction{
@@ -49,6 +49,9 @@ func menuItems(probe func(string) bool) []menuAction {
 	}
 	if probe("ui") {
 		items = append(items, menuAction{"6", "打开网页面板（ops ui，Ctrl+C 结束）"})
+	}
+	if probe("status") {
+		items = append(items, menuAction{"7", "查看备份状态（ops status，只读）"})
 	}
 	return items
 }
@@ -150,7 +153,7 @@ func (m *menu) runAction(key string) int {
 		return m.exec([]string{"ui"})
 	}
 
-	// 2/3/4 都要选目标机：只接受清单里的 name，回车用默认。
+	// 2/3/4/7 都要选目标机：只接受清单里的 name，回车用默认。
 	name, ok := m.targetServer()
 	if !ok {
 		return 1
@@ -164,6 +167,8 @@ func (m *menu) runAction(key string) int {
 	switch key {
 	case "2":
 		return m.exec(precheck)
+	case "7":
+		return m.exec(append([]string{"status"}, serverArgs...))
 	case "4":
 		return m.exec(append([]string{"backup", "verify"}, serverArgs...))
 	case "3":

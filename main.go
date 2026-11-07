@@ -4,6 +4,7 @@ import (
 	"pass-up/ops/internal/backup"
 	"pass-up/ops/internal/component"
 	"pass-up/ops/internal/launcher"
+	"pass-up/ops/internal/monitor"
 	"pass-up/ops/internal/restart"
 	"pass-up/ops/internal/servers"
 	"pass-up/ops/internal/shared"
@@ -27,6 +28,9 @@ func commandHandler(name string) (func([]string) int, bool) {
 		return shared.CmdInit, true
 	case "servers":
 		return servers.CmdServers, true
+	case "status":
+		// P2a 只读备份监控：脚本在 Go 常量里生成，经 ssh stdin 执行。
+		return monitor.CmdStatus, true
 	case "ui":
 		return runUI, true
 	case "backup":
@@ -119,6 +123,7 @@ func usage() {
   ops servers list [--json]              服务器清单与最近检查结果
   ops servers check [name|all] [--json]  只读检查 SSH 与免密 sudo
   ops servers apply-sudo <name>          一键配置免密 sudo（写操作）
+  ops status --server <name> [--json]    只读查看备份状态（心跳 / dump / 磁盘 + 问题清单）
   ops ui [--port 7788] [--no-open]       本机界面（只监听 127.0.0.1；端口被占自动递增）
                                          服务器清单 / 检查只读；写操作需显式二次确认
   ops shortcut [--name <名字>] [--remove]
@@ -139,6 +144,7 @@ func usage() {
 组件: pg | minio | all（默认 all）
 环境组件: docker | minio（minio 依赖 docker；镜像走离线 tar，凭证走 backup/minio.env）
 
-运行 ops servers --help / ops backup deploy --help / ops component help 查看选项。
+运行 ops servers --help / ops status --help / ops backup deploy --help /
+ops component help 查看选项。ops status 的退出码：0 无 danger / 1 有 danger / 2 配置错。
 `)
 }

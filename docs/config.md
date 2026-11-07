@@ -1,18 +1,20 @@
 > 状态：**现行**（2026-11-07）。服务器清单为唯一主机来源（P0）；P1 备份部署已迁移到
 > `--server`；§4 的 `backup.env` 键表 / 默认值改由 `internal/shared/env-schema.json` 生成；
 > `ops.env` 的键改由 `internal/shared/opsenv.go` 的 `opsEnvKeys` 定义，未知
-> `PASS_UP_OPS_*` 键报错；P2/P3 方案键表与运行态文件已移出本文，只留分册指针。
+> `PASS_UP_OPS_*` 键报错；**2026-11-07 P2a 落地**：8 个备份监控键已登记为现行键、
+> 键表接回本文 §3；P3–P4 方案键表与运行态文件仍在分册，本文只留指针。
 
 # 配置（唯一维护处）
 
 > 分册；唯一索引见 [AGENTS.md](../AGENTS.md)。
-> 🔴 **键定义不在这份文档里**：`ops.env` 的 6 个键只在 `internal/shared/opsenv.go`
+> 🔴 **键定义不在这份文档里**：`ops.env` 的 14 个键只在 `internal/shared/opsenv.go`
 > 的 `opsEnvKeys` 定义一次（`ops init` 模板、`LoadConfig` 解析、默认值都由它驱动）；
 > `backup.env` 的键只在 `internal/shared/env-schema.json`。本文是**说明**，
 > 表格里的默认值是给人看的速览，冲突时一律以代码为准；其它文档只引用键名。
-> 🔴 **本文只讲现行配置**：未实现方案（P2/P3）的键表、运行态文件清单分别移到
-> [backup-monitor.md](backup-monitor.md) §10、[deploy.md](deploy.md) §8、
-> [one-click-launch.md](one-click-launch.md) §4.4；本文 §3 / §5 只留指针。
+> 🔴 **本文只讲现行配置**：P3–P4 未实现方案的键表仍在 [deploy.md](deploy.md) §8、
+> 运行态文件清单在 [one-click-launch.md](one-click-launch.md) §4.4；本文 §5 只留指针。
+> P2a 备份监控的 8 个键[已落地](#3-备份监控p2a--cli-已实现)，键表在本文 §3，
+> 采集协议与红线见 [backup-monitor.md](backup-monitor.md)。
 
 ## 1. 文件位置与格式
 
@@ -26,12 +28,19 @@
 
 `ops.env` 格式：标准 `KEY=VALUE`，允许 `#` 注释、空行、值两侧单/双引号。不进 Git。
 
-🔴 **只认 6 个键**（键定义见 `internal/shared/opsenv.go`）：`PASS_UP_OPS_SERVERS_FILE`、
-`PASS_UP_OPS_DEFAULT_SERVER`、`PASS_UP_OPS_BACKUP_DEPLOY_DIR`、
-`PASS_UP_OPS_BACKUP_SRC_DIR`、`PASS_UP_OPS_BACKUP_PG_ENV_FILE`、
-`PASS_UP_OPS_BACKUP_MINIO_ENV_FILE`。`ops init` 的模板由键定义生成，`LoadConfig()`
-查同一张表派发；**遇到其它 `PASS_UP_OPS_*` 键直接报错**并说明原因（拼错 / P2·P3
-未实现 / 已迁移到 `servers.json` / 其实是环境变量），不再静默忽略 ——
+🔴 **只认 14 个键**（键定义见 `internal/shared/opsenv.go`）：
+
+- 基础 4 个：`PASS_UP_OPS_SERVERS_FILE`、`PASS_UP_OPS_DEFAULT_SERVER`、
+  `PASS_UP_OPS_BACKUP_SRC_DIR`、`PASS_UP_OPS_BACKUP_DEPLOY_DIR`；
+- 备份凭证 2 个：`PASS_UP_OPS_BACKUP_PG_ENV_FILE`、`PASS_UP_OPS_BACKUP_MINIO_ENV_FILE`；
+- 备份监控 8 个：`PASS_UP_OPS_PG_ROOT`、`PASS_UP_OPS_PG_LOG`、
+  `PASS_UP_OPS_MINIO_LOG`、`PASS_UP_OPS_MINIO_DATA`、`PASS_UP_OPS_DISK`、
+  `PASS_UP_OPS_PG_STALE_HOURS`、`PASS_UP_OPS_MINIO_STALE_HOURS`、
+  `PASS_UP_OPS_DISK_WARN_PCT`（键表见 §3）。
+
+`ops init` 的模板由键定义生成，`LoadConfig()` 查同一张表派发；
+**遇到其它 `PASS_UP_OPS_*` 键直接报错**并说明原因（拼错 / P3–P4 未实现 /
+已迁移到 `servers.json` / 其实是环境变量），不再静默忽略 ——
 「以为配了却没生效」比「没配」难查得多。非本项目前缀的键仍忽略；
 界面配置页用 `FallbackConfig()` 兜底，报错显示在页面上，不会白屏。
 `go test` 会断言模板、运行时默认值，以及 `docs/*.md` 全部分册里出现的每个
@@ -74,12 +83,27 @@ JSON 结构、字段语义与校验规则见 [servers.md](servers.md) §3，**�
 
 迁移窗口：P1 已实现版本仍在读旧键；P0 实现时**一次性切换**到清单，旧键随之删除。
 
-## 3. 备份监控（P2）—— 方案，未实现
+## 3. 备份监控（P2a · CLI 已实现）
 
-🔴 **本文不定义这一节的键**。方案期的路径与阈值键表在
-[backup-monitor.md](backup-monitor.md) §10；当前版本没有任何代码读它们，写进
-`ops.env` 会被 `LoadConfig()` 拒绝并提示「备份监控（P2）方案尚未实现」（见 §1）。
-实现时先在 `internal/shared/opsenv.go` 的 `opsEnvKeys` 登记，再把键表接回本文。
+`ops status --server <name> [--json]` 的**只读全局默认**；多台备份机要不同值时，
+再在清单里加 server 级覆盖（本期未做）。键定义、模板字面量、运行时默认值都只在
+`internal/shared/opsenv.go` / `config.go`，采集与判定见 [backup-monitor.md](backup-monitor.md)。
+
+| 键 | 默认 | 说明 |
+| :--- | :--- | :--- |
+| `PASS_UP_OPS_PG_ROOT` | `/data/backups/postgres` | 备份根目录（含 daily/weekly/monthly） |
+| `PASS_UP_OPS_PG_LOG` | `/var/log/pg-backup` | PG 心跳与日志目录 |
+| `PASS_UP_OPS_MINIO_LOG` | `/var/log/minio-backup` | MinIO 心跳与日志目录 |
+| `PASS_UP_OPS_MINIO_DATA` | 空 | 可选；填了会 `du` 整个数据目录，对象多时很慢 |
+| `PASS_UP_OPS_DISK` | `/data` | 做 `df` 的挂载点 |
+| `PASS_UP_OPS_PG_STALE_HOURS` | `26` | 超过即判异常（每天一次，留 2h 余量） |
+| `PASS_UP_OPS_MINIO_STALE_HOURS` | `26` | 同上 |
+| `PASS_UP_OPS_DISK_WARN_PCT` | `90` | 已用率达到即判异常（1–100） |
+
+🔴 路径键必须是**远端绝对路径**且不含 `..`（`LoadConfig().validate()` 先卡一道，
+`probeScript()` 再对每段 `ShQuote`）；阈值必须是正数，磁盘百分比不超过 100。
+`PASS_UP_OPS_MINIO_DATA` 留空才表示「不采数据目录」；其余路径键留空用上表默认值。
+监控账号来自清单的 `monitor`，**不复用**安装账号，见 [servers.md](servers.md) §3。
 
 ## 4. 备份能力部署（P1）
 
@@ -196,7 +220,8 @@ JSON 结构、字段语义与校验规则见 [servers.md](servers.md) §3，**�
 - 清单文件必须存在且可解析；`name` 唯一、`role` 合法、`host`/`user` 必填、端口 1–65535；
   `key` 支持 `~` 展开，**文件不存在或权限过宽时明确报错**；`default` 必须指向存在的 `name`；
   含 `sudo.password` 的文件权限必须 `600`；
-- 远端路径必须是绝对路径（`path.IsAbs`，斜杠语义，防止 Windows 路径被误填），且不含 `..`；
+- 远端路径必须是绝对路径（斜杠语义，防止 Windows 路径被误填），且不含 `..`；
+  P2a 的 5 个路径键同样过这一关，阈值键另验正数 / 百分比上限；
 - 私钥路径**只校验存在性，不打印、不回显**；
 - 命令只接受清单里的 `--server <name>`，不接受任意 host；
 - sudo 密码只经 **stdin**（CLI `--password-stdin` / 界面单次请求），**不存在 `--password` 参数**；
