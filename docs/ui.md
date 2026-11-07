@@ -11,6 +11,8 @@
 > **2026-11-06 追加「换电脑零手工」**：产物缺失由 `启动运维.cmd` 自动补齐（§3、
 > [one-click-launch.md](one-click-launch.md) §4.1）；配置 / 清单读不出来时**照常返回 SPA**，
 > 落地页给可操作引导，配置页可直接新增第一台服务器（§12.6）。
+> **2026-11-07 追加**：配置页显示 `env-schema.json` 的默认值、另有显式「填入推荐
+> 默认值」按钮，换电脑后不必逐项填（§12.7）。
 > 未实现的 P2/P3 视图按本文件 §7 的触发条件再加。
 
 # 界面（`ops ui`）
@@ -561,11 +563,12 @@ ops backup sync-env [pg|minio|all] --server <name>
 - **删除服务器**：仍不做（主键与 `servers.state.json` / default 的一致性处理没必要为
   低频动作引入）。**新增服务器已于 2026-11-06 补上**（§12.6）：空清单是首次使用的
   必然状态，只让编辑已有条目等于半个功能。
-- **不把脚本内置默认值自动写进本机 env**：`PG_SSH_OPTS` 没配时，页面只在 placeholder
-  提示脚本兜底值（`-o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new`），
-  留空 = 用脚本默认，**不是**「没有 SSH 选项」。要写进文件必须人在输入框里填一次并保存。
-  这条默认值与 `pg_backup.sh` / `pg_restore.sh` / `backup.env.example` 逐字一致，
+- **不「自动」把脚本内置默认值写进本机 env**：默认值只显示在 placeholder / 一键填入的
+  表单里，落盘仍要人点「填入推荐默认值」→「保存本机配置」→ 输入 `yes`（§12.7）。
+  `PG_SSH_OPTS` 是旧 exe 没下发 `default` 时唯一的兼容兜底，这串与
+  `pg_backup.sh` / `pg_restore.sh` / `backup.env.example` 逐字一致，
   口径见 [backup-monitor.md](backup-monitor.md) §3.3。
+  🔴 页面**不猜**默认值：一律读 `env-schema.json`；凭证与 `default` 为空的键不给默认值。
 
 ### 12.5 远端值对照（2026-11-06 追加）
 
@@ -649,7 +652,44 @@ ops backup sync-env [pg|minio|all] --server <name>
 **没变**：双击落地页仍只读；新增服务器是**本机写操作**，不连任何远端；四个写动作一律
 `POST` + token + Origin + `confirm=="yes"`。
 
-### 12.7 回归要点
+### 12.7 换电脑后的默认值提示（2026-11-07 追加）
+
+**为什么**：换电脑后配置页一片「未配置」，看着像 20 个字段都要重新填。其实默认值
+**早就存在**：`ops.env` 的 4 个路径键由 `FallbackConfig()` 按配置目录推导、
+`DEPLOY_DIR=/opt/passup-backup`、`SRC_DIR` 留空＝用编进二进制的脚本；`backup.env`
+每个键的 `default` 在 `internal/shared/env-schema.json`，已生成进
+`backup.env.example`、脚本 `${KEY:-默认值}`、Makefile 与文档；新增服务器的
+`port=22` / `role=backup` / `sudo_mode=nopasswd` 也已预填。
+断掉的只有一环：`GET /api/config` 的 `envField` 不带 `default`，前端
+`envInputPlaceholder()` 对所有未配置字段一律写「未配置」（原来只有 `PG_SSH_OPTS`
+一个特例）。截图里那行红字「远端配置不存在…设备可能还没安装备份能力」是
+`compare-env` 抓取失败，与默认值无关。
+
+**接口**：`envField` 增加 `default`，由 `envDefaultFor(defs, key, secret)` 只查 schema。
+🔴 三类键恒为空串，不许猜：凭证键（否则凭证跟着 exe 跑）、schema `default` 为空的键
+（`PG_SSH_HOST` / `PG_SSH_KEY` 等人填项，以及 `MINIO_CONTAINER_NAME` 跳过检查、
+`UPLOAD_LIMIT` 不限速、`ALERT_WEBHOOK` 不推送这类「留空即关闭」开关）、
+文件里冒出来的未知键。空值语义由 `${KEY:-}` 兜底判定承担，见
+[config.md](config.md) §4 与 §12.4。
+
+**前端**：`normalizeConfigView` 对旧 exe 缺字段补 `''`、凭证强制清空（旧 dist / 旧 exe
+混跑不白屏）；未配置输入框的灰字改成「留空即用默认：X」；新增
+`fillableDefaults()` 与「填入推荐默认值」按钮，**只改表单**，仍要走
+「保存本机配置」+ `confirm=="yes"` 才落盘。已配置、人已填过、凭证、无默认值的项
+一律不动；没有可填项时按钮置灰。
+
+**为什么不「打开页面就自动写满文件」**：① 空值是有语义的，写满会静默改掉
+`install.sh` / `preflight` 的 `[ -z ]` 判定；② 凭证键不许有默认值；③ 默认值写进
+每台电脑的本地 env = N 份副本，以后改 schema 一处，已有文件不跟随 ——
+`PG_LOCAL_RETENTION_DAYS`「模板 7 / 脚本 3」的漂移就是这么来的。
+反过来，远端 `preflight_pg.sh` 的 `check_required_var` 要求 `backup.env` 里真有
+`PG_BACKUP_ROOT` 等键，所以显式「一键填入 + 保存」让本机配置更接近安装期的
+`backup.env.example`，同步到远端后反而少一处漂移；这是人的显式选择，不是页面偷偷写。
+
+**没变**：双击落地页只读；四个写动作仍 `POST` + token + Origin + `confirm=="yes"`；
+`sync-env` 仍整份覆盖，远端独有项仍要显式提示；路径仍由服务端解析、接口不收路径。
+
+### 12.8 回归要点
 
 - 配置缺失 / 空清单：`TestIndexServedWithoutConfig`（页面仍回 SPA）、
   `TestConfigViewWorksWithoutConfig`（配置页 200 + `setup_error` + 两份 env）、
@@ -667,8 +707,14 @@ ops backup sync-env [pg|minio|all] --server <name>
   逐字一致（含 `accept-new`），防止三处漂移；
 - `cd web && npm test && npm run typecheck && npm run build`：`config.test.ts` 的
   「空值 = 保持不变」「只提交改动字段」「保存本机 ≠ 同步远端」、
-  「`PG_SSH_OPTS` 未配置时只提示默认值、不写进表单」
-  与「`components: null` / `fields: null` 不白屏」；
+  「`PG_SSH_OPTS` 未配置时只提示默认值、不写进表单」、
+  「`components: null` / `fields: null` 不白屏」；
+- 默认值（§12.7）：Go 侧 `TestReadEnvFieldsExposesSchemaDefaults` /
+  `TestReadEnvFieldsNoMinioSecretDefaults` 锁住「目录/数值有默认、凭证与
+  留空即关闭的开关恒空、未知键不猜值」；前端 `config.test.ts` 锁住
+  「灰字只提示不写表单」「旧 exe 缺 `default` 归一化补空串」与
+  `fillableDefaults` 不覆盖人填的值、不碰凭证；
+  `TestEmbeddedBackupSSHDefaultsAligned` 仍锁 `PG_SSH_OPTS` 四处逐字一致；
 - 真机：临时配置目录起实例 → 点「配置」→ 改一项非凭证值保存，核对文件与 `.bak` →
   改 `user` 后确认提示重新免密 sudo → 点「同步到远端」后到目标机核对 `backup.env`
   内容与 0600 权限，且 crontab / 脚本 mtime 没变。

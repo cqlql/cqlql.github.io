@@ -42,7 +42,15 @@ export function normalizeConfigView(v: ConfigView | null | undefined): ConfigVie
     sync_enabled: raw.sync_enabled ?? false,
     setup_error: raw.setup_error,
     servers: list<ConfigServer>(raw.servers),
-    envs: list<EnvView>(raw.envs).map((e) => ({ ...e, fields: list<EnvField>(e.fields) })),
+    envs: list<EnvView>(raw.envs).map((e) => ({
+      ...e,
+      // 旧 exe 还没下发 default：浏览器可能挂着旧 dist、服务端也可能是旧二进制。
+      // 缺字段时补空串，凭证一律强制清空，不让「未定义」流到输入框或一键填入里。
+      fields: list<EnvField>(e.fields).map((f) => ({
+        ...f,
+        default: f.secret ? '' : (f.default ?? ''),
+      })),
+    })),
   }
 }
 
@@ -114,18 +122,56 @@ export function envPlaceholder(f: EnvField): string {
 /**
  * 非凭证输入框的占位文案。
  *
- * 🔴 只提示、不自动写文件：本机 env 里没写 PG_SSH_OPTS 时，备份脚本会用内置默认值，
- * 页面留空不等于「没有 SSH 选项」。这串必须与
- * deploy/backup/postgres/{pg_backup.sh,pg_restore.sh,backup.env.example} 的兜底默认值一致；
- * backupdist_test.go 会挡住脚本侧漂移，改默认值时两边一起改。
+ * 🔴 只提示、不自动写文件：本机 env 里没写这一项时，备份脚本会用 env-schema.json 的
+ * 默认值，页面留空**不等于**「没有值」。default 由 GET /api/config 下发，唯一事实源是
+ * internal/shared/env-schema.json，前端不再手抄第二份。
+ *
+ * PG_SSH_OPTS 是旧 exe（还没下发 default）唯一的兼容兜底：这串必须与
+ * deploy/backup/postgres/{pg_backup.sh,pg_restore.sh,backup.env.example} 的兜底默认值
+ * 逐字一致，backupdist_test.go 会挡住脚本侧漂移，改默认值时两边一起改。
  */
 export const PG_SSH_OPTS_DEFAULT =
   '-o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new'
 
+/** 取「留空时会生效」的默认值；凭证与 schema 里 default 为空的键一律返回空串。 */
+export function envDefaultOf(f: EnvField): string {
+  if (f.secret) return ''
+  if (f.default) return f.default
+  // 旧 exe 还没下发 default 时，至少这一个键仍能给出脚本内置默认值。
+  if (f.key === 'PG_SSH_OPTS') return PG_SSH_OPTS_DEFAULT
+  return ''
+}
+
 export function envInputPlaceholder(f: EnvField): string {
   if (f.configured) return ''
-  if (f.key === 'PG_SSH_OPTS') return `未配置（脚本默认：${PG_SSH_OPTS_DEFAULT}）`
-  return '未配置'
+  const def = envDefaultOf(f)
+  return def ? `留空即用默认：${def}` : '未配置'
+}
+
+/**
+ * 「填入推荐默认值」：只改表单，不写文件、不碰远端；后续仍要人点保存 + 输入 yes。
+ *
+ * 只填「非凭证 + 未配置 + 当前为空 + schema 有默认值」的字段：
+ *   - 凭证 / 机器相关（PG_SSH_HOST、私钥、各种 KEY/SECRET）schema default 为空，不填；
+ *   - 空值有语义的开关（MINIO_CONTAINER_NAME 跳过检查、UPLOAD_LIMIT 不限速、
+ *     ALERT_WEBHOOK 不推送）同样 default 为空，不填，绝不改脚本的 `[ -z ]` 判定；
+ *   - 人已经填过或本机文件里已配的值一律保留。
+ * 没有可填项时返回 null，页面把按钮置灰。
+ */
+export function fillableDefaults(
+  fields: EnvField[],
+  draft: Record<string, string>,
+): Record<string, string> | null {
+  const out = { ...draft }
+  let n = 0
+  for (const f of fields) {
+    if (f.secret || f.configured || (draft[f.key] ?? '') !== '') continue
+    const def = envDefaultOf(f)
+    if (!def) continue
+    out[f.key] = def
+    n++
+  }
+  return n > 0 ? out : null
 }
 
 // ---- 远端值对照 ----

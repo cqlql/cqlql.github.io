@@ -17,6 +17,7 @@ import {
   envInitial,
   envInputPlaceholder,
   envPlaceholder,
+  fillableDefaults,
   newServerInitial,
   normalizeCompareView,
   normalizeConfigView,
@@ -37,9 +38,9 @@ const server: ConfigServer = {
 }
 
 const fields: EnvField[] = [
-  { key: 'PG_SSH_HOST', label: '主服务器地址', group: '连接', value: '127.0.0.1', secret: false, configured: true },
-  { key: 'PG_SSH_KEY', label: '私钥路径', group: '连接', value: '', secret: true, configured: true },
-  { key: 'SRC_SECRET', label: '密钥', group: '连接', value: '', secret: true, configured: false },
+  { key: 'PG_SSH_HOST', label: '主服务器地址', group: '连接', value: '127.0.0.1', secret: false, configured: true, default: '' },
+  { key: 'PG_SSH_KEY', label: '私钥路径', group: '连接', value: '', secret: true, configured: true, default: '' },
+  { key: 'SRC_SECRET', label: '密钥', group: '连接', value: '', secret: true, configured: false, default: '' },
 ]
 
 test('serverInitial 不把凭证带进表单', () => {
@@ -76,7 +77,7 @@ test('secret 占位文案区分已配置与未配置', () => {
 test('PG_SSH_OPTS 未配置时提示脚本内置默认值（含 accept-new），但不写进表单', () => {
   const opts: EnvField = {
     key: 'PG_SSH_OPTS', label: 'SSH 额外选项', group: '连接',
-    value: '', secret: false, configured: false,
+    value: '', secret: false, configured: false, default: '',
   }
   const hint = envInputPlaceholder(opts)
   assert.match(hint, /BatchMode=yes/)
@@ -87,6 +88,73 @@ test('PG_SSH_OPTS 未配置时提示脚本内置默认值（含 accept-new），
   assert.equal(envInitial([opts]).PG_SSH_OPTS, '')
   assert.equal(envInputPlaceholder({ ...opts, configured: true }), '')
   assert.equal(envInputPlaceholder({ ...opts, key: 'PG_SSH_HOST' }), '未配置')
+})
+
+test('未配置字段用灰字提示 schema 默认值，已配置字段不提示', () => {
+  const root: EnvField = {
+    key: 'PG_BACKUP_ROOT', label: '备份根目录', group: '备份端',
+    value: '', secret: false, configured: false, default: '/data/backups/postgres',
+  }
+  assert.equal(envInputPlaceholder(root), '留空即用默认：/data/backups/postgres')
+  assert.equal(envInputPlaceholder({ ...root, configured: true }), '')
+  // 提示只改 placeholder：表单初值仍是空的，保存时不会被误写。
+  assert.equal(envInitial([root]).PG_BACKUP_ROOT, '')
+})
+
+test('凭证、必填项与「留空即关闭」的开关都不显示默认值', () => {
+  const base: EnvField = {
+    key: 'MINIO_CONTAINER_NAME', label: 'MinIO 容器名', group: '备份端',
+    value: '', secret: false, configured: false, default: '',
+  }
+  assert.equal(envInputPlaceholder(base), '未配置')
+  assert.equal(envInputPlaceholder({ ...base, key: 'PG_SSH_HOST' }), '未配置')
+  // 就算旧数据/误配给凭证塞了 default，也不许显示或填入。
+  assert.equal(envInputPlaceholder({ ...base, key: 'SRC_SECRET', secret: true, default: 'leak' }), '未配置')
+})
+
+test('旧 exe 未下发 default 时归一化补空串，凭证强制清空', () => {
+  const raw = {
+    servers_file: 'servers.json',
+    envs: [{ component: 'pg', path: 'pg.env', exists: false, fields: [
+      { key: 'PG_BACKUP_ROOT', label: '备份根目录', group: '备份端', value: '', secret: false, configured: false },
+      { key: 'PG_SSH_KEY', label: '私钥', group: '连接', value: '', secret: true, configured: false, default: 'leak' },
+    ] }],
+  } as unknown as ConfigView
+  const got = normalizeConfigView(raw)
+  assert.equal(got.envs[0].fields[0].default, '')
+  assert.equal(got.envs[0].fields[1].default, '')
+  assert.equal(envInputPlaceholder(got.envs[0].fields[1]), '未配置')
+})
+
+test('一键填入只动「有默认值的非凭证空字段」，不覆盖人填的值', () => {
+  const list: EnvField[] = [
+    { key: 'PG_BACKUP_ROOT', label: '备份根目录', group: '备份端', value: '', secret: false, configured: false, default: '/data/backups/postgres' },
+    { key: 'PG_BACKUP_LOG_DIR', label: '日志目录', group: '备份端', value: '', secret: false, configured: false, default: '/var/log/pg-backup' },
+    { key: 'PG_SSH_HOST', label: '主服务器地址', group: '连接', value: '', secret: false, configured: false, default: '' },
+    { key: 'PG_SSH_KEY', label: '私钥', group: '连接', value: '', secret: true, configured: false, default: '' },
+    { key: 'ALERT_WEBHOOK', label: '告警', group: '巡检', value: '', secret: true, configured: false, default: '' },
+    { key: 'PG_DB_NAME', label: '业务库名', group: '主服务器', value: 'pass_up_dev', secret: false, configured: true, default: 'pass_up' },
+  ]
+  const draft = envInitial(list)
+  const filled = fillableDefaults(list, draft)
+  assert.ok(filled)
+  assert.equal(filled.PG_BACKUP_ROOT, '/data/backups/postgres')
+  assert.equal(filled.PG_BACKUP_LOG_DIR, '/var/log/pg-backup')
+  assert.equal(filled.PG_SSH_HOST, '')
+  assert.equal(filled.PG_SSH_KEY, '')
+  assert.equal(filled.ALERT_WEBHOOK, '')
+  assert.equal(filled.PG_DB_NAME, 'pass_up_dev')
+  // 只改表单：落盘仍走 changedFields + 保存 + yes 确认。
+  assert.deepEqual(changedFields(draft, filled), {
+    PG_BACKUP_ROOT: '/data/backups/postgres',
+    PG_BACKUP_LOG_DIR: '/var/log/pg-backup',
+  })
+  // 全填完后没有可填项，按钮置灰。
+  assert.equal(fillableDefaults(list, filled), null)
+  // 人自己填过的值不被默认值覆盖。
+  const typed = fillableDefaults(list, { ...draft, PG_BACKUP_ROOT: '/mnt/big' })
+  assert.equal(typed?.PG_BACKUP_ROOT, '/mnt/big')
+  assert.equal(typed?.PG_BACKUP_LOG_DIR, '/var/log/pg-backup')
 })
 
 test('确认文案点明「保存本机 ≠ 同步远端」', () => {

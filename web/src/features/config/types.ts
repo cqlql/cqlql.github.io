@@ -26,6 +26,8 @@ export interface EnvField {
   value: string
   secret: boolean
   configured: boolean
+  /** 运行时默认值，只来自 env-schema.json；凭证与「留空即关闭」的键恒为空串。 */
+  default: string
 }
 
 export interface EnvView {

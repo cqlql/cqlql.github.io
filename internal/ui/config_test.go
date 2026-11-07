@@ -87,6 +87,108 @@ func TestReadEnvFieldsMasksSecrets(t *testing.T) {
 	}
 }
 
+// 换电脑后配置页一片「未配置」：真因不是缺默认值，而是 GET /api/config 没把
+// env-schema.json 的 default 带出来。这里锁住「哪些能带、哪些必须空」。
+func TestReadEnvFieldsExposesSchemaDefaults(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "postgres.env")
+	// 只写一个已有键 + 一个文件里冒出来的未知键，其余按 schema 补齐。
+	content := strings.Join([]string{
+		`PG_SSH_HOST="10.0.0.9"`,
+		`PG_SSH_KEY="/root/.ssh/id_passup_test"`,
+		`UNKNOWN_FUTURE_KEY="keep"`,
+	}, "\n")
+	if err := os.WriteFile(p, []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	fields, _, err := readEnvFields(p, shared.EnvDefs("pg"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	byKey := map[string]envField{}
+	for _, f := range fields {
+		byKey[f.Key] = f
+	}
+	// 目录 / 数值 / 定时任务这类「完全可以给默认值」的键，页面要拿得到。
+	for key, want := range map[string]string{
+		"PG_BACKUP_ROOT":          "/data/backups/postgres",
+		"PG_BACKUP_LOG_DIR":       "/var/log/pg-backup",
+		"BACKUP_DISK_MOUNT":       "/data",
+		"PG_LOCAL_RETENTION_DAYS": "7",
+		"CRON_SCHEDULE_BACKUP":    "0 3 * * *",
+		"PG_SSH_OPTS":             "-o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new",
+	} {
+		f, ok := byKey[key]
+		if !ok {
+			t.Errorf("schema 里的 %s 没出现在字段列表", key)
+			continue
+		}
+		if f.Default != want {
+			t.Errorf("%s 的 default = %q，想要 %q", key, f.Default, want)
+		}
+		if f.Value != "" || f.Configured {
+			t.Errorf("%s 只是提示默认值，不该顺手把值写进表单：%+v", key, f)
+		}
+	}
+	// 凭证、必须人填、以及「留空即关闭」的开关一律不给默认值。
+	for _, key := range []string{
+		"PG_SSH_HOST", "PG_SSH_KEY", "ALERT_WEBHOOK",
+	} {
+		f := byKey[key]
+		if f.Default != "" {
+			t.Errorf("%s 不该带 default（值 %q）", key, f.Default)
+		}
+	}
+	if byKey["UNKNOWN_FUTURE_KEY"].Default != "" {
+		t.Error("文件里的未知键不该凭空得到默认值")
+	}
+	if got := byKey["PG_SSH_HOST"].Value; got != "10.0.0.9" {
+		t.Errorf("已有键的值被改动：%q", got)
+	}
+	// 凭证即使被错标成有默认值，JSON 里也必须为空。
+	b, err := json.Marshal(byKey["PG_SSH_KEY"])
+	if err != nil {
+		t.Fatal(err)
+	}
+	var wire map[string]any
+	if err := json.Unmarshal(b, &wire); err != nil {
+		t.Fatal(err)
+	}
+	if wire["default"] != "" || wire["value"] != "" {
+		t.Errorf("凭证字段的 JSON 不该带值：%s", b)
+	}
+}
+
+// MinIO 侧的凭证同样不许带默认值（schema 已强制，这里再挡一道）。
+func TestReadEnvFieldsNoMinioSecretDefaults(t *testing.T) {
+	fields, _, err := readEnvFields(filepath.Join(t.TempDir(), "missing.env"), shared.EnvDefs("minio"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range fields {
+		if f.Secret && (f.Default != "" || f.Value != "") {
+			t.Errorf("凭证 %s 带值：%+v", f.Key, f)
+		}
+	}
+	if got := findEnvField(fields, "BACKUP_LOG_DIR").Default; got != "/var/log/minio-backup" {
+		t.Errorf("MinIO 日志目录默认值 = %q", got)
+	}
+	// 空值有语义的两个开关：schema default 为空，页面不能一键填。
+	for _, key := range []string{"MINIO_CONTAINER_NAME", "UPLOAD_LIMIT"} {
+		if got := findEnvField(fields, key).Default; got != "" {
+			t.Errorf("%s 的空值代表跳过/关闭，不该给默认值 %q", key, got)
+		}
+	}
+}
+
+func findEnvField(fields []envField, key string) envField {
+	for _, f := range fields {
+		if f.Key == key {
+			return f
+		}
+	}
+	return envField{}
+}
+
 func TestEditEnvFile(t *testing.T) {
 	p := filepath.Join(t.TempDir(), "postgres.env")
 	original := strings.Join([]string{

@@ -322,6 +322,24 @@ type envField struct {
 	Value      string `json:"value"`
 	Secret     bool   `json:"secret"`
 	Configured bool   `json:"configured"`
+	// Default 是「留空时脚本会用到的运行时默认值」，只来自 env-schema.json。
+	// 🔴 凭证键与 schema 里 default 为空的键必须是空串：前者带默认值等于凭证跟着 exe 跑，
+	//    后者的空值是有语义的（跳过检查 / 不限速 / 不推送），填了会静默改掉脚本执行逻辑。
+	Default string `json:"default"`
+}
+
+// envDefaultFor 只查 schema 的 default，不猜、不兜底。
+// 文件里冒出来的未知键（不在白名单里）一律不给默认值。
+func envDefaultFor(defs []envKeyDef, key string, secret bool) string {
+	if secret {
+		return ""
+	}
+	for _, d := range defs {
+		if d.Key == key {
+			return d.Default
+		}
+	}
+	return ""
 }
 
 // readEnvFields 返回可编辑字段。凭证字段 value 恒为空，只给 configured 标记。
@@ -357,7 +375,11 @@ func readEnvFields(path string, defs []envKeyDef) ([]envField, map[string]bool, 
 			if !secret {
 				value = v
 			}
-			fields = append(fields, envField{k, label, group, value, secret, v != ""})
+			fields = append(fields, envField{
+				Key: k, Label: label, Group: group, Value: value,
+				Secret: secret, Configured: v != "",
+				Default: envDefaultFor(defs, k, secret),
+			})
 		}
 	}
 	for _, d := range defs {
@@ -365,7 +387,11 @@ func readEnvFields(path string, defs []envKeyDef) ([]envField, map[string]bool, 
 			continue
 		}
 		secret := d.Secret || isSecretEnvKey(d.Key)
-		fields = append(fields, envField{d.Key, d.Label, d.Group, "", secret, false})
+		fields = append(fields, envField{
+			Key: d.Key, Label: d.Label, Group: d.Group, Value: "",
+			Secret: secret, Configured: false,
+			Default: envDefaultFor(defs, d.Key, secret),
+		})
 	}
 	return fields, existing, nil
 }

@@ -116,6 +116,13 @@ JSON 结构、字段语义与校验规则见 [servers.md](servers.md) §3，**�
 `sentinel` 值（`<未配置>`、`/nonexistent`）是提示文案或 `find` 哨兵，同样不参与同步。
 文件里已有、模板里没有的键仍可编辑，注释与未知行原样保留。
 
+**界面怎么用这些默认值**：`GET /api/config` 的每个字段带一份 `default`（就是本表第二列），
+配置页对未配置字段显示「留空即用默认：X」，另有显式「填入推荐默认值」按钮。
+🔴 凭证、本表里标「（空，必须人填）」的键、以及 `MINIO_CONTAINER_NAME` / `UPLOAD_LIMIT`
+这类「留空即跳过 / 关闭」的键，`default` 恒为空，页面既不提示也不填入，避免改掉
+`${KEY:-}` 的空值判定；页面也不会在打开时自动把这些值写进本机文件。
+判据与回归见 [ui.md](ui.md) §12.7。
+
 <!-- gen:env-schema -->
 ### pg（`deploy/backup/postgres/backup.env.example`）
 

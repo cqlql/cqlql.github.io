@@ -19,6 +19,7 @@ import {
   envInitial,
   envInputPlaceholder,
   envPlaceholder,
+  fillableDefaults,
   newServerInitial,
   serverInitial,
   splitCompare,
@@ -124,6 +125,12 @@ export function ConfigPage({ onServersChanged }: ConfigPageProps) {
   }, [fetchCompare])
 
   const groups = useMemo(() => groupEnvFields(currentEnv?.fields ?? []), [currentEnv])
+
+  // 「填入推荐默认值」只改表单：仍需保存 + yes 确认才落盘，不碰远端。
+  const defaultsFill = useMemo(
+    () => (currentEnv ? fillableDefaults(currentEnv.fields, envDraft) : null),
+    [currentEnv, envDraft],
+  )
 
   const currentCompare = compare?.components.find((c) => c.component === envComponent)
   const compareFields = useMemo(() => currentCompare?.fields ?? [], [currentCompare])
@@ -476,6 +483,14 @@ export function ConfigPage({ onServersChanged }: ConfigPageProps) {
             )}
 
             <div className="config-actions">
+              <Button
+                disabled={busy || !currentEnv || !defaultsFill}
+                onClick={() => {
+                  if (defaultsFill) setEnvDraft(defaultsFill)
+                }}
+              >
+                填入推荐默认值
+              </Button>
               <Button type="primary" loading={busy} disabled={!currentEnv} onClick={() => askConfirm('env')}>
                 保存本机配置
               </Button>
@@ -493,6 +508,10 @@ export function ConfigPage({ onServersChanged }: ConfigPageProps) {
                 <Tag>保存后请显式同步，远端才会生效</Tag>
               )}
             </div>
+            <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 8 }}>
+              灰字是脚本默认值，留空即可生效，不必逐项填写；「填入推荐默认值」只把有默认值的非凭证项写进表单，
+              仍要点「保存本机配置」并输入 yes 才会落盘。主机、私钥、密钥等没有默认值，必须自己填。
+            </Typography.Text>
           </>
         ) : (
           <>
