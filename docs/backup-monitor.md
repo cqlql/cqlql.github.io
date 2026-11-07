@@ -1,8 +1,9 @@
-> 状态：**方案（未实现）**（2026-11-05）
+> 状态：**方案（未实现）**（2026-11-07）；未实现方案的配置键表从 config.md §3 移入本文 §10。
 
 # 备份监控
 
-> 分册；唯一索引见 [AGENTS.md](../AGENTS.md)；配置键见 [config.md](config.md)。
+> 分册；唯一索引见 [AGENTS.md](../AGENTS.md)；本方案的键表见本文 §10，
+> 现行 `ops.env` / `backup.env` 的键见 [config.md](config.md)。
 > 本文只覆盖**只读监控**；备份能力的安装/升级（写 crontab、logrotate）见
 > [backup-deploy.md](backup-deploy.md)。
 
@@ -194,3 +195,28 @@ ops/
 | 本机 `ssh` CLI | 纯 Go SSH 库 | 复用 `known_hosts` / agent / ssh config，少一个依赖与一套密钥管理 |
 | 不查 crontab | `crontab -u <运行用户> -l` 或 `sudo -n` | 只读监控账号读不到别人的 crontab，读到空会误报「未安装」 |
 | `du` MinIO 数据目录可选 | 默认全量 `du` | 对象多时几十秒；「只看备份」不值得每次等 |
+
+## 10. 配置键（方案，未实现）
+
+> 2026-11-07 从 [config.md](config.md) §3 移来：未实现方案不该在「现行配置」文档里
+> 占一节，也不该让人照着填进 `ops.env`。
+
+🔴 **本节是设计稿**：当前版本**没有任何代码读这些键**，写进 `ops.env` 会被
+`LoadConfig()` 直接拒绝并提示「备份监控（P2）方案尚未实现」（原因表见
+`internal/shared/opsenv.go` 的 `retiredOpsEnvKeys`）。实现时先在 `opsEnvKeys` 登记，
+再删掉本节提示。
+
+路径与阈值是**全局默认**；多台备份服务器需要不同值时，再在清单里加 server 级覆盖。
+
+| 键 | 默认 | 说明 |
+| :--- | :--- | :--- |
+| `PASS_UP_OPS_PG_ROOT` | `/data/backups/postgres` | 备份根目录（含 daily/weekly/monthly） |
+| `PASS_UP_OPS_PG_LOG` | `/var/log/pg-backup` | 心跳与日志目录 |
+| `PASS_UP_OPS_MINIO_LOG` | `/var/log/minio-backup` | 心跳与日志目录 |
+| `PASS_UP_OPS_MINIO_DATA` | 空 | 可选；填了会 `du` 整个数据目录，对象多时很慢 |
+| `PASS_UP_OPS_DISK` | `/data` | 做 `df` 的挂载点 |
+| `PASS_UP_OPS_PG_STALE_HOURS` | `26` | 超过即判异常（每天一次，留 2h 余量） |
+| `PASS_UP_OPS_MINIO_STALE_HOURS` | `26` | 同上 |
+| `PASS_UP_OPS_DISK_WARN_PCT` | `90` | 已用率达到即判异常 |
+
+监控账号来自清单的 `monitor`（未填则复用 `user/key`）；**只读账号不复用有 sudo 权限的账号**。

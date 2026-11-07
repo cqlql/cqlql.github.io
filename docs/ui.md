@@ -140,7 +140,8 @@ webdist.go                       //go:embed all:web/dist（根包，package main
   （见 §10）；实际用的编辑器原样回给页面，找不到 VSCode 不冒充成功。
 - token 只活在**内存 + 地址栏 + 配置目录的 `ui.json`（0600）**，不写 `localStorage`：
   `ops ui` 每次**常规启动**都换新 token，存进 localStorage 只会让人分不清「当前这个后端」和「上一个」。
-  `ui.json` 是给第二次双击「把浏览器指回已有实例」用的，见 [config.md](config.md) §1。
+  `ui.json` 是给第二次双击「把浏览器指回已有实例」用的，运行态文件清单见
+  [one-click-launch.md](one-click-launch.md) §4.4（2026-11-07 从 config.md 移来）。
   ⚠️ 例外：`__takeover`（重启接手）**复用** `ui.json` 里的 token，不换新 ——
   前端 token 没落盘，换掉之后页面轮询 `/api/health` 会一直 401，把成功的重启误报成失败。
   见 §11.4。
@@ -628,6 +629,10 @@ ops backup sync-env [pg|minio|all] --server <name>
   `ops.env` 存在）：`GET /api/config`、`POST /api/config/backup-env`、
   `POST /api/open-servers-file`、`ui.reload()` 都走它。
   🔴 **远端动作（sync-env / compare / CLI）仍严格 `LoadConfig`**，不许拿默认路径冒充目标机。
+  2026-11-07 起 `LoadConfig` 对未知 `PASS_UP_OPS_*` 键直接报错（拼错 / P2·P3 幽灵键 /
+  旧主机键 / 环境变量误写进文件都会给出原因，见 [config.md](config.md) §1）：
+  `configForEditing()` 把这条错误原文带进配置页展示，`reload()` 仍回退默认值，
+  所以人能在界面里看到原因、手工改完刷新即可，**不会白屏**。
 - 新增 `POST /api/config/servers` 的 `mode=add`：字段白名单多一个必填 `name`、不许重名；
   `addServersFile()` 与编辑模式共用 `.tmp` 全量校验 + `.bak` + 原子替换（0600），
   **不新增第二条写入路径**；同样要 `confirm=="yes"`，同样受备份任务在跑时 409 的门。

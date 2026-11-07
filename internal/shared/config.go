@@ -12,7 +12,8 @@ import (
 // 配置目录覆盖变量：界面、快捷方式、菜单都从本机配置目录取同一份。
 const ConfigDirEnv = "PASS_UP_OPS_CONFIG_DIR"
 
-// Config 与 docs/config.md 一一对应；新增键先改文档，再改这里。
+// Config 是 ops.env 解析后的结果；键定义（`ops init` 模板 / 默认值 / 赋值语义）
+// 只在 opsenv.go 的 opsEnvKeys 里维护一次。
 // 主机 / 端口 / SSH 用户 / 私钥 / sudo 凭据只在服务器清单（servers.json）里。
 type Config struct {
 	Path string
@@ -25,25 +26,6 @@ type Config struct {
 	PGEnvFile    string
 	MinioEnvFile string
 }
-
-const configTemplate = `# PassUp 本地运维工具配置
-# 服务器清单（主机 / 用户 / 私钥 / sudo 凭据只写在这里指向的 JSON）
-# 留空使用默认路径：Windows %AppData%\pass-up\servers.json，其它 ~/.config/pass-up/servers.json
-PASS_UP_OPS_SERVERS_FILE=
-# 省略 --server 时的默认服务器名；留空则取清单里的 default，再退化为唯一的 backup
-PASS_UP_OPS_DEFAULT_SERVER=
-
-# 备份能力安装（P1；目标机由 --server 选择）
-PASS_UP_OPS_BACKUP_DEPLOY_DIR=/opt/passup-backup
-# 备份脚本默认用编进二进制的那份（deploy/backup 已嵌入）；
-# 只有调试时才填本机目录覆盖，留空即可。
-PASS_UP_OPS_BACKUP_SRC_DIR=
-
-# 已填好的备份配置（含凭证，不入 Git；留空用配置目录 backup/{postgres,minio}.env）
-# 模板用 ops backup env 生成
-PASS_UP_OPS_BACKUP_PG_ENV_FILE=
-PASS_UP_OPS_BACKUP_MINIO_ENV_FILE=
-`
 
 const serversTemplate = `{
   "default": "",
@@ -99,7 +81,7 @@ func defaultConfig(path string) *Config {
 	return &Config{
 		Path:        path,
 		ServersFile: defaultServersPath(),
-		DeployDir:   "/opt/passup-backup",
+		DeployDir:   DefaultBackupDeployDir,
 		// SrcDir 留空 = 用编进二进制的那份脚本（deploy/backup 已嵌入，见 backupdist.go）。
 		// 备份脚本不再从兄弟仓读，因此与当前工作目录无关，ops.exe 可以单独拷走使用。
 		SrcDir:       "",
@@ -138,6 +120,7 @@ func LoadConfig() (*Config, error) {
 	}
 	defer f.Close()
 
+	defs := opsEnvKeyIndex()
 	sc := bufio.NewScanner(f)
 	lineNo := 0
 	for sc.Scan() {
@@ -153,31 +136,17 @@ func LoadConfig() (*Config, error) {
 		k = strings.TrimSpace(k)
 		v = unquote(strings.TrimSpace(v))
 
-		switch k {
-		case "PASS_UP_OPS_SERVERS_FILE":
-			if v != "" {
-				c.ServersFile = resolveLocalPath(v)
-			}
-		case "PASS_UP_OPS_DEFAULT_SERVER":
-			c.DefaultServer = v
-		case "PASS_UP_OPS_BACKUP_DEPLOY_DIR":
-			c.DeployDir = v
-		case "PASS_UP_OPS_BACKUP_SRC_DIR":
-			// 留空 = 用嵌入的脚本；只有调试才填具体目录。
-			if v != "" {
-				c.SrcDir = resolveLocalPath(v)
-			}
-		case "PASS_UP_OPS_BACKUP_PG_ENV_FILE":
-			if v != "" {
-				c.PGEnvFile = resolveLocalPath(v)
-			}
-		case "PASS_UP_OPS_BACKUP_MINIO_ENV_FILE":
-			if v != "" {
-				c.MinioEnvFile = resolveLocalPath(v)
-			}
-		default:
-			// 未知键忽略：ops.env 由人维护，允许保留历史键。
+		// 🔴 只管本项目前缀：人自己放的普通变量保持历史兼容，忽略。
+		//    PASS_UP_OPS_* 拼错却静默忽略最危险 ——「以为配了」比「没配」难查得多；
+		//    界面 configForEditing / reload 会用 FallbackConfig 兜住，页面仍能打开改文件。
+		if !strings.HasPrefix(k, OpsEnvPrefix) {
+			continue
 		}
+		d, ok := defs[k]
+		if !ok {
+			return nil, unknownOpsEnvKeyError(path, lineNo, k)
+		}
+		d.Apply(c, v)
 	}
 	if err := sc.Err(); err != nil {
 		return nil, fmt.Errorf("读取配置失败：%w", err)
@@ -239,11 +208,11 @@ func CmdInit(args []string) int {
 			fmt.Fprintf(os.Stderr, "ERROR: 创建配置目录失败：%v\n", err)
 			return 1
 		}
-		if err := os.WriteFile(path, []byte(configTemplate), 0o600); err != nil {
+		if err := os.WriteFile(path, []byte(RenderOpsEnvTemplate()), 0o600); err != nil {
 			fmt.Fprintf(os.Stderr, "ERROR: 写入配置失败：%v\n", err)
 			return 1
 		}
-		fmt.Printf("已生成配置：%s\n请填写 PASS_UP_OPS_SERVERS_FILE 等键后再运行。\n", path)
+		fmt.Printf("已生成配置：%s\n模板里的键留空即用默认路径，说明见 docs/config.md。\n", path)
 	}
 
 	servers := defaultServersPath()

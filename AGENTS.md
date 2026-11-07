@@ -318,6 +318,14 @@
     `${KEY:-}` 是空兜底（`set -u` 防空 + `install.sh` / `preflight` 判断「有没有显式配置」），
     填成默认值会让 `[ -z ]` 恒假 / `[ -n ]` 恒真；也别把脚本改成 `source defaults.env`
     ——生产备份机的行为本机无法真机验证。
+28. 🔴 **`ops.env` 的键只在 `internal/shared/opsenv.go` 的 `opsEnvKeys` 定义一次**
+    （2026-11-07 新增）：`ops init` 模板、`LoadConfig` 解析、运行时默认值共用一张表，
+    `docs/config.md` 只是说明。**未知 `PASS_UP_OPS_*` 键必须报错**，不能静默忽略
+    ——「以为配了却没生效」最难查；`retiredOpsEnvKeys` 给 P2/P3 幽灵键、已删除旧键、
+    环境变量覆盖键一句人话原因。非本项目前缀的键仍忽略；界面 `configForEditing`
+    用 `FallbackConfig()` 兜底，报错显示在配置页、不白屏。
+    `go test` 断言模板、默认值与 `docs/*.md` 全部分册里出现的所有键名都已归类；
+    config.md 只讲现行配置（P2/P3 方案键表与运行态文件清单已移到对应分册）。
 
 ## 命令与验证
 
@@ -437,9 +445,14 @@ ops menu --help
 
 - 🔴 **唯一索引就是下面的「文档速查」表**；不新建 `docs/README.md` 或第二个索引。
 - 每份 `docs/*.md` 第一行必须是 `> 状态：...`；状态过期比没有文档更危险。
-- 配置键分两套，都不许复述默认值：本机 `ops.env` 的 `PASS_UP_OPS_*` 只在 `docs/config.md`
-  定义；远端 `backup.env` 的键只在 `internal/shared/env-schema.json` 定义（生成物见 `docs/config.md` §4）。
-  其它文档只引用键名。
+- 配置键分两套，都不许复述默认值：本机 `ops.env` 的 6 个 `PASS_UP_OPS_*` 键只在
+  `internal/shared/opsenv.go` 的 `opsEnvKeys` 定义（`ops init` 模板与 `LoadConfig`
+  解析都由它驱动）；远端 `backup.env` 的键只在 `internal/shared/env-schema.json`
+  定义（生成物见 `docs/config.md` §4）。`docs/config.md` 是说明，其它文档只引用键名。
+- 🔴 `docs/config.md` **只讲现行配置**：未实现方案（P2/P3）的键表放对应分册
+  （`backup-monitor.md §10` / `deploy.md §8`），运行态文件清单放
+  `one-click-launch.md §4.4`；config.md 的 §3 / §5 只留指针，**不许再抄回来**。
+  `go test` 断言 config.md 不含方案键与运行态文件表，且全部分册的键名都已归类。
 - 「为什么这么设计 / 哪些方案被否」并进对应分册的决策节，不单独开文档。
 - 新增能力 = 本表加一行 + 新建分册；**不要往已有分册里堆**。
 - `docs/components-prototype.html` 是单文件原型：改前先 `grep -n "@section"` 定点读，
@@ -456,9 +469,9 @@ ops menu --help
 | 界面（`ops ui` · Vite + React + antd，左侧 Sider + Menu） | `docs/ui.md` | 静态产物不过 token、API 才是边界；产物不进 Git 但 `.gitkeep` 必进；未构建要回说明页；单实例 + 配置不全也起页面；界面安装要过六道门（§9） |
 | 备份脚本（`deploy/backup/**`，已迁入本仓） | `docs/backup-scripts.md` | 脚本编在二进制里，改了必须 `go build`；目录里不许有真实凭证；恢复脚本禁止入 Crontab |
 | 备份能力部署（P1 ✅，监控的前置；CLI + 界面） | `docs/backup-deploy.md` | 复用 `install.sh`；不覆盖 `backup.env`；不静默迁移目录；logrotate 由工具落盘；界面安装必须 yes + 服务端预检门 |
-| 备份监控（P2 · 方案，未实现） | `docs/backup-monitor.md` | 只读采集；时间差在远端算；`-` 不是 0 |
-| 单机一键 Docker 部署（P3–P4 · 方案，未实现） | `docs/deploy.md` | `.env` 去 CRLF；镜像前缀必须等于 compose；Flyway 单向 |
+| 备份监控（P2 · 方案，未实现） | `docs/backup-monitor.md` | 只读采集；时间差在远端算；`-` 不是 0；方案键表在本文 §10，不进 config.md |
+| 单机一键 Docker 部署（P3–P4 · 方案，未实现） | `docs/deploy.md` | `.env` 去 CRLF；镜像前缀必须等于 compose；Flyway 单向；方案键表在本文 §8，不进 config.md |
 | 一键启动与桌面快捷方式（S2/S3/S5 ✅，S4 人工验收待做） | `docs/one-click-launch.md` | 双击直达网页面板（隐藏守护 + 单实例）；`.lnk` 只指启动器；图标用独立 `.ico`；名字校验挡路径穿越；双击绝不触发写操作，页面写操作要显式确认 |
-| 配置（唯一维护处） | `docs/config.md` | 所有 `PASS_UP_OPS_*` 只在这里定义一次；`backup.env` 的键只在 `internal/shared/env-schema.json`，模板 / 脚本兜底 / 白名单 / 键表都是生成物，漏跑生成器 `go test` 会红 |
+| 配置（唯一维护处） | `docs/config.md` | `ops.env` 的键只在 `internal/shared/opsenv.go`（未知 `PASS_UP_OPS_*` 直接报错）；`backup.env` 的键只在 `internal/shared/env-schema.json`，模板 / 脚本兜底 / 白名单 / 键表都是生成物，漏跑生成器 `go test` 会红 |
 | 文档治理 | `cqlql-notes/docs/工程/文档约定.md` | 新加文档前先过 4 问；索引只有一份 |
 | 目录与依赖 | `cqlql-notes/docs/工程/目录结构规范.md` + 本文「目录与边界」 | 依赖单向；`shared` 不得反向 import 能力包；跨包符号必须导出 |

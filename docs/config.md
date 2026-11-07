@@ -1,11 +1,18 @@
 > 状态：**现行**（2026-11-07）。服务器清单为唯一主机来源（P0）；P1 备份部署已迁移到
-> `--server`；§1 补记后台网页模式的运行态文件（`ui.json` / `ops-ui.log`）；
-> §4 的 `backup.env` 键表 / 默认值改由 `internal/shared/env-schema.json` 生成。
+> `--server`；§4 的 `backup.env` 键表 / 默认值改由 `internal/shared/env-schema.json` 生成；
+> `ops.env` 的键改由 `internal/shared/opsenv.go` 的 `opsEnvKeys` 定义，未知
+> `PASS_UP_OPS_*` 键报错；P2/P3 方案键表与运行态文件已移出本文，只留分册指针。
 
 # 配置（唯一维护处）
 
 > 分册；唯一索引见 [AGENTS.md](../AGENTS.md)。
-> 所有 `PASS_UP_OPS_*` 键只在这里定义一次；其它文档只引用键名。
+> 🔴 **键定义不在这份文档里**：`ops.env` 的 6 个键只在 `internal/shared/opsenv.go`
+> 的 `opsEnvKeys` 定义一次（`ops init` 模板、`LoadConfig` 解析、默认值都由它驱动）；
+> `backup.env` 的键只在 `internal/shared/env-schema.json`。本文是**说明**，
+> 表格里的默认值是给人看的速览，冲突时一律以代码为准；其它文档只引用键名。
+> 🔴 **本文只讲现行配置**：未实现方案（P2/P3）的键表、运行态文件清单分别移到
+> [backup-monitor.md](backup-monitor.md) §10、[deploy.md](deploy.md) §8、
+> [one-click-launch.md](one-click-launch.md) §4.4；本文 §3 / §5 只留指针。
 
 ## 1. 文件位置与格式
 
@@ -16,6 +23,17 @@
 
 `ops.env` 格式：标准 `KEY=VALUE`，允许 `#` 注释、空行、值两侧单/双引号。不进 Git。
 
+🔴 **只认 6 个键**（键定义见 `internal/shared/opsenv.go`）：`PASS_UP_OPS_SERVERS_FILE`、
+`PASS_UP_OPS_DEFAULT_SERVER`、`PASS_UP_OPS_BACKUP_DEPLOY_DIR`、
+`PASS_UP_OPS_BACKUP_SRC_DIR`、`PASS_UP_OPS_BACKUP_PG_ENV_FILE`、
+`PASS_UP_OPS_BACKUP_MINIO_ENV_FILE`。`ops init` 的模板由键定义生成，`LoadConfig()`
+查同一张表派发；**遇到其它 `PASS_UP_OPS_*` 键直接报错**并说明原因（拼错 / P2·P3
+未实现 / 已迁移到 `servers.json` / 其实是环境变量），不再静默忽略 ——
+「以为配了却没生效」比「没配」难查得多。非本项目前缀的键仍忽略；
+界面配置页用 `FallbackConfig()` 兜底，报错显示在页面上，不会白屏。
+`go test` 会断言模板、运行时默认值，以及 `docs/*.md` 全部分册里出现的每个
+`PASS_UP_OPS_*` 键名都已在键定义或「已知但不可用」原因表里归类。
+
 **本机路径覆盖（环境变量，主要给单测 / 验收用）**：
 
 | 键 | 默认 | 说明 |
@@ -23,20 +41,13 @@
 | `PASS_UP_OPS_CONFIG_DIR` | 空 | 覆盖配置目录（`ops.env` / `servers.json` / `ops.ico` 所在目录） |
 | `PASS_UP_OPS_DESKTOP_DIR` | 空 | 覆盖桌面目录；`ops shortcut` 与单测绝不写真桌面 |
 
-键名只在这里定义一次；其它文档只引用，不复述默认值。
+这两个是**进程环境变量**，不是 `ops.env` 的键；写进文件会被 `LoadConfig()` 拒绝
+（`PASS_UP_OPS_ENV` 同理）。
 
-**运行态文件**（程序生成、不进 Git、**不是配置键**，别手改）：同在配置目录下，
-由 [one-click-launch.md](one-click-launch.md) §4.4 的后台网页模式使用。
-
-| 文件 | 权限 | 内容 | 谁写 |
-| :--- | :--- | :--- | :--- |
-| `ui.json` | 0600 | 当前界面进程的 `port` + `token` | `ops ui` 每次启动覆写；第二次双击据此把浏览器指回已有实例 |
-| `ops-ui.log` | 0600 | 后台模式 stdout/stderr；超过 512 KB 整个重写 | 隐藏守护 |
-| `ops.ico` | 0644 | 与 `/favicon.ico` 同一份字节 | `ui.WriteIcon`；`.lnk` 的 `IconLocation` |
-| `servers.state.json` | 0600 | 最近一次检查结果缓存 | `ops servers check` / 界面 |
-
-`ui.json` 里的 token 是**本次进程的一次性凭据**，进程退出后文件留着，下次启动会被覆写；
-它不参与单实例判定（那把尺子是 Windows 命名互斥体）。
+**运行态文件**（程序生成、不进 Git、**不是配置键**，别手改）：`ui.json` / `ops-ui.log` /
+`ops.ico` / `servers.state.json` 的权限、内容与写入方见
+[one-click-launch.md](one-click-launch.md) §4.4，本文不复述。
+它们与配置同目录，但**不能**写进 `ops.env`（未知 `PASS_UP_OPS_*` 键会被拒绝）。
 
 ## 2. 服务器清单（唯一主机来源）
 
@@ -60,22 +71,12 @@ JSON 结构、字段语义与校验规则见 [servers.md](servers.md) §3，**�
 
 迁移窗口：P1 已实现版本仍在读旧键；P0 实现时**一次性切换**到清单，旧键随之删除。
 
-## 3. 备份监控（P2）
+## 3. 备份监控（P2）—— 方案，未实现
 
-路径与阈值是**全局默认**；多台备份服务器需要不同值时，再在清单里加 server 级覆盖。
-
-| 键 | 默认 | 说明 |
-| :--- | :--- | :--- |
-| `PASS_UP_OPS_PG_ROOT` | `/data/backups/postgres` | 备份根目录（含 daily/weekly/monthly） |
-| `PASS_UP_OPS_PG_LOG` | `/var/log/pg-backup` | 心跳与日志目录 |
-| `PASS_UP_OPS_MINIO_LOG` | `/var/log/minio-backup` | 心跳与日志目录 |
-| `PASS_UP_OPS_MINIO_DATA` | 空 | 可选；填了会 `du` 整个数据目录，对象多时很慢 |
-| `PASS_UP_OPS_DISK` | `/data` | 做 `df` 的挂载点 |
-| `PASS_UP_OPS_PG_STALE_HOURS` | `26` | 超过即判异常（每天一次，留 2h 余量） |
-| `PASS_UP_OPS_MINIO_STALE_HOURS` | `26` | 同上 |
-| `PASS_UP_OPS_DISK_WARN_PCT` | `90` | 已用率达到即判异常 |
-
-监控账号来自清单的 `monitor`（未填则复用 `user/key`）；**只读账号不复用有 sudo 权限的账号**。
+🔴 **本文不定义这一节的键**。方案期的路径与阈值键表在
+[backup-monitor.md](backup-monitor.md) §10；当前版本没有任何代码读它们，写进
+`ops.env` 会被 `LoadConfig()` 拒绝并提示「备份监控（P2）方案尚未实现」（见 §1）。
+实现时先在 `internal/shared/opsenv.go` 的 `opsEnvKeys` 登记，再把键表接回本文。
 
 ## 4. 备份能力部署（P1）
 
@@ -165,27 +166,19 @@ JSON 结构、字段语义与校验规则见 [servers.md](servers.md) §3，**�
 空值保持不变、写 0600 + `.bak`）；**保存只改本机**，远端 `backup.env` 要另外点
 「同步到远端」（`ops backup sync-env`），见 [ui.md](ui.md) §12。
 
-## 5. 应用部署（P3–P4）
+## 5. 应用部署（P3–P4）—— 方案，未实现
 
-目标机同样由 `--server` 选择；以下只保留非主机类配置。
-
-| 键 | 默认 | 说明 |
-| :--- | :--- | :--- |
-| `PASS_UP_OPS_DEPLOY_DIR` | `/opt/passup` | compose、`.env`、`secrets`、`www` 的根目录 |
-| `PASS_UP_OPS_DEPLOY_IMAGE_PREFIX` | `172.16.0.222:5000/passup` | 必须与 compose 的 `image:` 前缀逐字一致 |
-| `PASS_UP_OPS_DEPLOY_REGISTRY` | 空 | 空 = save/load；填了 = push/pull（前缀仍需可达） |
-| `PASS_UP_OPS_BACKEND_DIR` | 工具目录的 `../pass-up.backend` | 本机仓库路径 |
-| `PASS_UP_OPS_AI_DIR` | 工具目录的 `../pass-up.ai` | |
-| `PASS_UP_OPS_WEB_DIR` | 工具目录的 `../pass-up.frontend` | |
-| `PASS_UP_OPS_IMAGE_TAG` | 空 | 空 = git 短 commit |
-| `PASS_UP_OPS_BACKEND_HEALTH` | `http://127.0.0.1:8009/actuator/health/readiness` | |
-| `PASS_UP_OPS_AI_HEALTH` | `http://127.0.0.1:8006/resume/health` | |
-| `PASS_UP_OPS_WEB_HEALTH` | `http://127.0.0.1:80/` | |
-| `PASS_UP_OPS_DEPLOY_HEALTH_TIMEOUT` | `120s` | |
-| `PASS_UP_OPS_DEPLOY_KEEP_PREVIOUS` | `1` | 保留几份旧镜像 tag（磁盘紧张时设 0） |
+🔴 **本文不定义这一节的键**。方案期的部署键表在 [deploy.md](deploy.md) §8；
+当前版本没有任何代码读它们，写进 `ops.env` 会被 `LoadConfig()` 拒绝并提示
+「应用部署（P3–P4）方案尚未实现」（见 §1）。实现时先在
+`internal/shared/opsenv.go` 的 `opsEnvKeys` 登记，再把键表接回本文。
 
 ## 6. 校验
 
+- `ops.env` 里出现未登记的 `PASS_UP_OPS_*` 键直接报错（列出合法键与原因），
+  非本项目前缀的键忽略；`ops init` 模板与 `LoadConfig()` 解析共用
+  `internal/shared/opsenv.go` 的同一份键定义，模板字面量与运行时默认值都取
+  `DefaultBackupDeployDir`；
 - 清单文件必须存在且可解析；`name` 唯一、`role` 合法、`host`/`user` 必填、端口 1–65535；
   `key` 支持 `~` 展开，**文件不存在或权限过宽时明确报错**；`default` 必须指向存在的 `name`；
   含 `sudo.password` 的文件权限必须 `600`；

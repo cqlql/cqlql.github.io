@@ -1,8 +1,9 @@
-> 状态：**方案（未实现）**（2026-11-05）
+> 状态：**方案（未实现）**（2026-11-07）；未实现方案的配置键表从 config.md §5 移入本文 §8。
 
 # 单机一键 Docker 部署
 
-> 分册；唯一索引见 [AGENTS.md](../AGENTS.md)；配置键见 [config.md](config.md)。
+> 分册；唯一索引见 [AGENTS.md](../AGENTS.md)；本方案的键表见本文 §8，
+> 现行 `ops.env` / `backup.env` 的键见 [config.md](config.md)。
 
 ## 1. 目标与范围
 
@@ -156,3 +157,30 @@ ops/
 | 暂不竖切 Go 包 | `backup/` + `deploy/` 子包 | 当前领域 < 10，按母本阈值先横切；触发条件出现再拆（见 `AGENTS.md`） |
 | 只做单机 Docker | 纳入 k8s | 本期目标明确是单机一键；k8s 另起分册 |
 | 主机来自 `servers.json` | 每台机器各写一套 `DEPLOY_HOST` | 主机定义只维护一处，`--server` 选目标；避免与备份端配置漂移 |
+
+## 8. 配置键（方案，未实现）
+
+> 2026-11-07 从 [config.md](config.md) §5 移来：未实现方案不该在「现行配置」文档里
+> 占一节，也不该让人照着填进 `ops.env`。
+
+🔴 **本节是设计稿**：当前版本**没有任何代码读这些键**，写进 `ops.env` 会被
+`LoadConfig()` 直接拒绝并提示「应用部署（P3–P4）方案尚未实现」（原因表见
+`internal/shared/opsenv.go` 的 `retiredOpsEnvKeys`）。实现时先在 `opsEnvKeys` 登记，
+再删掉本节提示。
+
+目标机同样由 `--server` 从清单选择；以下只保留非主机类配置。
+
+| 键 | 默认 | 说明 |
+| :--- | :--- | :--- |
+| `PASS_UP_OPS_DEPLOY_DIR` | `/opt/passup` | compose、`.env`、`secrets`、`www` 的根目录 |
+| `PASS_UP_OPS_DEPLOY_IMAGE_PREFIX` | `172.16.0.222:5000/passup` | 必须与 compose 的 `image:` 前缀逐字一致 |
+| `PASS_UP_OPS_DEPLOY_REGISTRY` | 空 | 空 = save/load；填了 = push/pull（前缀仍需可达） |
+| `PASS_UP_OPS_BACKEND_DIR` | 工具目录的 `../pass-up.backend` | 本机仓库路径 |
+| `PASS_UP_OPS_AI_DIR` | 工具目录的 `../pass-up.ai` | |
+| `PASS_UP_OPS_WEB_DIR` | 工具目录的 `../pass-up.frontend` | |
+| `PASS_UP_OPS_IMAGE_TAG` | 空 | 空 = git 短 commit |
+| `PASS_UP_OPS_BACKEND_HEALTH` | `http://127.0.0.1:8009/actuator/health/readiness` | |
+| `PASS_UP_OPS_AI_HEALTH` | `http://127.0.0.1:8006/resume/health` | |
+| `PASS_UP_OPS_WEB_HEALTH` | `http://127.0.0.1:80/` | |
+| `PASS_UP_OPS_DEPLOY_HEALTH_TIMEOUT` | `120s` | |
+| `PASS_UP_OPS_DEPLOY_KEEP_PREVIOUS` | `1` | 保留几份旧镜像 tag（磁盘紧张时设 0） |
