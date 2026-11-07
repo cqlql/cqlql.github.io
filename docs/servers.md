@@ -1,5 +1,7 @@
 > 状态：**P0 已实现并真机验证（check / apply-sudo / 幂等）**（2026-11-05）；
-> P2a 只读监控账号护栏已落地（`monitor` 撞车校验 + `MonitorSSHTarget()` 强制，2026-11-07）。
+> P2a 只读监控账号护栏已落地（`monitor` 撞车校验 + `MonitorSSHTarget()` 强制，2026-11-07）；
+> P2+ 起它可在界面「配置 → 服务器清单 → 只读监控账号」编辑，保存时即校验（2026-11-08，
+> 见 [ui.md](ui.md) §12.9）。
 
 # 服务器集中管理（含一键免密 sudo）
 
@@ -73,12 +75,13 @@
 | `key` | 否 | 私钥路径（支持 `~`）；**不打印**；缺省走 `~/.ssh/config` |
 | `sudo.mode` | 否 | `nopasswd`（默认目标）/ `none`（不配置）/ `root`（直接 root 登录，无需配置） |
 | `sudo.password` | 否 | 可选的**初始** sudo 密码；配置成功并验证后建议删除，见 §8 |
-| `monitor` | **P2a `status` 必填** | 专用只读监控账号 `{user,key}`；`monitor.user != user` 且不能是 root，`monitor.key` 必填；**不复用** `user`/`key`，也不带 sudo 密码 |
+| `monitor` | **P2a `status` 必填** | 专用只读监控账号 `{user,key}`；`monitor.user != user` 且不能是 root，`monitor.key` 必填；**不复用** `user`/`key`，也不带 sudo 密码。可在界面「配置 → 服务器清单 → 只读监控账号」填写 / 查看状态 / 显式移除（[ui.md](ui.md) §12.9）；私钥路径不回显，保存时校验文件存在与账号合法性 |
 | `note` | 否 | 仅供人看 |
 
 - `default` 只影响省略 `--server` 的命令；不填时：`role=backup` 唯一则取它，否则报错要求显式指定。
 - 🔴 **只读账号与安装账号分离**（P2a 落地）：`normalize()` 只挡「`monitor.user == user`
-  撞车」这一种 schema 错误，**不要求**每台机器都配 `monitor`（P0/P1/界面不需要它）；
+  撞车」这一种 schema 错误，**不要求**每台机器都配 `monitor`（P0/P1 的写操作不需要它；
+  界面可在配置页补，保存时另过一次强校验，见 [ui.md](ui.md) §12.9）；
   「`monitor.user` / `monitor.key` 齐全、不等于 `user`、不是 root」由
   `Server.MonitorSSHTarget()` 在 `ops status` 采集入口强制。缺 monitor 会明确报错，
   不会静默退回安装账号；target 不带 `sudo.password`、`IsRoot=false`，采集不提权。

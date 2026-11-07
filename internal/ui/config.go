@@ -30,6 +30,11 @@ import (
 type serverConfigView struct {
 	shared.ServerInfo
 	ExecChain string `json:"exec_chain"`
+	// P2+ 只读监控账号：用户名可回显（不是凭证），私钥路径**只给布尔标记**
+	// （AGENTS.md 硬约束 8：任何输出 / 错误 / 日志都不打印私钥路径）。
+	MonitorUser          string `json:"monitor_user"`
+	MonitorKeyConfigured bool   `json:"monitor_key_configured"`
+	MonitorConfigured    bool   `json:"monitor_configured"`
 }
 
 type envView struct {
@@ -109,7 +114,13 @@ func (u *uiState) handleConfigView(w http.ResponseWriter) {
 					break
 				}
 			}
-			rows = append(rows, serverConfigView{ServerInfo: mine, ExecChain: execChain(s)})
+			row := serverConfigView{ServerInfo: mine, ExecChain: execChain(s)}
+			if s.Monitor != nil {
+				row.MonitorUser = s.Monitor.User
+				row.MonitorKeyConfigured = s.Monitor.Key != ""
+				row.MonitorConfigured = s.Monitor.User != "" && s.Monitor.Key != ""
+			}
+			rows = append(rows, row)
 		}
 	}
 

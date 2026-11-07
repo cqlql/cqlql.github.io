@@ -8,6 +8,9 @@
 > **2026-11-07 深夜界面新增「备份监控」**（第 5 个导航项，纯只读）：
 > `GET /api/monitor/status` + 30s 缓存 + 四张卡，与 `ops status --json` 共用
 > `monitor.CollectForServer` / `Status`；见 `docs/ui.md` §14 / `docs/backup-monitor.md` §12 / 硬约束 31。
+> **2026-11-08 补闭环**：配置页「服务器清单」可编辑只读监控账号
+> （`monitor.user` / `monitor.key` + 显式移除），保存即强校验、私钥路径不回显；
+> 从备份监控页的报错引导跳来自动定位。见 `docs/ui.md` §12.9。
 > **2026-11-06 界面新增「重启」**（顶部工具栏）：可选「先重建」（npm test / typecheck /
 > build → `go build -o ops.next.exe .`）、换 exe、同端口同 token 接手、`boot_id` 判定，
 > 见 `docs/ui.md` §11 / 硬约束 22。
@@ -414,7 +417,10 @@
     30s 缓存 / 5s 最小强制刷新 / 采集串行，连不上与配置错都回 **200 + 完整快照**
     （数值未采到是 `null` 不是 `0`、`problems` 恒为数组），配置错不缓存、
     私钥路径不进响应。不许让界面另起一套采集或另算一套阈值。
-    详见 `docs/ui.md` §14 / `docs/backup-monitor.md` §12。
+    账号在界面「配置 → 服务器清单 → 只读监控账号」编辑：写进 `monitor` 对象、
+    私钥路径只给布尔标记，保存时另过一次 `MonitorSSHTarget()` 强校验
+    （**不把强制挪回 schema**，否则 P0/P1 清单全打挂），显式勾选才移除。
+    详见 `docs/ui.md` §12.9 / §14 与 `docs/backup-monitor.md` §12。
 
 ## 命令与验证
 

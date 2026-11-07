@@ -189,7 +189,9 @@ Go 侧类型约定（P2a 定稿，CLI `--json` 与 P2+ 网页共用同一份 `St
 ## 6. 安全
 
 1. 备份服务器用**专用只读账号**：不给 sudo、不给写权限；sshd 侧禁 PTY / 端口转发 / agent 转发。
-   账号写在 [servers.json](servers.md) 的 `monitor`，**不复用有 sudo 权限的 `user`**。
+   账号写在 [servers.json](servers.md) 的 `monitor`，**不复用有 sudo 权限的 `user`**；
+   界面「配置 → 服务器清单 → 只读监控账号」可填写 / 查看状态 / 显式移除，
+   保存时就按下面这份口径校验（[ui.md](ui.md) §12.9），不必手改 JSON。
    🔴 **P2a 已实现（2026-11-07）**：「必须有 monitor」只在 `status` 采集入口强制
    （`MonitorSSHTarget()` 要求 `monitor.user` / `monitor.key` 齐全、`monitor.user != user`、
    不是 root、不带 `sudo.password`、`IsRoot=false`），**不**加进 `LoadServers().normalize()`

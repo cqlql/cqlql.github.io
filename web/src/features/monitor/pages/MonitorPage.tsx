@@ -188,7 +188,10 @@ export function MonitorPage({ onGoConfig, version, active }: MonitorPageProps) {
             message="本机配置 / 只读账号没配好"
             description={
               <div className="monitor-alert-body">
-                <span>{view.config_error}</span>
+                <span>
+                  {view.config_error}　缺只读账号时，在「配置 → 服务器清单 → 只读监控账号」
+                  填用户名与本机私钥路径（不能等于登录账号、不能是 root），保存后回来点「立即刷新」。
+                </span>
                 <Button size="small" onClick={onGoConfig}>去配置页</Button>
               </div>
             }

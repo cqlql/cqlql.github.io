@@ -17,6 +17,9 @@
 > `PG_SSH_KEY` 保存时只认私钥文件绝对路径、日志不再回显路径（§12.8）。
 > **2026-11-07 深夜追加第 5 个导航项「备份监控」**（P2+，纯只读）：四张卡 +
 > 问题清单 + 60s 自动刷新，与 `ops status` 共用一份快照（§14 / [backup-monitor.md](backup-monitor.md) §12）。
+> **2026-11-08 追加**：配置页「服务器清单」区可编辑只读监控账号
+> （`monitor.user` / `monitor.key`、状态标记与显式移除，见 §12.9）；
+> 从备份监控页的报错引导跳来会自动定位到该区块。
 > 未实现的 P3–P4 视图按本文件 §7 的触发条件再加。
 
 # 界面（`ops ui`）
@@ -578,7 +581,7 @@ sudo 包装层，于是「配置了 cql，日志却说 root」看起来像配置
 | 接口 | 作用 | 写哪里 |
 |---|---|---|
 | `GET /api/config` | 清单字段 + 两份 env 字段 + `exec_chain` | 只读 |
-| `POST /api/config/servers` | 保存清单里的白名单字段；`mode=add` 时**追加一台服务器**（§12.6） | 本机 `servers.json` |
+| `POST /api/config/servers` | 保存清单里的白名单字段（含只读监控账号，§12.9）；`mode=add` 时**追加一台服务器**（§12.6） | 本机 `servers.json` |
 | `POST /api/config/backup-env` | 保存一份本机备份配置 | 本机 `backup/*.env` |
 | `POST /api/config/sync-env` | 显式同步到远端 | 远端 `<组件>/backup.env` |
 
@@ -592,11 +595,13 @@ sudo 包装层，于是「配置了 cql，日志却说 root」看起来像配置
    组件只认 `pg|minio|all`。
 3. 字段白名单：编辑已有清单时不改 `name`（主键，`servers.state.json` 与 default 都按它
    索引）；`mode=add` 时 `name` 必填、不许重名，其余字段仍只认同一份白名单；
-   env 只改「模板定义过或文件里已有」的键，注释与未知行原样保留。
+   env 只改「模板定义过或文件里已有」的键，注释与未知行原样保留；
+   `monitor_user` / `monitor_key` / `monitor_clear` 是写进 `monitor` 对象的白名单字段（§12.9）。
 4. 🔴 **值按 shell 字面量转义**：env 会被远端 `install.sh` / 备份脚本 `source`，
    `$(...)`、反引号、双引号、反斜杠不转义就是命令注入。`quoteEnvValue` 统一处理。
 5. 写 0600 + 先留 `.bak` + 原子替换；清单写前把 `.tmp` 交给 `shared.LoadServers`
-   做全量校验（字段格式、`sudo.mode` 组合、default 指向、私钥存在性），失败原文件一字不动。
+   做全量校验（字段格式、`sudo.mode` 组合、default 指向、私钥存在性），失败原文件一字不动；
+   本次动了只读账号时再过一次 `Server.MonitorSSHTarget()` 强校验（§12.9）。
    改了 `user` / `sudo.mode` 会提示重新「一键免密 sudo」并清掉该 name 的检查缓存——
    drop-in 是 `/etc/sudoers.d/90-<user>-nopasswd`，按用户名写的。
 6. 备份预检 / 安装 / 自检在跑时 **409**；占位符（`CHANGE_ME` / `YOUR_`）配置拒绝同步。
@@ -803,8 +808,41 @@ Origin + `confirm=="yes"`，0600 + `.bak` + 原子替换照旧。清空只写本
 **没变**：双击落地页只读；同步仍整份覆盖；路径仍由服务端解析、接口不收路径；
 `clear` 不是「删除这一行」，写成空值才能让 `configured=false` 且脚本走 `${KEY:-}` 兜底。
 
-### 12.9 回归要点
+### 12.9 只读监控账号（2026-11-08 追加）
 
+P2+ 上线后第一条真机反馈：备份监控页报「服务器 k4 缺少只读监控账号」，但点
+「去配置页」过去只有 env 编辑——`servers.json` 的 `monitor` 一直被列为
+「不参与编辑的字段」，界面里根本没有地方补。这一刀把闭环补上。
+
+- **位置**：「配置 → 服务器清单」下方的「只读监控账号」分组（与登录账号视觉上分开，
+  避免填错人）：用户名、私钥路径、状态 Tag（已配置 / 未配置）、「移除这个只读账号」
+  勾选。新增服务器模式下同样可填。
+- **字段**：白名单加 `monitor_user` / `monitor_key` / `monitor_clear`，写进
+  `servers.json` 的 `monitor` 对象而不是顶层；`monitor_clear=yes` 才删除整个对象，
+  与「凭证留空保持不变」严格分开（同 §12.8 的 clear 思路，但这是删对象、不是写空值）。
+  同时提交清空与新值直接 400。
+- **回显**：`GET /api/config` 下发 `monitor_user`（用户名不是凭证）与
+  `monitor_key_configured` / `monitor_configured` 两个布尔；
+  🔴 **私钥路径绝不回显**（硬约束 8），输入框留空 = 保持不变。
+- **保存门禁**：仍走 `confirm=="yes"` + 白名单 + `.tmp` 全量校验；
+  🔴 额外**只在「本次动了只读账号」时**调 `Server.MonitorSSHTarget()` 做强校验
+  （user/key 齐全、不等于安装账号、不是 root、sudo.mode 不是 root），失败回滚、
+  原文件一字不动。schema 的 `normalize()` 故意不全局强制 `monitor`
+  （P0/P1 的写操作不需要它），所以这层校验只能加在写入路径上，不能挪回 schema。
+- **跳转定位**：从备份监控页点「去配置页」时，App 给配置页一个 `focusServersToken`，
+  页面滚到服务器清单区——页面常驻挂载、切回来滚动位置保留，不定位的话人可能
+  还停在上次看 MinIO env 的中段，仍然找不到这一块。
+- **保存后**：只写本机 `servers.json`；`onServersChanged` 让清单页与监控页重新取数，
+  回「备份监控」点「立即刷新」即可（配置错不进缓存，见 §14.2）。
+
+### 12.10 回归要点
+
+- 只读监控账号（§12.9）：`TestEditServersFileMonitorAccount`（嵌套写入 / 显式移除 /
+  改别的字段不丢 monitor）、`TestEditServersFileRejectsBadMonitorAccount`（撞车 / root /
+  缺 user 或 key / 私钥不存在 / 清空与填写并存，全部回滚）、
+  `TestConfigViewDoesNotLeakMonitorKey`、`TestConfigAPISavesMonitorAccount`、
+  `TestAddServerWithMonitorAccount`；前端 `config.test.ts` 锁住「用户名可回显、
+  私钥路径不进表单」「填写与移除互斥」「只提交显式移除」；
 - 配置缺失 / 空清单：`TestIndexServedWithoutConfig`（页面仍回 SPA）、
   `TestConfigViewWorksWithoutConfig`（配置页 200 + `setup_error` + 两份 env）、
   `TestConfigEnvSaveWorksWithoutConfig`、`TestAddServerIntoEmptyList` /
@@ -998,6 +1036,7 @@ writer，而 CLI 在 danger 时会往 stderr 打一行 WARN，JSON 会被污染�
 最后 `go build -o ops.exe .`（改了 `web/` 必须重建产物，见 §3 / 硬约束 19）。
 
 真机验收（都不改远端）：`ops status --server <备份机>` 与浏览器页面对照同一份快照；
-点「立即刷新」两次看 5s 限流提示；临时不配 `monitor` 看「去配置页」引导；
+点「立即刷新」两次看 5s 限流提示；临时不配 `monitor` 看「去配置页」引导，
+并在「配置 → 服务器清单 → 只读监控账号」补上后回来刷新（§12.9）；
 在备份机上确认只读账号能读到心跳 / 日志 / `.dump`，且没有任何文件被写。
 

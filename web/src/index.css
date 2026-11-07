@@ -334,6 +334,44 @@ pre {
   flex: none;
 }
 
+/* P2+ 只读监控账号：与「登录账号」在视觉上分组，避免填错成安装账号。 */
+.config-monitor {
+  margin-top: 14px;
+  padding: 12px;
+  border: 1px solid #e5e9f0;
+  border-radius: 8px;
+  background: #fafbfc;
+}
+
+.config-monitor-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  font-size: 13px;
+}
+
+.config-monitor-head > span {
+  color: var(--ops-muted);
+  font-size: 12px;
+}
+
+.config-monitor-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin-top: 10px;
+  color: var(--ops-muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.config-monitor-foot > span {
+  flex: 1 1 320px;
+}
+
 .config-chain {
   display: flex;
   flex-wrap: wrap;
