@@ -39,6 +39,8 @@ type options struct {
 	ImageTar      string
 	Proxy         string
 	ImageRef      string
+	// FromServer 只给 image-copy：镜像从这台已登记服务器上 save 出来（源机）。
+	FromServer    string
 	PurgeData     bool
 	AckDownstream bool
 	DryRun        bool
@@ -53,7 +55,7 @@ func parseArgs(args []string) (options, error) {
 	}
 	rest := args[1:]
 	switch args[0] {
-	case "list", VerbInstall, VerbUpdate, VerbUninstall, VerbImageLoad:
+	case "list", "images", VerbInstall, VerbUpdate, VerbUninstall, VerbImageLoad, VerbImageCopy:
 		opt.Verb = args[0]
 	case "help", "-h", "--help":
 		return opt, errHelp
@@ -95,6 +97,14 @@ func parseArgs(args []string) (options, error) {
 			opt.ImageRef = rest[i]
 		case strings.HasPrefix(a, "--image-ref="):
 			opt.ImageRef = strings.TrimPrefix(a, "--image-ref=")
+		case a == "--from-server":
+			if i+1 >= len(rest) {
+				return opt, fmt.Errorf("--from-server 缺少参数")
+			}
+			i++
+			opt.FromServer = rest[i]
+		case strings.HasPrefix(a, "--from-server="):
+			opt.FromServer = strings.TrimPrefix(a, "--from-server=")
 		case a == "--purge-data":
 			opt.PurgeData = true
 		case a == "--ack-downstream":
@@ -110,7 +120,7 @@ func parseArgs(args []string) (options, error) {
 		case strings.HasPrefix(a, "-"):
 			return opt, fmt.Errorf("未知参数：%s", a)
 		default:
-			if opt.Verb == "list" || opt.ID != "" {
+			if opt.Verb == "list" || opt.Verb == "images" || opt.ID != "" {
 				return opt, fmt.Errorf("多余的参数：%s", a)
 			}
 			opt.ID = a
@@ -138,10 +148,42 @@ func parseArgs(args []string) (options, error) {
 		if opt.ImageRef != "" || opt.PurgeData || opt.AckDownstream || opt.Proxy != "" {
 			return opt, fmt.Errorf("image-load 不接受 --image-ref / --purge-data / --ack-downstream / --proxy")
 		}
+		if opt.FromServer != "" {
+			return opt, fmt.Errorf("--from-server 只给 image-copy：从服务器复制镜像不走本机 .tar")
+		}
+	}
+	// image-copy：源机 docker save → 本机 pipe → 目标机 docker load。
+	// 🔴 只认清单里的源机 name（源 ≠ 目标），只认源机本地确实存在的镜像引用。
+	if opt.Verb == VerbImageCopy {
+		if opt.ID == "" {
+			return opt, fmt.Errorf("image-copy 必须显式指定组件 id（当前只有 minio）")
+		}
+		if !SupportsImageCopy(opt.ID) {
+			return opt, fmt.Errorf("组件 %q 不使用离线镜像，拒绝复制", opt.ID)
+		}
+		opt.FromServer = strings.TrimSpace(opt.FromServer)
+		if opt.FromServer == "" {
+			return opt, fmt.Errorf("image-copy 需要 --from-server <已登记服务器 name>（镜像的来源机）")
+		}
+		if opt.ImageTar != "" {
+			return opt, fmt.Errorf("image-copy 不接受 --image-tar：本机 tar 请走 image-load")
+		}
+		if opt.PurgeData || opt.AckDownstream || opt.Proxy != "" {
+			return opt, fmt.Errorf("image-copy 不接受 --purge-data / --ack-downstream / --proxy")
+		}
+		ref, err := ValidImageRef(opt.ImageRef)
+		if err != nil {
+			return opt, err
+		}
+		opt.ImageRef = ref
 	}
 	if opt.Verb == "list" && (opt.DryRun || opt.ImageTar != "" || opt.Proxy != "" ||
-		opt.ImageRef != "" || opt.PurgeData || opt.AckDownstream) {
+		opt.ImageRef != "" || opt.PurgeData || opt.AckDownstream || opt.FromServer != "") {
 		return opt, fmt.Errorf("list 本身就是只读的，不需要写动作参数")
+	}
+	if opt.Verb == "images" && (opt.DryRun || opt.ImageTar != "" || opt.Proxy != "" ||
+		opt.ImageRef != "" || opt.PurgeData || opt.AckDownstream || opt.FromServer != "") {
+		return opt, fmt.Errorf("images 是只读的镜像清单，不需要写动作参数")
 	}
 	// 🔴 代理值会拼进远端命令字符串：格式必须在 CLI 边界就卡死。
 	proxy, err := ValidProxy(opt.Proxy)
@@ -240,7 +282,7 @@ func CmdComponent(args []string, scripts fs.FS) int {
 		return 1
 	}
 	t := shared.NewSSHTarget(srv)
-	if opt.PasswordStdin && opt.Verb != "list" {
+	if opt.PasswordStdin && opt.Verb != "list" && opt.Verb != "images" {
 		pw, err := readSudoPassword()
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "ERROR: "+err.Error())
@@ -255,6 +297,35 @@ func CmdComponent(args []string, scripts fs.FS) int {
 	defer cancel()
 
 	local, creds := loadMinioConfig(cfg)
+
+	// images 只读源机镜像清单（界面「从服务器复制」的候选来源）：不跑组件体检、不写远端。
+	if opt.Verb == "images" {
+		res := listSourceImages(ctx, t, srv.Name)
+		if opt.JSON {
+			_ = json.NewEncoder(os.Stdout).Encode(res)
+			if !res.Collected {
+				fmt.Fprintln(os.Stderr, "WARN: "+res.Error)
+				return 1
+			}
+			return 0
+		}
+		printSourceImages(res)
+		if !res.Collected {
+			return 1
+		}
+		return 0
+	}
+
+	// image-copy 不先跑目标机体检：它只搬运镜像，导入后由「重新检查」复核。
+	if opt.Verb == VerbImageCopy {
+		srcSrv, err := list.Resolve(opt.FromServer, "")
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "ERROR: 来源服务器不在清单里："+err.Error())
+			return 1
+		}
+		return CopyImage(ctx, shared.NewSSHTarget(srcSrv), t, srcSrv.Name, srv.Name, scripts,
+			CopyOptions{ID: opt.ID, ImageRef: opt.ImageRef, DryRun: opt.DryRun})
+	}
 
 	// image-load 不需要先跑一遍组件体检：它只校验本机 tar，导入后由「重新检查」复核。
 	if opt.Verb == "image-load" {
@@ -348,6 +419,11 @@ func usage() {
                                        移除容器；数据 / 镜像 / 引擎默认全部保留
   ops component image-load minio --server <name> --image-tar <本机 .tar> [--dry-run]
                                        把离线镜像 tar 上传到目标机并 docker load（写操作）
+  ops component images --server <name> [--json]
+                                       只读列出这台机器本地的 MinIO 镜像（复制用的候选清单）
+  ops component image-copy minio --server <name> --from-server <源机 name>
+                                 [--image-ref <源机镜像:标签>] [--dry-run]
+                                       源机 docker save → 本机 pipe 中转 → 目标机 docker load（写操作）
 
 --dry-run 只做只读预检与计划打印，绝不上传脚本 / 镜像、绝不修改远端。
 --server 只接受 servers.json 里的 name；不接受任意主机地址。
@@ -361,8 +437,11 @@ func usage() {
 🔴 界面与 CLI 都不开放 --force；组件 / 动词只认 internal/component/registry.go。
 
 🔴 MinIO 不执行 docker pull：目标机拉不到 Docker Hub / quay.io / dl.min.io，
-   镜像必须由人从本机导入。root 凭证取自本机 backup/minio.env 的
-   DEST_KEY / DEST_SECRET，运行时注入，不进二进制、不进命令行、不进日志。
+   镜像必须由人从本机导入，或从已登记的另一台服务器直接复制（image-copy）。
+   root 凭证取自本机 backup/minio.env 的 DEST_KEY / DEST_SECRET，运行时注入，
+   不进二进制、不进命令行、不进日志。
+--from-server 只给 image-copy：源机只认 servers.json 的 name、源 ≠ 目标，
+              源机镜像只接受「源机本地确实存在」的引用；本机只做 pipe 中转，不落盘。
 🔴 卸载后 minio 备份定时任务仍在、下一次执行会失败，这是预期结果；
    不要为消掉报错去删 crontab 或改 backup.env。
 `)

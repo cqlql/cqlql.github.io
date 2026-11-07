@@ -37,6 +37,9 @@ const (
 	componentUpdateMode    BackupMode = "component.update"
 	componentUninstallMode BackupMode = "component.uninstall"
 	componentImageMode     BackupMode = "component.image-load"
+	// componentImageCopyMode 是「从另一台已登记服务器复制镜像」：
+	// 源机 docker save → 本机 pipe 中转 → 目标机 docker load（不落盘、不 pull）。
+	componentImageCopyMode BackupMode = "component.image-copy"
 	// 与 CLI 的 2 GiB 上限一致；multipart 也卡同一道，避免先落一个超大文件再失败。
 	maxComponentImageBytes = int64(2) << 30
 )
@@ -51,7 +54,10 @@ type componentRunRequest struct {
 	// 格式由 component.ValidProxy 卡死，前端"可选"不等于服务端放行任意字符串。
 	Proxy string `json:"proxy,omitempty"`
 	// ImageRef 只给 update minio，且必须是只读体检采到的目标机已导入镜像。
+	// image-copy 也用它：值必须是源机本地确实存在的镜像（服务端白名单再验一次）。
 	ImageRef string `json:"image_ref,omitempty"`
+	// FromServer 只给 image-copy：镜像从这台已登记服务器上 docker save 出来（源机）。
+	FromServer string `json:"from_server,omitempty"`
 	// PurgeData 只给 uninstall minio，默认 false（不删数据）。
 	PurgeData bool `json:"purge_data,omitempty"`
 	// AckDownstream 是 uninstall docker 的必勾确认。
@@ -64,6 +70,8 @@ func componentRunMode(verb string) BackupMode {
 		return componentUpdateMode
 	case component.VerbUninstall:
 		return componentUninstallMode
+	case component.VerbImageCopy:
+		return componentImageCopyMode
 	default:
 		return componentInstallMode
 	}
@@ -116,12 +124,54 @@ func (u *uiState) handleComponentStatus(w http.ResponseWriter, r *http.Request) 
 	writeAPI(w, http.StatusOK, apiResponse{OK: true, Data: view})
 }
 
-func (u *uiState) handleComponentTask(w http.ResponseWriter, r *http.Request) {
-	after, err := strconv.Atoi(r.URL.Query().Get("after"))
+func (u *uiState) handleComponentTask(w http.ResponseWriter, r *http.Request) {	after, err := strconv.Atoi(r.URL.Query().Get("after"))
 	if err != nil {
 		after = 0
 	}
 	writeAPI(w, http.StatusOK, apiResponse{OK: true, Data: u.ensureTask().view(after)})
+}
+
+// handleComponentImages 只读列出某台已登记服务器**本地**的 MinIO 镜像，
+// 给「从服务器复制」的来源下拉当候选。它不写远端、不需要 confirm、
+// 与只读体检同一套路（失败回 ok=true + data.error，前端不抛 HTTP 错误）。
+func (u *uiState) handleComponentImages(w http.ResponseWriter, r *http.Request) {
+	name := strings.TrimSpace(r.URL.Query().Get("name"))
+	if name == "" {
+		writeAPI(w, http.StatusBadRequest, apiResponse{Error: "请先选择服务器（只接受清单里的 name）"})
+		return
+	}
+	if u.runner == nil {
+		writeAPI(w, http.StatusNotImplemented, apiResponse{Error: "这个构建没有组件能力"})
+		return
+	}
+	if err := u.reload(); err != nil {
+		writeAPI(w, http.StatusServiceUnavailable, apiResponse{Error: "配置还没准备好：" + err.Error()})
+		return
+	}
+	u.mu.Lock()
+	list := u.list
+	u.mu.Unlock()
+	if _, err := list.Get(name); err != nil {
+		writeAPI(w, http.StatusNotFound, apiResponse{Error: err.Error()})
+		return
+	}
+
+	var buf bytes.Buffer
+	code := u.runner([]string{"component", "images", "--server", name, "--json"}, "", &buf)
+	var view map[string]any
+	if err := json.Unmarshal(bytes.TrimSpace(buf.Bytes()), &view); err != nil {
+		writeAPI(w, http.StatusOK, apiResponse{OK: true, Data: map[string]any{
+			"server": name, "collected": false, "elevated": false, "images": []any{},
+			"error": "镜像清单没有返回可解析的内容：" + err.Error(),
+		}})
+		return
+	}
+	if code != 0 {
+		if s, _ := view["error"].(string); s == "" {
+			view["error"] = fmt.Sprintf("镜像清单退出码 %d（未采集到状态），请看 ops-ui.log", code)
+		}
+	}
+	writeAPI(w, http.StatusOK, apiResponse{OK: true, Data: view})
 }
 
 func (u *uiState) handleComponentRun(w http.ResponseWriter, r *http.Request) {
@@ -135,10 +185,12 @@ func (u *uiState) handleComponentRun(w http.ResponseWriter, r *http.Request) {
 		writeAPI(w, http.StatusBadRequest, apiResponse{Error: "请求格式错误"})
 		return
 	}
-	// /api/components/run 只负责改组件的三个动词；image-load 走 multipart 接口。
+	// /api/components/run 负责四个动词；image-load（上传本机 tar）走 multipart 接口。
 	verb := strings.ToLower(strings.TrimSpace(req.Verb))
-	if verb != component.VerbInstall && verb != component.VerbUpdate && verb != component.VerbUninstall {
-		writeAPI(w, http.StatusBadRequest, apiResponse{Error: "未知动作（只支持 install / update / uninstall）"})
+	switch verb {
+	case component.VerbInstall, component.VerbUpdate, component.VerbUninstall, component.VerbImageCopy:
+	default:
+		writeAPI(w, http.StatusBadRequest, apiResponse{Error: "未知动作（只支持 install / update / uninstall / image-copy）"})
 		return
 	}
 	comp := strings.ToLower(strings.TrimSpace(req.Component))
@@ -154,19 +206,49 @@ func (u *uiState) handleComponentRun(w http.ResponseWriter, r *http.Request) {
 		writeAPI(w, http.StatusBadRequest, apiResponse{Error: "这是远端写操作：请输入 yes 确认"})
 		return
 	}
-	// 🔴 附加参数门由 Go 侧同一份 ValidateActionFlags 裁决：
-	//    代理 / 镜像引用 / 删数据 / 连带影响确认各归其位，前端勾没勾不算数。
-	proxy, err := component.ValidProxy(req.Proxy)
-	if err != nil {
-		writeAPI(w, http.StatusBadRequest, apiResponse{Error: err.Error()})
-		return
-	}
-	if err := component.ValidateActionFlags(component.ActionOptions{
-		Verb: verb, ID: comp, Proxy: proxy, ImageRef: req.ImageRef,
-		PurgeData: req.PurgeData, AckDownstream: req.AckDownstream,
-	}); err != nil {
-		writeAPI(w, http.StatusBadRequest, apiResponse{Error: err.Error()})
-		return
+	if verb == component.VerbImageCopy {
+		// 🔴 源机只认清单里的 name，源 ≠ 目标；镜像引用由 ValidImageRef 卡字符集，
+		//    「必须在源机本地存在」由 CLI 侧的只读清单再验一次。
+		req.FromServer = strings.TrimSpace(req.FromServer)
+		if req.FromServer == "" {
+			writeAPI(w, http.StatusBadRequest, apiResponse{Error: "请选择镜像来源服务器（只接受清单里的 name）"})
+			return
+		}
+		if req.FromServer == strings.TrimSpace(req.Name) {
+			writeAPI(w, http.StatusBadRequest, apiResponse{Error: "来源服务器与目标服务器不能是同一台"})
+			return
+		}
+		ref, err := component.ValidImageRef(req.ImageRef)
+		if err != nil {
+			writeAPI(w, http.StatusBadRequest, apiResponse{Error: err.Error()})
+			return
+		}
+		req.ImageRef = ref
+		// 代理 / 删数据 / 连带确认都不属于这个动作。
+		if req.Proxy != "" || req.PurgeData || req.AckDownstream {
+			writeAPI(w, http.StatusBadRequest, apiResponse{Error: "image-copy 不接受代理 / 删数据 / 连带影响确认参数"})
+			return
+		}
+	} else {
+		// 🔴 附加参数门由 Go 侧同一份 ValidateActionFlags 裁决：
+		//    代理 / 镜像引用 / 删数据 / 连带影响确认各归其位，前端勾没勾不算数。
+		proxy, err := component.ValidProxy(req.Proxy)
+		if err != nil {
+			writeAPI(w, http.StatusBadRequest, apiResponse{Error: err.Error()})
+			return
+		}
+		if err := component.ValidateActionFlags(component.ActionOptions{
+			Verb: verb, ID: comp, Proxy: proxy, ImageRef: req.ImageRef,
+			PurgeData: req.PurgeData, AckDownstream: req.AckDownstream,
+		}); err != nil {
+			writeAPI(w, http.StatusBadRequest, apiResponse{Error: err.Error()})
+			return
+		}
+		req.Proxy = proxy
+		if req.FromServer != "" {
+			writeAPI(w, http.StatusBadRequest, apiResponse{Error: "from_server 只给 image-copy"})
+			return
+		}
 	}
 	if u.runner == nil {
 		writeAPI(w, http.StatusNotImplemented, apiResponse{Error: "这个构建没有组件能力"})
@@ -183,10 +265,16 @@ func (u *uiState) handleComponentRun(w http.ResponseWriter, r *http.Request) {
 		writeAPI(w, http.StatusNotFound, apiResponse{Error: err.Error()})
 		return
 	}
+	if verb == component.VerbImageCopy {
+		// 源机也必须是清单里的 name（不代理任意主机），且不能等于目标机。
+		if _, err := list.Get(req.FromServer); err != nil {
+			writeAPI(w, http.StatusNotFound, apiResponse{Error: "镜像来源服务器不在清单里：" + err.Error()})
+			return
+		}
+	}
 
 	req.Verb = verb
 	req.Name = strings.TrimSpace(req.Name)
-	req.Proxy = proxy
 	task := u.ensureTask()
 	if !task.start(componentRunMode(verb), req.Name, comp, req.Password) {
 		writeAPI(w, http.StatusConflict, apiResponse{Error: "已有远端任务在运行，等它结束再试"})
@@ -195,6 +283,7 @@ func (u *uiState) handleComponentRun(w http.ResponseWriter, r *http.Request) {
 	go u.runComponentTask(task, req, comp)
 	writeAPI(w, http.StatusOK, apiResponse{OK: true, Data: map[string]any{
 		"started": true, "verb": verb, "component": comp, "server": req.Name,
+		"from_server": req.FromServer,
 	}})
 }
 
@@ -211,6 +300,9 @@ func (u *uiState) runComponentTask(t *backupTask, req componentRunRequest, comp 
 		if req.ImageRef != "" {
 			args = append(args, "--image-ref", req.ImageRef)
 		}
+		if req.FromServer != "" {
+			args = append(args, "--from-server", req.FromServer)
+		}
 		if req.PurgeData {
 			args = append(args, "--purge-data")
 		}
@@ -220,9 +312,14 @@ func (u *uiState) runComponentTask(t *backupTask, req componentRunRequest, comp 
 		return append(args, extra...)
 	}
 	label := map[string]string{
-		component.VerbInstall: "安装", component.VerbUpdate: "更新", component.VerbUninstall: "卸载",
+		component.VerbInstall: "安装", component.VerbUpdate: "更新",
+		component.VerbUninstall: "卸载", component.VerbImageCopy: "复制镜像",
 	}[req.Verb]
 	fmt.Fprintf(lw, "==> 开始：%s %s（目标：%s）\n", label, comp, req.Name)
+	if req.FromServer != "" {
+		fmt.Fprintf(lw, "==> 镜像来源：%s（源机 docker save → 本机 pipe 中转 → 目标机 docker load，不落本机磁盘）\n",
+			req.FromServer)
+	}
 	if req.Proxy != "" {
 		fmt.Fprintf(lw, "==> 本次 apt / curl 走代理 %s（仅本次生效，不改远端配置）\n", req.Proxy)
 	}

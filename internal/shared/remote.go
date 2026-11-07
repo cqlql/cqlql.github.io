@@ -138,6 +138,29 @@ func (t *SSHTarget) Stream(ctx context.Context, cmd string, root bool, stdin io.
 	return -1, err
 }
 
+// StreamTo 把远端命令的 **stdout** 写进 dst，stderr 仍直接给人看。
+// 只给「源机 docker save 的 tar 流经本机中转」用：本机不落盘，读到哪写到哪。
+// root=true 且带一次性密码时 stdin 归 sudo，stdout 仍是纯数据流，两者不打架。
+func (t *SSHTarget) StreamTo(ctx context.Context, cmd string, root bool, dst io.Writer) (int, error) {
+	c := t.sshCommand(ctx, cmd, root)
+	c.Stdin = t.sudoStdin(root)
+	c.Stdout = dst
+	c.Stderr = os.Stderr
+	err := c.Run()
+	if err == nil {
+		return 0, nil
+	}
+	var ee *exec.ExitError
+	if errors.As(err, &ee) {
+		code := ee.ExitCode()
+		if code == sshExitTransport {
+			return code, errors.New("ssh 连接失败（exit 255）：源机命令没能执行")
+		}
+		return code, nil
+	}
+	return -1, err
+}
+
 func ShQuote(s string) string {
 	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }

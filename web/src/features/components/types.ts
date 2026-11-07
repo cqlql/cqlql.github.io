@@ -14,7 +14,7 @@ export interface ServersListResponse {
 
 export type ComponentState = 'missing' | 'ok' | 'update' | 'degraded' | 'unknown' | 'planned'
 export type CheckState = 'ok' | 'warn' | 'err' | 'off'
-export type ComponentVerb = 'install' | 'update' | 'uninstall'
+export type ComponentVerb = 'install' | 'update' | 'uninstall' | 'image-copy'
 
 export interface ComponentCheck {
   key: string
@@ -35,6 +35,18 @@ export interface ImageInfo {
   id: string
   size: string
   created: string
+}
+
+/**
+ * 「从服务器复制」的来源机镜像清单（只读）。
+ * 🔴 collected=false 表示「查不动」，不是「源机没有镜像」，此时不许放行复制。
+ */
+export interface SourceImagesView {
+  server: string
+  collected: boolean
+  elevated: boolean
+  error?: string
+  images: ImageInfo[]
 }
 
 /** 本机 backup/minio.env 的事实：只回布尔标记与非凭证的 URL，绝不回显凭证值。 */
@@ -122,6 +134,8 @@ export interface ComponentRunRequest {
   proxy?: string
   /** 仅 update minio：目标机已离线导入的镜像引用。 */
   image_ref?: string
+  /** 仅 image-copy：镜像从这台已登记服务器 docker save 出来（源机，源 ≠ 目标）。 */
+  from_server?: string
   /** 仅 uninstall minio，默认不勾：勾了才永久删除 /data/minio。 */
   purge_data?: boolean
   /** 仅 uninstall docker，必勾：已知晓会连带停止下游 MinIO。 */

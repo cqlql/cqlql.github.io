@@ -681,7 +681,8 @@ ops backup sync-env [pg|minio|all] --server <name>
 | 方法与路径 | 作用 |
 |---|---|
 | `GET /api/components/status?name=` | 只读体检：组件状态、按组件 `preflight`、`images`、`local`（本机凭证标记）、**`actions`（Go 侧算好的写动作计划）** |
-| `POST /api/components/run` | `{verb:"install"\|"update"\|"uninstall", component, name, confirm:"yes", password?, proxy?, image_ref?, purge_data?, ack_downstream?}` |
+| `POST /api/components/run` | `{verb:"install"\|"update"\|"uninstall"\|"image-copy", component, name, confirm:"yes", password?, proxy?, image_ref?, from_server?, purge_data?, ack_downstream?}` |
+| `GET /api/components/images?name=` | 只读：某台服务器**本地**的 MinIO 镜像清单（「从服务器复制」的来源候选；失败回 `collected=false` + `error`） |
 | `POST /api/components/image` | multipart：`verb=image-load` + `component=minio` + `name` + `confirm=yes` + `password?` + `image`（.tar） |
 | `GET /api/components/task?after=` | 与备份部署共用同一个后台任务 / 增量日志 |
 
@@ -690,17 +691,22 @@ ops backup sync-env [pg|minio|all] --server <name>
   `proxy` 只 `install` / `update docker`；`image_ref` 只 `update minio`（必须是体检采到的
   已导入镜像）；`purge_data` 只 `uninstall minio`（默认 false）；
   `ack_downstream` 是 `uninstall docker` 的**必填**确认。
+  `image-copy` 不走 `ValidateActionFlags`：`from_server` 必填且必须是清单里的另一台
+  （源 ≠ 目标，未知 404），`image_ref` 只需过字符集——「必须在源机本地存在」
+  由 CLI 侧的只读清单再验（`components.md` §9）。
 - `/api/components/image` **不接收任何本机路径**：临时 tar 由服务端 `os.CreateTemp`
   生成、multipart 文件名只用于提示；任务结束（含预检失败 / 409）一律删除。
 - 失败响应的数组仍是 `[]` 不是 `null`（§11.4 的同款坑），前端
   `normalizeStatusView` / `normalizeActions` 再兜一层。
 
-**六道门**（照抄 §9，四个写动作各一套，见 `components.md` §6）：
+**六道门**（照抄 §9，五个写动作各一套，见 `components.md` §6）：
 `confirm=="yes"` → 服务端先跑 `--dry-run` → `name` 只认清单、组件/动词只认注册表
-（`RunnableVerb` / `SupportsImage`）+ 附加参数门 → 密码只经 runner 的 stdin →
+（`RunnableVerb` / `SupportsImage` / `SupportsImageCopy`）+ 附加参数门 → 密码只经 runner 的 stdin →
 任务脱离请求、单任务 409、增量日志 → 🔴 **不开放 `--force`**；
 删数据是独立勾选项且默认不勾，卸引擎的连带影响必须勾选才能提交。
 预检与正式动作带**同一组**附加参数，否则「预检过了」不代表正式动作会这么跑。
+`image-copy` 的门多一条：来源服务器也必须是清单里的 `name`（未知 404、等于目标机 400），
+候选镜像只来自 `GET /api/components/images` 的源机只读清单（`components.md` §9）。
 
 **安装 / 更新 Docker 的可选代理**：确认弹窗多一个「本次走代理」勾选 + 地址输入，
 只认 `http://host:port`，由服务端 `component.ValidProxy` 二次校验（前端仅用于禁用按钮）；
@@ -717,6 +723,13 @@ ops backup sync-env [pg|minio|all] --server <name>
 必勾项 / 目标镜像下拉全部取 `ActionPlan`；提交条件是「手输 `yes` + 勾齐 `required`
 项 + 选好候选镜像」。删数据默认不勾、卸引擎必勾，打开弹窗时所有附加勾选一律重置。
 旧二进制没下发 `actions` 时回退到静态安装文案，且按钮因 `available=false` 恒禁用。
+
+**离线镜像区（两条取镜像的路，2026-11-07 追加第二条）**：上半是
+「选择本机 .tar → 导入到远端」（`image-load`，multipart），下半是
+「来源服务器 + 从服务器复制…」（`image-copy`）。后者打开弹窗时现拉
+`GET /api/components/images?name=<源机>` 做镜像下拉，`collected=false` 时按钮禁用并
+提示「没采到 ≠ 没有镜像」——判据在 `utils/format.ts` 的 `copyReady`，
+Go 侧 `component` 包再按源机清单验一次引用。两条路都不 online pull。
 
 **界面样式**（2026-11-06 修）：本页最早整页写 inline style，跟另外三页脱节：
 `.card` 本身没有内边距，5 个 `section` 直接塞内容会贴边、彼此还连成一条白条；
@@ -739,5 +752,7 @@ Enter/Space 键盘可达的，不只靠鼠标。改完 `web/` 仍需 `npm run bu
 `ops component update docker|minio --server k1 --dry-run`（minio 要带 `--image-ref`）、
 `ops component uninstall docker --server k1 --ack-downstream --dry-run`、
 `ops component uninstall minio --server k1 --dry-run`、
-`ops component image-load minio --server k1 --image-tar <本机 .tar> --dry-run`。
+`ops component image-load minio --server k1 --image-tar <本机 .tar> --dry-run`、
+`ops component images --server <源机>`、
+`ops component image-copy minio --server k1 --from-server <源机> --dry-run`。
 

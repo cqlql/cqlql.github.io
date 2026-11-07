@@ -9,11 +9,13 @@ import {
   actionPlans,
   canInstall,
   confirmCopy,
+  copyReady,
   imageHint,
   installHint,
   installLabel,
   normalizeActions,
   normalizeProxyInput,
+  normalizeSourceImages,
   normalizeStatusView,
   preflightOf,
   stateLabel,
@@ -291,4 +293,46 @@ test('startImageLoad：上传 FormData 后接同一个任务端点', async () =>
   })
   assert.deepEqual(seen, ['upload:minio:yes', 'task:0'])
   assert.equal(t.mode, 'component.image-load')
+})
+
+test('normalizeSourceImages：null 数组兜成 []，collected=false 不当成「没有镜像」', () => {
+  const v = normalizeSourceImages({ server: 'prod', collected: false, error: 'ssh 连不上', images: null }, 'prod')
+  assert.deepEqual(v.images, [])
+  assert.equal(v.collected, false)
+  assert.equal(v.server, 'prod')
+  // 查不动 → 不放行，且提示里说的是「没采到」而不是「没有镜像」
+  const gate = copyReady(v, false, true)
+  assert.equal(gate.ok, false)
+  assert.match(gate.hint, /没采到/)
+})
+
+test('copyReady：busy / 目标机无 docker / 源机无镜像都不放行', () => {
+  const one = normalizeSourceImages({
+    server: 'prod', collected: true, elevated: false,
+    images: [{ reference: 'minio/minio:RELEASE.x', id: 'sha256:1', size: '180MB', created: '2026-11-01' }],
+  }, 'prod')
+  assert.equal(copyReady(one, true, true).ok, false, '任务在跑时不放行')
+  assert.equal(copyReady(one, false, false).ok, false, '目标机没 docker 不放行')
+  assert.equal(copyReady(null, false, true).ok, false, '还没选源机不放行')
+  const empty = normalizeSourceImages({ server: 'prod', collected: true, images: [] }, 'prod')
+  assert.equal(copyReady(empty, false, true).ok, false, '源机没有镜像不放行')
+  const ok = copyReady(one, false, true)
+  assert.equal(ok.ok, true)
+  assert.match(ok.hint, /不落盘|中转/)
+})
+
+test('startComponentRun：image-copy 带 from_server 与源机镜像引用', async () => {
+  let sent: ComponentRunRequest | undefined
+  const api = {
+    status: async () => view(),
+    run: async (req: ComponentRunRequest) => { sent = req; return { started: true } },
+    task: async () => task({ mode: 'component.image-copy' }),
+  }
+  const t = await startComponentRun(api, {
+    verb: 'image-copy', component: 'minio', name: 'k4', confirm: 'yes',
+    from_server: 'prod', image_ref: 'minio/minio:RELEASE.x',
+  }, { onChunk: () => {}, onTask: () => {}, sleep: async () => {} })
+  assert.equal(sent?.from_server, 'prod')
+  assert.equal(sent?.image_ref, 'minio/minio:RELEASE.x')
+  assert.equal(t.mode, 'component.image-copy')
 })

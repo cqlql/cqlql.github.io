@@ -28,7 +28,7 @@ HTML 段用 `<!-- -->`、CSS 段用 `/* */`、JS 段用 `//`；`confirm-*` / `da
 | 五态标签文案 | `data-state-tags` |
 | 加 / 改组件声明 `COMPONENTS`（Go 注册表的演示镜像） | `data-components` |
 | 七个场景的静态数据（banner / rows / 版本 / 镜像） | `data-scenes`，场景键定位见下 |
-| **改某个弹窗文案**，如「MinIO 更新弹窗」 | `confirm-minio-update`（`confirm-<组件>-<动词>` 共 7 个） |
+| **改某个弹窗文案**，如「MinIO 更新弹窗」 | `confirm-minio-update`（`confirm-<组件>-<动词>` 共 8 个，含 `confirm-minio-image-load` / `confirm-minio-image-copy`） |
 | 切场景默认选中哪个组件 | `data-scene-focus` |
 | 按钮能否点 / 禁用原因 / 目标镜像候选 | `fn-plan` + `fn-render` |
 | 安装预检 blockers / warnings | `fn-preflight` |

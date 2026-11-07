@@ -428,3 +428,108 @@ func TestComponentStatusOnlyKnownName(t *testing.T) {
 		t.Errorf("合法只读状态 = %d：%s", w.Code, w.Body.String())
 	}
 }
+
+// ---- 从服务器复制镜像（image-copy）：源机只认清单、源 ≠ 目标、六道门不变 ----
+
+// addSourceServer 在测试清单里加一台 role=app 的源机（只改测试临时目录的文件）。
+func addSourceServer(t *testing.T) {
+	t.Helper()
+	dir := os.Getenv("PASS_UP_OPS_CONFIG_DIR")
+	list := `{"servers":[
+		{"name":"bk","role":"backup","host":"10.0.0.1","user":"ubuntu"},
+		{"name":"app","role":"app","host":"10.0.0.2","user":"ubuntu"}]}`
+	if err := os.WriteFile(dir+"/servers.json", []byte(list), 0o600); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestComponentRunImageCopyGates(t *testing.T) {
+	u := backupState(t, func([]string, string, io.Writer) int { return 0 })
+	addSourceServer(t)
+	cases := []struct {
+		name string
+		body string
+		want int
+	}{
+		{"缺 confirm", `{"verb":"image-copy","component":"minio","name":"bk","from_server":"app"}`, http.StatusBadRequest},
+		{"缺来源服务器", `{"verb":"image-copy","component":"minio","name":"bk","confirm":"yes"}`, http.StatusBadRequest},
+		{"源机就是目标机", `{"verb":"image-copy","component":"minio","name":"bk","confirm":"yes","from_server":"bk"}`, http.StatusBadRequest},
+		{"源机不在清单", `{"verb":"image-copy","component":"minio","name":"bk","confirm":"yes","from_server":"evil"}`, http.StatusNotFound},
+		{"不支持离线镜像的组件", `{"verb":"image-copy","component":"docker","name":"bk","confirm":"yes","from_server":"app"}`, http.StatusBadRequest},
+		{"镜像引用含非法字符", `{"verb":"image-copy","component":"minio","name":"bk","confirm":"yes","from_server":"app","image_ref":"minio/../x;rm"}`, http.StatusBadRequest},
+		{"带了不属于它的参数", `{"verb":"image-copy","component":"minio","name":"bk","confirm":"yes","from_server":"app","purge_data":true}`, http.StatusBadRequest},
+	}
+	for _, c := range cases {
+		if w := serveComponentRun(u, c.body); w.Code != c.want {
+			t.Errorf("%s = %d，想要 %d；响应 %s", c.name, w.Code, c.want, w.Body.String())
+		}
+	}
+	// 被拒掉的请求不该占住任务锁，也不该启动任何子进程。
+	if u.backupBusy() {
+		t.Error("被拒绝的复制请求不该占住任务锁")
+	}
+}
+
+func TestComponentRunImageCopyArgs(t *testing.T) {
+	f := &fakeBackupRunner{}
+	u := backupState(t, f.run)
+	addSourceServer(t)
+	body := `{"verb":"image-copy","component":"minio","name":"bk","confirm":"yes",` +
+		`"from_server":"app","image_ref":"minio/minio:RELEASE.x"}`
+	if w := serveComponentRun(u, body); w.Code != http.StatusOK {
+		t.Fatalf("合法请求 = %d：%s", w.Code, w.Body.String())
+	}
+	v := waitBackupTask(t, u)
+	if v.Mode != "component.image-copy" {
+		t.Errorf("任务 mode = %s，想要 component.image-copy", v.Mode)
+	}
+	calls := f.snapshot()
+	if len(calls) != 2 {
+		t.Fatalf("应为 预检 + 正式动作 两次调用，得到 %d", len(calls))
+	}
+	for i, c := range calls {
+		joined := strings.Join(c.args, " ")
+		for _, want := range []string{"image-copy", "--server bk", "--from-server app",
+			"--image-ref minio/minio:RELEASE.x"} {
+			if !strings.Contains(joined, want) {
+				t.Errorf("第 %d 次调用缺少 %q：%v", i+1, want, c.args)
+			}
+		}
+	}
+	// 预检与正式动作必须带同一组参数：第一次 --dry-run，第二次不带。
+	if !strings.Contains(strings.Join(calls[0].args, " "), "--dry-run") ||
+		strings.Contains(strings.Join(calls[1].args, " "), "--dry-run") {
+		t.Errorf("第一次必须 dry-run、第二次不能带：%+v", calls)
+	}
+}
+
+// 源机镜像清单是只读接口：要 token、name 只认清单、不启动任何任务。
+func TestComponentImagesReadOnly(t *testing.T) {
+	f := &fakeBackupRunner{onCall: func(_ int, _ []string, out io.Writer) {
+		_, _ = out.Write([]byte(`{"server":"app","collected":true,"elevated":false,` +
+			`"images":[{"reference":"minio/minio:RELEASE.x","id":"sha256:1","size":"180MB","created":"2026-11-01"}]}`))
+	}}
+	u := backupState(t, f.run)
+	addSourceServer(t)
+
+	if w := serve(u, http.MethodGet, "/api/components/images?name=app", nil); w.Code != http.StatusUnauthorized {
+		t.Fatalf("不带 token = %d，想要 401", w.Code)
+	}
+	if w := serveComponentGet(u, "/api/components/images?token=tok"); w.Code != http.StatusBadRequest {
+		t.Fatalf("缺 name = %d，想要 400", w.Code)
+	}
+	if w := serveComponentGet(u, "/api/components/images?token=tok&name=evil"); w.Code != http.StatusNotFound {
+		t.Fatalf("未知 name = %d，想要 404", w.Code)
+	}
+	w := serveComponentGet(u, "/api/components/images?token=tok&name=app")
+	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "RELEASE.x") {
+		t.Fatalf("合法请求 = %d：%s", w.Code, w.Body.String())
+	}
+	if u.backupBusy() {
+		t.Error("只读镜像清单不该占住任务锁")
+	}
+	calls := f.snapshot()
+	if len(calls) != 1 || strings.Join(calls[0].args, " ") != "component images --server app --json" {
+		t.Errorf("只读清单的命令不对：%+v", calls)
+	}
+}

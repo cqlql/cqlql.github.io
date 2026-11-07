@@ -692,3 +692,98 @@ func TestCheckItemsNeverNil(t *testing.T) {
 		}
 	}
 }
+
+// ---- image-copy：从已登记服务器复制镜像（docs/components.md §9） ----
+
+func TestImageCopyWhitelist(t *testing.T) {
+	if !RunnableVerb("minio", VerbImageCopy) || !SupportsImageCopy("minio") {
+		t.Error("minio 声明了离线镜像，应允许 image-copy")
+	}
+	if RunnableVerb("docker", VerbImageCopy) || SupportsImageCopy("docker") {
+		t.Error("docker 不使用离线镜像，不该允许 image-copy（否则变成通用搬运后门）")
+	}
+	// image-copy 不是组件生命周期动词：不进 Verbs，也不进 BuildActions 的按钮计划。
+	for _, v := range Verbs("minio") {
+		if v == VerbImageCopy {
+			t.Error("image-copy 不该写进 Verbs（界面入口在离线镜像区，不在安装/更新/卸载那一排）")
+		}
+	}
+	for _, p := range BuildActions(emptyView("k1"))["minio"] {
+		if p.Verb == VerbImageCopy {
+			t.Error("BuildActions 不该给 image-copy 出按钮计划")
+		}
+	}
+}
+
+func TestParseArgsImageCopy(t *testing.T) {
+	good := [][]string{
+		{"image-copy", "minio", "--server", "k4", "--from-server", "prod", "--dry-run"},
+		{"image-copy", "minio", "--server", "k4", "--from-server", "prod",
+			"--image-ref", "minio/minio:RELEASE.x"},
+		{"images", "--server", "prod", "--json"},
+	}
+	for _, args := range good {
+		if _, err := parseArgs(args); err != nil {
+			t.Errorf("该放行的参数组合 %v：%v", args, err)
+		}
+	}
+	bad := [][]string{
+		{"image-copy", "minio", "--server", "k4"},                                   // 缺 --from-server
+		{"image-copy", "minio", "--server", "k4", "--from-server", "prod", "--image-tar", "m.tar"},
+		{"image-copy", "docker", "--server", "k4", "--from-server", "prod"},         // 组件不在白名单
+		{"image-copy", "--server", "k4", "--from-server", "prod"},                   // 缺组件 id
+		{"image-copy", "minio", "--server", "k4", "--from-server", "prod", "--proxy", "http://x:1"},
+		{"image-copy", "minio", "--server", "k4", "--from-server", "prod", "--purge-data"},
+		{"image-load", "minio", "--server", "k4", "--image-tar", "m.tar", "--from-server", "prod"},
+		{"list", "--server", "k4", "--from-server", "prod"},
+		{"images", "--server", "prod", "--dry-run"},
+		{"images", "minio", "--server", "prod"},
+	}
+	for _, args := range bad {
+		if _, err := parseArgs(args); err == nil {
+			t.Errorf("不该放行的参数组合：%v", args)
+		}
+	}
+}
+
+func TestPickSourceImage(t *testing.T) {
+	imgs := []ImageInfo{
+		{Reference: "minio/minio:RELEASE.2025-01-01", Size: "180MB"},
+		{Reference: "minio/minio:RELEASE.2024-12-01", Size: "175MB"},
+	}
+	// 省略时取第一个（docker images 默认按创建时间倒序，即最新）。
+	if ref, err := pickSourceImage(imgs, ""); err != nil || ref != imgs[0].Reference {
+		t.Errorf("省略引用应取第一个候选：%q %v", ref, err)
+	}
+	// 显式给的必须在源机清单里：不接任意字符串。
+	if _, err := pickSourceImage(imgs, "minio/minio:EVIL"); err == nil {
+		t.Error("源机没有的镜像不该放行")
+	}
+	if _, err := pickSourceImage(imgs, "bad ref"); err == nil {
+		t.Error("非法字符的引用不该放行")
+	}
+	if _, err := pickSourceImage(nil, ""); err == nil {
+		t.Error("源机没有镜像时应报错，不能悄悄成功")
+	}
+}
+
+// cappedReader 是这道 2 GiB 上限的唯一实现：超了就中断，不写满 /tmp 再失败。
+func TestCappedReaderStopsOversize(t *testing.T) {
+	src := strings.NewReader(strings.Repeat("x", 64))
+	c := &cappedReader{r: src, max: 32}
+	buf := make([]byte, 16)
+	var got int64
+	for {
+		n, err := c.Read(buf)
+		got += int64(n)
+		if err != nil {
+			if !strings.Contains(err.Error(), "上限") {
+				t.Fatalf("超限时该报错中断，得到 %v", err)
+			}
+			break
+		}
+	}
+	if got <= 32 {
+		t.Errorf("超限判断没有生效：读了 %d 字节", got)
+	}
+}

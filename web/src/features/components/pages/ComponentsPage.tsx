@@ -17,6 +17,7 @@ import type {
   ComponentsStatusView,
   ComponentVerb,
   ServerOption,
+  SourceImagesView,
 } from '../types.ts'
 import {
   actionCopy,
@@ -25,9 +26,11 @@ import {
   actionOf,
   actionPlans,
   checkColor,
+  copyReady,
   imageHint,
   installLabel,
   normalizeProxyInput,
+  normalizeSourceImages,
   normalizeStatusView,
   preflightOf,
   stateColor,
@@ -78,6 +81,15 @@ export function ComponentsPage() {
   const [imageOpen, setImageOpen] = useState(false)
   const [imageConfirmText, setImageConfirmText] = useState('')
   const [imagePassword, setImagePassword] = useState('')
+
+  // 从服务器复制镜像：源机只认清单里的 name，候选镜像只能从源机只读清单里选。
+  const [copyFrom, setCopyFrom] = useState('')
+  const [copyOpen, setCopyOpen] = useState(false)
+  const [copySource, setCopySource] = useState<SourceImagesView | null>(null)
+  const [copyLoading, setCopyLoading] = useState(false)
+  const [copyRef, setCopyRef] = useState('')
+  const [copyConfirmText, setCopyConfirmText] = useState('')
+  const [copyPassword, setCopyPassword] = useState('')
 
   const alive = useRef(true)
   const pollId = useRef(0)
@@ -165,6 +177,10 @@ export function ComponentsPage() {
   const activePlan = confirmVerb ? planOf(confirmVerb) : undefined
   const currentCopy = actionCopy(activePlan, current)
   const imageEnabled = !!current?.offline_image && !busy && !loading && view.collected && dockerReady
+  // 从服务器复制：能不能点全看源机只读清单 + 目标机 docker，判据在 format.ts 里一处写清。
+  const copyGate = copyReady(copySource, busy || loading, dockerReady)
+  const copyOk = copyGate.ok && copyConfirmText === 'yes' && copyRef !== ''
+  const copyTargets = targets.filter((t) => t.name !== name)
 
   // 代理只在 install / update Docker 的弹窗里出现；格式错了就禁用确认，不白跑一次预检。
   const proxyApplies = confirmVerb !== null && confirmVerb !== 'uninstall' && current?.id === 'docker'
@@ -277,6 +293,68 @@ export function ComponentsPage() {
       }
     })()
   }, [imageConfirmText, imagePassword, name, imageFile, imageEnabled, closeImage, makeHooks, refresh])
+
+  const closeCopy = useCallback(() => {
+    setCopyOpen(false)
+    setCopyConfirmText('')
+    setCopyPassword('')
+  }, [])
+
+  // 打开弹窗时现拉源机只读镜像清单：候选只来自源机本地，不接受手填任意引用。
+  const openCopy = useCallback(async (from: string) => {
+    if (!from || !name) return
+    setCopyOpen(true)
+    setCopyLoading(true)
+    setCopySource(null)
+    setCopyRef('')
+    setCopyConfirmText('')
+    setCopyPassword('')
+    try {
+      const res = normalizeSourceImages(await componentsApi.sourceImages(from), from)
+      if (!alive.current) return
+      setCopySource(res)
+      setCopyRef(res.images[0]?.reference ?? '')
+    } catch (e) {
+      if (!alive.current) return
+      setCopySource({ server: from, collected: false, elevated: false, error: errText(e), images: [] })
+    } finally {
+      if (alive.current) setCopyLoading(false)
+    }
+  }, [name])
+
+  const submitCopy = useCallback(() => {
+    if (!copyOk || !name || !copyFrom || !copyRef || !current) return
+    const req: ComponentRunRequest = {
+      verb: 'image-copy',
+      component: current.id,
+      name,
+      confirm: 'yes',
+      from_server: copyFrom,
+      image_ref: copyRef,
+      ...(copyPassword ? { password: copyPassword } : {}),
+    }
+    const poll = ++pollId.current
+    closeCopy()
+    setBusy(true)
+    setLog('')
+    setTask(null)
+    setNotice({ kind: 'info', text: `已提交：从 ${copyFrom} 复制 ${copyRef}，服务端正在跑 --dry-run 预检…` })
+    void (async () => {
+      try {
+        const t = await startComponentRun(componentsApi, req, makeHooks(poll))
+        setTask(t)
+        setNotice(t.exit_code === 0
+          ? { kind: 'success', text: '镜像已复制到目标机，请点「重新检查」复核镜像清单。' }
+          : { kind: 'error', text: `复制结束，退出码 ${t.exit_code}。请看日志并复核远端状态。` })
+      } catch (e) {
+        setNotice({ kind: 'error', text: errText(e) })
+      } finally {
+        setBusy(false)
+        setCopySource(null)
+        void refresh(name)
+      }
+    })()
+  }, [copyOk, copyFrom, copyRef, copyPassword, current, name, closeCopy, makeHooks, refresh])
 
   return (
     <div className="page">
@@ -519,8 +597,39 @@ export function ComponentsPage() {
             </Button>
           </div>
           <div className="component-note">
-            选择本机 docker save 导出的 .tar；服务端校验后才上传，接口不接受任意本机路径。
-            更新 MinIO 用的新镜像也必须从这里导入，工具绝不在线拉取。
+            取镜像有两条路，都不会在线拉取：① 本机 docker save 导出的 .tar，服务端校验后才上传，
+            接口不接受任意本机路径；② 直接从另一台已登记服务器复制（源机 docker save →
+            本机 pipe 中转 → 目标机 docker load，不落本机磁盘）。
+          </div>
+
+          <div className="component-box" style={{ marginTop: 12 }}>
+            <div className="component-hint" style={{ marginBottom: 6 }}>
+              从另一台已登记服务器复制（例如主服务器上已有的 MinIO 镜像，省掉手工 docker save）
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
+              <Select
+                value={copyFrom || undefined}
+                onChange={(v) => { setCopyFrom(v); setCopySource(null) }}
+                style={{ width: 240 }}
+                placeholder="镜像来源服务器"
+                options={copyTargets.map((t) => ({
+                  value: t.name,
+                  label: t.host ? `${t.name} · ${t.host}` : t.name,
+                }))}
+              />
+              <Button
+                disabled={!imageEnabled || !copyFrom}
+                loading={copyLoading}
+                onClick={() => void openCopy(copyFrom)}
+              >
+                从服务器复制…
+              </Button>
+              <span className="component-hint">
+                {copyTargets.length === 0
+                  ? '清单里只有这一台服务器；先到「配置」页把源服务器加进清单'
+                  : '源机只跑只读的 docker save，不写源机任何文件'}
+              </span>
+            </div>
           </div>
         </section>
       )}
@@ -650,6 +759,61 @@ export function ComponentsPage() {
           一次性 sudo 密码（目标机已配免密 sudo 可留空）：
         </div>
         <Input.Password value={imagePassword} onChange={(e) => setImagePassword(e.target.value)} placeholder="留空则用免密 sudo" autoComplete="new-password" />
+      </Modal>
+
+      <Modal
+        title={`确认从 ${copyFrom || '来源服务器'} 复制 MinIO 镜像`}
+        open={copyOpen}
+        onCancel={closeCopy}
+        onOk={submitCopy}
+        okText="确认复制"
+        cancelText="取消"
+        okButtonProps={{ disabled: !copyOk, danger: true }}
+        destroyOnClose
+      >
+        <Alert
+          type="warning" showIcon style={{ marginBottom: 12 }}
+          message="这是跨主机写操作"
+          description={`会把 ${copyFrom || '来源服务器'} 上已有的镜像直接灌到 ${name || '目标机'}：源机 docker save → 本机 pipe 中转 → 目标机 0600 临时 tar → docker load → 删临时文件。`}
+        />
+        <ul style={{ paddingLeft: 18, margin: '0 0 12px', fontSize: 13, lineHeight: 1.9 }}>
+          <li>本机只做中转、不落磁盘；不经任何镜像仓库，绝不 docker pull。</li>
+          <li>不启动 / 不重建容器，不动 /data/minio、Docker 引擎、crontab、backup.env。</li>
+          <li>源机只跑只读的 docker save；镜像只能从源机本地清单里选，不接受手填引用。</li>
+          <li>服务端先跑 --dry-run（校验两侧 docker 与镜像白名单），不通过就不传一个字节。</li>
+        </ul>
+
+        {copyLoading && <div className="component-hint">正在读取源机镜像清单（只读）…</div>}
+        {!copyLoading && !copyGate.ok && (
+          <Alert type="error" showIcon style={{ marginBottom: 10 }} message={copyGate.hint} />
+        )}
+        {!copyLoading && copySource?.collected && copySource.images.length > 0 && (
+          <div className="component-box">
+            <div className="component-hint" style={{ marginBottom: 4 }}>
+              源机镜像（只列源机本地确实存在的；默认取最新的一个）：
+            </div>
+            <Select
+              value={copyRef || undefined}
+              onChange={(v) => setCopyRef(v)}
+              style={{ width: '100%' }}
+              placeholder="选择要复制的镜像"
+              options={copySource.images.map((i) => ({
+                value: i.reference,
+                label: `${i.reference} · ${i.size}`,
+              }))}
+            />
+            <div className="component-hint" style={{ marginTop: 6 }}>
+              源机 docker 权限：{copySource.elevated ? '经免密 sudo 提权' : '清单 user 直接可用'}。
+            </div>
+          </div>
+        )}
+
+        <div className="component-hint" style={{ marginBottom: 4 }}>请输入 yes 确认：</div>
+        <Input value={copyConfirmText} onChange={(e) => setCopyConfirmText(e.target.value)} placeholder="yes" autoComplete="off" />
+        <div className="component-hint" style={{ margin: '10px 0 4px' }}>
+          一次性 sudo 密码（目标机已配免密 sudo 可留空；源机权限按清单走）：
+        </div>
+        <Input.Password value={copyPassword} onChange={(e) => setCopyPassword(e.target.value)} placeholder="留空则用免密 sudo" autoComplete="new-password" />
       </Modal>
     </div>
   )

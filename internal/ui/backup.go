@@ -347,6 +347,8 @@ func modeLabel(m BackupMode) string {
 		return "卸载环境组件"
 	case componentImageMode:
 		return "导入离线镜像"
+	case componentImageCopyMode:
+		return "从服务器复制镜像"
 	default:
 		return "远端自检"
 	}

@@ -422,6 +422,8 @@ func (u *uiState) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		u.handleBackupTask(w, r)
 	case r.Method == http.MethodGet && r.URL.Path == "/api/components/status":
 		u.handleComponentStatus(w, r)
+	case r.Method == http.MethodGet && r.URL.Path == "/api/components/images":
+		u.handleComponentImages(w, r)
 	case r.Method == http.MethodPost && r.URL.Path == "/api/components/run":
 		u.handleComponentRun(w, r)
 	case r.Method == http.MethodPost && r.URL.Path == "/api/components/image":

@@ -1,6 +1,7 @@
 # 环境组件（Docker / MinIO 安装、更新、卸载）
 
-> 2026-11-06 落地安装 / 离线镜像导入；**2026-11-07 落地更新 / 卸载**（§8）。
+> 2026-11-06 落地安装 / 离线镜像导入；**2026-11-07 落地更新 / 卸载**（§8）；
+> **2026-11-07 追加从已登记服务器直接复制镜像**（§9，省掉手工 `docker save` + 拷文件）。
 > 解决的问题：备份端 `k1`（172.16.0.211）上**既没有 Docker，也没有
 > MinIO 服务**；而 `deploy/backup/minio/` 只把 `mc` 当 S3 客户端，假定「备份端本机 9000
 > 的 MinIO 服务」已经存在。备份失败不是脚本坏了，是服务端从来没进过部署范围。
@@ -63,6 +64,9 @@ ops component update minio  --server <name> [--image-ref <已导入镜像:标签
 ops component uninstall docker --server <name> --ack-downstream [--dry-run] [--password-stdin]
 ops component uninstall minio  --server <name> [--purge-data] [--dry-run] [--password-stdin]
 ops component image-load minio --server <name> --image-tar <本机 .tar> [--dry-run]
+ops component images --server <name> [--json]     # 只读：这台机器本地的 MinIO 镜像（复制用候选）
+ops component image-copy minio --server <name> --from-server <源机 name> \
+        [--image-ref <源机镜像:标签>] [--dry-run] [--password-stdin]
 ```
 
 - `--server` 只接受 `servers.json` 里的 `name`，不接受任意 host（硬约束 12）。
@@ -78,6 +82,10 @@ ops component image-load minio --server <name> --image-tar <本机 .tar> [--dry-
   `--image-ref` 只 `update minio`、`--purge-data` 只 `uninstall minio`（默认关）、
   `--ack-downstream` 是 `uninstall docker` 的**必填**确认、`--proxy` 只
   `install` / `update docker`。界面和 CLI 都**不开放 `--force`**。
+- `image-copy` 的两个专属参数由 `parseArgs` 直接裁决（它不走 `ValidateActionFlags`）：
+  `--from-server` **必填**、`--image-tar` 与它互斥；`image-load` 反过来不接受
+  `--from-server`。`--image-ref` 在两者语义不同但都要过 `ValidImageRef` 的字符集门：
+  `image-copy` 还要求它出现在**源机**本地镜像清单里（§9）。
 
 ### 3.1 安装 / 更新 Docker 时的 apt 代理（可选，2026-11-06 追加，07 扩展到更新）
 
@@ -135,12 +143,14 @@ MinIO 与卸载动作不跑 apt/curl，传了直接 400。
 5. 🔴 **更新用的新镜像同样只能来自人导入的 tar**：候选是只读体检采到的
    `MINIO_IMAGE_LINES` 里「与当前容器镜像不同」的那些；CLI `--image-ref` 与界面下拉
    都必须在候选白名单里，Go 侧 `safeImageRef` 再卡一次字符集。
+6. 「从另一台已登记服务器复制镜像」（§9）是**同一条离线镜像红线的另一条输入路径**：
+   它走 `docker save` / `docker load`，不是 `docker pull`，也不经任何镜像仓库。
 
 ## 5. 写脚本的行为边界
 
 | | Docker 引擎 | MinIO 服务 |
 |---|---|---|
-| 来源 | 官方 apt 仓库（deb822） | 目标机**已导入**的离线镜像 |
+| 来源 | 官方 apt 仓库（deb822） | 目标机**已导入**的离线镜像，或从已登记服务器复制（§9） |
 | 提权 | 安装 / 更新 / 卸载期 root（`sudo -n sh -c`） | 同左 |
 | 幂等 | 已装官方版就跳过 apt，只补服务与用户组 | 已有容器只做健康检查（stopped 则 `docker start`），**不重建、不换镜像** |
 | 验证 | `docker info`（不跑 hello-world） | `GET /minio/health/live` 20 次重试 |
@@ -196,14 +206,17 @@ ops.exe component update minio  --server k1 --image-ref <已导入镜像:标签>
 ops.exe component uninstall docker --server k1 --ack-downstream --dry-run
 ops.exe component uninstall minio  --server k1 --dry-run
 ops.exe component image-load minio --server k1 --image-tar <本机 .tar> --dry-run
+ops.exe component images --server k1
+ops.exe component image-copy minio --server k1 --from-server <源机 name> --dry-run
 ```
 
 回归要点：`internal/component/component_test.go`（注册表 / 动词与参数白名单 /
-`EvaluateMinio` blocker / 四态推导 / §8.1 六场景按钮门 / 影响清单 / 四处 dry-run 门）、
+`EvaluateMinio` blocker / 四态推导 / §8.1 六场景按钮门 / 影响清单 / 四处 dry-run 门 /
+§9 的 image-copy 参数门与 2 GiB 上限）、
 `componentdist_test.go`（八份脚本完整 / `check.sh` 只读 / 无凭证 /
 `TestComponentWriteScriptsBoundaries` 的四份写脚本边界与「删数据只在 yes 分支」）、
 `internal/ui/component_test.go`（确认门 / 预检门 / 附加参数门 / 409 / multipart 导入
-与临时文件清理 / 预检与正式动作同参数）、
+与临时文件清理 / 预检与正式动作同参数 / image-copy 的源机白名单与只读镜像清单接口）、
 `web/test/components.test.ts`（动作计划归一化 / available + busy 门 / 附加勾选 /
 更新卸载请求参数）、`internal/restart/staleness_test.go`（四份写脚本算 Go 构建输入）。
 
@@ -325,3 +338,80 @@ MinIO 更新重建容器要重新注入 root 凭证，链路与安装完全相�
 
 > 2026-11-07 之前本节叫「尚未接入：更新与卸载的判据（设计，不是现状）」，
 > 原型里的「设计态 · 未接入」标注已全部去掉；历史见 git 与当天工作日志。
+
+## 9. 从已登记服务器直接复制镜像（`image-copy`，2026-11-07 落地）
+
+**背景**：换机后手边没有现成的 `.tar`，而主服务器（`prod`）上早就跑着 MinIO 容器，
+镜像就在本地。走「主服务器 `docker save` → 拷 tar 到本机 → 界面 `image-load`」
+纯属体力活，而且 tar 会白占本机磁盘。
+
+**链路**（本机只做管道中转）：
+
+```
+源机  docker save <ref>  ──ssh stdout──▶  本机 pipe  ──ssh stdin──▶  目标机 0600 临时 tar
+                                                              └─▶ docker load -i ─▶ rm -f
+```
+
+- 本机**不落磁盘**：没有临时 tar、不需要本机磁盘余量，也不用担心清不干净。
+- **不是 `docker pull`**：`docker save` / `docker load` 的语义与离线 tar 完全一致，
+  `docs/components.md` §1 那条「目标机拉不到 Docker Hub / quay.io / dl.min.io」的红线不变。
+- 不做「源机 → 目标机直连」：那要求源机能 ssh 目标机、还要多维护一套信任关系；
+  经本机中转时两跳都用清单里已有的凭据，链路只有一条。
+
+**判据**：
+
+1. 源机同样只认 `servers.json` 的 `name`（`--from-server`），**源 ≠ 目标**：
+   名字相同或 `host:port` 相同都直接拒绝（硬约束 12，不代理任意主机）。
+2. 源机镜像只接受**源机本地确实存在**的引用：`docker images` 的只读清单就是白名单，
+   `--image-ref` 必须在里面；省略时取第一个候选（`docker images` 默认按创建时间倒序，
+   即最新的那个）。不接受手填任意字符串，`ValidImageRef` 再卡一次字符集。
+3. 源机 docker 权限**两路都试**：先按清单 user 直接跑 `docker info`，失败再试 `sudo`
+   （免密 / 清单里的一次性密码）。走的哪条会写进计划与任务日志，不让人猜。
+   源机只跑只读命令（`info` / `images` / `save`），不写源机任何文件。
+4. 目标机 docker 可用性用**同一套**探测，`docker load` 按探测结果决定是否提权；
+   与 `image-load` 一致，`docker load` 只是导入镜像，不动容器。
+5. 传输上限与 `image-load` **同一个 2 GiB 常量**；超了就地中断管道（不写满 `/tmp` 再失败），
+   目标机临时文件照样删。
+6. 任一环节非 0（源机 save / 目标机写文件 / `docker load`）→ 关管道 + 删
+   `/tmp/passup-component-minio-image.tar`；**不做任何回滚**——只导入镜像，
+   容器 / `/data/minio` 从头到尾没参与。
+7. `--dry-run` 只读：只查源机镜像清单与两侧 docker 可用性，**不传一个字节**。
+8. 只做 save / load：不启动 / 不重建容器、不动 `/data/minio`、Docker 引擎、crontab、`backup.env`。
+
+**与 `image-load` 的分工**（两者都是离线镜像，别混成一条）：
+
+| | `image-load` | `image-copy` |
+|---|---|---|
+| 输入 | 本机选中的 `.tar` | 另一台已登记服务器上的镜像 |
+| 本机磁盘 | 服务端 `os.CreateTemp` 临时文件，任务结束即删 | 只用管道，**不落盘** |
+| CLI | `--image-tar <本机 .tar>` | `--from-server <源机 name> [--image-ref]` |
+| 界面入口 | 离线镜像区「选择 .tar → 导入到远端」 | 离线镜像区「来源服务器 → 从服务器复制…」 |
+| 只读候选接口 | —（前端直接拿到 multipart 文件） | `GET /api/components/images?name=<源机>` |
+
+**界面**：离线镜像区新增「来源服务器」下拉（清单里除目标机外的所有 name）+「从服务器复制…」；
+弹窗里现拉源机只读清单做镜像下拉，仍要手输 `yes` + 可选一次性 sudo 密码。
+任务与安装 / 导入**共用同一把后台任务锁**（409）与同一份增量日志。
+🔴 源机下拉的候选**只来自源机**，查不动（`collected=false`）时按钮禁用并说清
+「没采到 ≠ 没有镜像」，绝不让前端自己猜一个引用出来。
+
+**CLI**：
+
+```
+ops component images --server prod [--json]                       # 只读：源机本地 MinIO 镜像
+ops component image-copy minio --server k4 --from-server prod [--image-ref X] [--dry-run]
+```
+
+**边界（这轮明确不做）**：
+
+- **不做 ssh 密码认证**：源机必须能免密钥登录（与本工具其它链路一致）。
+  一次性 `--password-stdin` 只给 sudo，不给 ssh。
+- **不做压缩**：`docker save` 的层本身已是压缩 tar，LAN 上直传够快；跨公网慢就先本机导入。
+- **不进 `Verbs`**：`image-copy` 与 `image-load` 一样按 `OfflineImage` 授权
+  （`SupportsImage` / `SupportsImageCopy`），**不出现在安装 / 更新 / 卸载那一排按钮里**，
+  也不进 `BuildActions` 的按钮计划——它不是组件的生命周期动词。
+
+**回归**：`internal/component/component_test.go` 的 `TestImageCopyWhitelist` /
+`TestParseArgsImageCopy` / `TestPickSourceImage` / `TestCappedReaderStopsOversize`；
+`internal/ui/component_test.go` 的 `TestComponentRunImageCopyGates` /
+`TestComponentRunImageCopyArgs` / `TestComponentImagesReadOnly`；
+`web/test/components.test.ts` 的 `normalizeSourceImages` / `copyReady` / image-copy 请求参数。

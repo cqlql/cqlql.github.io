@@ -20,6 +20,11 @@ const (
 	VerbUpdate    = "update"
 	VerbUninstall = "uninstall"
 	VerbImageLoad = "image-load"
+	// VerbImageCopy 是「从另一台已登记服务器直接复制镜像」：源机 docker save →
+	// 本机 pipe 中转 → 目标机 docker load，不落本机磁盘、不经镜像仓库、绝不 pull。
+	// 与 image-load 一样按 OfflineImage 授权，不写进 Verbs（它不是组件生命周期动词，
+	// 界面入口在「离线镜像」区，不在安装 / 更新 / 卸载那一排按钮里）。
+	VerbImageCopy = "image-copy"
 )
 
 type Component struct {
@@ -87,7 +92,7 @@ func RunnableVerb(id, verb string) bool {
 	if !ok || c.Phase != PhaseReady {
 		return false
 	}
-	if verb == VerbImageLoad {
+	if verb == VerbImageLoad || verb == VerbImageCopy {
 		return c.OfflineImage
 	}
 	for _, v := range Verbs(c.ID) {
@@ -107,6 +112,12 @@ func Runnable(id string) bool {
 // 免得「上传任意本机文件到远端」变成一个通用后门。
 func SupportsImage(id string) bool {
 	return RunnableVerb(id, VerbImageLoad)
+}
+
+// SupportsImageCopy 是 image-copy 的白名单：同样只有离线镜像组件可复制，
+// 免得「从任意服务器 save 任意镜像」变成一个通用的远端搬运后门。
+func SupportsImageCopy(id string) bool {
+	return RunnableVerb(id, VerbImageCopy)
 }
 
 // DependsReady 按注册表里的依赖声明推导上游是否就绪。

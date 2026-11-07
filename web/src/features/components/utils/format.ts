@@ -6,7 +6,9 @@ import type {
   ComponentStatus,
   ComponentsStatusView,
   ComponentVerb,
+  ImageInfo,
   Preflight,
+  SourceImagesView,
 } from '../types.ts'
 
 /**
@@ -287,4 +289,37 @@ export function imageHint(view: ComponentsStatusView, dockerReady: boolean): str
     return '目标机还没有离线镜像。选一个本机 docker save 导出的 .tar 导入后，MinIO 才能安装（本能力不会在线拉镜像）。'
   }
   return `目标机已有 ${view.images.length} 个 MinIO 镜像；导入新 tar 不会影响已有容器与 /data/minio。`
+}
+
+/**
+ * 来源机镜像清单归一化：Go 的 nil slice 编成 JSON 是 null。
+ * 🔴 collected=false 是「查不动」，不是「源机没有镜像」——两种情况文案完全不同。
+ */
+export function normalizeSourceImages(raw: unknown, server: string): SourceImagesView {
+  const v = (raw && typeof raw === 'object' ? raw : {}) as Partial<SourceImagesView>
+  return {
+    server: typeof v.server === 'string' ? v.server : server,
+    collected: v.collected === true,
+    elevated: v.elevated === true,
+    error: typeof v.error === 'string' ? v.error : '',
+    images: list<ImageInfo>(v.images),
+  }
+}
+
+/** 「从服务器复制」能不能点：源机查到了清单、有候选镜像，且不是任务进行中。 */
+export function copyReady(
+  source: SourceImagesView | null,
+  busy: boolean,
+  dockerReady: boolean,
+): { ok: boolean; hint: string } {
+  if (busy) return { ok: false, hint: '远端任务运行中：等它结束再复制。' }
+  if (!dockerReady) return { ok: false, hint: '目标机 Docker 引擎还没就绪：先安装 Docker，才能 docker load。' }
+  if (!source) return { ok: false, hint: '先选一台来源服务器，再点「从服务器复制」。' }
+  if (!source.collected) {
+    return { ok: false, hint: `来源机镜像清单没采到（${source.error || '原因未知'}）；查不动不等于没有镜像。` }
+  }
+  if (source.images.length === 0) {
+    return { ok: false, hint: '来源机本地没有名字里带 minio 的镜像，换个来源或先在本机导入 tar。' }
+  }
+  return { ok: true, hint: `来源机有 ${source.images.length} 个 MinIO 镜像；本机只做中转，不落盘、不进镜像仓库。` }
 }

@@ -36,6 +36,13 @@
 > 由 Go 侧 `BuildActions` 按注册表与体检结果算、随 status 下发，**前端只渲染**。
 > 删数据独立勾选且默认不勾、卸引擎的连带影响必勾，界面不开放 `--force`；
 > MinIO 更新的新镜像同样只能来自人导入的 tar。见 `docs/components.md` §8 / 硬约束 25。
+> **2026-11-07 追加 `image-copy`**：镜像也可以直接从另一台已登记服务器
+> （典型是跑着 MinIO 的主服务器 `prod`）复制到目标机 ——
+> `ops component image-copy minio --server k4 --from-server prod [--image-ref]`，
+> 链路是「源机 `docker save` → 本机 pipe 中转（**不落盘**）→ 目标机 `docker load`」，
+> 不经镜像仓库、**不是 `docker pull`**；源机同样只认 `servers.json` 的 name（源 ≠ 目标），
+> 候选镜像只来自源机只读清单。界面在「离线镜像」区多了「从服务器复制…」。
+> 见 `docs/components.md` §9 / 硬约束 25 ⑩。
 > **2026-11-06 换电脑零手工 + 配置不全不挡路**：`启动运维.cmd` **先**问
 > `ops.exe __dist-check` —— 二进制里已有页面就零构建（磁盘 `web/dist` 被删也只补占位目录）；
 > 只有没页面才自动 `node.exe npm-cli.js run build` + `go build -o ops.exe .`，
@@ -57,8 +64,9 @@
   `ops backup deploy/verify/env/sync-env` 安装、升级、预检备份能力、生成配置模板、
   单独同步配置到远端
   （备份脚本本体就在本仓 `deploy/backup/`，编进二进制）；
-  `ops component list/install/update/uninstall/image-load` 管备份端环境组件
-  （Docker 引擎与 MinIO 服务，只读体检 / 安装 / 更新 / 卸载 / 离线镜像导入，
+  `ops component list/install/update/uninstall/image-load/images/image-copy` 管备份端环境组件
+  （Docker 引擎与 MinIO 服务，只读体检 / 安装 / 更新 / 卸载 / 离线镜像导入 /
+  从另一台已登记服务器直接复制镜像，
   脚本在 `deploy/component/` 编进二进制，见 `docs/components.md`）；
   `ops ui` 默认只读查看服务器清单与检查结果；「备份能力部署」页另有预检 / 安装 / 自检
   三个显式入口（安装要输 yes，服务端先跑 `--dry-run`，见 `docs/ui.md` §9）；
@@ -260,7 +268,17 @@
        🔴 影响清单 / 能否执行 / 阻塞原因一律由 Go 侧 `BuildActions` 算，
        前端只渲染 `actions[id][]`；卸载后备份定时任务仍在、下一次执行失败是**预期结果**，
        不许顺手删 crontab 或改 `backup.env`。
-    详见 `docs/components.md` §3.1 / §8、`docs/ui.md` §13。
+    ⑩ **从已登记服务器复制镜像（`image-copy`，2026-11-07）**：镜像也可以不从本机 tar 来，
+       而是「源机 `docker save` → 本机 pipe 中转（**不落本机磁盘**）→ 目标机 0600 临时 tar
+       → `docker load` → 删临时文件」。它不是 `docker pull`，不经任何镜像仓库；
+       源机只认 `servers.json` 的 name（`--from-server`，**源 ≠ 目标**，未知 404），
+       候选镜像只来自源机只读清单（`ops component images` / `GET /api/components/images`），
+       传 `--image-ref` 也必须在里面；源机 docker 权限「先无 sudo、再试 sudo」两路都试，
+       只跑 `info` / `images` / `save` 这类只读命令。传输上限与 `image-load` 同一个 2 GiB，
+       超了就地中断并删目标机临时文件；不启动 / 不重建容器、不动 `/data/minio`。
+       `image-copy` 按 `OfflineImage` 授权（`SupportsImageCopy`），**不进 `Verbs`**、
+       不进 `BuildActions` 的按钮计划。不做 ssh 密码认证（源机必须能免密钥登录）。
+    详见 `docs/components.md` §3.1 / §8 / §9、`docs/ui.md` §13。
 26. 🔴 **换电脑零手工、配置不全不挡路**（2026-11-06 新增）：
     ① `启动运维.cmd` 的 `:ensure` 段负责「这台机器能不能跑」，🔴 **顺序是红线**：
        先用内部命令 `ops.exe __dist-check` 判**二进制里**有没有 `index.html` + `assets/`；
@@ -320,6 +338,8 @@ ops component update minio --server <name> --image-ref <已导入镜像:标签> 
 ops component uninstall docker --server <name> --ack-downstream --dry-run
 ops component uninstall minio --server <name> --dry-run
 ops component image-load minio --server <name> --image-tar <本机 .tar> --dry-run
+ops component images --server <name> [--json]
+ops component image-copy minio --server <name> --from-server <源机 name> --dry-run
 ops ui [--port 7788] [--no-open]
 ops shortcut [--name <名字>] [--remove]
 ops menu --help

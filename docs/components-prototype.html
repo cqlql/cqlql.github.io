@@ -355,6 +355,18 @@ details.card pre{background:var(--code-bg);border-radius:8px;padding:10px 12px;
             <input type="file" id="fileInput" accept=".tar" hidden>
             <button class="act" id="btnPick">选择镜像 tar</button>
           </div>
+          <div class="drop" style="margin-top:10px">
+            <div class="dz-ico">⇄</div>
+            <div class="dz-txt">
+              或直接从另一台已登记服务器复制（<b>本机只做 pipe 中转，不落盘</b>）
+              <small>链路：源机 <code>docker save</code> → 本机 pipe → 目标机 0600 临时 tar →
+              <code>docker load</code> → 删临时文件。不经任何镜像仓库、<b>不是 docker pull</b>；
+              源机只认 <code>servers.json</code> 的 name（源 ≠ 目标），候选镜像只来自源机只读清单
+              <code>ops component images</code>；源机 docker 权限「先无 sudo、再试 sudo」两路都试；
+              上限同 2 GiB，超了就地中断。见 <code>docs/components.md §9</code>。</small>
+            </div>
+            <button class="act" id="btnCopy">从服务器复制…</button>
+          </div>
           <div class="file-pill" id="filePill" hidden>
             <span class="tag info">待导入</span>
             <code id="fileName"></code>
@@ -1015,6 +1027,8 @@ function render(resetOutput) {
   $("btnCheck").disabled = busy;
   // 导入镜像同样是写动作：采不到状态 / Docker 未就绪 / 没选文件都不放行（与 imageEnabled 同口径）。
   $("btnLoad").disabled = busy || !ok || !pickedFile || !isReady(stateOf("docker"));
+  // 从服务器复制：同样是写动作，且必须源机有候选镜像（对应 copyReady）。
+  $("btnCopy").disabled = busy || !ok || !isReady(stateOf("docker")) || !imgs.length;
   $("busyLine").hidden = !busy;
   $("imageSection").hidden = c.id !== "minio";
 
@@ -1270,6 +1284,30 @@ const CONFIRM = {
       "[done] 镜像可用；现在可以单独安装或更新 MinIO"
     ],
     after:null, done:"镜像已导入（原型模拟）"
+  },
+  // ==== @section confirm-minio-image-copy ==== 从服务器复制镜像弹窗文案
+  "minio:image-copy": {
+    title:"确认从来源服务器复制 MinIO 镜像",
+    sub:"源机 docker save → 本机 pipe 中转（不落盘）→ 目标机 docker load",
+    alert:["warn","这是跨主机写操作：会把来源服务器上已有的镜像直接灌到目标机。本机只做管道中转、不落磁盘，不经任何镜像仓库、不执行 docker pull。"],
+    impacts:[
+      "源机只认 servers.json 的 name（--from-server，源 ≠ 目标，未知 404）。",
+      "候选镜像只来自源机只读清单（ops component images / GET /api/components/images），传 --image-ref 也必须在里面。",
+      "源机 docker 权限「先无 sudo、再试 sudo」两路都试，只跑 info / images / save 这类只读命令。",
+      "传输上限与 image-load 同一个 2 GiB，超了就地中断并删目标机临时文件。",
+      "不启动 / 不重建容器，不动 /data/minio、Docker 引擎、crontab、backup.env。",
+      "不做 ssh 密码认证：源机必须能免密钥登录（一次性密码只给 sudo）。"
+    ],
+    checks:[], proxy:false,
+    phases:["读源机镜像清单","源机 docker save","本机 pipe 中转","目标机 docker load","清理临时 tar"],
+    lines:[
+      "[check] 源机 prod：清单 ✓ / docker 权限 ✓（无 sudo）/ 引用白名单 ✓",
+      "[1/3] source: docker save minio/minio:RELEASE.2026-10-21 → stdout",
+      "[2/3] 本机 pipe 中转（不落盘）… 224 MB",
+      "[3/3] target: cat > /tmp/passup-component-minio-image.tar → docker load -i → rm -f",
+      "[done] 镜像已到目标机；现在可以单独安装或更新 MinIO"
+    ],
+    after:null, done:"镜像已复制（原型模拟）"
   }
 };
 
@@ -1301,7 +1339,11 @@ function openConfirm(id, verb) {
     ? { available: collected() && !!pickedFile,
         reasons: [!collected() ? "只读体检没采到状态，先点「重新检查」" : "请先选择本机 .tar 镜像包"],
         images: [] }
-    : planFor(id, verb);
+    : verb === "image-copy"
+      ? { available: collected() && compImages().length > 0,
+          reasons: [!collected() ? "只读体检没采到状态，先点「重新检查」" : "源机本地没有可复制的 MinIO 镜像"],
+          images: [] }
+      : planFor(id, verb);
   if (busy || !plan.available) {
     toast("该动作当前不可执行：" + (plan.reasons[0] || "后端未下发动作计划"), true);
     return;
@@ -1339,7 +1381,7 @@ function openConfirm(id, verb) {
     "四个动词均已接入：影响清单 / 附加勾选 / 目标镜像 / 能否执行都由 Go 侧 BuildActions 算好随 status 下发，本页是演示文案；判据见 docs/components.md §8.4";
   $("mYes").value = "";
   $("mPwd").value = "";
-  $("mOk").textContent = "确认" + (verb === "image-load" ? "导入" : plan.label);
+  $("mOk").textContent = "确认" + (verb === "image-load" ? "导入" : verb === "image-copy" ? "复制" : plan.label);
   $("mOk").disabled = true;
   $("mOk").className = "act " + (verb === "uninstall" ? "danger" : "primary");
   $("mask").hidden = false;
@@ -1369,6 +1411,7 @@ $("btnLoad").addEventListener("click", () => {
   if (!pickedFile) { toast("请先选择本机 .tar 镜像包", true); return; }
   openConfirm("minio", "image-load");
 });
+$("btnCopy").addEventListener("click", () => openConfirm("minio", "image-copy"));
 
 $("mOk").addEventListener("click", () => {
   const p = pending;
