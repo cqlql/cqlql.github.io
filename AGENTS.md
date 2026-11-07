@@ -75,6 +75,10 @@
 > `clear` 列表，空值仍恒为「保持不变」，凭证填错不必再手改文件；`PG_SSH_KEY` 保存时
 > 只认私钥文件绝对路径，`preflight_pg.sh` 不再把路径打进日志。
 > 见 `docs/ui.md` §12.8 / 硬约束 23 ⑨。
+> **2026-11-07 定稿 P2a 实现设计（代码仍未实现）**：分节协议、接口签名、文件清单、
+> 红线单测与「只读账号强制」两个拍板结论写进 `docs/backup-monitor.md` §11；下一步先做
+> P2a CLI，P3–P4 仍为方案。🔴 **设计稿不等于现状**：§10 键表仍留方案文档、不进
+> `docs/config.md`，「已实现」措辞、键表与 `servers.md` 的 `monitor` 必填都要等代码落地再改。
 > 只放「每次动代码都要遵守」的红线：一句结论 + 一个指针。判据、流程、踩坑都在 `docs/`。
 > 通用文档规则以 `cqlql-notes/docs/工程/文档约定.md` 为准。
 
@@ -129,7 +133,9 @@
    + 服务端预检门（判据见硬约束 21）。
    sudo 密码只经 **stdin**（CLI `--password-stdin` / 界面单次请求内存 → 子进程 stdin），
    清单可选的 `sudo.password` 用完建议删除；**禁止 `--password` 参数**。
-   详见 `docs/backup-deploy.md` §2、`docs/servers.md`。
+   🔴 P2 落地时只读账号必须来自清单 `monitor` 且不等于安装账号；「必须有 monitor」
+   只在 `status` 采集入口强制，不加进清单全局校验（否则打挂 P0/P1/界面）。
+   详见 `docs/backup-deploy.md` §2、`docs/servers.md`、`docs/backup-monitor.md` §6 / §11。
 10. 🔴 **`--dry-run` 不改远端**：即使同时给 `--install-deps` 也不安装，只报告缺失项。
 11. 🔴 **整目录切换必须保留未部署组件的 `backup.env`**：只部署 `pg` 时，`minio/backup.env`
     也要从旧目录搬进 `.new`，否则重部署单组件会丢另一组件配置（已踩过）。
@@ -530,7 +536,7 @@ ops menu --help
 | 界面（`ops ui` · Vite + React + antd，左侧 Sider + Menu） | `docs/ui.md` | 静态产物不过 token、API 才是边界；产物不进 Git 但 `.gitkeep` 必进；未构建要回说明页；单实例 + 配置不全也起页面；界面安装要过六道门（§9） |
 | 备份脚本（`deploy/backup/**`，已迁入本仓） | `docs/backup-scripts.md` | 脚本编在二进制里，改了必须 `go build`；目录里不许有真实凭证；恢复脚本禁止入 Crontab |
 | 备份能力部署（P1 ✅，监控的前置；CLI + 界面） | `docs/backup-deploy.md` | 复用 `install.sh`；不覆盖 `backup.env`；不静默迁移目录；logrotate 由工具落盘；界面安装必须 yes + 服务端预检门 |
-| 备份监控（P2 · 方案，未实现） | `docs/backup-monitor.md` | 只读采集；时间差在远端算；`-` 不是 0；方案键表在本文 §10，不进 config.md |
+| 备份监控（P2 · 方案，代码未实现；P2a 设计见 §11） | `docs/backup-monitor.md` | 只读采集；时间差在远端算；`-` 不是 0；只读账号强制 `monitor` 且不复用安装账号；方案键表在本文 §10，不进 config.md |
 | 单机一键 Docker 部署（P3–P4 · 方案，未实现） | `docs/deploy.md` | `.env` 去 CRLF；镜像前缀必须等于 compose；Flyway 单向；方案键表在本文 §8，不进 config.md |
 | 一键启动与桌面快捷方式（S2/S3/S5 ✅，S4 人工验收待做） | `docs/one-click-launch.md` | 双击直达网页面板（隐藏守护 + 单实例）；`.lnk` 只指启动器；图标用独立 `.ico`；名字校验挡路径穿越；双击绝不触发写操作，页面写操作要显式确认 |
 | 配置（唯一维护处） | `docs/config.md` | `ops.env` 的键只在 `internal/shared/opsenv.go`（未知 `PASS_UP_OPS_*` 直接报错）；`backup.env` 的键只在 `internal/shared/env-schema.json`，模板 / 脚本兜底 / 白名单 / 键表都是生成物，漏跑生成器 `go test` 会红 |
