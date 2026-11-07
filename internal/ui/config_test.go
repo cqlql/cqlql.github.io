@@ -207,7 +207,7 @@ func TestEditEnvFile(t *testing.T) {
 		"PG_SSH_USER":        "", // 空值 = 保持不变
 		"PG_BACKUP_ROOT":     "/data/backups/postgres",
 		"UNKNOWN_FUTURE_KEY": "keep",
-	})
+	}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -238,16 +238,92 @@ func TestEditEnvFileRejectsBadInput(t *testing.T) {
 	if err := os.WriteFile(p, []byte(original), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := editEnvFile(p, shared.EnvDefs("pg"), map[string]string{"PATH": "/bin"}); err == nil {
+	if _, err := editEnvFile(p, shared.EnvDefs("pg"), map[string]string{"PATH": "/bin"}, nil); err == nil {
 		t.Error("未知键竟然通过了")
 	}
-	if _, err := editEnvFile(p, shared.EnvDefs("pg"), map[string]string{"PG_SSH_HOST": "a\nb"}); err == nil {
+	if _, err := editEnvFile(p, shared.EnvDefs("pg"), map[string]string{"PG_SSH_HOST": "a\nb"}, nil); err == nil {
 		t.Error("带换行的值竟然通过了")
+	}
+	// 私钥路径曾被人填成口令 12345678，页面不回显，直到远端 preflight 才发现。
+	if _, err := editEnvFile(p, shared.EnvDefs("pg"), map[string]string{"PG_SSH_KEY": "12345678"}, nil); err == nil {
+		t.Error("PG_SSH_KEY 填成非路径的口令竟然通过了")
 	}
 	got, _ := os.ReadFile(p)
 	if string(got) != original {
 		t.Errorf("校验失败后原文件被改了：%q", got)
 	}
+}
+
+// 显式清空：凭证不回显，页面只能靠 clear 把错值清掉；空值仍表示「保持不变」。
+func TestEditEnvFileClear(t *testing.T) {
+	defs := shared.EnvDefs("pg")
+	const original = "# 头部注释\n" +
+		"PG_SSH_HOST=\"192.168.1.221\"\n" +
+		"PG_SSH_KEY=\"12345678\"\n" +
+		"PG_DB_NAME=\"pass_up_dev\"\n"
+	newFile := func(t *testing.T) string {
+		t.Helper()
+		p := filepath.Join(t.TempDir(), "postgres.env")
+		if err := os.WriteFile(p, []byte(original), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		return p
+	}
+
+	t.Run("清空凭证并保留其它行", func(t *testing.T) {
+		p := newFile(t)
+		changed, err := editEnvFile(p, defs, map[string]string{"PG_SSH_KEY": ""}, []string{"PG_SSH_KEY"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if strings.Join(changed, ",") != "PG_SSH_KEY" {
+			t.Errorf("changed = %v", changed)
+		}
+		got, _ := os.ReadFile(p)
+		want := "# 头部注释\nPG_SSH_HOST=\"192.168.1.221\"\nPG_SSH_KEY=\"\"\nPG_DB_NAME=\"pass_up_dev\"\n"
+		if string(got) != want {
+			t.Errorf("清空后的文件：\n%s\n想要：\n%s", got, want)
+		}
+		if _, err := os.Stat(p + ".bak"); err != nil {
+			t.Errorf("清空没留 .bak：%v", err)
+		}
+	})
+
+	t.Run("不发 clear 时空值仍保持不变", func(t *testing.T) {
+		p := newFile(t)
+		if _, err := editEnvFile(p, defs, map[string]string{"PG_SSH_KEY": ""}, nil); err == nil {
+			t.Error("没有实际修改竟然保存成功")
+		}
+		if got, _ := os.ReadFile(p); string(got) != original {
+			t.Errorf("原文件被改了：\n%s", got)
+		}
+	})
+
+	t.Run("新值优先于清空", func(t *testing.T) {
+		p := newFile(t)
+		_, err := editEnvFile(p, defs,
+			map[string]string{"PG_SSH_KEY": "/home/cql/.ssh/id_ed25519"},
+			[]string{"PG_SSH_KEY"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got, _ := os.ReadFile(p); !strings.Contains(string(got), `PG_SSH_KEY="/home/cql/.ssh/id_ed25519"`) {
+			t.Errorf("新值没写进去：\n%s", got)
+		}
+	})
+
+	t.Run("未知键与文件里不存在的键", func(t *testing.T) {
+		p := newFile(t)
+		if _, err := editEnvFile(p, defs, nil, []string{"PATH"}); err == nil {
+			t.Error("clear 里的未知键竟然通过了")
+		}
+		if _, err := editEnvFile(p, defs, nil, []string{"CRON_SCHEDULE_BACKUP"}); err == nil {
+			t.Error("清空文件里没有的键不应该产生一次写入")
+		}
+		if got, _ := os.ReadFile(p); string(got) != original {
+			t.Errorf("校验失败后原文件被改了：\n%s", got)
+		}
+	})
 }
 
 func TestEditServersFileKeepsUnknownFieldsAndValidates(t *testing.T) {
@@ -380,6 +456,38 @@ func TestConfigEnvSaveWorksWithoutConfig(t *testing.T) {
 	}
 	if !strings.Contains(string(raw), `PG_SSH_HOST="10.0.0.9"`) {
 		t.Errorf("写出的内容不对：%s", raw)
+	}
+}
+
+// 界面清空凭证：clear 走 HTTP 契约，仍要 confirm=yes，且只写本机文件。
+func TestConfigEnvClearViaAPI(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv(shared.ConfigDirEnv, dir)
+	t.Setenv("PASS_UP_OPS_ENV", "")
+	u := newState(t, fakeDist(t))
+	p := filepath.Join(dir, "backup", "postgres.env")
+	if err := os.MkdirAll(filepath.Dir(p), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	const original = "PG_SSH_KEY=\"12345678\"\n"
+	if err := os.WriteFile(p, []byte(original), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	if got := serveConfigPost(u, "/api/config/backup-env",
+		`{"component":"pg","confirm":"no","clear":["PG_SSH_KEY"]}`).Code; got != http.StatusBadRequest {
+		t.Errorf("没确认就清空 = %d，想要 400", got)
+	}
+	if w := serveConfigPost(u, "/api/config/backup-env",
+		`{"component":"pg","confirm":"yes","clear":["PG_SSH_KEY"]}`); w.Code != http.StatusOK {
+		t.Fatalf("清空 = %d：%s", w.Code, w.Body.String())
+	}
+	raw, err := os.ReadFile(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(raw) != "PG_SSH_KEY=\"\"\n" {
+		t.Errorf("清空结果不对：%q", raw)
 	}
 }
 

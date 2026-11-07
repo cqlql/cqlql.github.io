@@ -313,9 +313,25 @@ pre {
   color: var(--ops-muted);
 }
 
+.config-field-title {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  justify-content: space-between;
+  gap: 8px;
+}
+
 .config-field small {
   font-size: 11px;
   opacity: 0.7;
+}
+
+/* 「清空」是显式写操作，跟字段名同一行，别把输入框挤下去。 */
+.config-clear {
+  padding: 0;
+  height: auto;
+  font-size: 11px;
+  flex: none;
 }
 
 .config-chain {

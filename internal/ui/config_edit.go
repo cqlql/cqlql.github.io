@@ -398,7 +398,11 @@ func readEnvFields(path string, defs []envKeyDef) ([]envField, map[string]bool, 
 
 // editEnvFile 只替换「模板定义过或文件里已有」的键，其余行（注释、空行、
 // 未来新增的键）原样保留。值统一用双引号包裹并转义 shell 元字符。
-func editEnvFile(path string, defs []envKeyDef, fields map[string]string) ([]string, error) {
+//
+// 🔴 空值有两种，必须分开：fields 里的空串 = 「保持不变」（凭证不回显，防止误清），
+//    clear 里显式列出的键 = 写成 KEY=""。同一键既有新值又在 clear 里时以新值为准。
+//    老前端不发 clear，行为与以前完全一致；清空同样过白名单、confirm=yes、.bak。
+func editEnvFile(path string, defs []envKeyDef, fields map[string]string, clear []string) ([]string, error) {
 	allowed := map[string]bool{}
 	for _, d := range defs {
 		allowed[d.Key] = true
@@ -410,14 +414,39 @@ func editEnvFile(path string, defs []envKeyDef, fields map[string]string) ([]str
 	for k := range existing {
 		allowed[k] = true
 	}
-	keys := make([]string, 0, len(fields))
-	for k := range fields {
+
+	// writes 是本次真正要落盘的键值；值为空串表示显式清空。
+	writes := map[string]string{}
+	for k, v := range fields {
 		if !envKeyRe.MatchString(k) || !allowed[k] {
 			return nil, fmt.Errorf("不允许修改的配置键：%s", k)
 		}
-		keys = append(keys, k)
+		if v == "" {
+			continue
+		}
+		if err := validateEnvValueFor(k, v); err != nil {
+			return nil, fmt.Errorf("%s：%w", k, err)
+		}
+		writes[k] = v
 	}
-	sort.Strings(keys)
+	for _, k := range clear {
+		if !envKeyRe.MatchString(k) || !allowed[k] {
+			return nil, fmt.Errorf("不允许清空的配置键：%s", k)
+		}
+		// 文件里本来没有这一行就无需清空；新值优先于清空。
+		if _, set := writes[k]; set || !existing[k] {
+			continue
+		}
+		writes[k] = ""
+	}
+	if len(writes) == 0 {
+		return nil, fmt.Errorf("没有需要保存的修改")
+	}
+	changed := make([]string, 0, len(writes))
+	for k := range writes {
+		changed = append(changed, k)
+	}
+	sort.Strings(changed)
 
 	raw, err := os.ReadFile(path)
 	if err != nil && !os.IsNotExist(err) {
@@ -428,7 +457,7 @@ func editEnvFile(path string, defs []envKeyDef, fields map[string]string) ([]str
 		lines = strings.Split(strings.TrimRight(string(raw), "\n"), "\n")
 	}
 	seen := map[string]bool{}
-	out := make([]string, 0, len(lines)+len(keys))
+	out := make([]string, 0, len(lines)+len(changed))
 	for _, line := range lines {
 		m := envLineRe.FindStringSubmatch(line)
 		if m == nil {
@@ -436,34 +465,20 @@ func editEnvFile(path string, defs []envKeyDef, fields map[string]string) ([]str
 			continue
 		}
 		k := m[1]
-		v, ok := fields[k]
-		if !ok || v == "" || seen[k] {
+		v, ok := writes[k]
+		if !ok || seen[k] {
 			out = append(out, line)
 			continue
-		}
-		if err := validateEnvValue(v); err != nil {
-			return nil, fmt.Errorf("%s：%w", k, err)
 		}
 		out = append(out, k+"="+quoteEnvValue(v))
 		seen[k] = true
 	}
-	var changed []string
-	for _, k := range keys {
-		v := fields[k]
-		if v == "" {
-			continue // 空值 = 保持不变，凭证字段靠它避免被误清
+	// 文件里没有这一行的新键追加到末尾；显式清空的键必在 existing 中，不会走到这里。
+	for _, k := range changed {
+		if seen[k] {
+			continue
 		}
-		if err := validateEnvValue(v); err != nil {
-			return nil, fmt.Errorf("%s：%w", k, err)
-		}
-		if !seen[k] {
-			out = append(out, k+"="+quoteEnvValue(v))
-			seen[k] = true
-		}
-		changed = append(changed, k)
-	}
-	if len(changed) == 0 {
-		return nil, fmt.Errorf("没有需要保存的修改")
+		out = append(out, k+"="+quoteEnvValue(writes[k]))
 	}
 	data := []byte(strings.Join(out, "\n") + "\n")
 	tmp := path + ".tmp"
@@ -471,6 +486,16 @@ func editEnvFile(path string, defs []envKeyDef, fields map[string]string) ([]str
 		return nil, err
 	}
 	return changed, nil
+}
+
+// PG_SSH_KEY 是**路径**而不是口令。它按 secret 处理、页面不回显，填成口令时
+// 人要等到远端 preflight 报「私钥不存在」才看得见；保存这一刻就挡住非绝对路径。
+// 只有这一个键有格式语义，其余键仍只做通用的换行 / 长度校验。
+func validateEnvValueFor(k, v string) error {
+	if k == "PG_SSH_KEY" && !strings.HasPrefix(v, "/") {
+		return fmt.Errorf("应填备份端私钥文件的绝对路径（如 /home/<user>/.ssh/id_ed25519），不是口令；不用显式私钥请点「清空」")
+	}
+	return validateEnvValue(v)
 }
 
 func validateEnvValue(v string) error {

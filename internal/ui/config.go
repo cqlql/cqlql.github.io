@@ -245,6 +245,8 @@ type configEnvRequest struct {
 	Component string            `json:"component"`
 	Confirm   string            `json:"confirm"`
 	Fields    map[string]string `json:"fields"`
+	// Clear 是「人显式点了清空」的键；空值单独走这里，避免与「留空保持不变」混淆。
+	Clear []string `json:"clear"`
 }
 
 func (u *uiState) handleConfigBackupEnv(w http.ResponseWriter, r *http.Request) {
@@ -277,7 +279,7 @@ func (u *uiState) handleConfigBackupEnv(w http.ResponseWriter, r *http.Request) 
 		writeAPI(w, http.StatusInternalServerError, apiResponse{Error: "创建配置目录失败：" + err.Error()})
 		return
 	}
-	changed, err := editEnvFile(path, defs, req.Fields)
+	changed, err := editEnvFile(path, defs, req.Fields, req.Clear)
 	if err != nil {
 		writeAPI(w, http.StatusBadRequest, apiResponse{Error: err.Error()})
 		return

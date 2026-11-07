@@ -17,6 +17,7 @@ import {
   envInitial,
   envInputPlaceholder,
   envPlaceholder,
+  envSavePayload,
   fillableDefaults,
   newServerInitial,
   normalizeCompareView,
@@ -66,6 +67,29 @@ test('凭证字段填了新值才会被提交，留空表示保持不变', () =>
     changedFields(base, { ...base, PG_SSH_KEY: '/root/.ssh/new_key' }),
     { PG_SSH_KEY: '/root/.ssh/new_key' },
   )
+})
+
+test('显式清空走 clear，不与「留空保持不变」混淆', () => {
+  const base = envInitial(fields)
+  // 只把输入框删空：仍然什么都不提交，凭证不会被误清。
+  assert.deepEqual(envSavePayload(base, base, []), { fields: {}, clear: [] })
+  // 勾了「清空」才产生一次明确写入；重复勾选去重。
+  assert.deepEqual(envSavePayload(base, base, ['PG_SSH_KEY', 'PG_SSH_KEY']), {
+    fields: {}, clear: ['PG_SSH_KEY'],
+  })
+  // 同一键又填了新值：覆盖优先，清空自动让位。
+  const draft = { ...base, PG_SSH_HOST: '10.0.0.9', PG_SSH_KEY: '/home/cql/.ssh/id_ed25519' }
+  assert.deepEqual(envSavePayload(base, draft, ['PG_SSH_KEY', 'SRC_SECRET']), {
+    fields: { PG_SSH_HOST: '10.0.0.9', PG_SSH_KEY: '/home/cql/.ssh/id_ed25519' },
+    clear: ['SRC_SECRET'],
+  })
+})
+
+test('确认文案点明有几项被显式清空', () => {
+  const hint = confirmHint('env', { component: 'pg', count: 2, clearCount: 1 })
+  assert.match(hint, /1 项是你显式勾选的「清空」/)
+  assert.match(hint, /写成空值/)
+  assert.doesNotMatch(confirmHint('env', { component: 'pg', count: 2 }), /显式勾选/)
 })
 
 test('secret 占位文案区分已配置与未配置', () => {

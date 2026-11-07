@@ -1,4 +1,5 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
+import type { ChangeEvent } from 'react'
 import { Alert, Button, Input, Modal, Segmented, Select, Tag, Typography } from 'antd'
 
 import { configApi } from '../api.ts'
@@ -19,6 +20,7 @@ import {
   envInitial,
   envInputPlaceholder,
   envPlaceholder,
+  envSavePayload,
   fillableDefaults,
   newServerInitial,
   serverInitial,
@@ -51,6 +53,8 @@ export function ConfigPage({ onServersChanged }: ConfigPageProps) {
   const [envComponent, setEnvComponent] = useState<BackupComponent>('pg')
   const [envDraft, setEnvDraft] = useState<Record<string, string>>({})
   const [envBase, setEnvBase] = useState<Record<string, string>>({})
+  // 显式勾了「清空」的键：凭证不回显，只靠输入框留空是清不掉已配好的值的。
+  const [envClear, setEnvClear] = useState<string[]>([])
   const [pane, setPane] = useState<'edit' | 'compare'>('edit')
   const [compare, setCompare] = useState<CompareView | null>(null)
   const [compareLoading, setCompareLoading] = useState(false)
@@ -102,6 +106,7 @@ export function ConfigPage({ onServersChanged }: ConfigPageProps) {
     const base = envInitial(currentEnv.fields)
     setEnvBase(base)
     setEnvDraft(base)
+    setEnvClear([])
   }, [currentEnv])
 
   // 远端值：进入页面 / 切服务器 / 切组件时各抓一次；失败只留一条集中提示。
@@ -149,14 +154,25 @@ export function ConfigPage({ onServersChanged }: ConfigPageProps) {
     if (pending === 'add') {
       return Object.keys(changedFields(serverBase, serverDraft)).length + (newName.trim() ? 1 : 0)
     }
-    if (pending === 'env') return Object.keys(changedFields(envBase, envDraft)).length
+    if (pending === 'env') {
+      const p = envSavePayload(envBase, envDraft, envClear)
+      return Object.keys(p.fields).length + p.clear.length
+    }
     return 0
-  }, [pending, serverBase, serverDraft, envBase, envDraft, newName])
+  }, [pending, serverBase, serverDraft, envBase, envDraft, envClear, newName])
 
   const setServerField = (key: string, value: string) =>
     setServerDraft((prev) => ({ ...prev, [key]: value }))
-  const setEnvField = (key: string, value: string) =>
+  const setEnvField = (key: string, value: string) => {
     setEnvDraft((prev) => ({ ...prev, [key]: value }))
+    // 填了新值就自动撤销该键的「清空」，两个动作不并存。
+    if (value !== '') setEnvClear((prev) => prev.filter((k) => k !== key))
+  }
+  const toggleEnvClear = (key: string) => {
+    const on = !envClear.includes(key)
+    setEnvClear(on ? [...envClear, key] : envClear.filter((k) => k !== key))
+    if (on) setEnvDraft((prev) => ({ ...prev, [key]: '' }))
+  }
 
   const askConfirm = (kind: ConfirmKind) => {
     setPending(kind)
@@ -203,16 +219,19 @@ export function ConfigPage({ onServersChanged }: ConfigPageProps) {
         await load()
         void fetchCompare()
       } else if (kind === 'env') {
-        const fields = changedFields(envBase, envDraft)
-        if (!Object.keys(fields).length) {
+        const payload = envSavePayload(envBase, envDraft, envClear)
+        if (!Object.keys(payload.fields).length && !payload.clear.length) {
           setNotice({ kind: 'info', text: '没有需要保存的修改。' })
           return
         }
-        const r = await configApi.saveEnv(envComponent, fields)
+        const r = await configApi.saveEnv(envComponent, payload.fields, payload.clear)
+        setEnvClear([])
         setEnvDirty(true)
         setNotice({
           kind: 'success',
-          text: `已保存本机 ${r.changed.length} 项（0600，已留 .bak）。远端 backup.env 未同步，请点「同步到远端」。`,
+          text: `已保存本机 ${r.changed.length} 项` +
+            (payload.clear.length ? `（含 ${payload.clear.length} 项清空）` : '') +
+            '（0600，已留 .bak）。远端 backup.env 未同步，请点「同步到远端」。',
         })
         await load()
         void fetchCompare()
@@ -438,28 +457,47 @@ export function ConfigPage({ onServersChanged }: ConfigPageProps) {
                 <div className="config-grid">
                   {fields.map((f) => {
                     const cf = compareByKey.get(f.key)
+                    const marked = envClear.includes(f.key)
+                    const inputId = `env-${envComponent}-${f.key}`
+                    const inputProps = {
+                      id: inputId,
+                      value: envDraft[f.key] ?? '',
+                      disabled: marked,
+                      placeholder: marked
+                        ? '保存后将清空此项'
+                        : f.secret ? envPlaceholder(f) : envInputPlaceholder(f),
+                      onChange: (e: ChangeEvent<HTMLInputElement>) => setEnvField(f.key, e.target.value),
+                    }
                     return (
-                      <label className="config-field" key={f.key}>
+                      <div className="config-field" key={f.key}>
                         <span title={f.key}>
-                          {f.label}
-                          <small>{f.key}</small>
+                          <span className="config-field-title">
+                            <label htmlFor={inputId}>{f.label}</label>
+                            <small>{f.key}</small>
+                          </span>
+                          {f.configured && (
+                            <Button
+                              type="link"
+                              size="small"
+                              className="config-clear"
+                              danger={marked}
+                              onClick={(e) => {
+                                e.preventDefault()
+                                e.stopPropagation()
+                                toggleEnvClear(f.key)
+                              }}
+                            >
+                              {marked ? '撤销清空' : '清空'}
+                            </Button>
+                          )}
                         </span>
                         {f.secret ? (
-                          <Input.Password
-                            value={envDraft[f.key] ?? ''}
-                            autoComplete="off"
-                            placeholder={envPlaceholder(f)}
-                            onChange={(e) => setEnvField(f.key, e.target.value)}
-                          />
+                          <Input.Password {...inputProps} autoComplete="off" />
                         ) : (
-                          <Input
-                            value={envDraft[f.key] ?? ''}
-                            placeholder={envInputPlaceholder(f)}
-                            onChange={(e) => setEnvField(f.key, e.target.value)}
-                          />
+                          <Input {...inputProps} />
                         )}
                         {cf && <RemoteLine field={cf} />}
-                      </label>
+                      </div>
                     )
                   })}
                 </div>
@@ -592,7 +630,8 @@ export function ConfigPage({ onServersChanged }: ConfigPageProps) {
         {syncLog && <pre className="backup-log">{syncLog}</pre>}
 
         <Typography.Paragraph type="secondary" style={{ marginTop: 12, fontSize: 12 }}>
-          凭证字段只显示「已配置」，留空表示保持不变；填写新值即覆盖。保存会先留 <code>.bak</code>，
+          凭证字段只显示「已配置」，留空表示保持不变；填写新值即覆盖。要清掉已配置的值，点字段右侧的
+          「清空」再保存（写成空值，仍需输入 yes），仅把输入框删空不会清空。保存会先留 <code>.bak</code>，
           值按 shell 字面量转义。同步只更新远端 <code>backup.env</code>，不重跑安装脚本、不动 crontab。
         </Typography.Paragraph>
       </div>
@@ -616,6 +655,7 @@ export function ConfigPage({ onServersChanged }: ConfigPageProps) {
             server: serverName,
             component: envComponent,
             count: pendingCount,
+            clearCount: pending === 'env' ? envSavePayload(envBase, envDraft, envClear).clear.length : 0,
           })}
         />
         <p className="hint">请输入 <code>yes</code> 确认：</p>

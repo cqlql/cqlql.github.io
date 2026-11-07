@@ -56,14 +56,16 @@ check_pg() {
 
     # --- 6. SSH 私钥 ---
     if [ -n "${PG_SSH_KEY:-}" ]; then
+        # 🔴 私钥路径不打印（AGENTS.md 硬约束 8）：日志会回流到界面任务输出。
         if [ -f "$PG_SSH_KEY" ]; then
             local perm; perm="$(stat -c '%a' "$PG_SSH_KEY" 2>/dev/null)"
-            ok "SSH 私钥存在: ${PG_SSH_KEY}（权限 ${perm}）"
+            ok "SSH 私钥存在（权限 ${perm}，路径不回显）"
             if [ "$perm" != "600" ] && [ "$perm" != "400" ]; then
                 warn "SSH 私钥权限为 ${perm}，建议改为 600（ssh 可能因权限过宽拒绝）"
             fi
         else
-            err "SSH 私钥不存在: ${PG_SSH_KEY}"
+            err "SSH 私钥不存在（PG_SSH_KEY 指向的文件在备份端找不到，路径不回显）"
+            info "PG_SSH_KEY 应填备份端私钥文件的绝对路径；不用显式私钥就把它清成空值，ssh 会用默认密钥"
         fi
     else
         warn "未配置 PG_SSH_KEY（将使用默认 ~/.ssh/id_rsa 等）"

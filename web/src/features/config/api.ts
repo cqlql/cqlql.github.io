@@ -37,10 +37,11 @@ export const configApi = {
       body: JSON.stringify({ mode: 'add', fields, confirm: 'yes' }),
     }),
 
-  saveEnv: (component: BackupComponent, fields: Record<string, string>) =>
+  /** clear 是人在字段旁显式勾了「清空」的键；空值单独走它，不与「留空保持不变」混淆。 */
+  saveEnv: (component: BackupComponent, fields: Record<string, string>, clear: string[] = []) =>
     request<EnvSaveResult>('/api/config/backup-env', {
       method: 'POST',
-      body: JSON.stringify({ component, fields, confirm: 'yes' }),
+      body: JSON.stringify({ component, fields, clear, confirm: 'yes' }),
     }),
 
   /** 显式远端写：把本机 env 推到目标机的 <组件>/backup.env，不重装脚本。 */

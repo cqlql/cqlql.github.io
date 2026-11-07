@@ -14,7 +14,8 @@ import type {
  * 判定层 + 响应归一化：不碰 React / DOM，便于 node --test 直接跑。
  *
  * 🔴 空值一律表示「保持不变」——凭证字段在页面上不回显明文，
- * 留空才不会把已配好的密码/私钥清空。想清空请直接改文件。
+ * 留空才不会把已配好的密码/私钥清空。真要清空必须走显式的 clear 列表
+ * （字段旁的「清空」按钮），不能靠「把输入框删空」这种含糊动作。
  */
 
 export type ConfirmKind = 'servers' | 'add' | 'env' | 'sync'
@@ -112,6 +113,26 @@ export function changedFields(
     out[key] = value
   }
   return out
+}
+
+export interface EnvSavePayload {
+  fields: Record<string, string>
+  clear: string[]
+}
+
+/**
+ * 生成保存请求：覆盖走 fields，显式清空走 clear，两者互斥（新值优先）。
+ *
+ * 服务端同样只认白名单且只清「文件里已有这一行」的键，并把清空写成 KEY=""，
+ * 这样 PG_SSH_KEY 清掉后脚本会退回 ssh 默认密钥，而不是继续指向一个错值。
+ */
+export function envSavePayload(
+  initial: Record<string, string>,
+  draft: Record<string, string>,
+  clear: string[],
+): EnvSavePayload {
+  const fields = changedFields(initial, draft)
+  return { fields, clear: [...new Set(clear)].filter((k) => !fields[k]) }
 }
 
 export function envPlaceholder(f: EnvField): string {
@@ -232,7 +253,7 @@ export function confirmTitle(kind: ConfirmKind): string {
 
 export function confirmHint(
   kind: ConfirmKind,
-  detail: { server?: string; component?: BackupComponent; count?: number },
+  detail: { server?: string; component?: BackupComponent; count?: number; clearCount?: number },
 ): string {
   const c = detail.component === 'minio' ? 'MinIO' : 'PostgreSQL'
   switch (kind) {
@@ -240,8 +261,12 @@ export function confirmHint(
       return `将把 ${detail.count ?? 0} 项修改写入 ${detail.server ?? ''} 的 servers.json（本机文件，先留 .bak）。改了登录账号或 sudo 模式后，需要重新执行「一键免密 sudo」。`
     case 'add':
       return `将把这台服务器追加到 servers.json（本机文件，先留 .bak），并做一次全量校验；校验不通过原文件一字不动。新增只写本机，不会连任何远端。`
-    case 'env':
-      return `将把 ${detail.count ?? 0} 项修改写入本机的 ${c} 配置（0600，先留 .bak）。留空的字段不会写入文件，预检仍会判「未配置」；这只是本机文件，远端 backup.env 不会变。`
+    case 'env': {
+      const base = `将把 ${detail.count ?? 0} 项修改写入本机的 ${c} 配置（0600，先留 .bak）。留空的字段不会写入文件，预检仍会判「未配置」；这只是本机文件，远端 backup.env 不会变。`
+      return detail.clearCount
+        ? `${base} 其中 ${detail.clearCount} 项是你显式勾选的「清空」，会写成空值（例如清掉填错的 PG_SSH_KEY，让 ssh 使用默认密钥）。`
+        : base
+    }
     default:
       return `将把本机 ${c} 配置推送到 ${detail.server ?? ''} 的 backup.env（远端写操作）。定时任务会立刻按新配置运行，请确认地址与私钥在目标机上可用。`
   }

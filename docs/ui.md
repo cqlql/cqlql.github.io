@@ -13,6 +13,8 @@
 > 落地页给可操作引导，配置页可直接新增第一台服务器（§12.6）。
 > **2026-11-07 追加**：配置页显示 `env-schema.json` 的默认值、另有显式「填入推荐
 > 默认值」按钮，换电脑后不必逐项填（§12.7）。
+> **2026-11-07 夜追加**：配置页可显式「清空」已配置字段（`clear` 列表），
+> `PG_SSH_KEY` 保存时只认私钥文件绝对路径、日志不再回显路径（§12.8）。
 > 未实现的 P2/P3 视图按本文件 §7 的触发条件再加。
 
 # 界面（`ops ui`）
@@ -568,7 +570,8 @@ sudo 包装层，于是「配置了 cql，日志却说 root」看起来像配置
 六道门（服务端 enforce，前端只是交互，对应 AGENTS.md 硬约束 23）：
 
 1. 凭证字段（含 `PASSWORD|SECRET|TOKEN|KEY`）**只回显 `configured` 标记**；提交时
-   空值 = 保持不变，填新值才覆盖。四个写动作（`servers` / `add` / `backup-env` /
+   空值 = 保持不变，填新值才覆盖；**清空必须走独立的 `clear` 列表**（§12.8），
+   同样过白名单与 `confirm=="yes"`。四个写动作（`servers` / `add` / `backup-env` /
    `sync-env`）都要 `confirm=="yes"`，`POST` + token + Origin。
 2. 路径全部由服务端从 `ops.env` / 配置目录解析，**接口不接收任何路径**；`name` 只认清单，
    组件只认 `pg|minio|all`。
@@ -754,7 +757,38 @@ ops backup sync-env [pg|minio|all] --server <name>
 **没变**：双击落地页只读；四个写动作仍 `POST` + token + Origin + `confirm=="yes"`；
 `sync-env` 仍整份覆盖，远端独有项仍要显式提示；路径仍由服务端解析、接口不收路径。
 
-### 12.8 回归要点
+### 12.8 显式清空已配置字段（2026-11-07 夜追加）
+
+**为什么**：「凭证不回显 + 空值 = 保持不变」少了反向的一环 —— 字段填错后
+（真机把 `PG_SSH_KEY` 填成了口令 `12345678`），页面只显示「已配置」，既看不到错值
+也没有清空入口，只能绕开工具手工改文件；而这个错值又被 `preflight_pg.sh` 原样打进
+界面日志，等于「页面不许看、日志随便看」。`PG_SSH_KEY` 是**私钥文件路径**不是口令，
+密码框让人更容易填错，所以保存时还要挡一道格式。
+
+**契约**：`POST /api/config/backup-env` 增加可选 `clear: string[]`。空值仍恒为
+「保持不变」（老前端不发 `clear`，行为完全不变）；只有 `clear` 里显式列出、且文件里
+确实有这一行的键，才写成 `KEY=""` 并计入 `changed`，其余行 / 注释原样保留。
+同一键既有新值又在 `clear` 里时以新值为准。前端 `envSavePayload()` 负责去重与互斥，
+页面只在**已配置**字段右侧给「清空 / 撤销清空」按钮，勾选后输入框禁用、提示
+「保存后将清空此项」，确认弹窗点明有几项被清空。四个写动作仍 `POST` + token +
+Origin + `confirm=="yes"`，0600 + `.bak` + 原子替换照旧。清空只写本机，
+**仍要显式「同步到远端」**才生效 —— 清掉 `PG_SSH_KEY` 后，远端脚本会退回 ssh
+默认密钥，不再指向一个不存在的路径。
+
+**私钥路径的三处收敛**：
+
+- `env-schema.json` 的 notes 写清「填备份端机器上的私钥文件绝对路径，不是口令；
+  工具不搬运私钥；留空用 ssh 默认密钥」，`ops __gen-backup-env` 同步进
+  `postgres/backup.env.example`；
+- `validateEnvValueFor("PG_SSH_KEY", v)` 保存时拒绝非绝对路径，错值不再藏进
+  不回显的凭证里等部署才暴露；
+- `preflight_pg.sh` 的「存在 / 不存在」两行**都不再回显路径**（硬约束 8），
+  失败时只说「`PG_SSH_KEY` 指向的文件在备份端找不到」并给出修复提示。
+
+**没变**：双击落地页只读；同步仍整份覆盖；路径仍由服务端解析、接口不收路径；
+`clear` 不是「删除这一行」，写成空值才能让 `configured=false` 且脚本走 `${KEY:-}` 兜底。
+
+### 12.9 回归要点
 
 - 配置缺失 / 空清单：`TestIndexServedWithoutConfig`（页面仍回 SPA）、
   `TestConfigViewWorksWithoutConfig`（配置页 200 + `setup_error` + 两份 env）、
@@ -781,6 +815,11 @@ ops backup sync-env [pg|minio|all] --server <name>
   「保存确认弹窗点明留空过不了预检」「旧 exe 缺 `default` 归一化补空串」与
   `fillableDefaults` 不覆盖人填的值、不碰凭证；
   `TestEmbeddedBackupSSHDefaultsAligned` 仍锁 `PG_SSH_OPTS` 四处逐字一致；
+- 显式清空（§12.8）：Go 侧 `TestEditEnvFileClear`（清空 / 空值不变 / 新值优先 /
+  未知键与文件里没有的键）、`TestConfigEnvClearViaAPI`（`clear` 走 HTTP + `confirm` 门）、
+  `TestEditEnvFileRejectsBadInput`（口令当私钥路径被拒）；前端 `config.test.ts` 锁住
+  `envSavePayload` 的去重 / 互斥与确认文案；`go run . __gen-backup-env` 后
+  `backup.env.example` 与 schema 的 notes 一致；
 - 真机：临时配置目录起实例 → 点「配置」→ 改一项非凭证值保存，核对文件与 `.bak` →
   改 `user` 后确认提示重新免密 sudo → 点「同步到远端」后到目标机核对 `backup.env`
   内容与 0600 权限，且 crontab / 脚本 mtime 没变。

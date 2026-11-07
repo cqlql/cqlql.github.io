@@ -241,6 +241,8 @@ td.status{width:120px}
         边界：凭证字段（含 KEY / SECRET / PASSWORD / TOKEN）永不回显明文；
         抓取是只读动作，失败时如实显示原因、不猜一个值；「同步」是独立的远端写操作，
         必须显式点击 + 输 yes。远端执行身份是 user + sudo.mode 推导的结果，页面只读展示。
+        已配置字段的「清空」是另一个显式动作（<code>clear</code> 列表 + 保存 + yes），
+        留空仍恒为「保持不变」；<code>PG_SSH_KEY</code> 填的是私钥文件绝对路径、不是口令。
       </p>
       <p class="footnote">
         字段标签 / 分组 / 演示默认值以 <code>internal/shared/env-schema.json</code> 为准
@@ -572,7 +574,8 @@ document.addEventListener('change', (e) => {
   if (e.target.matches('input[data-local-key]')){
     const k = e.target.dataset.localKey;
     const v = e.target.value.trim();
-    if (v !== '') state.local[k] = v; // 空值 = 保持不变（凭证字段语义）
+    // 空值 = 保持不变（凭证字段语义）；真要清空走显式 clear 列表，本原型不演示该动作。
+    if (v !== '') state.local[k] = v;
     state.synced.delete(k);
     render();
   }
