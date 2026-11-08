@@ -1,4 +1,5 @@
-> 状态：**现行**（2026-11-08；本仓单文件原型落地口径）
+> 状态：**现行**（2026-11-08；本仓单文件原型落地口径；同日新增第二份带锚点原型
+> `backup-restore-prototype.html`，§1 清单已同步）
 
 # 本仓单文件原型约定（实例）
 
@@ -15,9 +16,11 @@
 | 原型 | 行数 | `@section` 锚点 | 分区索引 | 判据权威 |
 | :--- | :--- | :--- | :--- | :--- |
 | `components-prototype.html` | 1827 | 42 个 | `components-prototype-map.md` | `components.md` / `ui.md` §13 |
+| `backup-restore-prototype.html` | 749 | 19 个 | `backup-restore-prototype-map.md` | `backup-restore.md` §3–§5（工具侧方案，未实现） |
 | `config-compare.html` | 590 | 无 | 无 | `ui.md` §12.5 |
 
 行数为 2026-11-08 快照，以 `wc -l` 为准。
+🔴 原型标「方案 / 未实现」时，判据权威仍是能力分册；实现落地后要给 `ui.md` 补对应一节再回看原型。
 🔴 原型只是**交互速览**，判据以能力分册为准；原型与分册不一致时改原型，不是改分册。
 
 ## 2. 什么时候才上锚点
