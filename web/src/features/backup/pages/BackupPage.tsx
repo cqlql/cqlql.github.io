@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Alert, Button, Checkbox, Input, Modal, Segmented, Select, Tag, Typography } from 'antd'
+import { Alert, Button, Checkbox, Input, Segmented, Select, Tag, Typography } from 'antd'
 
 import { backupApi } from '../api.ts'
 import { BackupLog } from '../components/BackupLog.tsx'
+import { WriteConfirmModal } from '../components/WriteConfirmModal.tsx'
 import { errText, fetchDeps, resumeBackupTask, startBackup } from '../service.ts'
 import type { WatchHooks } from '../service.ts'
 import type {
@@ -375,7 +376,9 @@ export function BackupPage() {
         {task?.done && <span>退出码：{task.exit_code}</span>}
       </div>
 
-      <div className="card">
+      {/* `.card` 本身没有内边距：日志空态改成一行提示后，这里要补上，
+          否则虚线提示框会紧贴卡片边框（与手动备份页同口径）。 */}
+      <div className="card" style={{ padding: 16 }}>
         <BackupLog text={log} />
       </div>
 
@@ -388,29 +391,29 @@ export function BackupPage() {
         需要时走命令行 <code>ops backup deploy</code> 或 <code>启动运维.cmd --menu</code>。
       </Typography.Paragraph>
 
-      <Modal
+      {/* 与「手动备份」页共用同一个门禁组件；安装期显式打开密码框（要提权），
+          手动备份页传 showPassword=false，弹窗里根本没有这个输入框。 */}
+      <WriteConfirmModal
         open={confirmOpen}
         title={confirmMode === 'deps' ? '确认安装缺少依赖'
           : confirmMode === 'deps-uninstall' ? deps.uninstall.title : '确认安装 / 升级备份能力'}
         okText={confirmMode === 'deps' ? '确认安装依赖'
           : confirmMode === 'deps-uninstall' ? deps.uninstall.submit_label : '确认安装'}
-        cancelText="取消"
-        okButtonProps={{ danger: true, disabled: !confirmOk }}
-        onOk={submitConfirm}
+        alertDescription={confirmHint(confirmMode, name, component)}
+        yes={confirmText}
+        onYes={setConfirmText}
+        okDisabled={!confirmOk}
+        onSubmit={submitConfirm}
         onCancel={closeConfirm}
-        afterClose={() => {
+        onAfterClose={() => {
           setConfirmText('')
           setPassword('')
           setUninstallSelected([])
         }}
+        showPassword
+        password={password}
+        onPassword={setPassword}
       >
-        <Alert
-          type="warning"
-          showIcon
-          style={{ marginBottom: 12 }}
-          message="这是写操作"
-          description={confirmHint(confirmMode, name, component)}
-        />
         {confirmMode === 'deps' && deps.missing.length > 0 && (
           <div className="component-box" style={{ marginBottom: 12 }}>
             <div className="component-hint">本次要补的命令：{deps.missing.join('、')}</div>
@@ -438,26 +441,7 @@ export function BackupPage() {
             </ul>
           </div>
         )}
-        <p className="hint">请输入 <code>yes</code> 确认（与命令行菜单一致）：</p>
-        <Input
-          value={confirmText}
-          onChange={(e) => setConfirmText(e.target.value)}
-          onPressEnter={submitConfirm}
-          autoFocus
-          autoComplete="off"
-          placeholder="yes"
-        />
-        <p className="hint" style={{ marginTop: 12 }}>
-          初始 sudo 密码（清单已配 <code>sudo.password</code> 或已免密时留空）：
-          只用于本次请求，不落盘、不写日志。
-        </p>
-        <Input.Password
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          autoComplete="off"
-          placeholder="可留空"
-        />
-      </Modal>
+      </WriteConfirmModal>
     </div>
   )
 }

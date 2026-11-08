@@ -40,6 +40,10 @@ deploy/backup/
 | PostgreSQL | SSH 拉取 `pg_dumpall`（全局对象）+ `pg_dump`（业务库） | 每天 3:00 | 分级 `daily/weekly/monthly`（每月 1 号 → monthly，每周一 → weekly，其余 → daily） |
 | MinIO | `mc mirror` 增量同步源端桶到备份端 MinIO | 每天 2:00 | 由备份端桶自身策略决定 |
 
+两个脚本**本来就能手工跑**：`Makefile` 的 `pg-backup` / `minio-backup` 目标就是「立即手动执行一次」。
+工具侧原先缺的是受控触发入口（预演 / 确认 / 报告），2026-11-08 已落地 `ops backup once`
+与界面第 6 项（见 [backup-once.md](backup-once.md) §2 / §7）；本文只讲脚本本体。
+
 🔴 **恢复脚本（`pg_restore.sh` / `minio_restore.sh`）必须有人值守，禁止入 Crontab。**
 `install.sh` 只装备份与巡检两条 cron，不会装恢复。
 **怎么恢复、有哪些坑、工具侧方案**统一见 [backup-restore.md](backup-restore.md)，本文不复述流程。
@@ -148,3 +152,9 @@ crontab 旧任务、把任务改写到运行用户 crontab；`ops backup deploy 
    拿回本机解析会差 8 小时（见 [backup-monitor.md](backup-monitor.md)）。
 3. 🔴 **改了这里的任何文件必须 `go build`**：脚本编在二进制里，只跑旧 `ops.exe`
    部署出去的还是旧脚本。
+4. 🔴 **手动触发与 cron 是两路并发入口**：两个脚本现在都有 `flock -n`
+   （`minio_backup.sh` 的锁是 2026-11-08 补的，与 PG 同款、锁文件在日志目录）。
+   锁在脚本内部，crontab 行不用改；🔴 本仓 `ops.exe` 已重建，但**远端脚本要重新
+   `ops backup deploy` 才拿到补锁版**（见 [backup-once.md](backup-once.md) §7.1）。
+   工具不查 crontab；手动成功同样写 `last_success.txt`，**不代表定时任务正常**
+   （§4.2）。`backupdist_test.go` 的锁断言挡回归。

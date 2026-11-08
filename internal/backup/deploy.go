@@ -425,12 +425,10 @@ func runBackupDeploy(args []string, embedded fs.FS) int {
 	}
 
 	fmt.Println("==> 运行 preflight 自检")
-	ctx, cancel = context.WithTimeout(root, timeoutPreflight)
 	// 自检必须以「备份任务的实际运行身份」跑，不能套 sudo：root 的
-	// known_hosts / HOME / 私钥与 cron 里的 cql 不是同一份，会出现
+	// known_hosts / HOME / 私钥与 cron 里的 user 不是同一份，会出现
 	// 「手工 ssh 能连、自检报连不上」以及「自检过了、备份却失败」两类假象。
-	code, err := t.Stream(ctx, "bash "+shared.ShQuote(path.Join(cfg.DeployDir, "preflight_check.sh"))+" "+preflightArg(opt.comps)+" </dev/null", false, nil)
-	cancel()
+	code, err := streamPreflight(root, t, cfg, opt.comps)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: preflight 执行失败：%v\n", err)
 		return 1
@@ -444,17 +442,10 @@ func runBackupDeploy(args []string, embedded fs.FS) int {
 	}
 
 	if opt.runNow {
-		for _, c := range opt.comps {
-			fmt.Printf("==> 首次运行 %s 备份（可能需要较长时间）\n", c)
-			ctx, cancel = context.WithTimeout(root, timeoutRunNow)
-			code, err := t.Stream(ctx, "bash "+shared.ShQuote(c.backupPath(cfg.DeployDir)), false, nil)
-			cancel()
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "ERROR: %s 备份执行失败：%v\n", c, err)
-				return 1
-			}
-			if code != 0 {
-				fmt.Fprintf(os.Stderr, "ERROR: %s 备份退出码 %d\n", c, code)
+		// 与 ops backup once 共用同一段「按组件串行跑已部署脚本」；
+		// 首跑保留旧语义：任一组件失败就停，不继续跑后面的组件。
+		for _, r := range runBackupScripts(root, t, cfg.DeployDir, opt.comps, "首次运行", true) {
+			if !r.ok() {
 				return 1
 			}
 		}
@@ -570,6 +561,55 @@ func preflightArg(comps []component) string {
 		return "all"
 	}
 	return string(comps[0])
+}
+
+// streamPreflight 以清单 user 跑远端 preflight_check.sh：
+// `verify` / `deploy` 收尾 / `once` 预演与正式执行共用这一个入口（不套 sudo）。
+// 退出码沿用 docs/backup-deploy.md §4.5：0 放行 / 1 阻塞 / 2 警告放行。
+func streamPreflight(root context.Context, t *shared.SSHTarget, cfg *shared.Config, comps []component) (int, error) {
+	ctx, cancel := context.WithTimeout(root, timeoutPreflight)
+	defer cancel()
+	cmd := "bash " + shared.ShQuote(path.Join(cfg.DeployDir, "preflight_check.sh")) +
+		" " + preflightArg(comps) + " </dev/null"
+	return t.Stream(ctx, cmd, false, nil)
+}
+
+// backupScriptResult 是一个组件的执行结论。`once` 要分组件汇总，
+// 不能被后一个组件的成功盖掉，所以结果逐个留着，循环里不定总退出码。
+type backupScriptResult struct {
+	comp component
+	code int
+	err  error
+}
+
+func (r backupScriptResult) ok() bool { return r.err == nil && r.code == 0 }
+
+// runBackupScripts 按 pg → minio 串行执行备份机上**已部署**的备份脚本。
+//
+// 🔴 一律以清单 user 运行（root=false）：与 cron / preflight 同 HOME、同
+// known_hosts、同 ~/.mc。工具不重写备份逻辑，也不接收任意脚本路径。
+// stopOnFailure=true 保留 deploy --run-now 的旧语义（首跑遇错即停）；
+// once 传 false，跑完所有组件再分组件如实汇总。
+func runBackupScripts(root context.Context, t *shared.SSHTarget, dir string, comps []component, label string, stopOnFailure bool) []backupScriptResult {
+	results := make([]backupScriptResult, 0, len(comps))
+	for _, c := range comps {
+		fmt.Printf("==> %s %s 备份（可能需要较长时间）\n", label, c)
+		ctx, cancel := context.WithTimeout(root, timeoutRunNow)
+		code, err := t.Stream(ctx, "bash "+shared.ShQuote(c.backupPath(dir)), false, nil)
+		cancel()
+		r := backupScriptResult{comp: c, code: code, err: err}
+		results = append(results, r)
+		switch {
+		case err != nil:
+			fmt.Fprintf(os.Stderr, "ERROR: %s %s 备份执行失败：%v\n", label, c, err)
+		case code != 0:
+			fmt.Fprintf(os.Stderr, "ERROR: %s %s 备份退出码 %d\n", label, c, code)
+		}
+		if !r.ok() && stopOnFailure {
+			break
+		}
+	}
+	return results
 }
 
 func buildEnvPlans(cfg *shared.Config, comps []component) ([]envPlan, error) {
@@ -1261,11 +1301,9 @@ func runBackupVerify(args []string) int {
 		return 1
 	}
 
-	ctx, cancel = context.WithTimeout(root, timeoutPreflight)
 	// 与 cron 里的备份脚本保持同一身份（清单 user），不要 sudo 提权：
 	// 见 runBackupDeploy 里同处的说明。
-	code, err := t.Stream(ctx, "bash "+shared.ShQuote(path.Join(cfg.DeployDir, "preflight_check.sh"))+" "+preflightArg(comps), false, nil)
-	cancel()
+	code, err := streamPreflight(root, t, cfg, comps)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: preflight 执行失败：%v\n", err)
 		return 1
@@ -1298,6 +1336,8 @@ func CmdBackup(args []string, embedded fs.FS) int {
 		return runBackupDepsUninstall(args[1:])
 	case "verify":
 		return runBackupVerify(args[1:])
+	case "once":
+		return runBackupOnce(args[1:])
 	case "env":
 		return runBackupEnv(args[1:], embedded)
 	case "sync-env":
@@ -1366,6 +1406,9 @@ func backupUsage() {
                                        只安装缺失依赖（mc / pg_restore 等），不部署脚本；界面用这个入口
   ops backup deps-uninstall --server <name> --target <mc|pg_client> [--dry-run]
                                        只卸载工具装的 mc / PG 客户端，供「装了再卸、卸了再装」复测
+  ops backup once      [pg|minio|all] --server <name> [--dry-run]
+                                       立即跑一次备份（复用已部署脚本，不重装、不进 crontab）
+                                       --dry-run 只跑 preflight + 打印计划，不改远端
   ops backup env       [pg|minio|all]  生成本机配置模板（已存在不覆盖）
   ops backup sync-env  [pg|minio|all] --server <name>
                                        只把本机填好的配置推到远端 backup.env（不重装脚本）
@@ -1379,6 +1422,7 @@ PASS_UP_OPS_BACKUP_SRC_DIR 覆盖成本机目录。
 选项:
   --server <name> 目标服务器（省略则用清单的 default / 唯一的 backup）
   --dry-run       只预检并打印将执行的远端命令，不修改远端
+                  （backup once 的 --dry-run 只跑 preflight + 打印计划，不跑备份脚本）
   --force         用本机 backup.env 覆盖远端已有配置（旧配置随 .old 目录保留）
   --run-now       安装成功后立即跑一次备份（写操作，可能较长时间）
   --install-deps  自动安装缺失依赖（apt/dnf/yum；mc 从官方地址下载）

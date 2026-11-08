@@ -3,8 +3,10 @@ import type {
   BackupRunRequest,
   BackupRunResult,
   BackupTask,
+  OncePlan,
+  OnceSourceView,
 } from './types.ts'
-import { normalizeDepsView } from './utils/format.ts'
+import { normalizeDepsView, normalizeOncePlan, normalizeOnceSource } from './utils/format.ts'
 
 /**
  * 编排层：启动任务 + 轮询增量日志。
@@ -27,6 +29,15 @@ export interface DepsApi {
   deps: (name: string, component: string, pgMajor?: number) => Promise<BackupDepsView>
 }
 
+/** 只读动作计划 / 备份来源：手动备份页专用，同样不污染 BackupApi 的假实现。 */
+export interface OncePlanApi {
+  oncePlan: (name: string, component: string) => Promise<OncePlan>
+}
+
+export interface OnceSourceApi {
+  onceSource: (name: string, component: string) => Promise<OnceSourceView>
+}
+
 /** 失败响应也可能是 ok=true + data.error，这里统一过一层防空数组归一化。 */
 export async function fetchDeps(
   api: DepsApi,
@@ -35,6 +46,24 @@ export async function fetchDeps(
   pgMajor?: number,
 ): Promise<BackupDepsView> {
   return normalizeDepsView(await api.deps(name, component, pgMajor))
+}
+
+/** 动作计划由 Go 侧下发；这里只做防空归一化，不在前端算任何指标。 */
+export async function fetchOncePlan(
+  api: OncePlanApi,
+  name: string,
+  component: string,
+): Promise<OncePlan> {
+  return normalizeOncePlan(await api.oncePlan(name, component))
+}
+
+/** 连不上 / 配置没装也回完整空快照，页面不能白屏或猜一个生产端主机。 */
+export async function fetchOnceSource(
+  api: OnceSourceApi,
+  name: string,
+  component: string,
+): Promise<OnceSourceView> {
+  return normalizeOnceSource(await api.onceSource(name, component))
 }
 
 export interface WatchHooks {

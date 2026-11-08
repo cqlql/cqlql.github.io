@@ -42,6 +42,12 @@ const (
 	// backupDepsUninstall 只卸工具装的 mc / PG 客户端（供复测），
 	// 同样走 confirm + 服务端 --dry-run + 任务锁，targets 另有白名单。
 	backupDepsUninstall BackupMode = "deps-uninstall"
+	// backupOnce 是「立即跑一次备份」：写模式，过同一把任务锁与同一个服务端
+	// --dry-run 预检门，但不收 sudo 密码（root=false 不提权，见 docs/backup-once.md §3）。
+	backupOnce BackupMode = "once"
+	// backupOnceDry 是只读预演：只跑 preflight + 打印计划，不执行备份脚本。
+	// 单独一个 mode 才能复用同一套任务日志 / 增量轮询，且不进写模式的 confirm 门。
+	backupOnceDry BackupMode = "once-dry"
 )
 
 // 日志留在内存里给页面轮询；上限只是防止一个跑飞的子进程把界面进程撑爆。
@@ -222,11 +228,20 @@ type backupRunRequest struct {
 
 func parseBackupMode(s string) (BackupMode, bool) {
 	switch BackupMode(s) {
-	case backupPreflight, backupDeploy, backupVerify, backupDeps, backupDepsUninstall:
+	case backupPreflight, backupDeploy, backupVerify, backupDeps, backupDepsUninstall,
+		backupOnce, backupOnceDry:
 		return BackupMode(s), true
 	default:
 		return "", false
 	}
+}
+
+// isBackupWriteMode 是 confirm 门与服务端预检门共用的判据。
+// 🔴 两处都要用它（handleBackupRun / runBackupTask）：少一处就是「前端点了
+// 预检才算数」或「漏掉 confirm」的漏门（docs/backup-once.md §3 六道门）。
+func isBackupWriteMode(mode BackupMode) bool {
+	return mode == backupDeploy || mode == backupDeps ||
+		mode == backupDepsUninstall || mode == backupOnce
 }
 
 // 组件白名单：CLI 的 parseComponents 还接受 postgres 等别名，界面只给这三个，
@@ -255,6 +270,11 @@ func backupCommandArgs(mode BackupMode, name, component string) []string {
 	case backupDepsUninstall:
 		// 卸载不接受组件参数（固定 all）；--target 由 handleBackupRun 按白名单追加。
 		return []string{"deps-uninstall", "--server", name}
+	case backupOnce:
+		// 独立子命令：不传 --force / --run-now / --install-deps / --password-stdin。
+		return []string{"once", component, "--server", name}
+	case backupOnceDry:
+		return []string{"once", component, "--server", name, "--dry-run"}
 	default:
 		return []string{"verify", component, "--server", name}
 	}
@@ -275,7 +295,7 @@ func (u *uiState) handleBackupRun(w http.ResponseWriter, r *http.Request) {
 	}
 	mode, ok := parseBackupMode(req.Mode)
 	if !ok {
-		writeAPI(w, http.StatusBadRequest, apiResponse{Error: "未知模式（可选 preflight / deploy / verify / deps / deps-uninstall）"})
+		writeAPI(w, http.StatusBadRequest, apiResponse{Error: "未知模式（可选 preflight / deploy / verify / deps / deps-uninstall / once / once-dry）"})
 		return
 	}
 	component, ok := normalizeComponent(req.Component)
@@ -287,9 +307,14 @@ func (u *uiState) handleBackupRun(w http.ResponseWriter, r *http.Request) {
 		writeAPI(w, http.StatusBadRequest, apiResponse{Error: "请先选择目标服务器（只接受清单里的 name）"})
 		return
 	}
-	writeMode := mode == backupDeploy || mode == backupDeps || mode == backupDepsUninstall
-	if writeMode && req.Confirm != "yes" {
+	if isBackupWriteMode(mode) && req.Confirm != "yes" {
 		writeAPI(w, http.StatusBadRequest, apiResponse{Error: "这是远端写操作：请输入 yes 确认"})
+		return
+	}
+	// 🔴 手动备份以清单 user 跑（root=false 不提权）：界面不收 sudo 密码，
+	//    也不把密码交给子进程 stdin（确认弹窗没有密码框，docs/backup-once.md §3 门④）。
+	if (mode == backupOnce || mode == backupOnceDry) && req.Password != "" {
+		writeAPI(w, http.StatusBadRequest, apiResponse{Error: "手动备份不提权，不接受 sudo 密码"})
 		return
 	}
 	// 🔴 --pg-major 只属于 deps，且只接受纯数字 1..99：它会拼进远端 apt 包名。
@@ -360,13 +385,17 @@ func (u *uiState) runBackupTask(t *backupTask, mode BackupMode, server, componen
 	fmt.Fprintf(lw, "==> 开始：%s %s（目标：%s）\n", modeLabel(mode), component, server)
 
 	code := 0
-	// 🔴 三个写模式共用一个服务端预检门：deploy / deps / deps-uninstall
+	// 🔴 四个写模式共用一个服务端预检门：deploy / deps / deps-uninstall / once
 	//    都先跑 --dry-run，前端不点预检、或直接调 API，都绕不过这一步。
-	writeMode := mode == backupDeploy || mode == backupDeps || mode == backupDepsUninstall
+	//    once 的 --dry-run 只跑 preflight + 打印计划，不是执行凭证。
+	writeMode := isBackupWriteMode(mode)
 	if writeMode {
 		action := "安装"
 		if mode == backupDepsUninstall {
 			action = "卸载"
+		}
+		if mode == backupOnce {
+			action = "备份"
 		}
 		fmt.Fprintln(lw, "==> 服务端预检（--dry-run，不改远端）")
 		pre := append(append([]string{}, args...), "--dry-run")
@@ -382,11 +411,21 @@ func (u *uiState) runBackupTask(t *backupTask, mode BackupMode, server, componen
 			fmt.Fprintln(lw, "==> 预检通过，开始安装缺失依赖（只装命令，不部署脚本 / 不写 crontab / 不跑备份）")
 		case backupDepsUninstall:
 			fmt.Fprintln(lw, "==> 预检通过，开始卸载勾选的依赖（只删工具装的东西，不 autoremove / 不碰数据与定时任务）")
+		case backupOnce:
+			fmt.Fprintln(lw, "==> 预检通过，开始执行一次备份（不重装脚本、不写 crontab；脚本自带 flock -n 防并发）")
 		default:
 			fmt.Fprintln(lw, "==> 预检通过，开始安装（会写远端 crontab / logrotate / 目录）")
 		}
 	}
 	code = u.runner(args, password, lw)
+	switch mode {
+	case backupOnce:
+		lw.Flush()
+		appendOnceReport(lw, t, code)
+	case backupOnceDry:
+		fmt.Fprintln(lw, "==> 预演完成：远端没有被修改。预演只是给人看的只读结果，不是执行凭证；"+
+			"真正备份仍要点「立即备份…」并过确认弹窗，服务端会自己再跑一遍 --dry-run。")
+	}
 	if code == 0 {
 		fmt.Fprintln(lw, "==> 完成。")
 	} else {
@@ -394,6 +433,28 @@ func (u *uiState) runBackupTask(t *backupTask, mode BackupMode, server, componen
 	}
 	lw.Flush()
 	t.finish(code)
+}
+
+// appendOnceReport 把任务日志如实翻成一句结论（docs/backup-once.md §3 / §4）。
+//
+// 🔴 报告只报脚本结果：不写「备份体系正常 / 定时任务正常」，也不把 status 的心跳
+//    当成功凭证。撞锁 / 超时 / 分组件失败都是**运行期**结果，只能从日志里认，
+//    预演（--dry-run）挡不住它们（原型 §2.4 O3）。
+// 🔴 无论成功失败都固定带「手动触发不代表定时任务正常」那一句：手动成功会写
+//    last_success.txt，不改采集协议，只能靠文案区分（§4.2）。
+func appendOnceReport(lw io.Writer, t *backupTask, code int) {
+	log := t.view(0).Log
+	switch {
+	case strings.Contains(log, "超过 30 分钟上限"):
+		fmt.Fprintln(lw, "==> 报告：本机已停止等待（30 分钟上限），远端可能仍在执行；本机没有终止远端脚本，也不会自动重试。请去备份机自检或只读的「备份监控」页复核。")
+	case strings.Contains(log, "上一次备份任务仍在运行中"):
+		fmt.Fprintln(lw, "==> 报告：被锁挡下，本次未执行：脚本的 flock -n 没拿到锁，没有产生 dump、没有写心跳。不自动重试。")
+	case code != 0:
+		fmt.Fprintln(lw, "==> 报告：有组件未成功（分组件结果见上面的脚本输出）；没有自动重试、没有自动清场，失败组件不写心跳。")
+	default:
+		fmt.Fprintln(lw, "==> 报告：所选组件的备份脚本均退出 0；这不等于「备份体系正常」，要看心跳请去只读的监控页。")
+	}
+	fmt.Fprintln(lw, "⚠️ 本次为手动触发，不代表定时任务正常；工具不读 crontab，定时任务是否正常由人判断。")
 }
 
 func modeLabel(m BackupMode) string {
@@ -406,6 +467,10 @@ func modeLabel(m BackupMode) string {
 		return "安装缺少依赖"
 	case backupDepsUninstall:
 		return "卸载备份依赖"
+	case backupOnce:
+		return "手动备份"
+	case backupOnceDry:
+		return "手动备份预演"
 	case componentInstallMode:
 		return "安装环境组件"
 	case componentUpdateMode:

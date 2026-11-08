@@ -1,5 +1,6 @@
-> 状态：**现行**（2026-11-08；本仓单文件原型落地口径；同日新增第二份带锚点原型
-> `backup-restore-prototype.html`，§1 清单已同步）
+> 状态：**现行**（2026-11-08；本仓单文件原型落地口径；同日带锚点原型扩到三份
+> （`backup-restore-prototype.html` / `backup-once-prototype.html`），§1 清单已同步；
+> 同日晚手动备份原型随代码落地转为「交互回归基线」，不删、不改锚点）
 
 # 本仓单文件原型约定（实例）
 
@@ -17,6 +18,7 @@
 | :--- | :--- | :--- | :--- | :--- |
 | `components-prototype.html` | 1827 | 42 个 | `components-prototype-map.md` | `components.md` / `ui.md` §13 |
 | `backup-restore-prototype.html` | 749 | 19 个 | `backup-restore-prototype-map.md` | `backup-restore.md` §3–§5（工具侧方案，未实现） |
+| `backup-once-prototype.html` | 706 | 19 个 | `backup-once-prototype-map.md` | `backup-once.md` §2–§4 / §8（代码已实现 · 交互回归基线，真机验收待做） |
 | `config-compare.html` | 590 | 无 | 无 | `ui.md` §12.5 |
 
 行数为 2026-11-08 快照，以 `wc -l` 为准。

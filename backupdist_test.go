@@ -217,3 +217,35 @@ func TestEmbeddedInstallRunsAsNonRoot(t *testing.T) {
 		}
 	}
 }
+
+// 手动备份与 cron 可能撞车：两个备份脚本必须各自带 flock -n，且锁在任何
+// 实际动作之前拿到。minio_backup.sh 以前没有锁，两条 mc mirror --overwrite
+// 会并发写同一批对象（docs/backup-once.md §4.1）。锁放在脚本内部，
+// 定时任务与 ops backup once 天然共用，工具不解析 crontab、也不改 crontab 行。
+func TestEmbeddedBackupScriptsHaveLocks(t *testing.T) {
+	for _, n := range []string{
+		"deploy/backup/postgres/pg_backup.sh",
+		"deploy/backup/minio/minio_backup.sh",
+	} {
+		data, err := fs.ReadFile(backupScripts, n)
+		if err != nil {
+			t.Fatalf("读取嵌入产物 %s 失败：%v", n, err)
+		}
+		s := string(data)
+		if !strings.Contains(s, "flock -n 9") || !strings.Contains(s, "exec 9>") {
+			t.Errorf("%s 缺少 flock -n 防并发锁", n)
+		}
+		if !strings.Contains(s, "LOCK_FILE=\"${LOG_DIR}/") {
+			t.Errorf("%s 的锁文件没有放在日志目录", n)
+		}
+		lock := strings.Index(s, "flock -n 9")
+		// 两个脚本都在拿到锁之后才打「开始执行」；拿注释里的 pg_dump 当动作
+		// 起点会误判，所以统一用这行日志当界标。
+		start := strings.Index(s, `log info "开始执行`)
+		if start < 0 {
+			t.Errorf("%s 找不到「开始执行」日志，锁的位置无法核对", n)
+		} else if lock > start {
+			t.Errorf("%s 的锁加在实际备份动作之后，等于没锁", n)
+		}
+	}
+}

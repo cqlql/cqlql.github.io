@@ -59,7 +59,14 @@ func runBackupSubprocess(args []string, password string, out io.Writer) int {
 	}
 	err = cmd.Run()
 	if ctx.Err() != nil {
-		fmt.Fprintln(out, "ERROR: 超过 30 分钟上限，本机子进程已结束；远端可能仍在执行，请跑一次「远端自检」复核。")
+		if isOnceSubcommand(args) {
+			// 🔴 手动备份大库 / 大量对象很容易越过 30 分钟：只能说「本机不再等」，
+			//    绝不能写「已取消」——远端脚本没被杀，也不许自动重试。
+			//    报告与确认弹窗同步提示（docs/backup-once.md §4.4）。
+			fmt.Fprintln(out, "ERROR: 超过 30 分钟上限，本机已停止等待；远端可能仍在执行，请去备份机自检或只读的「备份监控」页复核。没有取消远端任务，也不会自动重试。")
+		} else {
+			fmt.Fprintln(out, "ERROR: 超过 30 分钟上限，本机子进程已结束；远端可能仍在执行，请跑一次「远端自检」复核。")
+		}
 		return 1
 	}
 	if err == nil {
@@ -96,6 +103,12 @@ func resolveBackupExe(exe string) string {
 		}
 	}
 	return exe
+}
+
+// isOnceSubcommand 判断这条界面任务是不是手动备份（含只读预演）。
+// 只认首元素，不解析后面的参数：参数白名单在 backupCommandArgs 里已经过一遍。
+func isOnceSubcommand(args []string) bool {
+	return len(args) > 0 && args[0] == "once"
 }
 
 // backupSubprocessArgs 把界面选好的参数原样补成 CLI 参数。

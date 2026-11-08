@@ -1,0 +1,706 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>手动备份 · 交互回归基线（代码已实现，真机验收待做）</title>
+<!-- ==== @section index ==== 分区索引入口；改本页前先查 docs/backup-once-prototype-map.md -->
+<style>
+/* ==== @section css-base ==== 变量 / 全局 / 导航 / 工具条 / 场景条 / 标签（与 backup-restore-prototype.html 同口径） */
+:root{
+  --bg:#f4f6f9; --surface:#fff; --border:#e5e9f0; --text:#1f2329;
+  --muted:#6b7280; --primary:#1677ff; --primary-bg:#e6f4ff;
+  --warn-bg:#fff7e6; --warn:#d46b08; --ok-bg:#f6ffed; --ok:#389e0d;
+  --info-bg:#e6f4ff; --info:#0958d9; --err-bg:#fff2f0; --err:#cf1322;
+  --code-bg:#f6f8fa;
+}
+*{box-sizing:border-box}
+[hidden]{display:none !important}
+body{margin:0;background:var(--bg);color:var(--text);
+  font:14px/1.6 system-ui,"Segoe UI","Microsoft YaHei",sans-serif}
+code,.mono{font-family:ui-monospace,Consolas,"Courier New",monospace;font-size:12px}
+.shell{display:flex;min-height:100vh}
+.sider{width:200px;flex:none;background:#fff;border-right:1px solid var(--border);
+  position:sticky;top:0;height:100vh;padding:0 8px}
+.brand{font-weight:600;font-size:15px;padding:18px 12px 14px}
+.nav-item{display:flex;align-items:center;gap:9px;padding:9px 12px;margin:2px 0;
+  border-radius:8px;color:var(--muted);cursor:default;font-size:13px}
+.nav-item .dot{width:14px;height:14px;border:1.5px solid currentColor;border-radius:3px;flex:none}
+.nav-item.active{background:var(--primary-bg);color:var(--primary);font-weight:500}
+.nav-item.new::after{content:"方案";margin-left:auto;font-size:9px;letter-spacing:.5px;
+  background:var(--warn);color:#fff;border-radius:3px;padding:0 4px}
+.main{flex:1;min-width:0}
+.toolbar{height:56px;background:#fff;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;padding:0 24px}
+.toolbar .env-mark{font-size:12px;color:#9aa3af}
+.ghost{border:1px solid var(--border);background:#fff;border-radius:6px;
+  padding:5px 12px;color:var(--muted);font-size:12px;cursor:default}
+.content{padding:20px 24px 48px;max-width:1180px}
+.proto-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;
+  border:1px dashed #b7c9e2;background:#fbfdff;border-radius:10px;padding:10px 14px;margin-bottom:16px}
+.proto-bar .lead{font-size:12px;color:var(--info);margin-right:6px}
+.proto-bar .badge{margin-left:auto;font-size:11px;color:var(--muted);
+  background:#fff;border:1px solid var(--border);border-radius:20px;padding:2px 10px}
+.chip{border:1px solid var(--border);background:#fff;border-radius:20px;
+  padding:4px 12px;font-size:12px;color:var(--muted);cursor:pointer}
+.chip:hover{border-color:var(--primary);color:var(--primary)}
+.chip.active{background:var(--primary);border-color:var(--primary);color:#fff}
+.page-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:14px}
+.page-head h1{margin:0;font-size:20px;font-weight:600}
+.page-head .meta{color:var(--muted);font-size:13px;margin-top:2px}
+.tag{display:inline-flex;align-items:center;border-radius:4px;padding:1px 8px;
+  font-size:12px;white-space:nowrap;border:1px solid transparent}
+.tag.neutral{background:#f3f4f6;color:var(--muted);border-color:var(--border)}
+.tag.ok{background:var(--ok-bg);color:var(--ok);border-color:#b7eb8f}
+.tag.warn{background:var(--warn-bg);color:var(--warn);border-color:#ffd591}
+.tag.err{background:var(--err-bg);color:var(--err);border-color:#ffccc7}
+.tag.info{background:var(--info-bg);color:var(--info);border-color:#91caff}
+/* ==== @section css-cards ==== 卡片 / 状态条 / 方向链 / 计划框 / 阶段条 / 任务日志 */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;
+  padding:16px;margin-bottom:14px}
+.card h2{margin:0 0 12px;font-size:14px;font-weight:600;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.card h2 small{font-weight:400;color:var(--muted);font-size:12px}
+.banner{margin-top:14px;border-radius:8px;padding:11px 13px;font-size:13px;
+  display:flex;gap:9px;align-items:flex-start;line-height:1.65}
+.banner .ico{flex:none;font-weight:700}
+.banner.err{background:var(--err-bg);border:1px solid #ffccc7;color:var(--err)}
+.banner.warn{background:var(--warn-bg);border:1px solid #ffd591;color:var(--warn)}
+.banner.ok{background:var(--ok-bg);border:1px solid #b7eb8f;color:var(--ok)}
+.banner.info{background:var(--info-bg);border:1px solid #91caff;color:var(--info)}
+.banner b{font-weight:600}
+.strip{display:flex;flex-wrap:wrap;gap:10px}
+.strip .cell{flex:1;min-width:165px;border:1px solid var(--border);border-radius:8px;
+  padding:9px 11px;background:#fff}
+.strip .k{font-size:11px;color:var(--muted)}
+.strip .v{font-size:13px;font-weight:500;margin-top:2px}
+.strip .cell.bad{background:var(--err-bg);border-color:#ffccc7;color:var(--err)}
+.strip .cell.care{background:var(--warn-bg);border-color:#ffd591;color:var(--warn)}
+.chain{margin-top:12px;padding:10px 12px;background:var(--code-bg);border-radius:8px;
+  font-size:12px;color:var(--muted)}
+.chain code{color:var(--text);margin-left:6px}
+.redline{margin-top:10px;background:var(--err-bg);border:1px solid #ffccc7;
+  border-radius:8px;padding:9px 12px;font-size:12px;color:var(--err);line-height:1.8}
+.redline b{font-weight:600}
+.seg{display:inline-flex;border:1px solid var(--border);border-radius:7px;overflow:hidden;background:#fff}
+.seg button{border:0;background:#fff;padding:6px 14px;font-size:13px;color:var(--muted);cursor:pointer}
+.seg button+button{border-left:1px solid var(--border)}
+.seg button.active{background:var(--primary-bg);color:var(--primary);font-weight:500}
+.plan-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}
+.box{border:1px solid var(--border);border-radius:8px;padding:11px 13px;background:#fff}
+.box .t{font-size:12px;font-weight:600;margin-bottom:7px}
+.box ul{margin:0;padding-left:18px;font-size:12px;line-height:1.9;color:var(--muted)}
+.box ul li.bad{color:var(--err)}
+.box ul li.care{color:var(--warn)}
+.box ul li.good{color:var(--ok)}
+pre.cmd{margin:0;background:var(--code-bg);border-radius:7px;padding:10px 12px;
+  font:12px/1.9 ui-monospace,Consolas,"Courier New",monospace;white-space:pre-wrap;word-break:break-all;color:var(--text)}
+.btn-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:12px}
+.hintline{font-size:12px;color:var(--muted);line-height:1.8}
+button.act{border:1px solid var(--border);background:#fff;border-radius:6px;
+  padding:7px 14px;font-size:13px;cursor:pointer;color:var(--text)}
+button.act:hover{border-color:var(--primary);color:var(--primary)}
+button.act.primary{background:var(--primary);border-color:var(--primary);color:#fff}
+button.act.primary:hover{opacity:.9;color:#fff}
+button.act.danger{background:#fff;border-color:#ffccc7;color:var(--err)}
+button.act.danger:hover{background:var(--err);color:#fff}
+button.act:disabled{opacity:.45;cursor:not-allowed}
+.phases{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.phase{border:1px solid var(--border);border-radius:20px;padding:3px 11px;font-size:11px;color:var(--muted);background:#fff}
+.phase.done{background:var(--ok-bg);border-color:#b7eb8f;color:var(--ok)}
+.phase.run{background:var(--primary-bg);border-color:#91caff;color:var(--info);font-weight:600}
+.phase.fail{background:var(--err-bg);border-color:#ffccc7;color:var(--err);font-weight:600}
+pre.log{margin:0;background:#1f2329;color:#d7dce5;border-radius:8px;padding:12px 14px;
+  font:12px/1.75 ui-monospace,Consolas,"Courier New",monospace;height:190px;overflow:auto;
+  white-space:pre-wrap;word-break:break-all}
+pre.log .ok{color:#95de64}
+pre.log .warn{color:#ffc53d}
+pre.log .err{color:#ff7875}
+pre.log .sec{color:#ffa940}
+.report{margin-top:12px;border-radius:8px;padding:11px 13px;font-size:13px;line-height:1.75}
+.report.ok{background:var(--ok-bg);border:1px solid #b7eb8f;color:var(--ok)}
+.report.err{background:var(--err-bg);border:1px solid #ffccc7;color:var(--err)}
+.report .manual{display:block;margin-top:6px;padding-top:6px;border-top:1px dashed #ffd591;
+  color:var(--warn);font-size:12px}
+.footnote{font-size:12px;color:var(--muted);line-height:1.9}
+details.card summary{cursor:pointer;font-size:13px;font-weight:600;color:var(--info)}
+details.card ul{margin:8px 0 0;padding-left:20px;font-size:12px;color:var(--muted);line-height:1.9}
+details.card code{background:var(--code-bg);padding:1px 5px;border-radius:4px;color:var(--text)}
+/* ==== @section css-modal ==== 确认弹窗 / 表单 / toast / 响应式 */
+.modal-mask{position:fixed;inset:0;background:rgba(15,23,42,.45);display:flex;
+  align-items:center;justify-content:center;padding:20px;z-index:20}
+.modal{background:#fff;border-radius:12px;width:min(560px,100%);max-height:88vh;overflow:auto;
+  padding:20px;box-shadow:0 12px 40px rgba(0,0,0,.18)}
+.modal h3{margin:0 0 4px;font-size:16px}
+.modal .sub{font-size:12px;color:var(--muted);margin-bottom:12px}
+.modal .alert{border-radius:8px;padding:10px 12px;font-size:12px;line-height:1.75;margin-bottom:12px}
+.modal .alert.bad{background:var(--err-bg);border:1px solid #ffccc7;color:var(--err)}
+.modal .alert.care{background:var(--warn-bg);border:1px solid #ffd591;color:var(--warn)}
+.modal ul.impact{margin:0 0 12px;padding-left:18px;font-size:12px;color:var(--muted);line-height:1.9}
+.modal .yes-label{display:block;font-size:12px;color:var(--muted);margin:10px 0 5px}
+.modal input.txt,.modal input.yes{width:100%;border:1px solid var(--border);border-radius:6px;
+  padding:8px 10px;font-size:13px;font-family:inherit;color:var(--text);background:#fff}
+.modal label.opt{display:flex;gap:8px;align-items:flex-start;font-size:12px;
+  border:1px solid var(--border);border-radius:7px;padding:8px 10px;margin:7px 0;cursor:pointer}
+.modal label.opt small{display:block;color:var(--muted);font-size:11px;margin-top:2px}
+.modal .no-password{border:1px dashed #91caff;background:var(--info-bg);border-radius:7px;
+  padding:8px 10px;font-size:12px;color:var(--info);margin:10px 0}
+.modal .foot{display:flex;align-items:center;gap:8px;margin-top:16px;flex-wrap:wrap}
+.modal .foot .note{font-size:11px;color:var(--muted);margin-right:auto}
+.toast{position:fixed;bottom:26px;left:50%;transform:translateX(-50%);background:#1f2329;
+  color:#fff;border-radius:8px;padding:9px 16px;font-size:13px;z-index:30}
+@media(max-width:820px){
+  .shell{display:block}
+  .sider{width:100%;height:auto;position:static;display:flex;flex-wrap:wrap;gap:4px;
+    border-right:0;border-bottom:1px solid var(--border);padding:8px}
+  .brand{width:100%;padding:4px 8px}
+  .nav-item{margin:0}
+  .content{padding:16px}
+}
+</style>
+</head>
+<body>
+<!-- ==== @section html-shell ==== 导航（6/7 项）/ 工具条 / 七个场景 chip / 说明 banner / 页头 -->
+<div class="shell">
+  <aside class="sider">
+    <div class="brand">PassUp 运维</div>
+    <div class="nav-item"><span class="dot"></span>服务器管理</div>
+    <div class="nav-item"><span class="dot"></span>备份能力部署</div>
+    <div class="nav-item"><span class="dot"></span>环境组件</div>
+    <div class="nav-item"><span class="dot"></span>配置</div>
+    <div class="nav-item"><span class="dot"></span>备份监控</div>
+    <div class="nav-item active new"><span class="dot"></span>手动备份</div>
+    <div class="nav-item new"><span class="dot"></span>备份恢复</div>
+  </aside>
+  <main class="main">
+    <header class="toolbar">
+      <span class="env-mark">本机面板 · 127.0.0.1:7788</span>
+      <span><button class="ghost">重启</button> <button class="ghost">关闭界面</button></span>
+    </header>
+    <div class="content">
+      <div class="proto-bar">
+        <span class="lead">原型演示 · 切换场景：</span>
+        <button class="chip active" data-scene="ready">可备份</button>
+        <button class="chip" data-scene="blocked">预检不通过</button>
+        <button class="chip" data-scene="locked">撞锁未执行</button>
+        <button class="chip" data-scene="failed">组件失败</button>
+        <button class="chip" data-scene="timeout">30 分钟超时</button>
+        <button class="chip" data-scene="offline">备份机连不上</button>
+        <button class="chip" data-scene="busy">已有任务在跑</button>
+        <span class="badge">交互回归基线 · 2026-11-08 · 代码已实现 · 真机验收待做 · 判据以 docs/backup-once.md 为准</span>
+      </div>
+      <div class="banner info" style="margin-top:0;margin-bottom:16px">
+        <span class="ico">i</span>
+        <span><b>交互回归基线，不是运行中的界面</b>：静态数据、不连真实远端、不发网络请求、不执行任何动作。
+        页面演示的是「<b>只读预演 → 显式确认 → 执行 → 如实报告</b>」，动作计划（能否执行 /
+        阻塞原因 / 影响清单 / 将执行的命令）<b>由服务端下发、前端只渲染</b>，原型里用静态对象投影。
+        <code>ops backup once</code> 与 <code>mode=once</code> <b>已注册并落地</b>；实现与真机前置见
+        <code>docs/backup-once.md</code> §7，脚本本体见 <code>docs/backup-scripts.md</code>。
+        工具<b>不读 crontab</b>，手动成功会刷新心跳但<b>不代表定时任务正常</b>；
+        与恢复原型相反，这里的数据方向是「生产端 → 备份端」。</span>
+      </div>
+      <div class="page-head">
+        <div>
+          <h1>手动备份</h1>
+          <div class="meta">第 6 个导航项（已实现，恢复顺延第 7 项）。默认视图只读；执行是独立且显式的写动作。
+            复用备份机上已部署的 <code>pg_backup.sh</code> / <code>minio_backup.sh</code>，
+            不重写备份逻辑、不进 crontab、不改定时任务。<b>目标服务器 = 备份机</b>（脚本在这跑、备份存这），
+            备份对象 = <b>生产端</b>（由该机 backup.env 决定，不能在此另选，只做只读回显）。</div>
+        </div>
+        <span class="tag neutral">零跨页状态 · 与部署共用任务锁</span>
+      </div>
+      <div id="globalBanner"></div>
+
+      <!-- ==== @section card-context ==== 只读上下文：目标机 / 身份 / 心跳 / 定时状态 / 方向链 / 红线 -->
+      <div class="card">
+        <h2>执行上下文 <small>只读快照；连不上也回完整快照，不白屏、不猜 0</small></h2>
+        <div class="strip" id="ctxStrip"></div>
+        <div class="chain" id="ctxChain"></div>
+        <div class="redline">
+          🔴 <b>目标服务器是备份机</b>，不是被备份的机器；生产端由该机 <code>backup.env</code> 决定，
+          界面用 <code>GET /api/backup/once/source</code> 只读回显（白名单非凭证字段），别让人猜备份谁。
+          🔴 <b>工具不读 crontab</b>（判据见 <code>docs/backup-monitor.md §3.2</code>），
+          「定时任务状态」这一格恒为「不采集」，不是「运行中 / 已停」。
+          🔴 <b>手动成功同样写 last_success.txt</b>，会掩盖 cron 故障：报告与文案必须说明
+          「本次为手动触发，不代表定时任务正常」；<b>不改采集协议、不加来源字段</b>（§4.2）。
+        </div>
+      </div>
+
+      <!-- ==== @section card-select ==== 组件分段 / 目标机 / 只读预检 / 门禁提示 -->
+      <div class="card">
+        <h2>选择范围 <small>一次只对一个清单里的备份机，按 pg → minio 串行</small></h2>
+        <div class="btn-row" style="margin-top:0">
+          <div class="seg" id="compSeg">
+            <button data-comp="all" class="active">全部</button>
+            <button data-comp="pg">PostgreSQL</button>
+            <button data-comp="minio">MinIO</button>
+          </div>
+          <select id="serverSel" class="act" style="padding:7px 10px">
+            <option>k4 · backup-01（默认）</option>
+            <option>k5 · backup-02</option>
+          </select>
+          <button class="act" id="btnVerify">只读预检（verify）</button>
+          <span class="hintline" id="selectHint"></span>
+        </div>
+        <div class="footnote" style="margin-top:8px">
+          🔴 <code>--server</code> <b>只认备份机</b>（脚本执行地 / backup.env / 日志 / 心跳都在它上面）；
+          生产端由该机 <code>backup.env</code> 决定，接口不接受另行指定主机，也不接受任意脚本路径；
+          生产端只在「执行上下文」里做<b>只读回显</b>（白名单非凭证字段），连不上就是「未采集到」。
+          组件白名单只有 <code>all / pg / minio</code>；服务端每次写动作前自己跑一遍 <code>--dry-run</code>。
+        </div>
+      </div>
+
+      <!-- ==== @section card-plan ==== 预演计划三框 / 实现命令 / 按钮门 -->
+      <div class="card">
+        <h2>预演与执行计划 <small>服务端下发，前端只渲染；预演不是执行凭证</small></h2>
+        <div class="plan-grid" id="planGrid"></div>
+        <div style="margin-top:12px"><pre class="cmd" id="planCmd"></pre></div>
+        <div class="btn-row">
+          <button class="act" id="btnDryRun">预演（--dry-run，只读）</button>
+          <button class="act danger" id="btnRun">立即备份…</button>
+          <span class="hintline" id="planGate"></span>
+        </div>
+      </div>
+
+      <!-- ==== @section card-task ==== 阶段条 / 任务日志 / 结果报告（全局一份） -->
+      <div class="card">
+        <h2>任务日志与报告 <small>任务脱离 HTTP 请求；刷新页面不打断；日志按行脱敏、上限 256 KB</small></h2>
+        <div class="phases" id="phases"></div>
+        <pre class="log" id="taskLog"></pre>
+        <div class="report" id="taskReport" hidden></div>
+      </div>
+
+      <!-- ==== @section card-notes ==== 设计注记 / 与分册对照 / 落地记录 -->
+      <details class="card">
+        <summary>设计注记 · 与 docs/backup-once.md 的对照</summary>
+        <ul>
+          <li>本页演示 <code>§3</code> 执行契约与 <code>§8</code> 验收用例集：七个场景各对应一条判据。
+              <code>ops backup once</code> / <code>mode=once</code> / <code>mode=once-dry</code> <b>已注册并落地</b>。</li>
+          <li><b>为什么独立页</b>（§2.2）：监控页纯只读，手动成功会改心跳，读与写混屏最易误读；
+              部署页是一次性装机动作。本页复用 <code>features/backup/</code> 的任务锁 / 六道门 /
+              日志组件，Go 侧路由零改动。</li>
+          <li>门禁照抄硬约束 21 并加码：<code>confirm=yes</code>、name 只认清单、组件白名单、
+              <b>不收 sudo 密码</b>（<code>root=false</code>，弹窗没有密码框）、服务端预检门、
+              单任务锁（并发 409）、任务脱离 HTTP、日志脱敏。详见分册 §3。</li>
+          <li><b>预演不是执行凭证</b>：点「预演」只给只读结果；服务端每次写动作前自己再跑一次
+              <code>--dry-run</code>，前端拿不到也传不了「预演通过」令牌（同恢复 R4）。</li>
+          <li><b>撞锁 / 失败 / 超时都不是预演能挡住的</b>（§4.1 / §4.4）：因此 <code>locked</code>、
+              <code>failed</code>、<code>timeout</code> 三个场景的计划仍是 <code>available=true</code>，
+              差异体现在运行期的日志与报告，不是前端重算按钮门。</li>
+          <li>报告<b>只报脚本结果</b>：不写「备份体系正常 / 定时任务正常」，不把 status 的心跳当成功凭证；
+              失败不自动重试、不自动清场、不改心跳；超时只能写「远端可能仍在执行」，不写「已取消」。</li>
+          <li>影响清单逐条列出：PG 会新建 dump + globals + .sha256、按日期进分级目录、
+              <code>find -mtime -delete</code> 清理旧备份；MinIO 会写 <code>~/.mc</code>、
+              必要时 <code>mc mb</code>、<code>mc mirror --overwrite</code> 覆盖同名对象（§4.3）。</li>
+          <li>落地已完成（2026-11-08）：<code>internal/backup/once.go</code> + <code>CmdBackup</code> switch、
+              <code>minio_backup.sh</code> 补全 <code>flock -n</code> 并重建 <code>ops.exe</code>、
+              <code>internal/ui/{backup,once}.go</code> + <code>once-dry</code> / 计划接口、
+              <code>web/src/features/backup/</code> 第 6 页 + <code>WriteConfirmModal</code>、
+              <code>ui.md</code> §15 / <code>AGENTS.md</code> 硬约束 32 / 命令表 / 速查表、
+              本页与分册状态行。🔴 真机前置：远端仍要重新 <code>ops backup deploy</code>（分册 §7.1）。</li>
+          <li><b>目标服务器 = 备份机、备份对象 = 生产端</b>：实现里用只读 <code>/api/backup/once/source</code> 回显
+              PG 主机 / 库名与 MinIO 源端 / 桶；页面把上下文与选择合并成一张卡、日志空态不占高度
+              （有输出才显示带边框的日志框）、计划三框加宽、命令与注释分行（<code>ui.md</code> §15.5）。</li>
+        </ul>
+      </details>
+    </div>
+  </main>
+</div>
+
+<!-- ==== @section html-modal ==== 确认弹窗 DOM：yes / 两项勾选 / 明确无 sudo 密码框 -->
+<div class="modal-mask" id="mask" hidden>
+  <div class="modal">
+    <h3>确认立即执行一次备份</h3>
+    <div class="sub" id="mSub"></div>
+    <div class="alert bad" id="mAlert"></div>
+    <ul class="impact" id="mImpact"></ul>
+    <div class="no-password">🔴 本动作以清单 <code>user</code> 在备份机运行、<b>不提权</b>：
+      弹窗<b>没有 sudo 密码输入框</b>（与「备份能力部署」的安装弹窗不同）。
+      私钥路径与 DB / MinIO 凭证不进请求、不进任务日志。</div>
+    <label class="yes-label" for="mYes">输入 <code>yes</code> 确认（服务端还会再验一次）</label>
+    <input class="yes mono" id="mYes" placeholder="yes" autocomplete="off">
+    <div style="margin-top:10px" id="mChecks">
+      <label class="opt"><input type="checkbox" id="mChkImpact"><span>我已看清上面的影响清单（新增 dump / 清理旧备份 / 覆盖同名对象）<small>这是人的确认，不是工具校验</small></span></label>
+      <label class="opt"><input type="checkbox" id="mChkCron"><span>我明白本次为<b>手动触发</b>，不代表定时任务正常<small>工具不读 crontab；定时任务是否正常由人判断</small></span></label>
+    </div>
+    <div class="foot">
+      <span class="note">服务端先跑 --dry-run；预演通过不是执行凭证</span>
+      <button class="act" id="mCancel">取消</button>
+      <button class="act danger" id="mOk" disabled>确定备份</button>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+// ==== @section fn-helpers ==== 通用工具：$ / esc / tag / li / 阶段条 / toast
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => (
+  {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const tag = (level, text) => '<span class="tag '+esc(level)+'">'+esc(text)+'</span>';
+const li = (text, cls) => '<li'+(cls?' class="'+cls+'"':'')+'>'+text+'</li>';
+const PHASES = ["预检","预演","执行","报告"];
+function phaseHtml(state){
+  return PHASES.map((p,i) => {
+    let cls = "";
+    if(state.done > i) cls = "done";
+    else if(state.done === i && state.failed) cls = "fail";
+    else if(state.done === i && state.started) cls = "run";
+    return '<span class="phase '+cls+'">'+esc(p)+'</span>';
+  }).join("");
+}
+function toast(text){
+  const el = $("toast");
+  el.textContent = text; el.hidden = false;
+  clearTimeout(toast.timer);
+  toast.timer = setTimeout(() => { el.hidden = true; }, 2800);
+}
+function cell(k, v, cls){
+  return '<div class="cell'+(cls?' '+cls:'')+'"><div class="k">'+esc(k)+'</div>'+
+         '<div class="v">'+v+'</div></div>';
+}
+
+// ==== @section data-scenes ==== 七个场景的静态数据（假数据，不参与任何真实校验）
+// 🔴 场景对象各自独立，不在初始化过程中互相引用（会踩 TDZ）；ctx 用工厂函数生成。
+const ctx = (heartbeat, disk, preflight, cls) => ({
+  server:"k4 · backup-01", user:"cql（清单 user）", heartbeat, disk, preflight, cls
+});
+const SCENES = {
+  ready: {
+    label:"可备份", ctx:ctx("2026-11-08 03:00:12","20.1 GB 可用",tag("ok","preflight 0 · 通过")),
+    collected:true, banner:null
+  },
+  blocked: {
+    label:"预检不通过", ctx:ctx("2026-11-08 03:00:12","3.2 GB 可用",tag("err","preflight 1 · 阻塞"),"care"),
+    collected:true,
+    banner:{level:"err", text:"<b>预检退出码 1</b>：备份端 → 主服务器 SSH 不通 / 磁盘不足。服务端 <code>--dry-run</code> 没过，执行入口禁用，远端没有任何修改。"}
+  },
+  locked: {
+    label:"撞锁未执行", ctx:ctx("2026-11-08 03:00:12","20.1 GB 可用",tag("ok","preflight 0 · 通过")),
+    collected:true,
+    banner:{level:"warn", text:"<b>预演挡不住运行期撞锁</b>：两个 <code>*_backup.sh</code> 都自带 <code>flock -n</code>，若与 2:00/3:00 cron 或上一次任务重叠，本次会被挡下；报告必须如实说「被锁挡下，本次未执行」。<code>minio_backup.sh</code> 的锁已在本仓补好，🔴 远端仍要重新部署才生效（§4.1 / §7.1）。"}
+  },
+  failed: {
+    label:"组件失败", ctx:ctx("2026-11-08 03:00:12","20.1 GB 可用",tag("ok","preflight 0 · 通过")),
+    collected:true,
+    banner:{level:"warn", text:"<b>两个组件串行、分组件汇总</b>：pg 成功不代表 minio 成功；任一失败退出码 1，不自动重试、不自动清场，失败组件不写心跳（§3 / §4.2）。"}
+  },
+  timeout: {
+    label:"30 分钟超时", ctx:ctx("2026-11-08 03:00:12","20.1 GB 可用",tag("ok","preflight 0 · 通过")),
+    collected:true,
+    banner:{level:"warn", text:"<b>界面子进程上限 30 分钟</b>，CLI 侧首跑是 6 小时。超时只结束本机等待，<b>远端可能仍在执行</b>；报告不写「已取消」，也不自动重试（§4.4）。"}
+  },
+  offline: {
+    label:"备份机连不上", ctx:ctx("—","—",tag("err","未采集"),"bad"),
+    collected:false,
+    banner:{level:"err", text:"<b>连不上 / 配置错仍回完整快照</b>：采集不到的字段显示 <code>—</code> 而不是 0，<code>collected=false</code>，不白屏、不缓存这次失败；给「去配置页」引导，不接受任意主机。"}
+  },
+  busy: {
+    label:"已有任务在跑", ctx:ctx("2026-11-08 03:00:12","20.1 GB 可用",tag("warn","任务锁占用中"),"care"),
+    collected:true,
+    banner:{level:"warn", text:"<b>409 已有任务在运行</b>：与部署 / 装依赖 / 依赖卸载 / 重启共用同一把任务锁（硬约束 22 ②）。等它结束再试，不排队、不强行并发。"}
+  }
+};
+
+// ==== @section data-runtime ==== 计划基线（服务端下发对象）/ 场景覆盖 / 运行时状态
+// 🔴 这些对象是「Go 侧下发的动作计划」的演示投影，不是前端自己算指标；
+//    实现时整份来自 API，前端只渲染 available / blockers / impact / commands。
+const PG_IMPACT = [
+  "新增 <code>daily/pass_up_&lt;时间&gt;.dump</code> + <code>globals_*.sql</code> + 各自 <code>.sha256</code>（每月 1 号进 monthly、周一进 weekly）",
+  "<code>find -mtime -delete</code> 清理 daily / weekly / monthly 三个分级目录的旧文件",
+  "全部成功后写 <code>last_success.txt</code> 心跳；失败不写"
+];
+const MINIO_IMPACT = [
+  "<code>mc alias set</code> 写 <code>~/.mc</code>；备份端桶不存在时 <code>mc mb</code> 创建",
+  "逐桶 <code>mc mirror --overwrite</code>：备份端同名对象被覆盖",
+  "全部桶成功后写心跳；失败桶逐项汇总，不写心跳"
+];
+const PG_WARN = [
+  "一次备份不只是多一个 dump：还会触发分级清理，预演的影响清单必须逐条列出",
+  "本地 pg_restore 低于服务端 pg_dump 时脚本跳过深度校验并告警，不算备份失败"
+];
+const MINIO_WARN = [
+  "与 2:00 cron 撞车会双跑 mirror：两个脚本已有 <code>flock -n</code>（远端要重新部署补锁版），工具不查 crontab",
+  "日志里可能出现 src_url / 桶名；凭证一律脱敏，绝不回显 backup.env"
+];
+const PLAN_BASE = {
+  pg:{impact:PG_IMPACT, warnings:PG_WARN, commands:[
+    "ops backup once pg --server k4 --dry-run     # 只读预演：preflight + 影响清单",
+    "ops backup once pg --server k4               # 正式：预检 → 执行 → 报告",
+    "bash <部署目录>/postgres/pg_backup.sh        # 远端实际跑的脚本（路径由服务端拼）"
+  ]},
+  minio:{impact:MINIO_IMPACT, warnings:MINIO_WARN, commands:[
+    "ops backup once minio --server k4 --dry-run  # 只读预演",
+    "ops backup once minio --server k4            # 正式",
+    "bash <部署目录>/minio/minio_backup.sh        # 远端实际跑的脚本"
+  ]},
+  all:{impact:PG_IMPACT.concat(MINIO_IMPACT), warnings:PG_WARN.concat(MINIO_WARN), commands:[
+    "ops backup once all --server k4 --dry-run    # 只读预演",
+    "ops backup once all --server k4              # 正式：pg → minio 串行，分组件汇总",
+    "远端：bash <部署目录>/<组件>/<组件>_backup.sh   # 由服务端按组件顺序执行"
+  ]}
+};
+const SCENE_PLAN = {
+  blocked:{available:false, blockers:[
+    "preflight 退出码 1：备份端 → 主服务器 SSH 不通（known_hosts / 私钥 / 网络三条排查线，见 backup-scripts.md §4.1）",
+    "备份端剩余 3.2 GB，不足以再放一份 dump"
+  ]},
+  offline:{available:false, blockers:[
+    "备份机连不上：collected=false，字段显示 — 而不是 0",
+    "返回完整快照 + danger，不把整页打白，也不缓存这次失败"
+  ]},
+  busy:{available:false, blockers:[
+    "已有备份任务在运行（409）：与部署 / 装依赖 / 重启共用一把任务锁",
+    "等当前任务结束再试；不排队、不强行并发"
+  ]},
+  locked:{warnings:["预演不能预测运行期撞锁：两个脚本的 flock -n 会直接退出 1 并 warn（§4.1）"]},
+  failed:{warnings:["两个组件串行：任一失败都分组件汇总，不自动重试、不清场（§3）"]},
+  timeout:{warnings:["界面子进程 30 分钟上限；超时只停本机等待，远端可能仍在执行（§4.4）"]}
+};
+const STATE = {
+  scene:"ready", comp:"all", busy:false,
+  task:{started:false, done:0, failed:false, lines:[], report:""}
+};
+
+// ==== @section fn-plan ==== 查表投影：场景 + 组件 → 一份动作计划（不计算指标）
+function planFor(scene, comp){
+  const base = PLAN_BASE[comp] || PLAN_BASE.all;
+  const p = {
+    available:true, blockers:[], warnings:base.warnings.slice(),
+    impact:base.impact.slice(), commands:base.commands.slice()
+  };
+  const g = SCENE_PLAN[scene];
+  if(g){
+    if(g.available === false) p.available = false;
+    if(g.blockers) p.blockers = g.blockers.slice();
+    if(g.warnings) p.warnings = p.warnings.concat(g.warnings);
+  }
+  // 🔴 每个场景都带这条：手动成功会刷新心跳，不能当成定时任务正常（§4.2）。
+  p.warnings.unshift("本次为手动触发，不代表定时任务正常；工具不读 crontab，采集协议一行不改");
+  return p;
+}
+function canRun(scene, plan){
+  return plan.available && SCENES[scene].collected && !STATE.busy;
+}
+
+// ==== @section fn-render ==== 主渲染：上下文 / 计划 / 按钮门 / 阶段条 / 日志 / 报告
+function renderContext(){
+  const c = SCENES[STATE.scene].ctx;
+  const collected = SCENES[STATE.scene].collected;
+  $("ctxStrip").innerHTML =
+    cell("备份机（目标服务器，只认清单 name）", esc(c.server)) +
+    cell("运行身份", esc(c.user)) +
+    cell("最近一次成功（心跳）", collected ? '<code>'+esc(c.heartbeat)+'</code>' : "—", collected ? "" : "bad") +
+    cell("备份端可用空间", collected ? esc(c.disk) : "—", c.cls || "") +
+    cell("preflight", c.preflight) +
+    cell("定时任务状态", tag("neutral","不采集（按 §3.2）"));
+  $("ctxChain").innerHTML = '数据方向（与恢复相反）：<code>生产端 PG / MinIO</code> → '+
+    '<code>备份机 k4 上的 *_backup.sh（pull）</code> → <code>备份端 dump / 桶 + last_success.txt</code>。'+
+    ' 生产端由该机 <code>backup.env</code> 决定，不由清单另选；只读回显：'+
+    '<code>PG_SSH_HOST=10.0.0.5 / PG_DB_NAME=pass_up</code>、<code>SRC_URL=http://10.0.0.6:9000 / SRC_BUCKETS=bucket-a bucket-b</code>（凭证不回显）。';
+  const b = SCENES[STATE.scene].banner;
+  $("globalBanner").innerHTML = b
+    ? '<div class="banner '+b.level+'"><span class="ico">!</span><span>'+b.text+'</span></div>'
+    : "";
+}
+function renderPlan(){
+  const p = planFor(STATE.scene, STATE.comp);
+  const cmdBox =
+    '<div class="box"><div class="t">将执行（实现命令，已注册；远端路径由服务端拼）</div>'+
+    '<ul>'+p.commands.map(x => li(esc(x))).join("")+'</ul></div>';
+  const impactBox =
+    '<div class="box"><div class="t">影响清单（一次备份不只是多一个 dump）</div>'+
+    '<ul>'+p.impact.map(x => li(x)).join("")+'</ul></div>';
+  const blockers = p.blockers.map(x => li(esc(x),"bad"));
+  const warnings = p.warnings.map(x => li(x,"care"));
+  const gateBox =
+    '<div class="box"><div class="t">阻塞与警告（服务端下发）</div><ul>'+
+    (blockers.length ? blockers.join("") : li("无全局阻塞：预检通过、任务锁空闲","good"))+
+    warnings.join("")+'</ul></div>';
+  $("planGrid").innerHTML = cmdBox + impactBox + gateBox;
+  $("planCmd").textContent =
+    "# 服务端每次写动作前自己跑一遍：\n"+
+    "POST /api/backup/run  { mode: \"once\", name: \"k4\", component: \""+STATE.comp+"\", confirm: \"yes\" }\n"+
+    "# 先："+p.commands[0]+"\n"+
+    "# 后："+p.commands[1]+"\n"+
+    "# 🔴 不发 --force / --install-deps / --run-now；不传任意脚本路径；不收 sudo 密码";
+  const ok = canRun(STATE.scene, p);
+  $("btnDryRun").disabled = !SCENES[STATE.scene].collected || STATE.busy;
+  $("btnRun").disabled = !ok;
+  $("planGate").innerHTML = ok
+    ? tag("warn","远端写操作")+' 点「立即备份…」还要过确认弹窗（输 yes + 两项勾选）。'
+    : tag("err","执行入口禁用")+' '+(p.blockers[0] ? esc(p.blockers[0]) : "等当前任务结束再试");
+  $("selectHint").innerHTML = "组件 <b>"+esc(STATE.comp)+"</b> · 串行顺序 "+
+    (STATE.comp === "all" ? "pg → minio" : STATE.comp)+
+    " · 预演只读，不改远端任何文件";
+}
+function renderTask(){
+  const t = STATE.task;
+  $("phases").innerHTML = phaseHtml(t);
+  $("taskLog").innerHTML = t.lines.length
+    ? t.lines.map(x => '<span class="'+esc(x.cls)+'">'+esc(x.text)+'</span>').join("\n")
+    : "（还没有任务。点「预演（--dry-run，只读）」或「立即备份…」看输出）";
+  const r = $("taskReport");
+  r.hidden = !t.report;
+  r.className = "report " + (t.failed ? "err" : "ok");
+  r.innerHTML = t.report
+    ? t.report + '<span class="manual">⚠️ 本次为手动触发，不代表定时任务正常；要看心跳请去「备份监控」页（只读）。</span>'
+    : "";
+}
+function render(){
+  document.querySelectorAll(".chip").forEach(x =>
+    x.classList.toggle("active", x.dataset.scene === STATE.scene));
+  document.querySelectorAll("#compSeg button").forEach(x =>
+    x.classList.toggle("active", x.dataset.comp === STATE.comp));
+  renderContext();
+  renderPlan();
+  renderTask();
+}
+
+// ==== @section fn-modal ==== 确认弹窗：门禁 / 打开 / 关闭（无 sudo 密码框）
+function modalGate(){
+  const yes = $("mYes").value.trim() === "yes";
+  $("mOk").disabled = !(yes && $("mChkImpact").checked && $("mChkCron").checked);
+}
+function openModal(){
+  const p = planFor(STATE.scene, STATE.comp);
+  if(!canRun(STATE.scene, p)){ toast("执行入口被门禁禁用，先处理阻塞原因"); return; }
+  $("mSub").textContent = "目标：k4 · backup-01　组件："+STATE.comp+"　预检通过后由服务端再跑一次 --dry-run";
+  $("mAlert").innerHTML = "这是<b>远端写操作</b>：会新增 dump / 覆盖备份端同名对象、触发旧备份清理、成功后更新心跳。"+
+    " 一次只跑一次，不进 crontab、不改定时任务、不提权。";
+  $("mImpact").innerHTML = p.impact.slice(0,3).map(x => li(x)).join("");
+  $("mYes").value = "";
+  $("mChkImpact").checked = false;
+  $("mChkCron").checked = false;
+  modalGate();
+  $("mask").hidden = false;
+  $("mYes").focus();
+}
+function closeModal(){ $("mask").hidden = true; }
+
+// ==== @section fn-events ==== 场景与组件切换 / 预演 / 任务模拟 / 分场景报告
+function setScene(k){
+  STATE.scene = k;
+  STATE.task = {started:false, done:0, failed:false, lines:[], report:""};
+  render();
+}
+function setComp(k){
+  STATE.comp = k;
+  STATE.task = {started:false, done:0, failed:false, lines:[], report:""};
+  render();
+}
+function appendLog(text, cls){
+  STATE.task.lines.push({text, cls:cls||""});
+  render();
+  $("taskLog").scrollTop = $("taskLog").scrollHeight;
+}
+function runDry(){
+  STATE.task = {started:true, done:0, failed:false, lines:[], report:""};
+  appendLog("[dry-run] 只读预演：跑一次 preflight_check.sh，不改远端任何文件","sec");
+  const scene = STATE.scene;
+  if(scene === "blocked"){
+    appendLog("[dry-run] ERROR: preflight 退出码 1 —— SSH 不通 / 磁盘不足","err");
+    appendLog("[服务端] 预检没过，不执行；远端没有被修改","warn");
+    STATE.task.failed = true;
+    STATE.task.done = 1;
+    STATE.task.report = "❌ <b>预检没过，不执行</b>：preflight 退出码 1，服务端门直接挡下。"+
+      "这是<b>只读</b>动作，远端没有被修改；先按 backup-scripts.md §4.1 排查，不要绕过门禁。";
+  }else if(scene === "busy"){
+    appendLog("[服务端] 409 已有备份任务在运行（与部署 / 装依赖 / 重启共用一把锁）","err");
+    STATE.task.failed = true;
+    STATE.task.done = 1;
+    STATE.task.report = "⛔ <b>409 已有任务在运行</b>：等它结束再试，不排队、不强行并发；本次没有执行任何写动作。";
+  }else{
+    appendLog("[dry-run] 影响清单、阻塞与将执行的命令已列在上方计划卡","");
+    appendLog("[dry-run] 完成：没有执行备份脚本、没有产生 dump、没有写心跳","ok");
+    STATE.task.started = false;
+    STATE.task.done = 2;
+    STATE.task.report = "预演完成：<b>远端没有被修改</b>。预演只是给人看的只读动作，<b>不是执行凭证</b>；"+
+      "要真正备份仍需点「立即备份…」并过确认弹窗，服务端会自己再跑一次 --dry-run。";
+  }
+  render();
+}
+const TASK_LINES = {
+  ready:[
+    ["[服务端] mode=once confirm=yes；name 只认清单、组件白名单校验通过","sec"],
+    ["[服务端预检] --dry-run → preflight 0；计划 available=true","ok"],
+    ["[远端] bash <部署目录>/postgres/pg_backup.sh   # 清单 user，root=false",""],
+    ["[远端][backup] level=info 开始执行 PostgreSQL 备份（备份端 pull 模式）...",""],
+    ["[远端][backup] level=info 备份成功: daily/pass_up_20261108_162005.dump (分级: daily)","ok"],
+    ["[远端][backup] level=info 备份任务顺利完成！已写 last_success.txt","ok"],
+    ["[报告] 只报脚本结果；心跳是否新鲜去「备份监控」页看（只读）","warn"]
+  ],
+  locked:[
+    ["[服务端预检] --dry-run → preflight 0；计划 available=true","ok"],
+    ["[远端] bash <部署目录>/postgres/pg_backup.sh",""],
+    ["[远端][backup] level=warn 上一次备份任务仍在运行中，本次执行取消。","err"],
+    ["[本机] 退出码 1：flock -n 未拿到锁；不重试、不清场、不改心跳","warn"]
+  ],
+  failed:[
+    ["[服务端预检] all → pg → minio 串行，分组件汇总","sec"],
+    ["[pg][backup] level=info 备份任务顺利完成！（退出码 0）","ok"],
+    ["[minio] mc alias set prod-minio $SRC_URL SRC_KEY=*** DEST_SECRET=***",""],
+    ["[minio][backup] level=error 部分桶备份失败 failed_buckets=passup-temp","err"],
+    ["[本机] 分组件汇总：pg=0 / minio=1；不自动重试、失败组件不写心跳","warn"]
+  ],
+  timeout:[
+    ["[服务端预检] --dry-run → preflight 0；开始执行","ok"],
+    ["[远端] bash <部署目录>/minio/minio_backup.sh（对象较多，仍在同步）",""],
+    ["[本机] 超过 30 分钟上限，本机已停止等待；远端可能仍在执行，请去备份机自检 / 只读监控页复核。","err"],
+    ["[本机] 不杀远端进程、不自动重试；报告不写「已取消」","warn"]
+  ]
+};
+function taskReport(scene){
+  if(scene === "locked") return "⛔ <b>被锁挡下，本次未执行</b>：pg_backup.sh 的 flock -n 没拿到锁，"+
+    "本次<b>没有产生 dump、没有改心跳</b>；不自动重试。与定时窗口是否重叠由人判断，工具不读 crontab。";
+  if(scene === "failed") return "❌ <b>分组件结果：pg 成功 / minio 失败</b>（passup-temp 桶）。"+
+    "如实报告失败桶，没有自动重试、没有自动清场；失败组件没有更新心跳。";
+  if(scene === "timeout") return "⚠️ <b>本机已停止等待（30 分钟上限）</b>，远端可能仍在执行。"+
+    "请去备份机自检或只读监控页复核；<b>不写「已取消」</b>，不杀远端进程、不自动重试。";
+  return "✅ <b>备份脚本退出码 0</b>：新增 daily/pass_up_20261108_162005.dump，"+
+    "已更新 last_success.txt。<b>不写「备份体系正常 / 定时任务正常」</b>。";
+}
+function runTask(){
+  closeModal();
+  STATE.busy = true;
+  const scene = STATE.scene;
+  const bad = scene === "locked" || scene === "failed" || scene === "timeout";
+  STATE.task = {started:true, done:0, failed:false, lines:[], report:""};
+  const lines = TASK_LINES[scene] || TASK_LINES.ready;
+  let i = 0;
+  const timer = setInterval(() => {
+    if(i < lines.length){
+      appendLog(lines[i][0], lines[i][1]);
+      STATE.task.done = Math.min(2, Math.floor((i + 1) / lines.length * 3));
+      i++;
+    }else{
+      clearInterval(timer);
+      STATE.busy = false;
+      STATE.task.failed = bad;
+      // 失败停在执行阶段并标红，不许四个阶段全变绿；报告照常显示在下方。
+      STATE.task.done = bad ? 2 : 4;
+      STATE.task.report = taskReport(scene);
+      render();
+    }
+  }, 260);
+}
+document.querySelectorAll(".chip").forEach(x => x.addEventListener("click", () => setScene(x.dataset.scene)));
+document.querySelectorAll("#compSeg button").forEach(x => x.addEventListener("click", () => setComp(x.dataset.comp)));
+$("btnVerify").addEventListener("click", () =>
+  toast("只读预检：原型不连远端，数据不变；preflight 1 阻塞 / 2 警告放行（尚未首次备份）"));
+$("btnDryRun").addEventListener("click", runDry);
+$("btnRun").addEventListener("click", openModal);
+$("mCancel").addEventListener("click", closeModal);
+$("mOk").addEventListener("click", runTask);
+$("mYes").addEventListener("input", modalGate);
+$("mChkImpact").addEventListener("change", modalGate);
+$("mChkCron").addEventListener("change", modalGate);
+
+// ==== @section fn-init ==== URL 参数直达场景 + 首屏 render()（评审便利）
+const qs = new URLSearchParams(location.search);
+if(qs.get("scene") && SCENES[qs.get("scene")]) STATE.scene = qs.get("scene");
+const qc = qs.get("comp");
+if(qc === "all" || qc === "pg" || qc === "minio") STATE.comp = qc;
+render();
+</script>
+</body>
+</html>

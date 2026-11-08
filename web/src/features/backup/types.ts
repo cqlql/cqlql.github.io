@@ -1,7 +1,7 @@
 // 与 Go 侧 internal/ui/backup.go 的 backupRunRequest / backupTaskView 逐字对齐。
 // 只被 backup 这一个能力用，所以留在 feature 内，不提到 shared/。
 
-export type BackupMode = 'preflight' | 'deploy' | 'verify' | 'deps' | 'deps-uninstall'
+export type BackupMode = 'preflight' | 'deploy' | 'verify' | 'deps' | 'deps-uninstall' | 'once' | 'once-dry'
 export type BackupComponent = 'all' | 'pg' | 'minio'
 
 /** /api/servers 在本能力里只需要这两个字段，不 import servers feature 的类型。 */
@@ -76,6 +76,44 @@ export interface BackupDepsView {
   pg_major?: number
   /** 卸载弹窗的标题 / 可勾选项 / 影响清单，前端只渲染。 */
   uninstall: DepsUninstallPlan
+}
+
+/** GET /api/backup/once/plan 下发的只读动作计划；判定全在 Go 侧，前端只渲染。 */
+export interface OncePlanContext {
+  cron_status: string
+  cron_note: string
+  direction: string
+  identity: string
+}
+
+export interface OncePlan {
+  server: string
+  component: string
+  order: string
+  available: boolean
+  blockers: string[]
+  warnings: string[]
+  impact: string[]
+  commands: string[]
+  context: OncePlanContext
+}
+
+/** GET /api/backup/once/source：只读回显备份机 backup.env 里的**非凭证**生产端字段。 */
+export interface OnceSourceItem {
+  key: string
+  label: string
+  value: string
+}
+
+export interface OnceSourceView {
+  server: string
+  component: string
+  collected: boolean
+  fetched_at?: string
+  error?: string
+  pg: OnceSourceItem[]
+  minio: OnceSourceItem[]
+  note: string
 }
 
 export interface BackupRunResult {

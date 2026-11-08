@@ -4,6 +4,8 @@ import type {
   BackupRunRequest,
   BackupRunResult,
   BackupTask,
+  OncePlan,
+  OnceSourceView,
   ServersListResponse,
 } from './types.ts'
 
@@ -32,5 +34,17 @@ export const backupApi = {
     const q = new URLSearchParams({ name, component })
     if (pgMajor) q.set('pg_major', String(pgMajor))
     return request<BackupDepsView>(`/api/backup/deps?${q.toString()}`)
+  },
+
+  /** 只读：手动备份页的动作计划（纯本机，不连远端、不占任务锁）。 */
+  oncePlan: (name: string, component: string) => {
+    const q = new URLSearchParams({ name, component })
+    return request<OncePlan>(`/api/backup/once/plan?${q.toString()}`)
+  },
+
+  /** 只读：回显备份机 backup.env 里的生产端（只回非凭证白名单字段）。 */
+  onceSource: (name: string, component: string) => {
+    const q = new URLSearchParams({ name, component })
+    return request<OnceSourceView>(`/api/backup/once/source?${q.toString()}`)
   },
 }

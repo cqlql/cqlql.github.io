@@ -106,6 +106,9 @@ KB / 字节统一按 `1024` 换算成 MB 并保留 1 位小数；段的 `collect
 因此用 `last_success.txt` 的新鲜度间接判断。真要查可以 `crontab -l`，但那需要
 「解释定时任务内容」这一层新逻辑，超出「看一眼最近有没有成功」的范围。
 
+> 手动触发一次备份也会写同一个 `last_success.txt`，所以「心跳新鲜」**不能反推「定时任务正常」**。
+> 工具侧手动备份的口径见 [backup-once.md](backup-once.md) §4.2；采集协议、阈值与 `assess()` 一行不改。
+
 ### 3.3 超时与失败
 
 - `ConnectTimeout=10`、`ServerAliveInterval=5`、`BatchMode=yes`；

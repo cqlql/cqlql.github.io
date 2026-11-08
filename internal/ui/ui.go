@@ -430,6 +430,12 @@ func (u *uiState) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case r.Method == http.MethodGet && r.URL.Path == "/api/backup/deps":
 		// 只读依赖状态；安装走 POST /api/backup/run 的 mode=deps。
 		u.handleBackupDeps(w, r)
+	case r.Method == http.MethodGet && r.URL.Path == "/api/backup/once/plan":
+		// 手动备份页的只读动作计划（纯本机，不连远端、不占任务锁）。
+		u.handleBackupOncePlan(w, r)
+	case r.Method == http.MethodGet && r.URL.Path == "/api/backup/once/source":
+		// 只读回显「备份对象（生产端）」：复用 compare-env，仅白名单非凭证字段。
+		u.handleBackupOnceSource(w, r)
 	case r.Method == http.MethodGet && r.URL.Path == "/api/monitor/status":
 		// P2+ 备份监控：只读快照 + 30s 缓存；连不上也回完整快照（见 monitor.go）。
 		u.handleMonitorStatus(w, r)

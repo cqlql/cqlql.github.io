@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
-import { AppstoreOutlined, CloudServerOutlined, DashboardOutlined, DatabaseOutlined, SettingOutlined } from '@ant-design/icons'
+import { AppstoreOutlined, CloudServerOutlined, DashboardOutlined, DatabaseOutlined, PlayCircleOutlined, SettingOutlined } from '@ant-design/icons'
 import { App as AntApp, ConfigProvider, Layout, Menu } from 'antd'
 import type { MenuProps } from 'antd'
 import zhCN from 'antd/locale/zh_CN'
 
-import { BackupPage } from './features/backup/index.ts'
+import { BackupPage, OncePage } from './features/backup/index.ts'
 import { ComponentsPage } from './features/components/index.ts'
 import { ConfigPage } from './features/config/index.ts'
 import { MonitorPage } from './features/monitor/index.ts'
@@ -12,7 +12,7 @@ import { ServersPage } from './features/servers/index.ts'
 import { StoppedNotice, ToolbarActions } from './features/system/index.ts'
 import { ErrorBoundary } from './shared/ui/ErrorBoundary.tsx'
 
-type PageKey = 'servers' | 'backup' | 'monitor' | 'components' | 'config'
+type PageKey = 'servers' | 'backup' | 'monitor' | 'components' | 'config' | 'once'
 
 const NAV_ITEMS: MenuProps['items'] = [
   { key: 'servers', icon: <CloudServerOutlined />, label: '服务器管理' },
@@ -23,6 +23,9 @@ const NAV_ITEMS: MenuProps['items'] = [
   { key: 'components', icon: <AppstoreOutlined />, label: '环境组件' },
   // 低频入口：放最后，不给主路径（服务器管理 / 备份部署）多一次点击。
   { key: 'config', icon: <SettingOutlined />, label: '配置' },
+  // 第 6 项：日常「用」备份的能力，与「看」（监控）/「装」（部署）分开。
+  // 恢复方案落地时顺延第 7 项，别在分册里写死编号（docs/backup-once.md §2.2）。
+  { key: 'once', icon: <PlayCircleOutlined />, label: '手动备份' },
 ]
 
 // 窄窗口放不下 200px 侧栏，退化成顶部横向菜单；只是布局变化，不增加一次点击。
@@ -40,7 +43,7 @@ function useNarrow() {
 }
 
 /**
- * 五个 feature、五页，但**仍然没有 router/**。
+ * 五个 feature、六页（backup 一页拆成「部署」与「手动备份」两页），但**仍然没有 router/**。
  *
  * 判据见 docs/ui.md §7：路由的价值是「刷新后停在那页 / 能把链接发给别人」，
  * 而这个界面是本机回环、地址里带着一次性 token 的单机工具，链接发出去也没用；
@@ -148,6 +151,13 @@ export default function App() {
           <div className="app-pane" hidden={page !== 'config'}>
             {visited.includes('config') && (
               <ErrorBoundary><ConfigPage onServersChanged={bumpServers} /></ErrorBoundary>
+            )}
+          </div>
+          <div className="app-pane" hidden={page !== 'once'}>
+            {visited.includes('once') && (
+              <ErrorBoundary>
+                <OncePage onGoMonitor={() => openPage('monitor')} onGoConfig={() => openPage('config')} />
+              </ErrorBoundary>
             )}
           </div>
         </Layout.Content>

@@ -7,6 +7,9 @@ import type {
   DepItem,
   DepsUninstallPlan,
   DepsUninstallTarget,
+  OncePlan,
+  OnceSourceItem,
+  OnceSourceView,
 } from '../types.ts'
 
 /**
@@ -33,6 +36,10 @@ export function modeLabel(mode: BackupMode | ''): string {
       return '安装缺少依赖'
     case 'deps-uninstall':
       return '卸载备份依赖'
+    case 'once':
+      return '手动备份'
+    case 'once-dry':
+      return '手动备份预演'
     default:
       return '尚未运行'
   }
@@ -61,9 +68,9 @@ export function canStart(t: BackupTask | null, name: string): boolean {
   return name.trim() !== '' && !t?.running
 }
 
-/** 只有两个写模式需要输 yes；预检与自检都是只读的。 */
+/** 写模式需要输 yes；预检 / 自检 / 只读预演都是只读的。 */
 export function needsConfirm(mode: BackupMode): boolean {
-  return mode === 'deploy' || mode === 'deps' || mode === 'deps-uninstall'
+  return mode === 'deploy' || mode === 'deps' || mode === 'deps-uninstall' || mode === 'once'
 }
 
 export const componentOptions: { label: string; value: BackupComponent }[] = [
@@ -80,8 +87,79 @@ export function confirmHint(mode: BackupMode, name: string, component: string): 
   if (mode === 'deps') {
     return `将在 ${name} 上安装 ${componentLabel(component)} 备份链路缺少的命令（典型是 mc / pg_restore）：只装包、不上传脚本、不写 crontab / logrotate / backup.env、不跑备份。服务端会先跑一遍 --dry-run 预检，预检不过不会安装。`
   }
+  if (mode === 'once') {
+    return `将在 ${name} 上立即跑一次 ${componentLabel(component)} 备份（不重装脚本、不写 crontab、不提权）：新增 dump / 对象，并附带分级清理与覆盖同名对象。服务端会先跑一遍 --dry-run 预检；手动成功不代表定时任务正常。`
+  }
   if (mode !== 'deploy') return ''
   return `将向 ${name} 部署 ${componentLabel(component)} 的备份能力：写远端目录、crontab 与 logrotate。服务端会先跑一遍 --dry-run 预检，预检不过不会安装。`
+}
+
+/* ---------------- 手动备份（只读计划 / 门禁）---------------- */
+
+export const EMPTY_ONCE_PLAN: OncePlan = {
+  server: '', component: 'all', order: 'pg → minio', available: false,
+  blockers: [], warnings: [], impact: [], commands: [],
+  context: { cron_status: '不采集（工具不读 crontab）', cron_note: '', direction: '', identity: '' },
+}
+
+/** 后端是旧二进制 / 失败响应时也不能让页面 .map 白屏：数组一律 []。 */
+export function normalizeOncePlan(raw: unknown): OncePlan {
+  if (!raw || typeof raw !== 'object') return { ...EMPTY_ONCE_PLAN }
+  const v = raw as Record<string, unknown>
+  const ctx = (v.context && typeof v.context === 'object' ? v.context : {}) as Record<string, unknown>
+  return {
+    server: str(v.server),
+    component: str(v.component) || 'all',
+    order: str(v.order) || 'pg → minio',
+    available: v.available === true,
+    blockers: arr<string>(v.blockers),
+    warnings: arr<string>(v.warnings),
+    impact: arr<string>(v.impact),
+    commands: arr<string>(v.commands),
+    context: {
+      cron_status: str(ctx.cron_status) || EMPTY_ONCE_PLAN.context.cron_status,
+      cron_note: str(ctx.cron_note),
+      direction: str(ctx.direction),
+      identity: str(ctx.identity),
+    },
+  }
+}
+
+/**
+ * 执行入口四个条件：服务端计划说能跑 + 本页没任务在跑 + 选了机器 +
+ * 最近一次预演没有失败。撞锁 / 组件失败 / 超时不在计划里预测（原型 O3），
+ * 它们是运行期日志与报告的事。
+ */
+export function onceRunEnabled(plan: OncePlan, busy: boolean, name: string, dryFailed: boolean): boolean {
+  return plan.available && !busy && name.trim() !== '' && !dryFailed
+}
+
+/** 确认弹窗：输 yes + 两项勾选（默认全不勾），另需服务端 confirm=yes。 */
+export function onceConfirmEnabled(yes: string, checks: boolean[]): boolean {
+  return yes.trim() === 'yes' && checks.length > 0 && checks.every(Boolean)
+}
+
+export const EMPTY_ONCE_SOURCE: OnceSourceView = {
+  server: '', component: 'all', collected: false, pg: [], minio: [],
+  note: '备份对象（生产端）由这台备份机上的 backup.env 决定，不在本页指定。',
+}
+
+/** 旧二进制 / 连不上 / 缺字段一律回完整空快照：不白屏、不猜生产端主机。 */
+export function normalizeOnceSource(raw: unknown): OnceSourceView {
+  if (!raw || typeof raw !== 'object') return { ...EMPTY_ONCE_SOURCE }
+  const v = raw as Record<string, unknown>
+  const items = (x: unknown): OnceSourceItem[] =>
+    arr<OnceSourceItem>(x).filter((i) => i && typeof i.key === 'string' && typeof i.value === 'string')
+  return {
+    server: str(v.server),
+    component: str(v.component) || 'all',
+    collected: v.collected === true,
+    fetched_at: str(v.fetched_at) || undefined,
+    error: str(v.error) || undefined,
+    pg: items(v.pg),
+    minio: items(v.minio),
+    note: str(v.note) || EMPTY_ONCE_SOURCE.note,
+  }
 }
 
 /* ---------------- 备份依赖（只读状态 / 安装参数）---------------- */

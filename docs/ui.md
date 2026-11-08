@@ -973,6 +973,12 @@ Enter/Space 键盘可达的，不只靠鼠标。改完 `web/` 仍需 `npm run bu
 `docs/backup-restore-prototype.html`；界面侧仍是方案、未实现）。
 「立即刷新」只重新采集，不算写操作（不改远端、不写本机配置）。
 
+🔴 手动备份是**独立导航项**、不塞进本页（判据见 `docs/backup-once.md` §2.2，
+2026-11-08 已落地为第 6 项，见本文 §15）；恢复同理（仍是方案，见
+`docs/backup-restore.md` §5.1）。本页的只读不变量不因这两项能力改变；
+手动备份原型见 `docs/backup-once-prototype.html`（分区 `docs/backup-once-prototype-map.md`），
+七场景即验收用例集，现作交互回归基线。
+
 ### 14.2 接口与缓存
 
 | 项 | 口径 |
@@ -1021,4 +1027,83 @@ writer，而 CLI 在 danger 时会往 stderr 打一行 WARN，JSON 会被污染�
 真机验收（都不改远端）：`ops status --server <备份机>` 与浏览器页面对照同一份快照；
 点「立即刷新」两次看 5s 限流提示；在备份机上确认清单账号能读到心跳 / 日志 /
 `.dump`，且没有任何文件被写（安装与监控同一个账号，不必另配只读账号）。
+
+## 15. 手动备份页（第 6 个导航项，2026-11-08）
+
+方案、四个坑与真机用例集全在 `docs/backup-once.md`；交互基线是
+`docs/backup-once-prototype.html`（分区索引 `backup-once-prototype-map.md`）。
+本节只记**界面这一层**的实现口径。
+
+### 15.1 为什么是独立页
+
+「备份监控」（§14）是纯只读，手动备份成功会写 `last_success.txt`、让同页数字变新鲜；
+读与写混屏最容易把「刚刚手动成功」读成「定时任务正常」。「备份能力部署」（§9）是一次性
+装机动作，与日常触发频率不同。所以第 6 个导航项独立成页，恢复顺延第 7 项；
+Go 侧单页回退（§7 的 `serveIndex`）一行不用改，访问过的页仍保持挂载。
+
+🔴 **「目标服务器」是备份机，不是被备份的机器**：脚本在这台跑、`backup.env` / 日志 /
+心跳 / dump / 桶都在它上面；被备份的**生产端**由这台机上的 `PG_SSH_HOST` / `SRC_URL` /
+`SRC_BUCKETS` 决定，不在本页另选（硬约束 12）。2026-11-08 界面评审发现只写一句
+「生产端由 backup.env 决定」人仍然不知道备份谁，于是把生产端做成只读回显（§15.2），
+页头、方向条与确认弹窗也都改成「备份机 / 生产端」两个词，不再混用「目标服务器」。
+
+### 15.2 三个接口
+
+| 接口 | 读写 | 作用 |
+| :--- | :--- | :--- |
+| `GET /api/backup/once/plan?name=&component=` | 纯本机只读 | 下发动作计划（`available` / `blockers` / `warnings` / `impact` / `commands` / `context`），**不连远端、不占任务锁、不要 confirm**；配置错 / 未知 name / 任务锁占用也回 200 + 完整快照 |
+| `GET /api/backup/once/source?name=&component=` | 远端只读 | 回答「备份哪台机器」：复用 `ops backup compare-env`，只回白名单非凭证字段（PG 主机 / 端口 / 库名 / dump 目录，MinIO 源端地址 / 桶列表 / 备份端地址）；URL 去 userinfo / path，`*_KEY` / `*_SECRET` / `PG_SSH_KEY` 不进响应，错误里过滤私钥路径；连不上回 `collected=false` + 完整空快照 |
+| `POST /api/backup/run` `mode=once-dry` | 远端只读 | 跑 `ops backup once <组件> --server <name> --dry-run`：preflight + 计划，不执行备份脚本 |
+| `POST /api/backup/run` `mode=once` | 远端写 | 跑 `ops backup once <组件> --server <name>`：预检 → 串行执行 → 分组件汇总 |
+
+🔴 **前端只渲染计划**：`OncePage.tsx` 不算任何指标，`available` 只看清单与任务锁；
+撞锁 / 组件失败 / 超时是运行期结果，不在计划里预测（原型 §2.4 O3）。
+执行入口另外受「最近一次预演没过」禁用，但服务端预检门仍然独立跑一遍。
+备份来源固定抓 `all`，切组件只改前端显示哪一份、不再连远端；采集不到显示「未采集到」，
+页面给「去配置页改生产端」入口（编辑本机 env + 同步到远端），不在本页开放另一套主机选择。
+
+### 15.3 六道门与「没有密码框」
+
+`mode=once` 复用硬约束 21 的门：① `confirm=="yes"`；② 服务端先跑 `--dry-run`，
+非 0 就地停；③ `name` 只认清单、组件只认 `all|pg|minio`；④ **不收 sudo 密码**
+（`root=false` 不提权，`handleBackupRun` 对带 `password` 的 `once` 请求直接 400）；
+⑤ 任务脱离 HTTP + 单任务锁 409 + `?after=` 增量日志 + 256 KB 上限；
+⑥ 不发 `--force` / `--install-deps` / `--run-now`、不开放任意路径与定时配置。
+
+`WriteConfirmModal.tsx` 是备份域两页共用的确认弹窗：安装期显式传 `showPassword`
+（密码经子进程 stdin），手动备份不传，**弹窗里根本没有密码框**；
+外加 `yes` + 两项勾选（默认全不勾）由 `onceConfirmEnabled` 判定，服务端再验一次 `confirm`。
+
+### 15.4 报告与超时
+
+- 「定时任务状态」恒为 `不采集（工具不读 crontab）`，页面有常驻红线；
+  每份报告、成功 / 失败提示都固定带「本次为手动触发，不代表定时任务正常」。
+- `appendOnceReport`（`internal/ui/backup.go`）从任务日志认「被锁挡下 / 超 30 分钟 /
+  分组件失败」三种运行期结论；🔴 只报脚本结果，不写「备份体系正常 / 定时任务正常」。
+- 界面子进程仍是 30 分钟上限；`backuprun.go` 对 `once` 单独给「本机已停止等待，
+  远端可能仍在执行」的提示，🔴 绝不写「已取消」，不杀远端进程、不自动重试。
+  CLI 侧是 6 小时（与 `deploy --run-now` 共用 `timeoutRunNow`）。
+
+### 15.5 布局与可读性（2026-11-08 界面反馈）
+
+原型里「执行上下文 / 选择范围 / 计划 / 日志」四张卡叠起来太长，且日志区固定 320px
+空出半屏。实现里：上下文与选择合并成一张卡（方向条 `生产端 → 备份机` + 选择控件），
+另起一张「备份对象（生产端）」只放回显字段；🔴 `BackupLog` **无输出时不渲染日志框**，
+只给一行虚线浅底提示，有输出才显示带边框的浅底框（120–240px 自适应，短日志不留空白）；
+日志卡补上 `component-panel` 内边距（`.card` 本身没有 padding）、标题与说明分成两行；
+去掉只显示三步状态的 `Steps`；计划三框 `minmax(320px, 1fr)`，命令与 `#` 注释分行、
+`white-space: pre-wrap` 避免在 `--dry-run` 中间断词；警告只常驻第一条
+（手动触发提示），其余折叠；常驻红线压成一行 `Alert`。
+🔴 这些只是排版，四条口径（§15.3 / §15.4）一条都没改。
+
+### 15.6 边界与回归
+
+「备份监控」页（§14）的判据、采集协议、阈值一行未改；手动备份不改 crontab、
+不改 `backup.env`、不装 / 卸依赖、不碰容器与镜像；不新增 `ops.env` / `backup.env` 键。
+🔴 真机前置：远端 `minio_backup.sh` 的补锁版要重新 `ops backup deploy` 才生效
+（`docs/backup-once.md` §7.1），在那之前正式执行与定时窗口撞车的风险由人评估。
+
+回归：`go test ./internal/ui ./internal/backup`（六道门 / 计划接口 / 报告措辞 / 参数门 /
+脚本锁断言）、`cd web && npm test && npm run typecheck && npm run build`、
+`go build -o ops.exe .`（§3 / 硬约束 19、26）。
 

@@ -42,6 +42,9 @@ SRC_ALIAS="prod-minio"
 DEST_ALIAS="backup-minio"
 LOG_DIR="${BACKUP_LOG_DIR:-/var/log/minio-backup}"
 LOG_FILE="${LOG_DIR}/minio_backup.log"
+# 与 pg_backup.sh 同款防并发锁：cron（每天 2:00）与手动触发共用这一把，
+# 否则会两条 mc mirror --overwrite 同时写同一批对象（见 docs/backup-once.md §4.1）。
+LOCK_FILE="${LOG_DIR}/minio_backup.lock"
 mkdir -p "$LOG_DIR"
 
 # ---------- 日志函数 ----------
@@ -63,6 +66,15 @@ log_kv() {
     local msg="$1"; shift
     echo "[$(date '+%Y-%m-%d %H:%M:%S')][backup] level=$level msg=\"$msg\" $*" | tee -a "$LOG_FILE"
 }
+
+# ---------- 防并发控制 (flock) ----------
+# 🔴 锁加在脚本内部：定时任务和 ops backup once 都走这里，crontab 行不用改。
+#    拿不到锁就如实退出 1，本次没有执行 mirror、没有写心跳；调用方不得自动重试。
+exec 9>"$LOCK_FILE"
+if ! flock -n 9; then
+    log warn "上一次备份任务仍在运行中，本次执行取消。"
+    exit 1
+fi
 
 log info "=========================================="
 log info "开始执行 MinIO 异地备份（备份端拉取模式）..."

@@ -5,6 +5,16 @@
 > **双击 `启动运维.cmd` 直接开网页面板**（隐藏守护 / 单实例 / 自动开浏览器 / 关闭界面），
 > S4 真机人工验收待做；**P2a 备份监控 CLI 与 P2+ 界面均已实现（真机验收待做）**；
 > P3–P4 应用部署仍为方案、代码未实现（2026-11-08 更新）。
+> **2026-11-08 手动备份已实现（真机验收待做）**：`ops backup once` 独立子命令 +
+> 界面第 6 个导航项「手动备份」+ `POST /api/backup/run` 的 `mode=once` / `once-dry` +
+> 只读 `GET /api/backup/once/plan`；复用已部署脚本与同一把任务锁，不提权、弹窗无 sudo
+> 密码框、不读 crontab、不改监控采集协议；报告固定带「手动触发不代表定时任务正常」。
+> `minio_backup.sh` 的 `flock -n` 已在本仓补好并编进 `ops.exe`，🔴 **但远端仍要重新
+> `ops backup deploy` 才生效**（`docs/backup-once.md` §7.1），§8 真机用例尚未跑。
+> 原型 `docs/backup-once-prototype.html`（19 个锚点，分区见 `backup-once-prototype-map.md`）
+> 留作交互回归基线：七场景 = 验收用例集，钉死「定时状态恒不采集 / 预演不是执行凭证 /
+> 弹窗无 sudo 密码框 / 撞锁·失败·超时是运行期结果、不是预演阻塞」，冲突时改原型。
+> 原型不连远端、不发请求、不执行任何动作；界面见 `docs/ui.md` §15 / 硬约束 32。
 > **2026-11-07 深夜界面新增「备份监控」**（第 5 个导航项，纯只读）：
 > `GET /api/monitor/status` + 30s 缓存 + 四张卡，与 `ops status --json` 共用
 > `monitor.CollectForServer` / `Status`；见 `docs/ui.md` §14 / `docs/backup-monitor.md` §12 / 硬约束 31。
@@ -105,8 +115,8 @@
 ## 项目概述
 
 - 本地单二进制运维工具，**已实现**：`ops servers list/check/apply-sudo` 管服务器与免密 sudo；
-  `ops backup deploy/verify/env/sync-env/deps/deps-uninstall` 安装、升级、预检备份能力、
-  生成配置模板、单独同步配置到远端、单独安装 / 卸载缺失依赖
+  `ops backup deploy/verify/env/sync-env/deps/deps-uninstall/once` 安装、升级、预检备份能力、
+  生成配置模板、单独同步配置到远端、单独安装 / 卸载缺失依赖、立即手动跑一次备份
   （备份脚本本体就在本仓 `deploy/backup/`，编进二进制）；
   `ops component list/install/update/uninstall/image-load/images/image-copy` 管备份端环境组件
   （Docker 引擎与 MinIO 服务，只读体检 / 安装 / 更新 / 卸载 / 离线镜像导入 /
@@ -123,8 +133,12 @@
   `ops menu` 是显式的交互菜单入口，`ops shortcut` 建桌面 `.lnk`。见 `docs/one-click-launch.md`。
 - `ops ui` 的「备份监控」页（P2+）已实现：只读快照 + 30s 缓存 + 四张卡 +
   60s 自动刷新，与 CLI 共用一份 `Status`；见 `docs/ui.md` §14 / `docs/backup-monitor.md` §12。
-- **仍是方案、代码未实现**：`ops deploy` / `ops rollback`（P3–P4 单机 Docker 部署）；
-  设计见 `docs/deploy.md`。
+- **仍是方案、代码未实现**：`ops deploy` / `ops rollback`（P3–P4 单机 Docker 部署，
+  设计见 `docs/deploy.md`）；`ops restore`（备份恢复，见 `docs/backup-restore.md` §5）。
+  两者草案命令都未注册、不要照抄执行。
+- **手动备份已实现（真机验收待做）**：`ops backup once` + 界面第 6 项，见
+  `docs/backup-once.md` / `docs/ui.md` §15；🔴 远端 `minio_backup.sh` 的补锁版仍要重新
+  `ops backup deploy` 才生效（分册 §7.1）。
 - 代码按能力分包：`main.go` 只做命令分发，`internal/<能力>/` 放实现，
   `internal/shared/` 放配置、ssh 封装与服务器清单模型。详见「目录与边界」。
 - 服务器（备份端 / 应用端）只在 `servers.json` 登记一处，命令用 `--server <name>` 选目标。
@@ -428,6 +442,14 @@
     账号就是清单 `user/key`（2026-11-08 起，见硬约束 9）：没有第二套账号表单，
     采集 target 不带 sudo 密码；旧 `monitor` 字段被忽略。
     详见 `docs/ui.md` §12.9 / §14 与 `docs/backup-monitor.md` §12。
+32. 🔴 **手动备份是独立写动作，不是部署的开关、也不是监控的按钮**（2026-11-08 新增）：
+    `ops backup once` / `mode=once` 复用已部署脚本与同一把任务锁，六道门照硬约束 21；
+    不提权（弹窗没有 sudo 密码框）、不收任意脚本路径、不新增配置键；
+    `--server` 是**备份机**，生产端由该机 backup.env 决定、只做白名单非凭证只读回显（凭证不进响应）；
+    工具**不读 crontab**、
+    不改监控采集协议，脚本内 `flock -n` 防与定时窗口撞车（远端脚本必须重新部署才生效）；
+    报告只报脚本结果且固定带「手动触发不代表定时任务正常」，超时不写「已取消」。
+    详见 `docs/backup-once.md` / `docs/ui.md` §15。
 
 ## 命令与验证
 
@@ -456,6 +478,8 @@ ops backup deploy --server <name> --password-stdin   # 初始 sudo 密码从 std
 ops backup env
 ops backup verify --server <name>
 ops backup sync-env pg --server <name>   # 只把本机配置推到远端 backup.env
+ops backup once pg --server <name> --dry-run   # 只读预演：preflight + 计划
+ops backup once all --server <name>            # 立即跑一次（不重装、不进 crontab）
 ops component list --server <name> --json
 ops component install docker|minio --server <name> --dry-run
 ops component update docker --server <name> --dry-run
@@ -470,7 +494,7 @@ ops shortcut [--name <名字>] [--remove]
 ops menu --help
 ```
 
-上面只列 `main.go` 注册表里**已实现**的命令；`ops deploy` / `ops rollback`（P3–P4）
+上面只列**已实现**命令；`ops deploy` / `ops rollback`（P3–P4）与 `ops restore`
 尚未实现，不要照抄执行。`ops status` 与界面的「备份监控」页都用清单 `user/key`
 登录（2026-11-08 起不再分设只读账号），后者走 `GET /api/monitor/status`、
 不对外开放任何写动词。子命令选项以各能力的 `--help` 为准。
@@ -535,7 +559,8 @@ ops menu --help
 - `web/` 按母本 `cqlql-notes/docs/工程/目录结构规范.md` 与 `前端/前端目录结构规划.md` §二 排：
   `features/<能力>/`（`api.ts` / `service.ts` / `types.ts` / `utils/` / `components/` / `pages/` /
   `index.ts`）+ `shared/{api,ui,utils}`（`service.ts` 按编排复杂度决定，不是标配）。
-  现在五个 feature：`servers/` / `backup/` / `components/` / `config/` / `monitor/`，
+  现在五个 feature、六页（`backup/` 拆成「部署」与「手动备份」两页）：
+  `servers/` / `backup/` / `components/` / `config/` / `monitor/`，
   另有全局工具栏 `system/`；用左侧 `Sider + Menu` 导航切换（窄窗口退化成顶部横向 Menu）。
   🔴 **没有 `router/`、顶层 `pages/`、`src/api/`、`src/lib/`**
   —— 五页仍不引路由：本机回环 + 地址栏带一次性 token，深链接没有意义，
@@ -566,8 +591,8 @@ ops menu --help
 - 新增能力 = 本表加一行 + 新建分册；**不要往已有分册里堆**。
 - 🔴 本仓单文件原型一律按 `docs/prototype-conventions.md` 办：埋 `@section` 锚点 +
   `<主体>-map.md` 分区索引；改前先 `grep -n "@section"` 定点读，**不要通读全文**；
-  新增区块要同步补锚点 + 更新该表。带锚点的原型现有两份：
-  `components-prototype.html` / `backup-restore-prototype.html`，各自分区语义见同目录
+  新增区块要同步补锚点 + 更新该表。带锚点的原型现有三份：
+  `components-prototype.html` / `backup-restore-prototype.html` / `backup-once-prototype.html`，各自分区语义见同目录
   `<主体>-map.md`（只索引该文件内部，本表仍是唯一能力索引）；
   `config-compare.html` 暂无锚点。原型清单与验收见 `docs/prototype-conventions.md` §1 / §5。
 - 本仓未建 `docs/doc-conventions.md` 全量副本（避免重复通用条款）；仓库正式初始化时按母本
@@ -584,6 +609,8 @@ ops menu --help
 | 备份恢复界面原型（方案 · 非实现） | `docs/backup-restore-prototype.html`（分区见 `docs/backup-restore-prototype-map.md`） | 交互速览不改判据，冲突时改原型；原型不连远端、不发请求、不执行动作；草案命令 `ops restore ...` 未注册、不要照抄执行 |
 | 备份能力部署（P1 ✅，监控的前置；CLI + 界面） | `docs/backup-deploy.md` | 复用 `install.sh`；不覆盖 `backup.env`；不静默迁移目录；logrotate 由工具落盘；界面安装必须 yes + 服务端预检门 |
 | 备份监控（P2a CLI ✅ / P2+ 界面 ✅；真机验收待做） | `docs/backup-monitor.md`（界面见 `docs/ui.md` §14） | 只读采集；时间差在远端算；`-` 不是 0；**单账号**（清单 `user/key`，采集不提权）；网页与 CLI 共用 `CollectForServer` / `Status`，前端不算指标；8 个键已进 `docs/config.md` §3 |
+| 手动备份（立即跑一次 · **已实现，真机验收待做**） | `docs/backup-once.md`（界面见 `docs/ui.md` §15） | 独立子命令 + 独立页，复用已部署脚本与同一把任务锁；不提权 / 无 sudo 密码框、不查 crontab、不改监控采集判据；报告只报脚本结果且**不能当成定时任务正常**；🔴 远端 `minio_backup.sh` 的补锁版仍要重新 `ops backup deploy` 才生效（分册 §7.1） |
+| 手动备份界面原型（**交互回归基线** · 代码已实现） | `docs/backup-once-prototype.html`（分区见 `docs/backup-once-prototype-map.md`） | 七场景 = 验收用例集；定时状态恒「不采集」、预演不是执行凭证、弹窗无 sudo 密码框、报告固定带手动触发提示；静态速览不连远端、不执行动作，冲突时改原型 |
 | 单机一键 Docker 部署（P3–P4 · 方案，未实现） | `docs/deploy.md` | `.env` 去 CRLF；镜像前缀必须等于 compose；Flyway 单向；方案键表在本文 §8，不进 config.md |
 | 一键启动与桌面快捷方式（S2/S3/S5 ✅，S4 人工验收待做） | `docs/one-click-launch.md` | 双击直达网页面板（隐藏守护 + 单实例）；`.lnk` 只指启动器；图标用独立 `.ico`；名字校验挡路径穿越；双击绝不触发写操作，页面写操作要显式确认 |
 | 配置（唯一维护处） | `docs/config.md` | `ops.env` 的键只在 `internal/shared/opsenv.go`（未知 `PASS_UP_OPS_*` 直接报错）；`backup.env` 的键只在 `internal/shared/env-schema.json`，模板 / 脚本兜底 / 白名单 / 键表都是生成物，漏跑生成器 `go test` 会红 |

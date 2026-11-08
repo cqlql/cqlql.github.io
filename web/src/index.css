@@ -267,6 +267,81 @@ pre {
   line-height: 1.6;
 }
 
+/* 手动备份页的日志只是回显：不固定 320/160 高度，随内容伸缩，
+   短日志不留空白；给个边框 + 浅底，让它看起来确实是一个「日志框」。 */
+.backup-log.compact {
+  height: auto;
+  min-height: 120px;
+  max-height: 240px;
+  border: 1px solid #e5e9f0;
+  border-radius: 8px;
+  background: #f7f9fc;
+}
+
+/* 空态只是一行提示，不占日志框的高度。 */
+.backup-log-empty {
+  padding: 10px 12px;
+  border: 1px dashed #dde3ec;
+  border-radius: 8px;
+  background: #fbfcfd;
+  color: var(--ops-muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+/* ---- 手动备份页：计划与备份来源 ---- */
+.once-plan-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 10px;
+}
+
+.once-command-list {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 12px;
+  line-height: 1.8;
+}
+
+.once-command-list li { margin-bottom: 8px; }
+.once-command-list code {
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  word-break: normal;
+}
+
+.once-source-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 10px;
+}
+
+.once-source-list { margin: 0; }
+.once-source-list > div {
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  padding: 3px 0;
+  border-bottom: 1px dashed #eef1f5;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.once-source-list > div:last-child { border-bottom: 0; }
+.once-source-list .k { color: var(--ops-muted); flex: 0 0 auto; }
+.once-source-list .v { text-align: right; word-break: break-word; }
+
+.once-dir {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #f6f8fb;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
 /* ---- 配置 ---- */
 .config-panel {
   padding: 16px;

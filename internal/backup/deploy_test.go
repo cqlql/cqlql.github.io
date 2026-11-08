@@ -287,8 +287,10 @@ func TestInspectLocalEnv(t *testing.T) {
 
 // 运行身份靠「Stream 的 bool 参数」这一行区分，重构时最容易被顺手改回 true。
 // SSH 子进程不好在单测里 mock，这里从源码锁住关键调用点：
-// preflight / 首跑不套 sudo，install.sh 显式带运行用户，迁移期两份 crontab 都要看。
-// 判据见 AGENTS.md 硬约束 24、docs/backup-deploy.md §4.4。
+// preflight / 首跑 / 手动备份不套 sudo，install.sh 显式带运行用户，迁移期两份 crontab 都要看。
+// 2026-11-08 起 preflight 与「按组件串行跑脚本」抽成了 deploy.go 的共用函数，
+// `deploy --run-now` 与 `backup once` 各调一次，断言跟着改到共用函数那两行。
+// 判据见 AGENTS.md 硬约束 24、docs/backup-deploy.md §4.4、docs/backup-once.md §3。
 func TestDeployRunsBackupAsNonRoot(t *testing.T) {
 	data, err := os.ReadFile("deploy.go")
 	if err != nil {
@@ -296,9 +298,10 @@ func TestDeployRunsBackupAsNonRoot(t *testing.T) {
 	}
 	s := string(data)
 	for _, want := range []string{
-		`preflightArg(comps), false, nil)`,
-		`preflightArg(opt.comps)+" </dev/null", false, nil)`,
-		`c.backupPath(cfg.DeployDir)), false, nil)`,
+		`return t.Stream(ctx, cmd, false, nil)`,
+		`c.backupPath(dir)), false, nil)`,
+		`streamPreflight(root, t, cfg, opt.comps)`,
+		`runBackupScripts(root, t, cfg.DeployDir, opt.comps, "首次运行", true)`,
 		`runUserEnv(t.User)+"bash "`,
 		`crontab -u root -l 2>/dev/null || true`,
 		`BACKUP_RUN_USER=`,
@@ -311,8 +314,25 @@ func TestDeployRunsBackupAsNonRoot(t *testing.T) {
 	if got := strings.Count(s, "runUserEnv(t.User)"); got != 2 {
 		t.Errorf("install.sh 调用点应有 2 处（主安装 + 回滚重装）都带运行用户，实际 %d", got)
 	}
+	// 安装期的 root=true 调用（logrotate / 目录属主）是合法的，只禁共用执行段里的
+	// 那两行被改成 true；`t.Stream(ctx, cmd, true, nil)` 在别处仍会出现，不能一刀切。
 	if strings.Contains(s, `preflightArg(comps), true, nil)`) ||
-		strings.Contains(s, `preflightArg(opt.comps)+" </dev/null", true, nil)`) {
-		t.Error("preflight 又被套回 sudo 了")
+		strings.Contains(s, `c.backupPath(dir)), true, nil)`) {
+		t.Error("preflight / 备份脚本又被套回 sudo 了")
+	}
+
+	once, err := os.ReadFile("once.go")
+	if err != nil {
+		t.Fatalf("读取 once.go 失败：%v", err)
+	}
+	so := string(once)
+	for _, want := range []string{
+		`t.SudoPassword = ""`,
+		`streamPreflight(root, t, cfg, opt.comps)`,
+		`runBackupScripts(root, t, cfg.DeployDir, opt.comps, "手动备份", false)`,
+	} {
+		if !strings.Contains(so, want) {
+			t.Errorf("once.go 缺少不提权 / 共用执行段的关键片段 %q", want)
+		}
 	}
 }
