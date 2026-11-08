@@ -560,9 +560,10 @@ ops menu --help
   `go test` 断言 config.md 不含方案键与运行态文件表，且全部分册的键名都已归类。
 - 「为什么这么设计 / 哪些方案被否」并进对应分册的决策节，不单独开文档。
 - 新增能力 = 本表加一行 + 新建分册；**不要往已有分册里堆**。
-- `docs/components-prototype.html` 是单文件原型：改前先 `grep -n "@section"` 定点读，
-  分区语义见 `docs/components-prototype-map.md`（只索引该文件内部，本表仍是唯一能力索引）；
-  新增区块要同步补锚点 + 更新该表。
+- 🔴 本仓单文件原型一律按 `docs/prototype-conventions.md` 办：埋 `@section` 锚点 +
+  `<主体>-map.md` 分区索引；改前先 `grep -n "@section"` 定点读，**不要通读全文**；
+  新增区块要同步补锚点 + 更新该表。现有实例 `components-prototype.html` 的分区语义见
+  `components-prototype-map.md`（只索引该文件内部，本表仍是唯一能力索引）。
 - 本仓未建 `docs/doc-conventions.md` 全量副本（避免重复通用条款）；仓库正式初始化时按母本
   `§5` 实例化。
 
@@ -579,5 +580,6 @@ ops menu --help
 | 单机一键 Docker 部署（P3–P4 · 方案，未实现） | `docs/deploy.md` | `.env` 去 CRLF；镜像前缀必须等于 compose；Flyway 单向；方案键表在本文 §8，不进 config.md |
 | 一键启动与桌面快捷方式（S2/S3/S5 ✅，S4 人工验收待做） | `docs/one-click-launch.md` | 双击直达网页面板（隐藏守护 + 单实例）；`.lnk` 只指启动器；图标用独立 `.ico`；名字校验挡路径穿越；双击绝不触发写操作，页面写操作要显式确认 |
 | 配置（唯一维护处） | `docs/config.md` | `ops.env` 的键只在 `internal/shared/opsenv.go`（未知 `PASS_UP_OPS_*` 直接报错）；`backup.env` 的键只在 `internal/shared/env-schema.json`，模板 / 脚本兜底 / 白名单 / 键表都是生成物，漏跑生成器 `go test` 会红 |
+| 单文件原型（分区锚点约定 · 本仓实例） | `docs/prototype-conventions.md` | 改前先 grep 锚点定点读、不通读全文；锚点只能是注释、行号不写进 map；新增区块同步补锚点 + 更新 map 表 |
 | 文档治理 | `cqlql-notes/docs/工程/文档约定.md` | 新加文档前先过 4 问；索引只有一份 |
 | 目录与依赖 | `cqlql-notes/docs/工程/目录结构规范.md` + 本文「目录与边界」 | 依赖单向；`shared` 不得反向 import 能力包；跨包符号必须导出 |
