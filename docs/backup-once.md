@@ -4,7 +4,7 @@
 
 > 分册；唯一索引见 [AGENTS.md](../AGENTS.md)。脚本本体见 [backup-scripts.md](backup-scripts.md)，
 > 安装与首跑见 [backup-deploy.md](backup-deploy.md)，只读监控见 [backup-monitor.md](backup-monitor.md)，
-> 恢复方案见 [backup-restore.md](backup-restore.md)。
+> 恢复分册（2026-11-08 已实现 CLI + 界面）见 [backup-restore.md](backup-restore.md)。
 > 界面原型见 [backup-once-prototype.html](backup-once-prototype.html)（分区索引
 > [backup-once-prototype-map.md](backup-once-prototype-map.md)）：**七个场景就是 §8 的验收用例集**，
 > 原型是静态速览，不连远端、不发请求、不执行任何动作。
@@ -28,7 +28,7 @@
 | `ops backup deploy --run-now` | 它是**安装流程的最后一步**：前面必然走「上传脚本 → 换目录 → install.sh（写 crontab / logrotate）→ preflight」。想单独跑一次备份却顺带重部署一遍，语义与代价都不对；界面明确不开放这个开关（硬约束 21 ⑥ / 30） |
 | `ops backup verify` | 只跑 preflight，不跑备份；可作为前置，但不是入口 |
 | `ops status` 与「备份监控」页 | 纯只读，只看 `last_success.txt` / dump / 心跳；硬约束 31 与 [ui.md](ui.md) §14.1 都不允许它带写动作 |
-| 界面五个导航项 | 服务器管理（看）/ 备份能力部署（**装**）/ 环境组件（装）/ 配置（改）/ 备份监控（**看**），没有「**用**」。恢复也仍是方案（[backup-restore.md](backup-restore.md) §5） |
+| 界面五个导航项 | 服务器管理（看）/ 备份能力部署（**装**）/ 环境组件（装）/ 配置（改）/ 备份监控（**看**），没有「**用**」。恢复当时也仍是方案（同日已落地，见 [backup-restore.md](backup-restore.md) §7） |
 
 一句话：**不缺备份逻辑，缺的是「预演 → 显式确认 → 执行 → 如实报告」这条编排**。
 因此本能力不新增备份脚本，只在工具侧接一根线到已经躺在备份机上的两个脚本。
@@ -70,13 +70,14 @@
 | 独立导航项 | 与恢复方案同构；代价只是 `App.tsx` 的 `PageKey` / `NAV_ITEMS` / 一个 `hidden` pane，Go 侧单页回退一行不用改（[ui.md](ui.md) §7） | ✅ **选这个** |
 
 已落地：`App.tsx` 的 `PageKey` / `NAV_ITEMS` / `hidden` pane 加第 6 项，
-恢复顺延第 7 项；[backup-restore.md](backup-restore.md) §5.3 已改成不写死编号的
-「独立导航项（编号以当期导航顺序为准）」。
+恢复已落地为第 7 项（2026-11-08，见 [backup-restore.md](backup-restore.md) §7）；
+[backup-restore.md](backup-restore.md) §5.3 只钉死「独立导航项」，编号以 `App.tsx` 当期顺序为准。
 
 ### 2.3 命名为什么是 `once`
 
 `ops backup run` / `--now` 都会撞上现有三层 `run`：
-`deploy --run-now`、`POST /api/backup/run`（任务入口）、恢复草案的 `ops restore run`。
+`deploy --run-now`、`POST /api/backup/run`（任务入口）、恢复的 `ops restore run`
+（2026-11-08 已注册；恢复自己的写模式也叫 `mode=restore`，仍复用同一个任务入口）。
 `once` 精确表达「**跑一次、不进 crontab、不改定时任务**」，界面 `mode=once` 与之同名，
 不引入第三套词。
 
@@ -212,7 +213,7 @@ userinfo 与 path，`*_KEY` / `*_SECRET` / `PG_SSH_KEY` 一律不进响应，错
 | `backup deploy --run-now` | 仍是「装完首跑」，不改造、不删除；与 `once` 共用抽出来的「按组件串行跑脚本」函数 |
 | `backup verify` | `once --dry-run` 复用它的 preflight；`verify` 自己仍不跑备份 |
 | `status` / 备份监控页 | 判据、采集协议、阈值**一行不改**；手动备份的结果由人去那页看（§4.2） |
-| `restore`（方案） | 方向相反：备份是「生产端 → 备份端」，恢复是「备份端 → 生产端」；两者都独立成页、都不塞进监控页、都不查 crontab，但**不共用确认弹窗**（恢复有库名两次比对 / 覆盖生产的加码门禁） |
+| `restore`（2026-11-08 已实现，见 [backup-restore.md](backup-restore.md) §7） | 方向相反：备份是「生产端 → 备份端」，恢复是「备份端 → 生产端」；两者都独立成页、都不塞进监控页、都不查 crontab、共用同一把任务锁。确认弹窗复用同一个 `showPassword=false` 的组件，但**门禁内容不同**：恢复加库名两次逐字比对 / MinIO `YES` / 三项前置 / 覆盖生产额外勾 |
 | `component install/uninstall` | 手动备份只要求脚本与依赖已就位；不装、不卸、不改容器与镜像 |
 | `ops.env` / `backup.env` | **不新增任何键**；部署目录、组件目录、凭证仍只从既有配置读 |
 

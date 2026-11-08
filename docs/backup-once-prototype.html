@@ -201,7 +201,7 @@ details.card code{background:var(--code-bg);padding:1px 5px;border-radius:4px;co
       <div class="page-head">
         <div>
           <h1>手动备份</h1>
-          <div class="meta">第 6 个导航项（已实现，恢复顺延第 7 项）。默认视图只读；执行是独立且显式的写动作。
+          <div class="meta">第 6 个导航项（已实现；恢复也已落地为第 7 项）。默认视图只读；执行是独立且显式的写动作。
             复用备份机上已部署的 <code>pg_backup.sh</code> / <code>minio_backup.sh</code>，
             不重写备份逻辑、不进 crontab、不改定时任务。<b>目标服务器 = 备份机</b>（脚本在这跑、备份存这），
             备份对象 = <b>生产端</b>（由该机 backup.env 决定，不能在此另选，只做只读回显）。</div>

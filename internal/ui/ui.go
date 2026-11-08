@@ -73,6 +73,10 @@ type uiState struct {
 	probeMonitor monitorProbe
 	monitorNow   func() time.Time
 
+	// ---- 备份恢复（只读候选 / 计划 + 写动作门禁，见 restore.go）----
+	// 采集器可注入：单测不连真实 SSH。写任务仍用 backupTask 那把唯一的锁。
+	restoreProbe restoreProbe
+
 	// ---- 「重启自己」的事实（见 restart.go）----
 	// bootID 是**这个进程实例**的标识，/api/health 会带上它。不能用 PID 代替：
 	// 重启之后 PID 一定变，但「服务还在」与「重启成功了」必须能分开 —— 交接失败时
@@ -439,6 +443,12 @@ func (u *uiState) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case r.Method == http.MethodGet && r.URL.Path == "/api/monitor/status":
 		// P2+ 备份监控：只读快照 + 30s 缓存；连不上也回完整快照（见 monitor.go）。
 		u.handleMonitorStatus(w, r)
+	case r.Method == http.MethodGet && r.URL.Path == "/api/restore/candidates":
+		// 备份恢复：只读候选清单 + 恢复目标回显（不占任务锁、不要 confirm）。
+		u.handleRestoreCandidates(w, r)
+	case r.Method == http.MethodGet && r.URL.Path == "/api/restore/plan":
+		// 备份恢复：换选中行 = 重新取一次计划（服务端重采 + 自己算阻塞）。
+		u.handleRestorePlan(w, r)
 	case r.Method == http.MethodGet && r.URL.Path == "/api/components/status":
 		u.handleComponentStatus(w, r)
 	case r.Method == http.MethodGet && r.URL.Path == "/api/components/images":

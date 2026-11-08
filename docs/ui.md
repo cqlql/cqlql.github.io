@@ -19,12 +19,18 @@
 > 问题清单 + 60s 自动刷新，与 `ops status` 共用一份快照（§14 / [backup-monitor.md](backup-monitor.md) §12）。
 > **2026-11-08 改口径**：备份监控不再分设只读账号，安装与采集共用清单的
 > `user`/`key`；配置页没有第二套账号表单（§12.9），旧 `monitor` 字段被忽略。
+> **2026-11-08 追加第 6 个导航项「手动备份」**（独立页，`POST /api/backup/run` 的
+> `mode=once` / `once-dry` + 只读计划 / 来源接口），见 §15 与 [backup-once.md](backup-once.md)。
+> **2026-11-08 追加第 7 个导航项「备份恢复」**：只读候选 / 预演 + 显式执行，
+> 复用同一把任务锁（§16 与 [backup-restore.md](backup-restore.md) §7）。
 > 未实现的 P3–P4 视图按本文件 §7 的触发条件再加。
 
 # 界面（`ops ui`）
 
-默认只读查看服务器清单与检查结果；会改远端的写操作有**两个**：「一键免密 sudo」与
-「安装 / 升级备份能力」（后者要输 `yes` 且过服务端预检门，见 §9）。
+默认只读查看服务器清单与检查结果；会改远端的写动作分散在三个页面：
+「一键免密 sudo」、「备份能力部署」的安装 / 装依赖 / 卸依赖 /「手动备份」（§15）、
+「备份恢复」（§16）。后两类都要输 `yes` 且过服务端预检门；**恢复另加**库名两次逐字比对 /
+`YES` / 三项前置勾选 / 覆盖生产额外勾，见 §16.3。
 另有 `GET /api/health` / `GET|POST /api/restart`（重启自己，见 §11）、
 `POST /api/shortcut`（建桌面快捷方式）与 `POST /api/shutdown`（只关本机界面进程）；
 四者都不碰远端，统一放在顶部工具栏。
@@ -969,13 +975,13 @@ Enter/Space 键盘可达的，不只靠鼠标。改完 `web/` 仍需 `npm run bu
 导航项本来就不用动服务端；这次动的是新增了一个 API（下表）。
 
 页面是纯只读的：没有重跑 / 恢复 / 装依赖 / 改配置的入口，也没有确认弹窗
-（恢复是独立能力，判据见 `docs/backup-restore.md`，界面原型见
-`docs/backup-restore-prototype.html`；界面侧仍是方案、未实现）。
+（恢复是独立能力，判据见 `docs/backup-restore.md`，交互基线见
+`docs/backup-restore-prototype.html`；界面侧 2026-11-08 已实现为第 7 项，见本文 §16）。
 「立即刷新」只重新采集，不算写操作（不改远端、不写本机配置）。
 
 🔴 手动备份是**独立导航项**、不塞进本页（判据见 `docs/backup-once.md` §2.2，
-2026-11-08 已落地为第 6 项，见本文 §15）；恢复同理（仍是方案，见
-`docs/backup-restore.md` §5.1）。本页的只读不变量不因这两项能力改变；
+2026-11-08 已落地为第 6 项，见本文 §15）；恢复同理（同日已落地为第 7 项，
+见本文 §16 / `docs/backup-restore.md` §5.1）。本页的只读不变量不因这两项能力改变；
 手动备份原型见 `docs/backup-once-prototype.html`（分区 `docs/backup-once-prototype-map.md`），
 七场景即验收用例集，现作交互回归基线。
 
@@ -1038,7 +1044,7 @@ writer，而 CLI 在 danger 时会往 stderr 打一行 WARN，JSON 会被污染�
 
 「备份监控」（§14）是纯只读，手动备份成功会写 `last_success.txt`、让同页数字变新鲜；
 读与写混屏最容易把「刚刚手动成功」读成「定时任务正常」。「备份能力部署」（§9）是一次性
-装机动作，与日常触发频率不同。所以第 6 个导航项独立成页，恢复顺延第 7 项；
+装机动作，与日常触发频率不同。所以第 6 个导航项独立成页；恢复已落地为第 7 项（§16）；
 Go 侧单页回退（§7 的 `serveIndex`）一行不用改，访问过的页仍保持挂载。
 
 🔴 **「目标服务器」是备份机，不是被备份的机器**：脚本在这台跑、`backup.env` / 日志 /
@@ -1106,4 +1112,91 @@ Go 侧单页回退（§7 的 `serveIndex`）一行不用改，访问过的页仍
 回归：`go test ./internal/ui ./internal/backup`（六道门 / 计划接口 / 报告措辞 / 参数门 /
 脚本锁断言）、`cd web && npm test && npm run typecheck && npm run build`、
 `go build -o ops.exe .`（§3 / 硬约束 19、26）。
+
+## 16. 备份恢复页（第 7 个导航项，2026-11-08）
+
+> 分册与判据见 [backup-restore.md](backup-restore.md)（§5.0 评审结论 / §5.7 验收用例集 /
+> §7 落地记录），交互基线见 [backup-restore-prototype.html](backup-restore-prototype.html)。
+> ✅ **代码已实现、真机只读演练已跑**（2026-11-08 19:43，逐条见分册 §7.3）：
+> 候选 / 两级阻塞 / 计划 / PG+MinIO 预演 / 门禁拒绝 / 界面端到端都连真机验证过，
+> 并修掉预演裸管道吞退出码与新鲜度解析两个缺陷。
+> ✅ **写动作演练已跑**（20:09 用户授权测试数据可覆盖，分册 §7.4）：MinIO 工具正式恢复
+> 全链路成功、界面写任务的失败阶段与报告已验证、PG 临时库恢复 60 表 / Flyway 9 与生产库一致；
+> 产物已清理、心跳与 crontab 未改、环境回基线。🔴 工具侧 PG 正式恢复仍被归档阻塞 +
+> 脚本 stdin 坑挡住（分册 §4 第 6 / 10 条）。
+> 19:50 已通过界面「重启」加载新 exe（同端口同 token、boot_id 已换），只读接口复验通过。
+
+### 16.1 加在哪里
+
+| 层 | 加什么 | 明确不加什么 |
+| :--- | :--- | :--- |
+| 路由 | `App.tsx` 的 `PageKey` / `NAV_ITEMS` / 一个 `hidden` pane 加第 7 项「备份恢复」；Go 侧单页回退一行不改（§7） | 不建 router、不塞进「备份监控」页（§14 纯只读）、不与「手动备份」合并 |
+| 只读 API | `GET /api/restore/candidates`（完整快照：`collected` / `—` / `disk_free_kb: null` / 候选行 / 全局 blockers）、`GET /api/restore/plan`（换选中行重新采集 → 服务端算 `available` / `blockers` / `row_blockers` / 影响清单 / 命令） | 不占任务锁、不要 `confirm`、不写远端、不缓存失败快照、前端不算任何指标 |
+| 写 API | `POST /api/backup/run` 的 `mode=restore`（写）/ `restore-dry`（只读预演），复用 `backupTask` 锁与 `GET /api/backup/task` 增量日志 | 不新开第二套任务 / 日志轮询；恢复与备份 / 部署 / 装依赖 / 重启互斥（409） |
+| CLI | `ops restore list/plan/run` 顶层动词 + 菜单 `probe("restore")` 的只读候选项；`backuprun.go` 对首元素 `restore` 不补 `backup` 前缀 | 菜单里**没有**「一键恢复」写动作；正式执行必须过门禁 |
+
+`ui → restore → shared` 是新的单向依赖（与 `ui → monitor` 同构）；`ui` 仍**不 import `backup`**，
+执行器由 `main.go` 注入。`shared/remote.go` 只新增 `StreamWith`（stdout/stderr 一起进可脱敏的
+writer、stdin 可喂脚本内二次确认串），既有 `Stream` / `RunScript` 语义一行未改。
+
+### 16.2 只读候选与两级阻塞（R1 / R2 / R3）
+
+- 采集只跑一条远端 `sh -s`：`source` 两份 `backup.env` 取**白名单非凭证字段**、
+  `find` / `sha256sum -c` / `pg_restore -l` / `df` / `test -f`。不写文件、不提权、
+  不读 crontab、不连 MinIO、不 `mc alias set`、不回显 `SRC_KEY` / `DEST_SECRET` / 私钥路径。
+- 🔴 **R1**：安全条「停定时备份」是**本机 Checkbox**（`cron_confirmed`），不是采集事实；
+  未勾选时 `/api/restore/plan` 下发全局阻塞。`cron_status` 恒「不采集（工具不读 crontab）」。
+- 🔴 **R2**：`name` 只认清单里的**备份机**；生产端由该机 `backup.env` 决定，接口不接受
+  任意主机。计划 `target` 与 `impact[0]` 都回显「哪台生产端 / 哪个库或桶」。
+- 🔴 **R3**：全局 `blockers`（连接 / 前置确认 / 脚本缺失 / 磁盘 / 版本 / 任务锁）与候选行
+  `row_blockers`（缺 `.sha256` / 归档不可解析 / 桶名不合法）**都由 Go 侧下发**。
+  换选中行 = 重新请求一次 `/api/restore/plan`，前端不重算 `available`。
+- 连不上 / 配置错回 **200 + 完整快照**（`collected=false` + `—` + `null` + blockers），
+  不白屏、不猜 0（硬约束 3）。
+
+### 16.3 门禁与确认（照原型弹窗，服务端逐字再验）
+
+`POST /api/backup/run` 的 `mode=restore` 过六道门（硬约束 21）并加码：
+
+| 门 | 落点 |
+| :--- | :--- |
+| `confirm=="yes"` | `isBackupWriteMode(restore)` 一个判据管 confirm 门与服务端预检门 |
+| 服务端先跑 `--dry-run` | `runBackupTask` 给正式参数追加 `--dry-run`；非 0 就地停、不写生产端。前端拿不到也传不了「预演通过」令牌（R4） |
+| `name` / 组件 / 候选 / 库名白名单 | 组件只认 `pg\|minio`（不开放 `all`）；候选 ID 只认本次采集到的相对路径 / 桶名；`--db` 过 `[A-Za-z_][A-Za-z0-9_]{0,62}` |
+| 弹窗门禁 | PG 库名输两次且**等于计划回显的库**、MinIO 输 `YES`、输 `yes`、三项前置（已停写 / 已停定时备份 / 已留现场）默认全不勾且全部必勾、目标是生产库或 MinIO 额外勾「我确认覆盖生产」 |
+| 不提权 / 脱敏 | `restore_candidate` 等字段由 HTTP 层先做字面量校验，CLI 的 `restore.ValidateGate` 再完整查表；`password` 非空直接 400，确认弹窗**没有 sudo 密码框** |
+| 任务脱离 HTTP / 单锁 | 复用 `backupTask`，日志 `?after=` 增量 + 256 KB 上限，按行脱敏（私钥路径 / 凭证赋值） |
+
+界面「预演」是 `mode=restore-dry`：不带 `confirm` / `checks`，只跑远端只读检查并输出计划，
+**不是执行凭证**；最近一次预演失败会禁用执行入口（运行期结论，不写进只读计划）。
+
+### 16.4 执行、阶段与报告（R5）
+
+- CLI 打印 `==> PHASE n/5` / `==> PHASE_FAILED n`，前端 `restorePhases()` 只做投影：
+  **失败停在当前阶段并标红，不许五格全绿**。
+- 正式执行复用已部署的 `pg_restore.sh` / `minio_restore.sh`；脚本内二次确认（目标库名 /
+  `YES` + 定时备份提示回车）由工具按**已通过的门禁**经 stdin 喂入，Go 侧不重写恢复逻辑。
+- 🔴 `appendRestoreReport` / `printRestoreReport` **只报脚本结果**：可写「数据已恢复到目标库」，
+  **不写「恢复成功，服务正常」**；Flyway 兼容性 / 应用健康 / 关键表与对象核对是分册 §3.3 的人工步骤。
+  失败写清失败步骤 / 失败桶，不自动重试、不自动清场、不改 `last_success.txt`、不缓存失败结果。
+- 界面子进程 30 分钟上限：超时只结束本机等待，报告写「远端恢复脚本可能仍在执行」，
+  不写「已取消」、不杀远端；CLI 侧 6 小时。
+
+### 16.5 实现差异（别照旧方案改代码）
+
+1. **MinIO 对象数 / 最近同步不采集**，恒 `—`；只读预演**不跑** `mc mirror --dry-run`
+   —— 那需要持有生产端凭证并写 `~/.mc`，把凭证与写动作带进只读链路。
+2. **`minio_restore.sh` 固定按 `SRC_BUCKETS` 恢复全部桶**（脚本没有按桶参数，工具不改脚本）；
+   选中桶对用于核对目标与预演范围，计划影响清单第 2 行明说「全部 N 个桶」。
+3. **没有「停定时备份」按钮**：工具不读 / 不改 crontab，页面只收人的勾选声明；原型里那个按钮
+   是说明用的（点它只给提示）。
+
+### 16.6 边界与回归
+
+「备份监控」页（§14）与 `ops status` 的判据、采集协议、阈值一行未改；恢复不改 `backup.env`、
+不改 crontab、不装 / 卸依赖、不碰容器与镜像；**没有新增任何 `ops.env` / `backup.env` 键**。
+回归：`go test ./internal/restore ./internal/ui ./internal/shared`（只读脚本断言 / 完整快照 /
+两级阻塞 / 门禁矩阵 / 报告措辞 / 六道门 / 计划接口）、
+`cd web && npm test && npm run typecheck && npm run build`、`go build -o ops.exe .`。
+真机按分册 §5.7 六场景演练，结论回写分册状态行与工作日志。
 

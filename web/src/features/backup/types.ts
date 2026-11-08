@@ -1,7 +1,9 @@
 // 与 Go 侧 internal/ui/backup.go 的 backupRunRequest / backupTaskView 逐字对齐。
 // 只被 backup 这一个能力用，所以留在 feature 内，不提到 shared/。
 
-export type BackupMode = 'preflight' | 'deploy' | 'verify' | 'deps' | 'deps-uninstall' | 'once' | 'once-dry'
+export type BackupMode =
+  | 'preflight' | 'deploy' | 'verify' | 'deps' | 'deps-uninstall'
+  | 'once' | 'once-dry' | 'restore' | 'restore-dry'
 export type BackupComponent = 'all' | 'pg' | 'minio'
 
 /** /api/servers 在本能力里只需要这两个字段，不 import servers feature 的类型。 */
@@ -29,6 +31,22 @@ export interface BackupRunRequest {
   pg_major?: number
   /** 仅 mode=deps-uninstall：要卸的目标（mc / pg_client），至少一个，服务端白名单再验一次。 */
   targets?: string[]
+
+  // ---- 仅 mode=restore / restore-dry：恢复门禁字段（Go 侧逐字再验一次）----
+  /** 只认本次采集到的候选 ID（相对路径 / 桶名），不接受任意路径。 */
+  restore_candidate?: string
+  /** PG 目标库，默认 restore_test；生产库要额外勾覆盖生产。 */
+  restore_db?: string
+  /** PG 第二次输入的库名，服务端逐字比对。 */
+  restore_db2?: string
+  /** MinIO 覆盖生产端同名对象的确认串，必须是字面量 YES。 */
+  restore_minio_confirm?: string
+  /** 三项前置（已停写 / 已停定时备份 / 已留现场），必须全为 true。 */
+  restore_checks?: [boolean, boolean, boolean]
+  /** 「停定时备份」是本机表单状态，不是采集事实；工具不读 crontab。 */
+  restore_cron_confirmed?: boolean
+  /** 目标是生产库 / MinIO 恒需额外勾选。 */
+  restore_cover_production?: boolean
 }
 
 /** 卸载弹窗的可勾选项；计划与影响清单全部由 Go 侧下发。 */

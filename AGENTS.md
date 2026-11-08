@@ -15,6 +15,22 @@
 > 留作交互回归基线：七场景 = 验收用例集，钉死「定时状态恒不采集 / 预演不是执行凭证 /
 > 弹窗无 sudo 密码框 / 撞锁·失败·超时是运行期结果、不是预演阻塞」，冲突时改原型。
 > 原型不连远端、不发请求、不执行任何动作；界面见 `docs/ui.md` §15 / 硬约束 32。
+> **2026-11-08 备份恢复已实现（真机只读 + 写演练均已跑，§7.3 / §7.4）**：`ops restore list/plan/run` 顶层动词 +
+> 界面第 7 个导航项「备份恢复」+ 只读 `GET /api/restore/candidates` / `/api/restore/plan` +
+> `POST /api/backup/run` 的 `mode=restore` / `restore-dry`；复用已部署的 `*_restore.sh`
+> 与同一把任务锁，不提权（弹窗无 sudo 密码框）、不读 crontab、不另选生产主机、
+> 不收任意路径；库名两次逐字比对 / `YES` / 三项前置 / 覆盖生产额外勾，服务端逐字再验；
+> 报告只报脚本结果、失败停在当前阶段。原型六场景 = §5.7 验收用例集；
+> **19:43 只读链路已连真机跑通**（候选 / 两级阻塞 / 计划 / PG+MinIO 预演 / 门禁拒绝 /
+> 界面端到端，见分册 §7.3）；演练修掉「预演管道吞退出码」「find 小数 epoch」两个缺陷，
+> 并确认「备份机 pg_restore 16.15 ≠ 容器内 18.6」的误挡。
+> **20:09 用户声明测试数据可覆盖并授权写演练（§7.4）**：MinIO 工具正式恢复全链路 rc=0
+> （3 桶、同名覆盖 / 多余对象保留已实证）、界面写任务失败阶段与报告已验证、
+> PG 用容器内 18.6 恢复到临时库（60 表 / Flyway 9 与生产库一致）；产物已清理、环境回基线。
+> 🔴 遗留：工具侧 PG 正式恢复仍未跑通（归档阻塞 + `pg_restore.sh` 内部 ssh 吞 stdin，§4 第 6/10 条），
+> 本次没改远端脚本；`ops backup deps --pg-major 18` 只补缺失、不能升级已装的 16.15。
+> MinIO 对象数不采集（显示 `—`）、脚本固定恢复 `SRC_BUCKETS` 全部桶、只读预演不连 MinIO
+> （三条实现差异见分册 §5.2 / §7.1）。界面见 `docs/ui.md` §16 / 硬约束 33。
 > **2026-11-07 深夜界面新增「备份监控」**（第 5 个导航项，纯只读）：
 > `GET /api/monitor/status` + 30s 缓存 + 四张卡，与 `ops status --json` 共用
 > `monitor.CollectForServer` / `Status`；见 `docs/ui.md` §14 / `docs/backup-monitor.md` §12 / 硬约束 31。
@@ -102,13 +118,13 @@
 > `main.go` 注册 `status`，菜单第 7 项按 `probe("status")` 条件出现。
 > P2+ 界面随后另起一刀（已落地，见下条状态）；P3–P4 仍为方案；
 > **真机连备份机验收待做**。
-> **2026-11-08 补「备份恢复」分册 + 界面原型**（`docs/backup-restore.md` /
+> **2026-11-08 备份恢复：分册 → 原型评审 → 同日落地代码**（`docs/backup-restore.md` /
 > `docs/backup-restore-prototype.html`，分区索引见 `backup-restore-prototype-map.md`）：
-> 现行能力只有人工在备份机跑 `pg_restore.sh` / `minio_restore.sh`（SOP、红线、已知坑已写清），
-> **`ops` CLI 与界面都没有恢复入口、代码未实现**；同日**按原型评审定稿 §5**（§5.0 六条结论：
-> 工具不读 crontab、停没停由人确认；`--server` 只认备份机、生产端由备份机 `backup.env` 决定；
-> 阻塞分两级、预演不是执行凭证、报告只报脚本结果、验收以原型六场景为用例集）；
-> 「恢复脚本禁止入 Crontab / 必须有人值守」不变。
+> 人工 SOP 仍是分册 §3（脚本真实行为），工具侧 CLI / 界面 / 只读接口 / 门禁全部已实现（§7），
+> §5.0 六条评审结论仍是判据：工具不读 crontab、停没停由人确认；`--server` 只认备份机、
+> 生产端由备份机 `backup.env` 决定；阻塞分两级、预演不是执行凭证、报告只报脚本结果、
+> 验收以原型六场景为用例集。原型留作交互回归基线、不连远端不执行动作；
+> 「恢复脚本禁止入 Crontab / 必须有人值守」**一行未改**；只读（§7.3）与写演练（§7.4）均已跑。
 > 🔴 只放「每次动代码都要遵守」的红线：一句结论 + 一个指针。判据、流程、踩坑都在 `docs/`。
 > 通用文档规则以 `cqlql-notes/docs/工程/文档约定.md` 为准。
 
@@ -124,6 +140,8 @@
   脚本在 `deploy/component/` 编进二进制，见 `docs/components.md`）；
   `ops status --server <name> [--json]` 只读采集备份状态（PG 心跳 / 最新 dump /
   MinIO 心跳 / 磁盘 + 问题清单；退出码 0 无 danger / 1 有 danger / 2 配置错）；
+  `ops restore list/plan/run` 只读候选 / 预演 + 显式执行恢复（复用已部署的
+  `pg_restore.sh` / `minio_restore.sh`，门禁比安装更严，见 `docs/backup-restore.md` §7）；
   `ops ui` 默认只读查看服务器清单与检查结果；「备份能力部署」页另有预检 / 安装 / 自检 /
   安装缺少依赖四个显式入口（两个安装都要输 yes，服务端先跑 `--dry-run`，见 `docs/ui.md` §9）；
   「环境组件」页另有同一份「备份依赖」区（见 `docs/components.md` §10）；
@@ -134,11 +152,15 @@
 - `ops ui` 的「备份监控」页（P2+）已实现：只读快照 + 30s 缓存 + 四张卡 +
   60s 自动刷新，与 CLI 共用一份 `Status`；见 `docs/ui.md` §14 / `docs/backup-monitor.md` §12。
 - **仍是方案、代码未实现**：`ops deploy` / `ops rollback`（P3–P4 单机 Docker 部署，
-  设计见 `docs/deploy.md`）；`ops restore`（备份恢复，见 `docs/backup-restore.md` §5）。
-  两者草案命令都未注册、不要照抄执行。
+  设计见 `docs/deploy.md`）。草案命令未注册、不要照抄执行。
 - **手动备份已实现（真机验收待做）**：`ops backup once` + 界面第 6 项，见
   `docs/backup-once.md` / `docs/ui.md` §15；🔴 远端 `minio_backup.sh` 的补锁版仍要重新
   `ops backup deploy` 才生效（分册 §7.1）。
+- **备份恢复已实现（真机只读 + 写演练均已跑，§7.3 / §7.4）**：`ops restore list/plan/run` +
+  界面第 7 项 + `internal/restore/` + `web/src/features/restore/`，见
+  `docs/backup-restore.md` §7 / `docs/ui.md` §16 / 硬约束 33；写演练在用户声明
+  「测试数据可覆盖」后执行，产物已清理、环境回基线。🔴 恢复脚本没改、远端不用重新部署；
+  工具侧 PG 正式恢复仍被归档阻塞 + 脚本 stdin 坑挡住（§4 第 6 / 10 条）。
 - 代码按能力分包：`main.go` 只做命令分发，`internal/<能力>/` 放实现，
   `internal/shared/` 放配置、ssh 封装与服务器清单模型。详见「目录与边界」。
 - 服务器（备份端 / 应用端）只在 `servers.json` 登记一处，命令用 `--server <name>` 选目标。
@@ -450,6 +472,30 @@
     不改监控采集协议，脚本内 `flock -n` 防与定时窗口撞车（远端脚本必须重新部署才生效）；
     报告只报脚本结果且固定带「手动触发不代表定时任务正常」，超时不写「已取消」。
     详见 `docs/backup-once.md` / `docs/ui.md` §15。
+33. 🔴 **恢复是覆盖现网数据的写动作，门禁只许比安装更严**（2026-11-08 新增）：
+    `ops restore list/plan/run` 与界面 `mode=restore` 复用同一把 `backupTask` 锁；
+    `confirm=="yes"` + 服务端每次写动作先跑 `--dry-run`（界面 `restore-dry` 不是执行凭证）、
+    `name` 只认**备份机**（生产端由该机 `backup.env` 决定、不许另选）、
+    候选只认本次采集到的 ID（路径由 Go 侧拼，任意路径 400）、
+    PG 库名两次逐字比对且等于计划回显 / MinIO 输 `YES`、
+    三项前置（已停写 / 已停定时备份 / 已留现场）全必勾、覆盖生产额外勾，
+    CLI 的 `restore.ValidateGate` 是唯一完整判据；**不提权、不收 sudo 密码、
+    不读 / 改 crontab、不自动重试 / 清场、不改 `last_success.txt`**。
+    只读采集脚本不许写远端 / 连 MinIO / 回显凭证；离线回完整快照（`—` / `null`，不许 0 兜底）；
+    阻塞分全局 `blockers` 与候选行 `row_blockers` 两级、换选中行重新取计划，前端不算 `available`。
+    🔴 报告只报脚本结果，不写「恢复成功，服务正常」；Flyway / 应用健康是人工步骤（硬约束 7）。
+    `minio_restore.sh` 固定恢复 `SRC_BUCKETS` 全部桶、对象数不采集、预演不跑 `mc mirror --dry-run`；
+    **恢复脚本本体一行未改**，禁止入 Crontab、必须有人值守。
+    🔴 真机演练（§7.3）确认：只读归档检查用的是**备份机** `pg_restore`，正式恢复用的是
+    **主服务器容器内**的 `pg_restore`，两侧版本可能不同（16.15 读不了归档 1.16、18.6 能读），
+    会出现「dump 实际可恢复却被 `row_blocker` 挡下」。文案必须如实说明判的是哪一侧、
+    给人工复核指引，**不提供绕过开关**；也不许因此删掉归档检查或去连生产端凭证。
+    🔴 预演脚本不许用 `pg_restore -l ... | head`（POSIX sh 无 pipefail，失败会被吞成 0）。
+    🔴 真机写演练（§7.4）发现：`pg_restore.sh` 内部 `remote_exec` 的 ssh 会吞掉脚本 stdin，
+    经 ssh 喂二次确认串必然报「数据库名称不匹配」；修法只给 `remote_exec` 加 `-n`
+    （`remote_docker_stdin` 必须保留 stdin 转发 globals_*.sql），改脚本要重新
+    `ops backup deploy`。本次**未改远端脚本**，列为遗留风险（§4 第 10 条）。
+    详见 `docs/backup-restore.md` §5 / §7 与 `docs/ui.md` §16。
 
 ## 命令与验证
 
@@ -489,13 +535,19 @@ ops component uninstall minio --server <name> --dry-run
 ops component image-load minio --server <name> --image-tar <本机 .tar> --dry-run
 ops component images --server <name> [--json]
 ops component image-copy minio --server <name> --from-server <源机 name> --dry-run
+ops restore list --server <备份机> --component pg|minio [--json]   # 只读候选（连不上也回完整快照）
+ops restore plan --server <备份机> --component pg --candidate <id> --db restore_test --dry-run
+ops restore run --server <备份机> --component pg --candidate <id> --db restore_test \
+    --confirm yes --db-confirm restore_test --checks 1,1,1 --cron-confirmed   # 会覆盖生产端
 ops ui [--port 7788] [--no-open]
 ops shortcut [--name <名字>] [--remove]
 ops menu --help
 ```
 
-上面只列**已实现**命令；`ops deploy` / `ops rollback`（P3–P4）与 `ops restore`
-尚未实现，不要照抄执行。`ops status` 与界面的「备份监控」页都用清单 `user/key`
+上面只列**已实现**命令；`ops deploy` / `ops rollback`（P3–P4）尚未实现，不要照抄执行。
+`ops restore run` 的 `--db` / `--candidate` / 门禁参数以 `ops restore help` 与
+`docs/backup-restore.md` §5 / §7 为准；正式执行会覆盖生产端，必须有人值守。
+`ops status` 与界面的「备份监控」页都用清单 `user/key`
 登录（2026-11-08 起不再分设只读账号），后者走 `GET /api/monitor/status`、
 不对外开放任何写动词。子命令选项以各能力的 `--help` 为准。
 本机二进制：`go build -o ops.exe .`（`启动运维.cmd` 按仓根 `ops.exe` 定位，不要挪）。
@@ -516,10 +568,17 @@ ops menu --help
   本次是按项目决定提前拆；代价是 41 个跨包符号导出、6 套测试归位与共用层下沉。
   `main.go` 只留 `main` / `commandHandler` / `run` / 全局 `usage`。
 - 🔴 **依赖方向只许单向**：
-  `main → {servers, backup, ui, launcher} → shared`，`main → ui → restart → shared`，
-  另有 `ui → servers`、`launcher → ui`。
+  `main → {servers, backup, restore, component, monitor, ui, launcher} → shared`，
+  另有 `ui → {restart, restore, monitor, servers}`、`launcher → ui`。
+  `ui → restore` 与 `ui → monitor` 同构（只读采集器注入）；`ui` 仍**不 import `backup`**，
+  恢复执行器与手动备份共用 `main.go` 注入的 `BackupRunner`。
   `shared` **不得 import 任何能力包**，也不得引用能力专属类型；出现环时先把共享常量 / 模型
   下沉到 `internal/shared/`，不要在能力包之间打补丁。
+- `internal/restore/`（2026-11-08）：`types.go` 数据契约 / `collect.go` 只读采集脚本与解析 /
+  `plan.go` 两级阻塞计划 / `gate.go` 唯一完整门禁 / `cli.go` 三段式 CLI 与报告。
+  只依赖 `shared`；`ui` 通过 `restoreProbe` 注入假采集器做单测，不连真 SSH。
+  正式执行只 `bash` 远端已部署的 `*_restore.sh`，脚本内二次确认经 `shared.SSHTarget.StreamWith`
+  的 stdin 喂入；不重写恢复逻辑、不改 `deploy/backup/**`。判据见 `docs/backup-restore.md`。
 - `internal/restart/`（2026-11-06）：交接机制（`WaitPortFree` / `ReplaceBinary` / `Spawn`）、
   重建（`Rebuild`）、源码过期判定（`Check`）。依赖方向 `main → ui → restart → shared`：
   `restart` **不反向 import `ui`**，接手子命令的实现放根包 `restartchild.go`（它要调 `ui.CmdUI`）；
@@ -605,8 +664,8 @@ ops menu --help
 | 服务器管理 + 一键免密 sudo（P0 先做） | `docs/servers.md` | 主机只来自清单；只写一个 sudoers drop-in；验证用 `runuser` |
 | 界面（`ops ui` · Vite + React + antd，左侧 Sider + Menu） | `docs/ui.md` | 静态产物不过 token、API 才是边界；产物不进 Git 但 `.gitkeep` 必进；未构建要回说明页；单实例 + 配置不全也起页面；界面安装要过六道门（§9） |
 | 备份脚本（`deploy/backup/**`，已迁入本仓） | `docs/backup-scripts.md` | 脚本编在二进制里，改了必须 `go build`；目录里不许有真实凭证；恢复脚本禁止入 Crontab |
-| 备份恢复（人工 SOP 已补文档 · **工具侧仍是方案、未实现**） | `docs/backup-restore.md` | 恢复必须有人值守、禁止入 Crontab / 自动触发；复用 `*_restore.sh`，不重写恢复逻辑；是「补齐 + 覆盖」不是精确回滚，不自动删多余对象；默认恢复到临时库 |
-| 备份恢复界面原型（方案 · 非实现） | `docs/backup-restore-prototype.html`（分区见 `docs/backup-restore-prototype-map.md`） | 交互速览不改判据，冲突时改原型；原型不连远端、不发请求、不执行动作；草案命令 `ops restore ...` 未注册、不要照抄执行 |
+| 备份恢复（人工 SOP + **CLI / 界面已实现；真机只读 §7.3 + 写演练 §7.4 均已跑**） | `docs/backup-restore.md`（界面见 `docs/ui.md` §16） | 恢复必须有人值守、禁止入 Crontab / 自动触发；复用 `*_restore.sh`，不重写恢复逻辑；是「补齐 + 覆盖」不是精确回滚，不自动删多余对象；默认恢复到临时库；只认备份机、不读 crontab、候选查表、两级阻塞、预演不是执行凭证；报告只报脚本结果（§5 / §7，硬约束 33） |
+| 备份恢复界面原型（**交互回归基线** · 代码已实现） | `docs/backup-restore-prototype.html`（分区见 `docs/backup-restore-prototype-map.md`） | 六场景 = 验收用例集；R1–R6 逐条对应实现；静态速览不连远端、不发请求、不执行动作，冲突时改原型；`ops restore ...` 已注册，真实参数以 `ops restore help` 为准 |
 | 备份能力部署（P1 ✅，监控的前置；CLI + 界面） | `docs/backup-deploy.md` | 复用 `install.sh`；不覆盖 `backup.env`；不静默迁移目录；logrotate 由工具落盘；界面安装必须 yes + 服务端预检门 |
 | 备份监控（P2a CLI ✅ / P2+ 界面 ✅；真机验收待做） | `docs/backup-monitor.md`（界面见 `docs/ui.md` §14） | 只读采集；时间差在远端算；`-` 不是 0；**单账号**（清单 `user/key`，采集不提权）；网页与 CLI 共用 `CollectForServer` / `Status`，前端不算指标；8 个键已进 `docs/config.md` §3 |
 | 手动备份（立即跑一次 · **已实现，真机验收待做**） | `docs/backup-once.md`（界面见 `docs/ui.md` §15） | 独立子命令 + 独立页，复用已部署脚本与同一把任务锁；不提权 / 无 sudo 密码框、不查 crontab、不改监控采集判据；报告只报脚本结果且**不能当成定时任务正常**；🔴 远端 `minio_backup.sh` 的补锁版仍要重新 `ops backup deploy` 才生效（分册 §7.1） |

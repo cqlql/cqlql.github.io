@@ -816,3 +816,8 @@ pre {
   color: var(--ops-text);
   word-break: break-all;
 }
+
+/* 备份恢复：选中行只做视觉标记，available / selectable 仍由服务端下发。 */
+.restore-row-selected > td {
+  background: #eef4ff !important;
+}

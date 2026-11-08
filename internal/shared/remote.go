@@ -130,9 +130,12 @@ func (t *SSHTarget) addr() string {
 // RunScript 把固定脚本从 stdin 喂给远端 `sh -s`，stdout / stderr 分开收。
 //
 // 🔴 不用 Capture()：CombinedOutput() 会把远端警告混进分节纯文本被误解析
-//    （docs/backup-monitor.md §3.1）。采集不提权，stdin 全程只给脚本。
+//
+//	（docs/backup-monitor.md §3.1）。采集不提权，stdin 全程只给脚本。
+//
 // 🔴 错误里只说 user@host:port，不回显远端 stderr —— ssh 的
-//    「Identity file ... not accessible」会带出私钥路径（硬约束 8）。
+//
+//	「Identity file ... not accessible」会带出私钥路径（硬约束 8）。
 func (t *SSHTarget) RunScript(ctx context.Context, script string) (string, error) {
 	c := exec.CommandContext(ctx, "ssh", t.sshArgs("sh -s")...)
 	HideConsole(c)
@@ -166,6 +169,30 @@ func (t *SSHTarget) Stream(ctx context.Context, cmd string, root bool, stdin io.
 	}
 	c.Stdout = os.Stdout
 	c.Stderr = os.Stderr
+	err := c.Run()
+	if err == nil {
+		return 0, nil
+	}
+	var ee *exec.ExitError
+	if errors.As(err, &ee) {
+		return ee.ExitCode(), nil
+	}
+	return -1, err
+}
+
+// StreamWith 与 Stream 相同，但 stdout / stderr 一起写进 out，且 stdin 可传脚本
+// 自身的交互确认串。给「备份恢复」用：脚本内二次确认（目标库名 / YES）由工具
+// 按已通过的门禁喂 stdin，输出先经调用方的逐行脱敏再进任务日志。
+// root=false 时不会占用 stdin 走 sudo。
+func (t *SSHTarget) StreamWith(ctx context.Context, cmd string, root bool, stdin io.Reader, out io.Writer) (int, error) {
+	c := t.sshCommand(ctx, cmd, root)
+	if p := t.sudoStdin(root); p != nil {
+		c.Stdin = p
+	} else {
+		c.Stdin = stdin
+	}
+	c.Stdout = out
+	c.Stderr = out
 	err := c.Run()
 	if err == nil {
 		return 0, nil

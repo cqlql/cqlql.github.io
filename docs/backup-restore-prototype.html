@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>备份恢复 · 交互原型（方案，未实现）</title>
+<title>备份恢复 · 交互回归基线（代码已实现）</title>
 <!-- ==== @section index ==== 分区索引入口；改本页前先查 docs/backup-restore-prototype-map.md -->
 <style>
 /* ==== @section css-base ==== 变量 / 全局 / 导航 / 工具条 / 场景条 / 标签（与 components-prototype.html 同口径） */
@@ -179,9 +179,10 @@ details.card code{background:var(--code-bg);padding:1px 5px;border-radius:4px;co
     <div class="brand">PassUp 运维</div>
     <div class="nav-item"><span class="dot"></span>服务器管理</div>
     <div class="nav-item"><span class="dot"></span>备份能力部署</div>
+    <div class="nav-item"><span class="dot"></span>备份监控</div>
     <div class="nav-item"><span class="dot"></span>环境组件</div>
     <div class="nav-item"><span class="dot"></span>配置</div>
-    <div class="nav-item"><span class="dot"></span>备份监控</div>
+    <div class="nav-item"><span class="dot"></span>手动备份</div>
     <div class="nav-item active new"><span class="dot"></span>备份恢复</div>
   </aside>
   <main class="main">
@@ -198,25 +199,27 @@ details.card code{background:var(--code-bg);padding:1px 5px;border-radius:4px;co
         <button class="chip" data-scene="offline">备份机连不上</button>
         <button class="chip" data-scene="blocked">预演阻塞</button>
         <button class="chip" data-scene="failed">恢复失败</button>
-        <span class="badge">方案原型 · 2026-11-08 · §5 评审定稿 · 未实现 · 判据以 docs/backup-restore.md 为准</span>
+        <span class="badge">交互回归基线 · 2026-11-08 · §5 评审定稿 · 代码已实现（真机演练待做） · 判据以 docs/backup-restore.md 为准</span>
       </div>
       <div class="banner info" style="margin-top:0;margin-bottom:16px">
         <span class="ico">i</span>
-        <span><b>交互速览，不是实现</b>：静态数据、不连真实远端、不发网络请求、不执行任何动作。
-        页面演示的是三段式「<b>只读候选 → 预演 → 显式执行</b>」，动作计划（能否执行 / 阻塞原因 /
+        <span><b>交互回归基线，不是实现</b>：静态数据、不连真实远端、不发网络请求、不执行任何动作，
+        代码在 <code>internal/restore/</code> 与 <code>web/src/features/restore/</code>。
+        页面钉死三段式「<b>只读候选 → 预演 → 显式执行</b>」，动作计划（能否执行 / 阻塞原因 /
         影响清单 / 将执行的命令）<b>由服务端下发、前端只渲染</b>，原型里用静态对象投影。
-        <code>ops</code> CLI 与界面目前<b>没有任何恢复入口</b>；施工图见
-        <code>docs/backup-restore.md §5</code>（§5.0 是按本页评审的结论），人工现行流程见 §3。
-        评审改掉两处：<b>工具不读 crontab</b>，「停定时备份」是人的前置确认、不是采集事实；
+        <code>ops restore list/plan/run</code> 与界面第 7 项「备份恢复」<b>已实现</b>（落地记录见
+        <code>docs/backup-restore.md §7</code>，界面见 <code>docs/ui.md §16</code>），人工现行流程见分册 §3。
+        评审定稿的两处不改：<b>工具不读 crontab</b>，「停定时备份」是人的前置确认、不是采集事实；
         <b><code>--server</code> 只认备份机</b>，生产端由该机 <code>backup.env</code> 决定。
-        本页与分册<b>同步维护</b>，冲突时改原型，不是改分册。</span>
+        🔴 真机六场景尚未演练；本页与分册<b>同步维护</b>，冲突时改原型，不是改分册。</span>
       </div>
       <div class="page-head">
         <div>
           <h1>备份恢复</h1>
-          <div class="meta">第 6 个导航项（方案）。默认视图只读；恢复必须有人值守，
+          <div class="meta">第 7 个导航项（已实现，真机演练待做）。默认视图只读；恢复必须有人值守，
             禁止入 Crontab / 自动触发；复用现有 <code>pg_restore.sh</code> / <code>minio_restore.sh</code>，
-            不重写恢复逻辑；默认恢复到临时库。</div>
+            不重写恢复逻辑；默认恢复到临时库。MinIO 对象数 / 最近同步不采集（显示 —），
+            脚本固定按 SRC_BUCKETS 恢复全部桶 —— 见分册 §5.2 实现差异。</div>
         </div>
         <span class="tag neutral">一个导航项 · 零跨页状态</span>
       </div>
@@ -258,14 +261,14 @@ details.card code{background:var(--code-bg);padding:1px 5px;border-radius:4px;co
         <div class="plan-grid" id="planGrid"></div>
         <div style="margin-top:12px">
           <div class="box">
-            <div class="t">将执行的命令（草案；<code>--dry-run</code> 只读，不写生产端）</div>
+            <div class="t">将执行的命令（已实现；<code>--dry-run</code> 只读，不写生产端）</div>
             <pre class="cmd" id="planCmd"></pre>
           </div>
         </div>
         <div class="btn-row">
           <button class="act" id="btnDryRun">预演（--dry-run）</button>
           <button class="act danger" id="btnRun">执行恢复…</button>
-          <button class="act" id="btnCron">停定时备份（独立显式动作）</button>
+          <button class="act" id="btnCron">停定时备份：人工动作（工具不做）</button>
           <span class="hintline" id="planGate"></span>
         </div>
       </div>
@@ -282,8 +285,9 @@ details.card code{background:var(--code-bg);padding:1px 5px;border-radius:4px;co
       <details class="card">
         <summary>设计注记 · 与 docs/backup-restore.md 的对照</summary>
         <ul>
-          <li>本页演示 <code>§5.2</code> 三段式：候选清单（A 只读）→ 预演（A 只读）→ 执行（B 写）。
-              草案命令 <code>ops restore list/plan/run</code> <b>未注册、不要执行</b>。</li>
+          <li>本页钉死 <code>§5.2</code> 三段式：候选清单（A 只读）→ 预演（A 只读）→ 执行（B 写）。
+              命令 <code>ops restore list/plan/run</code> <b>已注册、已实现</b>；真实参数与门禁见
+              <code>ops restore help</code> 与分册 §7。原型仍是静态速览，不执行任何动作。</li>
           <li>门禁照抄六道门并加码：<code>confirm=yes</code>、name 只认清单、候选路径只认备份根目录、
               目标库名人工输入两次并逐字比对、默认 <code>restore_test</code>、覆盖生产要额外勾选、
               服务端先跑 <code>--dry-run</code>、任务脱离 HTTP、单任务锁、日志脱敏。详见分册 §5.3。</li>
@@ -302,9 +306,11 @@ details.card code{background:var(--code-bg);padding:1px 5px;border-radius:4px;co
           <li><b>评审 R4 / R5</b>：界面预演只是给人看的只读动作，<b>不是执行凭证</b>，服务端每次
               写动作前自己跑 <code>--dry-run</code>；报告只报脚本结果，失败不重跑 / 不自动清场，
               PG 成功也只说「数据已恢复」，<b>Flyway 兼容性必须人工确认</b>，不许假装应用已恢复。</li>
-          <li>落地时要同步：<code>main.go</code> 注册表 + 菜单、<code>internal/restore/</code>、
-              <code>web/src/features/restore/</code>、<code>ui.md</code> 新增一节、
-              <code>AGENTS.md</code> 状态 / 命令表 / 速查表、本页与分册状态行。判据见分册 §5.6。</li>
+          <li>落地同步清单已逐项完成（2026-11-08）：<code>main.go</code> 注册表 + 菜单、
+              <code>internal/restore/</code>、<code>web/src/features/restore/</code>、
+              <code>ui.md</code> §16、<code>AGENTS.md</code> 状态 / 硬约束 33 / 命令表 / 速查表、
+              本页与分册状态行；<b>没有新增配置键</b>。判据见分册 §5.6 / §7。
+              🔴 原型留作交互回归基线，六场景仍是 §5.7 的验收用例集（真机未跑）。</li>
         </ul>
       </details>
     </div>
@@ -439,9 +445,10 @@ const BASE_PLAN = {
   ],
   blockers:[],
   commands:[
-    "ops restore list --server k4 --component pg          # 只读候选",
-    "ops restore plan --server k4 --dry-run               # 只读预演：pg_restore -l",
-    "bash pg_restore.sh --file <候选> --db restore_test   # 复用现有脚本"
+    "ops restore list --server k4 --component pg          # 只读候选（已实现）",
+    "ops restore plan --server k4 --component pg --candidate <id> --db restore_test --dry-run   # 只读预演：pg_restore -l",
+    "ops restore run  --server k4 --component pg --candidate <id> --db restore_test --confirm yes --db-confirm restore_test --checks 1,1,1 --cron-confirmed",
+    "远端：bash <部署目录>/postgres/pg_restore.sh --file <备份根目录下拼出的绝对路径> --db restore_test   # 复用现有脚本"
   ]
 };
 const MINIO_PLAN = {
@@ -453,13 +460,16 @@ const MINIO_PLAN = {
   ],
   warnings:[
     "不带 --remove，不是精确回滚；多余对象由人比对后决定",
+    "🔴 minio_restore.sh 固定按 SRC_BUCKETS 恢复全部桶；工具不改脚本、不按单个桶筛选，选中行只用于核对目标与预演范围",
+    "对象数 / 最近同步不采集（显示 —）；只读预演不连 MinIO、不跑 mc mirror --dry-run（不碰凭证 / 不写 ~/.mc）",
     "恢复脚本里「已暂停定时备份」只是提示，不校验 crontab",
     "工具也不读 crontab：停没停由人在前置清单里确认，未确认即全局阻塞（评审 R1）"
   ],
   commands:[
-    "ops restore list --server k4 --component minio       # 只读候选",
-    "mc mirror --dry-run backup-minio/<备份桶> prod-minio/<生产桶>",
-    "bash minio_restore.sh                               # 复用现有脚本，输入 YES"
+    "ops restore list --server k4 --component minio       # 只读桶对（已实现）",
+    "ops restore plan --server k4 --component minio --candidate <桶名> --dry-run   # 只读预演：脚本 / mc / 桶对核对，不连生产端",
+    "ops restore run  --server k4 --component minio --candidate <桶名> --confirm yes --minio-confirm YES --checks 1,1,1 --cron-confirmed --cover-production",
+    "远端：bash <部署目录>/minio/minio_restore.sh        # 复用现有脚本；工具按已通过的门禁喂 YES"
   ]
 };
 const GLOBAL_BLOCK = {
@@ -724,7 +734,7 @@ function runTask(){
 document.querySelectorAll(".chip").forEach(x => x.addEventListener("click", () => setScene(x.dataset.scene)));
 document.querySelectorAll("#compSeg button").forEach(x => x.addEventListener("click", () => setComp(x.dataset.comp)));
 $("btnRefresh").addEventListener("click", () => toast("只读刷新：原型不连远端，数据不变"));
-$("btnCron").addEventListener("click", () => toast("停定时备份是独立显式动作，原型不执行；工具不读 crontab，靠人确认（评审 R1 / 分册 §3.0 第 5 条）"));
+$("btnCron").addEventListener("click", () => toast("这是原型里的说明按钮：实现界面没有它。停定时备份由人在备份机上按 §3.0 第 5 条完成，工具不读 crontab、不自动停 / 装（评审 R1）；页面只收「已人工确认」的勾选。"));
 $("candTable").addEventListener("click", e => {
   const tr = e.target.closest("tr.cand-row");
   if(!tr || tr.classList.contains("off")) return;

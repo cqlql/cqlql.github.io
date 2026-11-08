@@ -59,7 +59,11 @@ func runBackupSubprocess(args []string, password string, out io.Writer) int {
 	}
 	err = cmd.Run()
 	if ctx.Err() != nil {
-		if isOnceSubcommand(args) {
+		if isRestoreSubcommand(args) {
+			// 🔴 恢复大库 / 大量对象很容易越过 30 分钟：只能说「本机不再等」，
+			//    绝不能写「已取消」/「已回滚」——远端脚本没被杀，也不许自动重试或清场。
+			fmt.Fprintln(out, "ERROR: 超过 30 分钟上限，本机已停止等待；远端恢复脚本可能仍在执行，请去备份机核对脚本输出与生产端状态。没有取消远端任务，也不会自动重试 / 自动清场。")
+		} else if isOnceSubcommand(args) {
 			// 🔴 手动备份大库 / 大量对象很容易越过 30 分钟：只能说「本机不再等」，
 			//    绝不能写「已取消」——远端脚本没被杀，也不许自动重试。
 			//    报告与确认弹窗同步提示（docs/backup-once.md §4.4）。
@@ -111,6 +115,11 @@ func isOnceSubcommand(args []string) bool {
 	return len(args) > 0 && args[0] == "once"
 }
 
+// isRestoreSubcommand：恢复是顶层动词，参数已是完整子命令，不补 "backup" 前缀。
+func isRestoreSubcommand(args []string) bool {
+	return len(args) > 0 && args[0] == "restore"
+}
+
 // backupSubprocessArgs 把界面选好的参数原样补成 CLI 参数。
 // --password-stdin 追加在末尾：deploy / verify 的参数解析都遍历全部 argv，不挑位置。
 //
@@ -119,7 +128,9 @@ func isOnceSubcommand(args []string) bool {
 // 这样 ui 不必新增第二个 runner，也不用改 CmdUI 签名（依赖方向仍单向）。
 func backupSubprocessArgs(args []string, withPassword bool) []string {
 	full := make([]string, 0, len(args)+2)
-	if len(args) > 0 && args[0] == "component" {
+	if len(args) > 0 && (args[0] == "component" || args[0] == "restore") {
+		// component / restore 都是顶层动词，参数已是完整子命令；
+		// 只有 backup 的部署 / 手动备份子命令才需要补前缀。
 		full = append(full, args...)
 	} else {
 		full = append(full, "backup")

@@ -53,6 +53,11 @@ func menuItems(probe func(string) bool) []menuAction {
 	if probe("status") {
 		items = append(items, menuAction{"7", "查看备份状态（ops status，只读）"})
 	}
+	if probe("restore") {
+		// 菜单只放**只读**的候选清单：恢复是覆盖生产数据的写动作，必须有人值守、
+		// 走界面弹窗或 CLI 门禁，不给菜单一个「一键恢复」入口。
+		items = append(items, menuAction{"8", "查看恢复点候选（ops restore list，只读）"})
+	}
 	return items
 }
 
@@ -153,7 +158,7 @@ func (m *menu) runAction(key string) int {
 		return m.exec([]string{"ui"})
 	}
 
-	// 2/3/4/7 都要选目标机：只接受清单里的 name，回车用默认。
+	// 2/3/4/7/8 都要选目标机：只接受清单里的 name，回车用默认。
 	name, ok := m.targetServer()
 	if !ok {
 		return 1
@@ -169,6 +174,8 @@ func (m *menu) runAction(key string) int {
 		return m.exec(precheck)
 	case "7":
 		return m.exec(append([]string{"status"}, serverArgs...))
+	case "8":
+		return m.exec(append([]string{"restore", "list", "--component", "pg"}, serverArgs...))
 	case "4":
 		return m.exec(append([]string{"backup", "verify"}, serverArgs...))
 	case "3":

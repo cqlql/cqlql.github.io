@@ -15,6 +15,10 @@ package ui
 // 回流到页面，写入时按行脱敏，避免任何远端回显把密码带进任务日志。
 
 import (
+	"pass-up/ops/internal/restore"
+)
+
+import (
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -48,6 +52,11 @@ const (
 	// backupOnceDry 是只读预演：只跑 preflight + 打印计划，不执行备份脚本。
 	// 单独一个 mode 才能复用同一套任务日志 / 增量轮询，且不进写模式的 confirm 门。
 	backupOnceDry BackupMode = "once-dry"
+	// backupRestore 是「备份恢复」：覆盖生产数据的写动作，与上面共用同一把任务锁、
+	// 同一个服务端 --dry-run 预检门，但门禁更严（库名两次 / YES / 三项前置 / 覆盖生产）。
+	backupRestore BackupMode = "restore"
+	// backupRestoreDry 是恢复页的只读预演：不写生产端、不需要 confirm、不进写模式。
+	backupRestoreDry BackupMode = "restore-dry"
 )
 
 // 日志留在内存里给页面轮询；上限只是防止一个跑飞的子进程把界面进程撑爆。
@@ -224,12 +233,27 @@ type backupRunRequest struct {
 	PgMajor int `json:"pg_major,omitempty"`
 	// Targets 只给 mode=deps-uninstall：mc / pg_client，至少一个，服务端白名单再验一次。
 	Targets []string `json:"targets,omitempty"`
+
+	// ---- 仅 mode=restore / restore-dry：恢复门禁字段 ----
+	// 🔴 全部由前端显式传，服务端先做字面量校验、CLI 的 ValidateGate 再逐字复核。
+	//    candidate 只认本次采集到的 ID，db 有白名单，密码字段恒不接受。
+	RestoreCandidate       string `json:"restore_candidate,omitempty"`
+	RestoreDB              string `json:"restore_db,omitempty"`
+	RestoreDB2             string `json:"restore_db2,omitempty"`
+	RestoreMinioConfirm    string `json:"restore_minio_confirm,omitempty"`
+	RestoreChecks          []bool `json:"restore_checks,omitempty"`
+	RestoreCronConfirmed   bool   `json:"restore_cron_confirmed,omitempty"`
+	RestoreCoverProduction bool   `json:"restore_cover_production,omitempty"`
+}
+
+func isRestoreMode(mode BackupMode) bool {
+	return mode == backupRestore || mode == backupRestoreDry
 }
 
 func parseBackupMode(s string) (BackupMode, bool) {
 	switch BackupMode(s) {
 	case backupPreflight, backupDeploy, backupVerify, backupDeps, backupDepsUninstall,
-		backupOnce, backupOnceDry:
+		backupOnce, backupOnceDry, backupRestore, backupRestoreDry:
 		return BackupMode(s), true
 	default:
 		return "", false
@@ -241,7 +265,7 @@ func parseBackupMode(s string) (BackupMode, bool) {
 // 预检才算数」或「漏掉 confirm」的漏门（docs/backup-once.md §3 六道门）。
 func isBackupWriteMode(mode BackupMode) bool {
 	return mode == backupDeploy || mode == backupDeps ||
-		mode == backupDepsUninstall || mode == backupOnce
+		mode == backupDepsUninstall || mode == backupOnce || mode == backupRestore
 }
 
 // 组件白名单：CLI 的 parseComponents 还接受 postgres 等别名，界面只给这三个，
@@ -295,13 +319,24 @@ func (u *uiState) handleBackupRun(w http.ResponseWriter, r *http.Request) {
 	}
 	mode, ok := parseBackupMode(req.Mode)
 	if !ok {
-		writeAPI(w, http.StatusBadRequest, apiResponse{Error: "未知模式（可选 preflight / deploy / verify / deps / deps-uninstall / once / once-dry）"})
+		writeAPI(w, http.StatusBadRequest, apiResponse{Error: "未知模式（可选 preflight / deploy / verify / deps / deps-uninstall / once / once-dry / restore / restore-dry）"})
 		return
 	}
 	component, ok := normalizeComponent(req.Component)
 	if !ok {
 		writeAPI(w, http.StatusBadRequest, apiResponse{Error: "未知组件（可选 all / pg / minio）"})
 		return
+	}
+	if isRestoreMode(mode) {
+		// 恢复一次只处理一个组件、一个候选；不开放 all（脚本按组件各自跑）。
+		if component == "all" {
+			writeAPI(w, http.StatusBadRequest, apiResponse{Error: "恢复一次只处理一个组件（pg / minio），不开放 all"})
+			return
+		}
+		if _, err := validateRestoreRunRequest(mode, req, component); err != nil {
+			writeAPI(w, http.StatusBadRequest, apiResponse{Error: err.Error()})
+			return
+		}
 	}
 	if strings.TrimSpace(req.Name) == "" {
 		writeAPI(w, http.StatusBadRequest, apiResponse{Error: "请先选择目标服务器（只接受清单里的 name）"})
@@ -364,6 +399,13 @@ func (u *uiState) handleBackupRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	args := backupCommandArgs(mode, req.Name, component)
+	if isRestoreMode(mode) {
+		db := req.RestoreDB
+		if db == "" {
+			db = restore.DefaultTestDB
+		}
+		args = restoreCommandArgs(mode, req, component, db)
+	}
 	if mode == backupDeps && req.PgMajor > 0 {
 		args = append(args, "--pg-major", strconv.Itoa(req.PgMajor))
 	}
@@ -397,7 +439,14 @@ func (u *uiState) runBackupTask(t *backupTask, mode BackupMode, server, componen
 		if mode == backupOnce {
 			action = "备份"
 		}
-		fmt.Fprintln(lw, "==> 服务端预检（--dry-run，不改远端）")
+		if mode == backupRestore {
+			action = "恢复"
+		}
+		if mode == backupRestore {
+			fmt.Fprintln(lw, "==> 服务端预检（--dry-run，只读预演，不写生产端）")
+		} else {
+			fmt.Fprintln(lw, "==> 服务端预检（--dry-run，不改远端）")
+		}
 		pre := append(append([]string{}, args...), "--dry-run")
 		code = u.runner(pre, password, lw)
 		if code != 0 {
@@ -413,6 +462,8 @@ func (u *uiState) runBackupTask(t *backupTask, mode BackupMode, server, componen
 			fmt.Fprintln(lw, "==> 预检通过，开始卸载勾选的依赖（只删工具装的东西，不 autoremove / 不碰数据与定时任务）")
 		case backupOnce:
 			fmt.Fprintln(lw, "==> 预检通过，开始执行一次备份（不重装脚本、不写 crontab；脚本自带 flock -n 防并发）")
+		case backupRestore:
+			fmt.Fprintln(lw, "==> 预检通过，开始执行恢复（复用已部署的 *_restore.sh；不提权、不读 / 改 crontab、不自动重试或清场）")
 		default:
 			fmt.Fprintln(lw, "==> 预检通过，开始安装（会写远端 crontab / logrotate / 目录）")
 		}
@@ -425,9 +476,17 @@ func (u *uiState) runBackupTask(t *backupTask, mode BackupMode, server, componen
 	case backupOnceDry:
 		fmt.Fprintln(lw, "==> 预演完成：远端没有被修改。预演只是给人看的只读结果，不是执行凭证；"+
 			"真正备份仍要点「立即备份…」并过确认弹窗，服务端会自己再跑一遍 --dry-run。")
+	case backupRestore:
+		lw.Flush()
+		appendRestoreReport(lw, t, code)
+	case backupRestoreDry:
+		fmt.Fprintln(lw, "==> 只读预演结束：没有执行恢复脚本、没有写生产端。预演不是执行凭证；"+
+			"真正恢复仍要点「执行恢复…」过确认弹窗，服务端会自己再跑一遍 --dry-run。")
 	}
 	if code == 0 {
 		fmt.Fprintln(lw, "==> 完成。")
+	} else if isRestoreMode(mode) {
+		fmt.Fprintf(lw, "==> 结束，退出码 %d。失败停在日志里的阶段；没有自动重试 / 清场，没有改心跳。请按分册 §3.3 人工收尾。\n", code)
 	} else {
 		fmt.Fprintf(lw, "==> 结束，退出码 %d。请跑一次「远端自检」复核远端状态。\n", code)
 	}
@@ -438,10 +497,13 @@ func (u *uiState) runBackupTask(t *backupTask, mode BackupMode, server, componen
 // appendOnceReport 把任务日志如实翻成一句结论（docs/backup-once.md §3 / §4）。
 //
 // 🔴 报告只报脚本结果：不写「备份体系正常 / 定时任务正常」，也不把 status 的心跳
-//    当成功凭证。撞锁 / 超时 / 分组件失败都是**运行期**结果，只能从日志里认，
-//    预演（--dry-run）挡不住它们（原型 §2.4 O3）。
+//
+//	当成功凭证。撞锁 / 超时 / 分组件失败都是**运行期**结果，只能从日志里认，
+//	预演（--dry-run）挡不住它们（原型 §2.4 O3）。
+//
 // 🔴 无论成功失败都固定带「手动触发不代表定时任务正常」那一句：手动成功会写
-//    last_success.txt，不改采集协议，只能靠文案区分（§4.2）。
+//
+//	last_success.txt，不改采集协议，只能靠文案区分（§4.2）。
 func appendOnceReport(lw io.Writer, t *backupTask, code int) {
 	log := t.view(0).Log
 	switch {
@@ -471,6 +533,10 @@ func modeLabel(m BackupMode) string {
 		return "手动备份"
 	case backupOnceDry:
 		return "手动备份预演"
+	case backupRestore:
+		return "备份恢复"
+	case backupRestoreDry:
+		return "备份恢复预演"
 	case componentInstallMode:
 		return "安装环境组件"
 	case componentUpdateMode:
