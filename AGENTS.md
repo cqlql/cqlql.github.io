@@ -92,6 +92,9 @@
 > `main.go` 注册 `status`，菜单第 7 项按 `probe("status")` 条件出现。
 > P2+ 界面随后另起一刀（已落地，见下条状态）；P3–P4 仍为方案；
 > **真机连备份机验收待做**。
+> **2026-11-08 补「备份恢复」分册**（`docs/backup-restore.md`）：现行能力只有人工在备份机跑
+> `pg_restore.sh` / `minio_restore.sh`（SOP、红线、已知坑已写清），**`ops` CLI 与界面都没有
+> 恢复入口、代码未实现**，三段式方案见该文 §5；「恢复脚本禁止入 Crontab / 必须有人值守」不变。
 > 🔴 只放「每次动代码都要遵守」的红线：一句结论 + 一个指针。判据、流程、踩坑都在 `docs/`。
 > 通用文档规则以 `cqlql-notes/docs/工程/文档约定.md` 为准。
 
@@ -570,6 +573,7 @@ ops menu --help
 | 服务器管理 + 一键免密 sudo（P0 先做） | `docs/servers.md` | 主机只来自清单；只写一个 sudoers drop-in；验证用 `runuser` |
 | 界面（`ops ui` · Vite + React + antd，左侧 Sider + Menu） | `docs/ui.md` | 静态产物不过 token、API 才是边界；产物不进 Git 但 `.gitkeep` 必进；未构建要回说明页；单实例 + 配置不全也起页面；界面安装要过六道门（§9） |
 | 备份脚本（`deploy/backup/**`，已迁入本仓） | `docs/backup-scripts.md` | 脚本编在二进制里，改了必须 `go build`；目录里不许有真实凭证；恢复脚本禁止入 Crontab |
+| 备份恢复（人工 SOP 已补文档 · **工具侧仍是方案、未实现**） | `docs/backup-restore.md` | 恢复必须有人值守、禁止入 Crontab / 自动触发；复用 `*_restore.sh`，不重写恢复逻辑；是「补齐 + 覆盖」不是精确回滚，不自动删多余对象；默认恢复到临时库 |
 | 备份能力部署（P1 ✅，监控的前置；CLI + 界面） | `docs/backup-deploy.md` | 复用 `install.sh`；不覆盖 `backup.env`；不静默迁移目录；logrotate 由工具落盘；界面安装必须 yes + 服务端预检门 |
 | 备份监控（P2a CLI ✅ / P2+ 界面 ✅；真机验收待做） | `docs/backup-monitor.md`（界面见 `docs/ui.md` §14） | 只读采集；时间差在远端算；`-` 不是 0；**单账号**（清单 `user/key`，采集不提权）；网页与 CLI 共用 `CollectForServer` / `Status`，前端不算指标；8 个键已进 `docs/config.md` §3 |
 | 单机一键 Docker 部署（P3–P4 · 方案，未实现） | `docs/deploy.md` | `.env` 去 CRLF；镜像前缀必须等于 compose；Flyway 单向；方案键表在本文 §8，不进 config.md |

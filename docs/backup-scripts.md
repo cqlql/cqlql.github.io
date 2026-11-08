@@ -42,6 +42,7 @@ deploy/backup/
 
 🔴 **恢复脚本（`pg_restore.sh` / `minio_restore.sh`）必须有人值守，禁止入 Crontab。**
 `install.sh` 只装备份与巡检两条 cron，不会装恢复。
+**怎么恢复、有哪些坑、工具侧方案**统一见 [backup-restore.md](backup-restore.md)，本文不复述流程。
 
 ## 3. 配置在哪
 

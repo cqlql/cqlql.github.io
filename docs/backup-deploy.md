@@ -19,7 +19,8 @@
 它是**监控的前置**：`last_success.txt` 由备份脚本写入，装好之后
 [backup-monitor.md](backup-monitor.md) 才有数据可读。
 
-**不做**：重写 `install.sh` 的安装逻辑；数据恢复；应用部署（见 [deploy.md](deploy.md)）。
+**不做**：重写 `install.sh` 的安装逻辑；数据恢复（见 [backup-restore.md](backup-restore.md)）；
+应用部署（见 [deploy.md](deploy.md)）。
 
 ## 2. 与监控的边界
 
