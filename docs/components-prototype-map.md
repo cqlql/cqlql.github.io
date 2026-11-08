@@ -55,6 +55,8 @@ HTML 段用 `<!-- -->`、CSS 段用 `/* */`、JS 段用 `//`；`confirm-*` / `da
 - 命名规则：`docs/<主体文件名去扩展名>-map.md`。本文件只服务 `components-prototype.html`；
   将来 `config-compare.html` 若加锚点就叫 `config-compare-map.md`，不要再用不带主体前缀的泛名。
 - 本文只索引**单个 HTML 文件内部**；`AGENTS.md` 的「文档速查」仍是能力文档的唯一索引。
+- 本文件是通用约定的一个实例：写法母本见 `cqlql-notes/docs/工程/单文件原型分区锚点约定.md`
+  （三档选型 / 可复制 map 骨架 / 防漂移验收）；新项目写单文件原型时照母本，这里只留本仓特有的锚点表。
 - 本档只解决「读哪里」：加第三个组件仍要改 7 处（`data-scenes` / `fn-derive` / `fn-plan` /
   `fn-render` / `data-confirm` 等）；治改动面属第二档「声明式化」，本轮未做。
   备份依赖区（`data-deps` / `fn-deps` / `card-deps`）与复制门禁（`fn-copy`）是独立两条链，
