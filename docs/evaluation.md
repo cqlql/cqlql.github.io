@@ -13,13 +13,17 @@
 生产方是代码，**唯一权威在 `scripts/evaluate.py` 的模块 docstring**，活样例是
 `data/eval/queries.example.jsonl`。本文不复制 schema（`query` / `expected` 字段定义、命中判定公式）。
 
-- 真实评估集是 `data/eval/queries.jsonl`：**从 example 复制而来、人工标注、要提交**。
+- 真实评估集是 `data/eval/queries.jsonl`：**从 example 复制而来、要提交**；当前 50 条为 AI 代标，待人工复核。
   `evaluate.py` 找不到它会直接 `SystemExit`。
 - 🔴 example 里两条是**占位示例**，标之前先删掉，否则跑出来的数字是假的。
 - 🔴 query 按「**你会怎么问**」写，不按文档标题写；后者会让 recall 虚高。
 - `expected` 是相对 `CORPUS_DIR` 的路径，一个问题在多个文件里有答案就写多个。
 - 命中判定依赖 `Chunk.source` 的格式（相对语料根的 posix 路径）；改切分时别动它，理由见 `rag-pipeline.md` §4。
 - 标 50 条大概 1 小时，这 1 小时是后面所有优化对比的前提。
+- 🔴 **评估集先于优化，且换集等于换标准**：12 条试水集曾让 fixed 侧全满分、误判 heading 掉点；
+  补到 50 条（新增题字面 bigram 重合度 0.023）后结论反转（见 `learning/实验台账.md` §0.5）。
+  标 query 要按「你会怎么问」写、故意避开标题术语，并保留跨文件、答案分散的难题；
+  换评估集后两种策略必须用新集各量一次，**旧数字作废**。
 
 ---
 
@@ -43,10 +47,10 @@
 
 | 指标 | baseline | 目标 | 状态 |
 | :--- | :--- | :--- | :--- |
-| recall@5 | 待测 | ≥ 0.80 | ☐ |
+| recall@5 | 50 条集已测，见 `learning/实验台账.md` §0.5 | ≥ 0.80 | ✅ 检索层目标已达 |
 | rerank 增益 | — | ≥ +10 个百分点 | ☐ |
 | 端到端响应 | 待测 | < 5s | ☐ |
-| 评估集 | 0 条 | 50 条人工标注 | ☐ |
+| 评估集 | 50 条（AI 代标，待人工复核） | 50 条人工标注 | ⚠️ 条数达标、标注未复核 |
 
 **简历上要能写出这一行**：
 
@@ -68,6 +72,9 @@ cp data/eval/queries.example.jsonl data/eval/queries.jsonl
 uv run python scripts/ingest.py
 uv run python scripts/evaluate.py
 
+# 1b. 切分策略对比：.env 改 CHUNK_STRATEGY=heading → 重跑 1 的两条，评估集不动
+#     唯一变量是策略；确认 evaluate.py 打印的 strategy 已变，否则量的是旧索引
+
 # 2. pgvector 对比（仅做对比实验时起容器，端口 5433）
 docker compose up -d
 uv run python scripts/ingest.py --backend pg --index hnsw
@@ -78,6 +85,9 @@ uv run python scripts/evaluate.py --backend pg
 # 3. 最短冒烟：肉眼确认命中的是真笔记、不是 front matter 碎片
 uv run python -m notes_rag.cli "rerank 为什么要对 top-20 做" --show-chunks
 ```
+
+> ⚠️ 本机按 `../AGENTS.md` §4 装了本地 CUDA torch 时，上面所有 `uv run` 都要写成 `uv run --no-sync`，
+> 否则 `uv sync` 会把 torch 还原成 CPU 版。判据与重装命令只写在 AGENTS，这里不复制。
 
 四条对照纪律：
 
@@ -102,8 +112,6 @@ uv run python -m notes_rag.cli "rerank 为什么要对 top-20 做" --show-chunks
 - 召回失败案例的逐条分析也记在台账：`evaluate.py --max-miss` 会打印期望与实际返回的 source，
   按「切分切断 / 表述差异 / 关键词漏召」归类。面试问「遇到过什么问题」，答案在那边。
 
-> ⚠️ **已知的节号漂移**：`chunker.py` / `store_pg.py` / `retriever.py` / `evaluate.py` 的注释里
-> 写的是「`llm-learning/实验台账.md` 第 N 节」，那是**旧目录名 + 旧节号**：
-> 当前 `learning/实验台账.md` 的 §4 是「Agent 工具调用」，并没有「向量库对比」一节。
-> 以台账实际章节为准，**本仓不复制节号**。要修就先在 `learning` 分支把台账章节补齐，
-> 再把源码注释里的指针改成 `learning/实验台账.md`（不带节号），不要反过来把数字写进本仓。
+> ✅ **旧指针已统一**：源码 / 脚本注释里写「`llm-learning/实验台账.md` 第 N 节」的地方
+> 已全部改成 `learning/实验台账.md`（不带节号），台账在 `learning` 分支新增「RAG 检索层」一节承接这些数字。
+> 以台账实际章节为准，**本仓不复制节号、不复制数字**。

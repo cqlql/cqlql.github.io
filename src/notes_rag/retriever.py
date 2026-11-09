@@ -19,7 +19,7 @@
     scores = ce.predict([(query, hit["text"]) for hit in coarse_hits])
 
 验证方式：evaluate.py 跑两次（改前 / 改后），把 recall@5 和耗时记进
-`llm-learning/实验台账.md` 第 2 节。没有这组数字，这个改动等于没做。
+`learning/实验台账.md`。没有这组数字，这个改动等于没做。
 """
 
 from __future__ import annotations

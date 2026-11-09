@@ -40,6 +40,12 @@ def main() -> None:
                 f"⚠️  索引是用 chunk_size={manifest['chunk_size']} 建的，"
                 f"当前配置是 {cfg.chunk_size}。改了切分要重跑 ingest.py。\n"
             )
+        built_strategy = manifest.get("chunk_strategy", "fixed")
+        if built_strategy != cfg.chunk_strategy:
+            print(
+                f"⚠️  索引是用 chunk_strategy={built_strategy} 建的，"
+                f"当前配置是 {cfg.chunk_strategy}。改了切分要重跑 ingest.py。\n"
+            )
 
     t1 = time.perf_counter()
     hits = retriever.search(args.question, top_k=args.top_k or cfg.top_k)

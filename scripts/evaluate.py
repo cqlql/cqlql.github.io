@@ -61,6 +61,7 @@ def main() -> None:
         manifest = read_manifest(cfg.index_dir)
         print(
             f"索引：{manifest.get('chunks', '?')} 块　chunk_size={manifest.get('chunk_size', '?')}"
+            f"　strategy={manifest.get('chunk_strategy', 'fixed')}"
             f"　建于 {manifest.get('built_at', '?')}"
         )
     else:
@@ -112,10 +113,10 @@ def main() -> None:
 
         print(
             "\n这些是「召回失败案例」，逐条分析原因（切分切断 / 表述差异 / 关键词漏召），"
-            "\n填进 `llm-learning/实验台账.md` 第 3 节。面试问「遇到过什么问题」，答案在这。"
+            "\n填进 `learning/实验台账.md`。面试问「遇到过什么问题」，答案在这。"
         )
 
-    print(f"\n把上面三个数字抄进 `llm-learning/实验台账.md`（recall@{k} = {recall:.3f}）")
+    print(f"\n把上面三个数字抄进 `learning/实验台账.md`（recall@{k} = {recall:.3f}）")
 
 
 if __name__ == "__main__":

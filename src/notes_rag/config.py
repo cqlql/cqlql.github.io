@@ -15,6 +15,8 @@ load_dotenv()
 
 ROOT = Path(__file__).resolve().parents[2]
 
+CHUNK_STRATEGIES = ("fixed", "heading")
+
 
 def _int(key: str, default: int) -> int:
     try:
@@ -29,6 +31,7 @@ class Config:
     index_dir: Path
     chunk_size: int
     chunk_overlap: int
+    chunk_strategy: str
     top_k: int
     rerank_top_n: int
     embed_model: str
@@ -44,11 +47,17 @@ def load_config() -> Config:
     if not corpus:
         raise SystemExit("没有配置 CORPUS_DIR，复制 .env.example 为 .env 并填写")
 
+    strategy = os.getenv("CHUNK_STRATEGY", "heading")
+    # 这里不静默回退：拼错策略会量到另一套索引，比直接报错更难查
+    if strategy not in CHUNK_STRATEGIES:
+        raise SystemExit(f"CHUNK_STRATEGY 只支持 {CHUNK_STRATEGIES}，当前是 {strategy!r}")
+
     return Config(
         corpus_dir=Path(corpus),
         index_dir=ROOT / "data" / "index",
         chunk_size=_int("CHUNK_SIZE", 512),
         chunk_overlap=_int("CHUNK_OVERLAP", 51),
+        chunk_strategy=strategy,
         top_k=_int("TOP_K", 5),
         rerank_top_n=_int("RERANK_TOP_N", 20),
         embed_model=os.getenv("EMBED_MODEL", "BAAI/bge-m3"),

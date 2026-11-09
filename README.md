@@ -18,7 +18,7 @@
 uv sync
 
 # 2. 配环境
-cp .env.example .env      # 填 CORPUS_DIR / LLM_API_KEY
+cp .env.example .env      # 填 CORPUS_DIR / LLM_API_KEY；CHUNK_STRATEGY 默认 heading
 
 # 3. 入库（首次约 3-5 分钟，取决于 GPU）
 uv run python scripts/ingest.py
@@ -30,6 +30,8 @@ uv run python -m notes_rag.cli "rerank 为什么要对 top-20 做"
 docker compose up -d
 uv run python scripts/ingest.py --backend pg
 ```
+
+> 本机若装了本地 CUDA torch，命令里的 `uv run` 要加 `--no-sync`，否则会被同步回 CPU 版；见 [`AGENTS.md`](AGENTS.md) §4。
 
 ---
 

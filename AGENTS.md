@@ -31,7 +31,7 @@
 | 链路实现 / 改造点 / 踩坑 | [`docs/rag-pipeline.md`](docs/rag-pipeline.md) | 改切分或换模型必须重建索引；技术选型决策在方案文档 §3 | 现行 |
 | 评估集契约 / 指标口径 / 实验命令 | [`docs/evaluation.md`](docs/evaluation.md) | schema 权威在 `evaluate.py` docstring；两种后端同一份评估集 | 现行 |
 | 施工清单（JD 覆盖 / 周节奏） | [`docs/roadmap.md`](docs/roadmap.md) | 会过期；第 3 周转 Agent 后标 🗄 已完结 | 进行中 |
-| 评估集数据 | `data/eval/queries.example.jsonl` → `queries.jsonl` | 删掉占位行再标；按「你会怎么问」写 query | 现行 |
+| 评估集数据 | `data/eval/queries.example.jsonl` → `queries.jsonl` | 已标 50 条（AI 代标待人工复核）；按「你会怎么问」写、避开标题术语，别让天花板毁掉对比 | 现行 |
 | 人视角 / 快速开始 | [`README.md`](README.md) | 不是索引；文档指针指向本表 | 现行 |
 | 实验台账（数字唯一落点） | `learning/实验台账.md` | 本仓不复制任何实测数字 | 现行 |
 | 概念卡片 rag-01~07 | `learning/cards/01-rag/` | 只讲概念，不放实现判据 | 现行 |
@@ -44,8 +44,15 @@
 
 ## 2. 数据与索引：最容易搞坏的一层
 
-- 🔴 **改了 `chunker.py` / `CHUNK_SIZE` / `CHUNK_OVERLAP` / embedding 模型，必须重跑 `scripts/ingest.py`**。
-  否则 `evaluate.py` 量的是旧索引；`cli.py` 的 `manifest.json` 告警**只在 numpy 后端、且只比对 `chunk_size`**，别指望它兜底。
+- 🔴 **改了 `chunker.py` / `CHUNK_STRATEGY` / `CHUNK_SIZE` / `CHUNK_OVERLAP` / embedding 模型，必须重跑 `scripts/ingest.py`**。
+  否则 `evaluate.py` 量的是旧索引；`cli.py` 的 `manifest.json` 告警**只在 numpy 后端、且只比对 `chunk_size` / `chunk_strategy`**，别指望它兜底。
+- **两种切分策略共用同一份代码**：`CHUNK_STRATEGY=fixed`（固定长度 baseline）/ `heading`（标题感知），改 `.env` 不改代码。
+  `manifest.json` 记 `chunk_strategy`，`evaluate.py` 会打印它 —— 量之前先确认量的是哪个策略建的索引。
+- 🔴 **默认策略是 `heading`**：12 条试水集上曾误判它掉点，补齐 50 条评估集后反超
+  （+2.0pp recall / +0.049 MRR，数字与归因见 `learning/实验台账.md` §0.5），已拍板切为默认。
+  `.env` / `.env.example` / `config.py` fallback / `chunker.py` 签名默认值四处必须一致；
+  `fixed` 只作对照组，改回它要重跑 `ingest.py` 重建索引。
+  ⚠️ 50 条样本只差 1 条命中、P95 +16ms，后续仍需扩样本复核这个决策。
 - 🔴 **换 embedding 模型 = 维度变 = pg 表结构变**：`store_pg.reset()` 会 `DROP TABLE chunks`（不可撤销），
   `DATABASE_URL` 只许指向 `docker-compose.yml` 的本地实验库（5433），别指到任何真实库。
 - 🔴 **numpy 与 pg 的 `recall@5` 必须用同一份 `queries.jsonl` 跑**，否则比的是两套标准。
@@ -57,6 +64,9 @@
 ## 3. 评测口径
 
 - 🔴 **每个改动前后各跑一次 `evaluate.py`**，数字记进 `learning/实验台账.md`；没有数字的改动视为没做。
+- 切分前后对比的唯一变量是 `CHUNK_STRATEGY`：同一份 `queries.jsonl`、同后端、同 `CHUNK_SIZE`，中间不动代码。
+- 🔴 **换评估集 = 换标准**：12 条试水集曾因天花板效应误判 heading 掉点，补齐 50 条后结论反转；
+  换集后两种策略必须用新集各量一次，旧数字作废（见 `learning/实验台账.md` §0.5）。
 - 🔴 **先标评估集再优化**：从 `queries.example.jsonl` 复制成 `queries.jsonl`、**删掉两条占位示例**、
   `expected` 写相对 `CORPUS_DIR` 的路径。schema 的唯一权威是 `scripts/evaluate.py` 模块 docstring，文档不复制。
 - 🔴 **`recall@5` 是检索层指标，不是端到端指标**：生成层评测（对不对 / 有没有编 / 该拒答时拒答）尚未实现，
@@ -67,7 +77,7 @@
 ## 4. 代码与依赖边界
 
 - 🔴 **配置只从环境变量读**（`config.py`），`CORPUS_DIR` 必填、不硬编码；改参数改 `.env` 不改代码 ——
-  这样「跑过什么参数」在 git 历史里说得清。
+  这样「跑过什么参数」在 git 历史里说得清。新参数同步进 `.env.example`；非法 `CHUNK_STRATEGY` 直接报错、不静默回退。
 - 🔴 **`config.ROOT = parents[2]` 依赖 `src/notes_rag/config.py` 的层级**：别把它挪出 `src/notes_rag/`，
   否则 `data/eval/` 与 `data/index/` 全部指错。
 - 🔴 `scripts/*.py` 用 `sys.path.insert(0, .../src)` 引包，新脚本照抄那两行，
@@ -75,19 +85,27 @@
 - 🔴 **不复制别人的代码**：可以看文档、看论文，写下的每一行要能解释为什么。
 - 🔴 **API key 只在 `.env`**（已 gitignore）；`docker-compose.yml` 里的 `postgres/postgres` 是本地实验库默认值，不是凭据。
 - 依赖用 `uv sync`，不要手动 `pip install` 散装包；改完跑 `uv run ruff check .`。
+- 🔴 **本机 torch 是手动装的 CUDA 版 `2.11.0+cu128`，不在 `uv.lock` 里**：`uv sync` / `uv run` 会把 `.venv` 同步回
+  lock 里的 CPU 版，GPU 静默消失。跑实验一律 `uv run --no-sync python ...`（或直接用 `.venv/Scripts/python.exe`），
+  lint 同理。被还原后重装：`uv pip install --no-deps --python .venv/Scripts/python.exe <CUDA wheel 绝对路径>`。
+  CUDA wheel 是本机加速件，**不写进 `pyproject.toml`**（本地绝对路径进依赖，clone 后必断）。
+- CPU/GPU 向量逐块余弦 1.000000，且 GPU 完整复测已证实 recall/MRR 与 CPU 完全一致
+  （数字见 `learning/实验台账.md` §0.4）；🔴 但**检索耗时不可直接比**：
+  GPU 平均耗时含首次 CUDA 初始化，跨设备比较看 P95，别把冷启动写进指标。
 - **不把 Agent 编排塞进本仓**：另开 PassUp Agent；模型选型 / vLLM / MCP 是本仓增量模块，见 `docs/roadmap.md` §1。
 
 ## 5. 构建、冒烟与验证
 
 ```bash
 uv sync
-cp .env.example .env                 # 填 CORPUS_DIR / LLM_API_KEY
+cp .env.example .env                 # 填 CORPUS_DIR / LLM_API_KEY，选 CHUNK_STRATEGY
 uv run python scripts/ingest.py      # 首次 3–5 分钟，取决于 GPU
 uv run python scripts/evaluate.py    # 先准备好 queries.jsonl
 uv run python -m notes_rag.cli "rerank 为什么要对 top-20 做" --show-chunks
 docker compose up -d                 # 仅做 pg 对比实验时，端口 5433
 ```
 
+- 切分对比：`CHUNK_STRATEGY=fixed` 跑一次 → 改成 `heading` → **重跑 `ingest.py` 再跑 `evaluate.py`**，中间不动代码、不换评估集。
 - 🔴 `evaluate.py` 在 `queries.jsonl` 不存在时直接 `SystemExit`；示例文件里有占位行，**先删再标**，否则数字是假的。
 - 🔴 pg 命令要成组跑：`ingest.py --backend pg --index hnsw` → `evaluate.py --backend pg`；只跑一个没有可比数字。
 - 最短冒烟是 `cli --show-chunks`：肉眼确认 hit 是真笔记、不是 front matter 碎片或表格残片。
@@ -95,7 +113,7 @@ docker compose up -d                 # 仅做 pg 对比实验时，端口 5433
 
 ## 6. 变更检查清单
 
-一句结论：**任何影响检索结果的改动，都要「重跑索引 → 前后各量一次 → 记台账 → 更新 `docs/rag-pipeline.md` §2」**。
+一句结论：**任何影响检索结果的改动（含换 `CHUNK_STRATEGY`），都要「重跑索引 → 前后各量一次 → 记台账 → 更新 `docs/rag-pipeline.md` §2」**。
 分模块清单见 [`docs/rag-pipeline.md`](docs/rag-pipeline.md) §5。
 🔴 **改完代码先改本文件，再改 `docs/`** —— 顺序反了会出现「红线说 A、文档说 B」，而 AI 只信 AGENTS。
 

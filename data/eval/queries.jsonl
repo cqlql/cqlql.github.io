@@ -1,0 +1,50 @@
+{"query": "MCP 和 A2UI 各管哪一层？查数据库和弹个窗分别归谁", "expected": ["ai/框架与协议.md"]}
+{"query": "MySQL 建联合索引的时候，等值条件和范围条件谁该放前面", "expected": ["后端/数据库/mysql/04_索引设计.md"]}
+{"query": "两次增量备份隔了一个月，备份文件一定会变得更大吗", "expected": ["后端/数据库/postgresql/增量备份机制与避坑.md"]}
+{"query": "不想上 ELK 那套重家伙，日志聚合有没有省资源的替代方案", "expected": ["后端/devops/observability/日志方案-loki.md"]}
+{"query": "一整套可观测性要接哪些东西，指标、日志、链路分别用什么组件", "expected": ["后端/devops/observability/概述.md"]}
+{"query": "组件刚挂载就在 effect 里改 state，为什么 lint 会报渲染警告", "expected": ["前端/react/useEffect-同步setState警告.md"]}
+{"query": "祖先组件要给很深的后代传值，又不想每层都写 props，Vue 里怎么办", "expected": ["前端/vue/01_Vue3/Provide 和 Inject.md"]}
+{"query": "同一个局域网里的另一台电脑怎么直接 ssh 进 WSL 的 Ubuntu", "expected": ["linux/网络/WSL2 局域网 SSH 访问.md"]}
+{"query": "对外暴露的 ID 怎么防被按顺序遍历，自增和雪花该怎么取舍", "expected": ["后端/架构设计/分层与建模/双ID设计规范.md"]}
+{"query": "团队文档越写越乱，新建一份之前该先问自己哪几个问题", "expected": ["工程/文档约定.md"]}
+{"query": "Redis 除了做缓存，还能拿来存登录态和防重复提交吗", "expected": ["后端/数据库/redis/简介.md"]}
+{"query": "WSL 的镜像网络模式为什么连不上，最后是怎么解决端口转发的", "expected": ["linux/网络/WSL2 局域网 SSH 访问.md"]}
+{"query": "服务端渲染时列表能出来，浏览器一接管就空了，这种前后状态对不上该怎么从架构上避开", "expected": ["前端/astro.md"]}
+{"query": "想让两行中文之间的空隙大一点，又不想手动塞一堆空格实体", "expected": ["前端/css/文本排版.md"]}
+{"query": "画布上明明只画一像素宽的线，看起来却粗了一倍", "expected": ["前端/html/canvas.md"]}
+{"query": "老浏览器里发请求，返回的字符串不会自动变成对象，连 responseType 都不认", "expected": ["前端/js/ajax-xmlhttprequest.md"]}
+{"query": "把别的文档里的节点搬进当前页面，深拷贝参数在低版本 IE 上不生效", "expected": ["前端/js/dom/element-clone.md"]}
+{"query": "想把光标挪到输入框文字末尾，或者程序选中一段文本", "expected": ["前端/js/dom/richtext-caret.md"]}
+{"query": "父组件想直接调子组件里的聚焦方法，得让子组件把方法主动交出来", "expected": ["前端/react/组件通信.md"]}
+{"query": "给没类型的第三方库补声明，或者往 window 上挂自己的属性让 TS 不报错", "expected": ["前端/ts/声明文件与类型扩展.md"]}
+{"query": "跳详情页要带个手机号，但不希望它出现在地址栏里", "expected": ["前端/vue/vue-router/路由传参.md"]}
+{"query": "老项目必须兼容 IE11，或者微前端跟打包器绑死了，还能不能换构建工具", "expected": ["前端/构建工具/vite/Vite与Webpack选型.md"]}
+{"query": "几个人频繁往主分支合代码，怎么让每次提交都自动构建加跑测试", "expected": ["后端/devops/ci-cd/ci-cd介绍.md"]}
+{"query": "想把一个方法当变量传来传去，还要能声明『函数的类型』", "expected": ["后端/dotnet/csharp/委托-函数类型.md"]}
+{"query": "Web API 里要启用会话状态，光注册服务够不够", "expected": ["后端/dotnet/platform/WebApi/webapi 操作 session.md"]}
+{"query": "某个线程占着锁一直不放，其他线程全卡住，怎么给加锁加个超时兜底", "expected": ["后端/dotnet/platform/多线程与异步/lock 互斥锁~原子操作.md"]}
+{"query": "给 arm 板子编译完的程序传上去跑不起来，提示 command not found", "expected": ["后端/go/打包发布.md"]}
+{"query": "请求没带 token 头，自定义过滤器是不是就直接放行了，真正拦截的是谁", "expected": ["后端/java/spring/SpringSecurity认证过滤器与授权规则职责.md"]}
+{"query": "小程序内充值，后端下单签名、支付回调验签解密，这一串怎么走", "expected": ["后端/java/微信小程序支付.md"]}
+{"query": "Docker 吃掉上百 G 磁盘，怎么看出是镜像、卷还是构建缓存在占地方", "expected": ["后端/云原生/docker/10_磁盘空间清理.md"]}
+{"query": "集群里节点突然失联，SSH 主机密钥还来回跳，查到最后是负载均衡 IP 抢了节点地址", "expected": ["后端/云原生/k3s/排障/Kube-vip排障（Service VIP 与节点 IP 冲突）.md"]}
+{"query": "手写密钥配置不想自己转 base64，多行的证书内容也想直接贴", "expected": ["后端/云原生/Kubernetes Secret stringData与data选型.md"]}
+{"query": "大文件不想经过自己服务器转发，让浏览器拿个凭证直接传", "expected": ["后端/存储/MinIO实战.md"]}
+{"query": "备份工具在两个开源方案之间怎么挑，单机和集群的恢复思路差在哪", "expected": ["后端/数据库/postgresql/工具选型对比.md", "后端/数据库/postgresql/方案总览.md", "后端/数据库/postgresql/单机Docker备份与恢复.md"]}
+{"query": "想看看哪些包能升级，顺手清掉没人再依赖的库", "expected": ["linux/包管理/apt 包管理.md"]}
+{"query": "新挂一块 3T 的裸盘，分区表为什么不能用老的那种", "expected": ["linux/磁盘存储/磁盘挂载与自动挂载.md"]}
+{"query": "把站点下所有链接抓成一份清单，但不真的把页面存下来", "expected": ["linux/网络/wget 递归抓取链接.md"]}
+{"query": "自己写的服务单元该放哪个目录，启动前还要先切到工作目录", "expected": ["linux/进程与服务/systemctl.md"]}
+{"query": "页面上某个定时执行的脚本想拦掉，或者不让某个容器再插子元素", "expected": ["其他/adblock手动拦截.md"]}
+{"query": "不确定远程文件在哪个目录，想先逛一圈再决定传哪个", "expected": ["其他/ssh/SFTP 文件传输.md"]}
+{"query": "改完样式刷新还是旧的，怎么强制绕过缓存，以及上线后该给哪些文件设长期缓存", "expected": ["其他/浏览器/浏览器缓存.md"]}
+{"query": "面试从语音通话改成打字作答，话筒只负责把说的话填进输入框", "expected": ["项目/面试助手/前端实现/模拟面试第二版-文字作答与实时语音输入方案.md"]}
+{"query": "用户上传头像，到底要不要留原图、要不要一口气生成好几个尺寸", "expected": ["项目/面试助手/后端实现/用户头像存储与处理方案.md"]}
+{"query": "老师写的评价要喂给模型当背景，但被面试的人自己不能看见", "expected": ["项目/面试助手/架构设计/用户AI画像-老师备注方案.md"]}
+{"query": "小程序里卖问答次数，为什么 iOS 上不能自己接普通支付，充值和扣减怎么共用一套账", "expected": ["项目/面试助手/架构设计/虚拟支付充值-资产发放方案.md"]}
+{"query": "实时音频为什么不用长连接那套，抖动和丢包靠什么兜", "expected": ["ai/AI实时语音.md"]}
+{"query": "有没有拿模型输出的文字反馈当梯度、反过来优化提示词的工具", "expected": ["ai/AI工具.md"]}
+{"query": "想自己搭一套知识库问答，几个开源平台在许可证和部署难度上怎么选", "expected": ["ai/AI方案与平台.md"]}
+{"query": "给 AI 读的项目指引写上千行会有什么后果，多少行以内才有效", "expected": ["工程/AGENTS模板.md"]}
+{"query": "一个双击就能打开的 HTML 原型，什么时候才值得拆成多个文件", "expected": ["工程/单文件原型分区锚点约定.md"]}

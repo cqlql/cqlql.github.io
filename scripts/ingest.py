@@ -4,11 +4,11 @@
     python scripts/ingest.py --backend pg        # 写进 pgvector
     python scripts/ingest.py --backend pg --index ivfflat --lists 100
 
-跑完会打印一组统计（文件数 / 块数 / 平均块长 / 耗时 / 建索引耗时），
-全部记进 `llm-learning/实验台账.md` 第 1 节——它们是后面所有对比的基线。
+跑完会打印一组统计（文件数 / 块数 / 平均块长 / 碎片块数 / 耗时 / 建索引耗时），
+全部记进 `learning/实验台账.md` —— 它们是后面所有对比的基线。
 
-⚠️ 每次改 chunker.py 或 CHUNK_SIZE，都要重跑，否则 evaluate.py 量的是旧索引
-（cli.py 会检测并警告）。
+⚠️ 每次改 CHUNK_STRATEGY / chunker.py / CHUNK_SIZE，都要重跑，
+否则 evaluate.py 量的是旧索引。
 """
 
 from __future__ import annotations
@@ -44,20 +44,27 @@ def main() -> None:
     if not files:
         raise SystemExit(f"{cfg.corpus_dir} 下没有 md 文件")
 
-    print(f"语料：{len(files)} 篇　切分：size={cfg.chunk_size} overlap={cfg.chunk_overlap}")
+    print(
+        f"语料：{len(files)} 篇　切分：strategy={cfg.chunk_strategy} "
+        f"size={cfg.chunk_size} overlap={cfg.chunk_overlap}"
+    )
 
     t0 = time.perf_counter()
     chunks = []
     for f in tqdm(files, desc="切分", unit="篇"):
-        chunks.extend(chunk_file(f, cfg.corpus_dir, cfg.chunk_size, cfg.chunk_overlap))
+        chunks.extend(
+            chunk_file(f, cfg.corpus_dir, cfg.chunk_size, cfg.chunk_overlap, cfg.chunk_strategy)
+        )
     t_chunk = time.perf_counter() - t0
 
     if not chunks:
         raise SystemExit("切完是空的，检查 chunker.py")
 
     total_chars = sum(len(c.text) for c in chunks)
+    fragments = sum(1 for c in chunks if len(c.text) < 50)
     print(
-        f"切分完成：{len(chunks)} 块　平均 {total_chars // len(chunks)} 字/块　耗时 {t_chunk:.1f}s"
+        f"切分完成：{len(chunks)} 块　平均 {total_chars // len(chunks)} 字/块　"
+        f"碎片块(<50字) {fragments} 块　耗时 {t_chunk:.1f}s"
     )
 
     print(f"向量化（{cfg.embed_model}）...")
@@ -72,8 +79,10 @@ def main() -> None:
         "files": len(files),
         "chunks": len(chunks),
         "avg_chars": total_chars // len(chunks),
+        "fragments": fragments,
         "chunk_size": cfg.chunk_size,
         "chunk_overlap": cfg.chunk_overlap,
+        "chunk_strategy": cfg.chunk_strategy,
         "embed_model": cfg.embed_model,
         "dim": embedder.dim,
         "built_at": time.strftime("%Y-%m-%d %H:%M:%S"),
