@@ -15,3 +15,6 @@ data/index/
 # 临时
 .tmp/
 *.log
+
+# WorkBuddy 本地会话数据（不提交；提交时一律 git add <具体文件>）
+.workbuddy-ai/
