@@ -1110,7 +1110,8 @@ Go 侧单页回退（§7 的 `serveIndex`）一行不用改，访问过的页仍
 都带 `flock -n 9`（`docs/backup-once.md` §7.1）；2026-11-10 按 §8 七场景完成真机验收，
 逐条证据见 §8.1。✅ 验收发现的 preflight 弱凭证回显已于 22:4x 修好、重新部署并
 真机验证（`docs/backup-once.md` §8.2：只改告警文案，判据 / 退出码未动）；
-凭证展示口径也已统一成恒 `***`（§8.3）。
+凭证展示口径也已统一成恒 `***`（§8.3）；弱凭证判据的 `*123456*` 子串误报已按
+§8.4 改成全值精确匹配并重新部署、真机验证（界面只转发同一份 preflight 输出，链路未改）。
 
 回归：`go test ./internal/ui ./internal/backup`（六道门 / 计划接口 / 报告措辞 / 参数门 /
 脚本锁断言）、`cd web && npm test && npm run typecheck && npm run build`、

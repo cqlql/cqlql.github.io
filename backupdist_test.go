@@ -3,6 +3,7 @@ package main
 import (
 	"io/fs"
 	"os"
+	"path"
 	"strings"
 	"testing"
 )
@@ -357,8 +358,9 @@ func TestEmbeddedPGRestoreChecksPSQLErrors(t *testing.T) {
 
 // preflight 的输出会被 deploy / verify / once --dry-run / once 原样转发到任务日志。
 // 2026-11-10 按 §8.1 验收时发现弱凭证告警把 `12345678` 原样打进了日志：
-// 修法只改 warn 文案，${val} 仍用于判据，但绝不拼进任何输出。
-// 判据与退出码一行不改，preflight 仍是「通过，18 项警告」。
+// 修法只改 warn 文案，${val} 仍用于判据，但绝不拼进任何输出（§8.2）。
+// 判据本身在 §8.4 / L3 才改成「弱凭证全值精确匹配」；退出码始终没动，
+// 真机 preflight 仍是「通过，18 项警告」。
 // 从**嵌入产物**读，顺带挡住「改了脚本没重新 build」的口径漂移。
 func TestEmbeddedPreflightMinioWeakCredentialNotEchoed(t *testing.T) {
 	const name = "deploy/backup/preflight_minio.sh"
@@ -377,7 +379,7 @@ func TestEmbeddedPreflightMinioWeakCredentialNotEchoed(t *testing.T) {
 
 	for _, want := range []string{
 		`case "$val" in`,
-		`*CHANGE_ME*|*YOUR_*|*123456*|admin)`,
+		`*CHANGE_ME*|*YOUR_*|123456|1234567|12345678|123456789|1234567890|admin)`,
 		`warn "[${v}] 疑似占位符/弱凭证`,
 		"值已脱敏，不回显",
 	} {
@@ -392,6 +394,11 @@ func TestEmbeddedPreflightMinioWeakCredentialNotEchoed(t *testing.T) {
 	}
 	if strings.Contains(loop, "（${val}）") {
 		t.Errorf("%s 仍把 ${val} 拼进告警文案", name)
+	}
+	// 只锁「完整判据行」：脚本注释里会引用旧口径 `*123456*` 作说明，
+	// 直接 Contains("*123456*") 会把注释误判成判据复活。
+	if strings.Contains(loop, `*CHANGE_ME*|*YOUR_*|*123456*|admin)`) {
+		t.Errorf("%s 的旧子串判据复活了（§8.4 / L3）", name)
 	}
 }
 
@@ -420,6 +427,76 @@ func TestEmbeddedBackupScriptsNeverShowCredentialFragments(t *testing.T) {
 		}
 		if !strings.Contains(s, `*KEY*|*SECRET*|*PASSWORD*|*TOKEN*|*PASSWD*`) {
 			t.Errorf("%s 的敏感键名单不能丢（改脱敏口径不许顺手改判据）", n)
+		}
+	}
+}
+
+// L3（docs/backup-once.md §8.4）：旧判据 `*123456*` 是子串匹配，
+// 任何含 123456 的真实强凭证都会被误报。现在弱凭证只按全值精确匹配，
+// 占位符仍按子串匹配（模板里是 CHANGE_ME_PROD_ACCESS_KEY 这种带后缀的值）。
+//
+// 下面从嵌入产物里抽出 case 的模式串，喂一组值验【行为】而不是字符串长相：
+// 判据改回子串、或漏掉某个常见数字弱口令，矩阵就会红。
+// 用 path.Match 复刻 sh case 的 glob：* 不匹配 /，而凭证值不含 /，语义等价；
+// 真实 sh 的行为另有一次脚本片段冒烟（§8.4 ②）。
+func TestEmbeddedPreflightMinioWeakCredentialExactMatch(t *testing.T) {
+	const name = "deploy/backup/preflight_minio.sh"
+	data, err := fs.ReadFile(backupScripts, name)
+	if err != nil {
+		t.Fatalf("读取嵌入产物 %s 失败：%v", name, err)
+	}
+	s := string(data)
+
+	i := strings.Index(s, "# --- 敏感信息是否为占位符 ---")
+	j := strings.Index(s, "# --- 依赖命令 ---")
+	if i < 0 || j < 0 || j <= i {
+		t.Fatalf("%s 找不到弱凭证循环的起止标记", name)
+	}
+	loop := s[i:j]
+
+	var patterns []string
+	for _, line := range strings.Split(loop, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if !strings.HasPrefix(trimmed, "*CHANGE_ME*|") {
+			continue
+		}
+		patterns = strings.Split(strings.TrimSuffix(trimmed, ")"), "|")
+		break
+	}
+	if len(patterns) == 0 {
+		t.Fatalf("%s 找不到弱凭证 case 的模式行", name)
+	}
+
+	hit := func(v string) bool {
+		for _, p := range patterns {
+			if ok, err := path.Match(p, v); err == nil && ok {
+				return true
+			}
+		}
+		return false
+	}
+	for _, tc := range []struct {
+		val  string
+		want bool
+		why  string
+	}{
+		{"123456", true, "最短数字弱口令"},
+		{"1234567", true, "数字弱口令"},
+		{"12345678", true, "备份机当前真实凭证，告警数不能变"},
+		{"123456789", true, "数字弱口令"},
+		{"1234567890", true, "数字弱口令"},
+		{"admin", true, "备份机当前真实 Access Key"},
+		{"CHANGE_ME_PROD_SECRET_KEY", true, "模板占位符，靠子串命中"},
+		{"YOUR_BACKUP_SECRET_KEY", true, "模板占位符，靠子串命中"},
+		{"", false, "空值归必填校验，不在这里报弱凭证"},
+		{"Xy7-123456-Abc!2026", false, "L3 修复点：含 123456 的强凭证不再误报"},
+		{"SuperSecret-Value-987654321", false, "普通强凭证"},
+		{"12345678Abc!", false, "精确匹配的已知代价：弱前缀 + 后缀会漏报（§8.4 ④）"},
+		{"administrator", false, "admin 原本就是精确匹配，不是子串"},
+		{"my-admin-key", false, "含 admin 但整体不是弱口令"},
+	} {
+		if got := hit(tc.val); got != tc.want {
+			t.Errorf("判据对 %q 命中=%v，期望 %v（%s）", tc.val, got, tc.want, tc.why)
 		}
 	}
 }

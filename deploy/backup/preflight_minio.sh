@@ -96,10 +96,14 @@ check_minio() {
     fi
 
     # --- 敏感信息是否为占位符 ---
+    # 🔴 占位符用子串匹配（模板里是 CHANGE_ME_PROD_ACCESS_KEY / YOUR_BACKUP_SECRET_KEY）；
+    #    弱凭证一律【全值精确】匹配。旧口径 `*123456*` 是子串，任何含 123456 的
+    #    真实强凭证都会被误报（2026-11-10 §8.4 / L3）。精确列表只收常见数字弱口令，
+    #    代价是「弱前缀 + 后缀」如 12345678Abc! 会漏报，值守仍需按键名核对配置。
     for v in SRC_KEY SRC_SECRET DEST_KEY DEST_SECRET; do
         local val; val="$(eval echo "\${${v}:-}")"
         case "$val" in
-            *CHANGE_ME*|*YOUR_*|*123456*|admin)
+            *CHANGE_ME*|*YOUR_*|123456|1234567|12345678|123456789|1234567890|admin)
                 # 🔴 值不进日志：键名 + 告警已足够定位，回显会把弱凭证原样写进任务日志。
                 #    ${val} 只用于上面的判据，绝不拼进任何输出（2026-11-10 §8.1 验收发现）。
                 warn "[${v}] 疑似占位符/弱凭证（值已脱敏，不回显），请到 backup.env 替换为真实凭证" ;;

@@ -176,6 +176,9 @@ ops backup compare-env [pg|minio|all] --server <name>
     deploy / verify / `once` 原样转进任务日志，值一旦拼进去就会落到日志里。
   - 🔴 「当前配置概览」与必填项校验对 `KEY` / `SECRET` / `PASSWORD` / `TOKEN` 一律显示 `***`
     （不再用「前 3 后 3」，2026-11-10 §8.3）；`install.sh` 与 `preflight` 输出都会进日志。
+  - 🔴 弱凭证判据用**全值精确匹配**（`123456` … `1234567890` / `admin`），占位符仍用
+    子串匹配（`CHANGE_ME` / `YOUR_`）；旧口径 `*123456*` 会把含 `123456` 的强凭证误报，
+    精确匹配的代价是「弱前缀 + 后缀」会漏报（2026-11-10 §8.4 / L3，改判据单独一轮）。
 - `--run-now` 才执行 `pg_backup.sh` / `minio_backup.sh`，同样以 `user` 运行；成功后
   `backup-monitor` 的 `status` 立刻能看到心跳。
 
