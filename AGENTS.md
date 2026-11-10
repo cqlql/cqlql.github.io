@@ -27,15 +27,18 @@
 > **20:09 用户声明测试数据可覆盖并授权写演练（§7.4）**：MinIO 工具正式恢复全链路 rc=0
 > （3 桶、同名覆盖 / 多余对象保留已实证）、界面写任务失败阶段与报告已验证、
 > PG 用容器内 18.6 恢复到临时库（60 表 / Flyway 9 与生产库一致）；产物已清理、环境回基线。
-> ✅ **2026-11-10 收口进展（分册 §7.5）**：本仓 `pg_restore.sh` 的 stdin 坑已修
-> （`remote_exec` 加 `-n`、`remote_docker_stdin` 保留转发，加源码断言 + 真实 ssh 对照实证）；
-> k4 已手工装 PGDG `postgresql-client-18`，归档 1.16 变「可解析」，
-> `restore list/plan/run --dry-run` 全绿、`available=true`。判据与 `ops backup deps`
-> 的「只补缺失」语义一行未改。
-> 🔴 遗留：工具侧 PG 正式恢复**全链路仍未跑通** —— 新脚本尚未部署到 k4，且当次
-> `prod` 22 / 2226 都不返回 SSH banner；`ops backup deploy` 的 preflight 失败会回滚
-> `.old`（`docs/backup-deploy.md` §4.5），故没跑部署、也没触发正式恢复。
-> 待 prod 恢复后按 `docs/backup-restore.md` §7.5 ⑦ 补齐。
+> ✅ **2026-11-10 工具侧 PG 正式恢复全链路已跑通（分册 §7.5 / §7.6）**：本仓修
+> `pg_restore.sh` 的 stdin 坑（`remote_exec` 加 `-n`、`remote_docker_stdin` 保留转发，
+> 加源码断言 + 真实 ssh 对照实证）+ k4 手工装 PGDG `postgresql-client-18` 解除归档误挡
+> → 21:06 重新 `ops backup deploy` → 21:07 `ops restore run` 到临时库 `restore_test`
+> rc=0（`PHASE 1→5`、二次确认串真机读到、60 表 / Flyway 47 与生产库一致）
+> → 删临时库、环境回基线。判据与 `ops backup deps` 的「只补缺失」语义一行未改。
+> 🔴 真机新发现（§7.6）：`globals_*.sql` 的 `psql` 没开 `ON_ERROR_STOP`，
+> `ERROR: role "postgres" already exists` 被吞、脚本仍打「✅ 全局对象恢复完成」；
+> §3.1 已按真实行为修正，值守必须逐行看输出。报告里「装回两条 cron」是固定提醒，
+> 本次 crontab 全程 4 条未改，**别照它去动 cron**。
+> 🔴 仍未覆盖：脚本中途失败 / 失败桶运行期场景（不破坏环境去造故障）；换机器仍需人工装
+> 18 客户端（deps 版本对齐未做）。
 > MinIO 对象数不采集（显示 `—`）、脚本固定恢复 `SRC_BUCKETS` 全部桶、只读预演不连 MinIO
 > （三条实现差异见分册 §5.2 / §7.1）。界面见 `docs/ui.md` §16 / 硬约束 33。
 > **2026-11-07 深夜界面新增「备份监控」**（第 5 个导航项，纯只读）：
@@ -163,12 +166,11 @@
 - **手动备份已实现（真机验收待做）**：`ops backup once` + 界面第 6 项，见
   `docs/backup-once.md` / `docs/ui.md` §15；🔴 远端 `minio_backup.sh` 的补锁版仍要重新
   `ops backup deploy` 才生效（分册 §7.1）。
-- **备份恢复已实现（真机只读 + 写演练均已跑，§7.3 / §7.4）**：`ops restore list/plan/run` +
-  界面第 7 项 + `internal/restore/` + `web/src/features/restore/`，见
-  `docs/backup-restore.md` §7 / `docs/ui.md` §16 / 硬约束 33；写演练在用户声明
-  「测试数据可覆盖」后执行，产物已清理、环境回基线。🔴 `pg_restore.sh` 的 stdin 坑
-  2026-11-10 已在本仓修好并加断言，**远端仍是旧脚本、必须重新 `ops backup deploy`**；
-  工具侧 PG 正式恢复全链路仍待部署与 prod 可达，见 `docs/backup-restore.md` §7.5。
+- **备份恢复已实现（真机只读 + 写演练 + 工具侧 PG 正式恢复全链路均已跑，§7.3 / §7.4 / §7.6）**：
+  `ops restore list/plan/run` + 界面第 7 项 + `internal/restore/` + `web/src/features/restore/`，
+  见 `docs/backup-restore.md` §7 / `docs/ui.md` §16 / 硬约束 33；写演练在用户声明
+  「测试数据可覆盖」后执行，产物已清理、环境回基线。🔴 以后改了 `deploy/backup/**`
+  仍必须重新 `ops backup deploy`（21:06 已部署带 `-n` 的新版）才生效。
 - 代码按能力分包：`main.go` 只做命令分发，`internal/<能力>/` 放实现，
   `internal/shared/` 放配置、ssh 封装与服务器清单模型。详见「目录与边界」。
 - 服务器（备份端 / 应用端）只在 `servers.json` 登记一处，命令用 `--server <name>` 选目标。
@@ -492,6 +494,9 @@
     只读采集脚本不许写远端 / 连 MinIO / 回显凭证；离线回完整快照（`—` / `null`，不许 0 兜底）；
     阻塞分全局 `blockers` 与候选行 `row_blockers` 两级、换选中行重新取计划，前端不算 `available`。
     🔴 报告只报脚本结果，不写「恢复成功，服务正常」；Flyway / 应用健康是人工步骤（硬约束 7）。
+    🔴 `globals_*.sql` 走 `psql` 且没开 `ON_ERROR_STOP`，SQL 报错仍返回 0、脚本照打
+    「✅ 全局对象恢复完成」（§7.6 真机实证）：值守必须逐行看输出，不能只看退出码。
+    报告里「装回两条 cron」是固定提醒，没停过 cron 就别照它去改（§7.6）。
     `minio_restore.sh` 固定恢复 `SRC_BUCKETS` 全部桶、对象数不采集、预演不跑 `mc mirror --dry-run`；
     `minio_restore.sh` 一行未改，`pg_restore.sh` 2026-11-10 只修 stdin（§7.5），
     恢复逻辑 / 二次确认 / 禁止入 Crontab / 必须有人值守都没动。
@@ -504,7 +509,8 @@
     🔴 `pg_restore.sh` 内部 `remote_exec` 的 ssh 会吞掉脚本 stdin（§7.4）：只能给
     `remote_exec` 加 `-n`，`remote_docker_stdin` **必须**保留 stdin 转发 globals_*.sql，
     不许全局加 `-n`、不许绕过二次确认；`backupdist_test.go` 从嵌入产物锁住这三条。
-    本仓已修（§7.5），**远端仍是旧脚本**，改脚本必须重新 `ops backup deploy` 才生效。
+    本仓已修、21:06 已重新部署并在正式恢复里真机跑通（§7.6）；
+    **以后改脚本仍必须重新 `ops backup deploy` 才生效**。
     详见 `docs/backup-restore.md` §5 / §7 与 `docs/ui.md` §16。
 
 ## 命令与验证

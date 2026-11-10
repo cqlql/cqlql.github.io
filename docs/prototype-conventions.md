@@ -17,7 +17,7 @@
 | 原型 | 行数 | `@section` 锚点 | 分区索引 | 判据权威 |
 | :--- | :--- | :--- | :--- | :--- |
 | `components-prototype.html` | 1827 | 42 个 | `components-prototype-map.md` | `components.md` / `ui.md` §13 |
-| `backup-restore-prototype.html` | 759 | 19 个 | `backup-restore-prototype-map.md` | `backup-restore.md` §3–§5 / §7（代码已实现 · 交互回归基线；真机只读 §7.3 + 写演练 §7.4 均已跑） |
+| `backup-restore-prototype.html` | 759 | 19 个 | `backup-restore-prototype-map.md` | `backup-restore.md` §3–§5 / §7（代码已实现 · 交互回归基线；真机只读 §7.3 + 写演练 §7.4 + 工具侧 PG 正式恢复 §7.6 均已跑） |
 | `backup-once-prototype.html` | 706 | 19 个 | `backup-once-prototype-map.md` | `backup-once.md` §2–§4 / §8（代码已实现 · 交互回归基线，真机验收待做） |
 | `config-compare.html` | 590 | 无 | 无 | `ui.md` §12.5 |
 
