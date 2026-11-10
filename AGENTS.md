@@ -32,6 +32,7 @@
 | 评估集契约 / 指标口径 / 实验命令 | [`docs/evaluation.md`](docs/evaluation.md) | schema 权威在 `evaluate.py` docstring；两种后端同一份评估集 | 现行 |
 | 施工清单（JD 覆盖 / 周节奏） | [`docs/roadmap.md`](docs/roadmap.md) | 会过期；第 3 周转 Agent 后标 🗄 已完结 | 进行中 |
 | 评估集数据 | `data/eval/queries.example.jsonl` → `queries.jsonl` | 已标 50 条（AI 代标待人工复核）；按「你会怎么问」写、避开标题术语，别让天花板毁掉对比 | 现行 |
+| 检索效果可视化（本地交互页面） | [`scripts/serve_ui.py`](scripts/serve_ui.py) + `web/index.html` | 只读 `data/index/`、索引按 manifest 热重载；不建索引、不调 LLM，未就绪时须显式提示；看的是检索层不是答案正确率 | 现行 |
 | 人视角 / 快速开始 | [`README.md`](README.md) | 不是索引；文档指针指向本表 | 现行 |
 | 实验台账（数字唯一落点） | `learning/实验台账.md` | 本仓不复制任何实测数字 | 现行 |
 | 概念卡片 rag-01~07 | `learning/cards/01-rag/` | 只讲概念，不放实现判据 | 现行 |

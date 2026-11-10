@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>notes-rag · 检索效果</title>
+<style>
+  :root {
+    --bg: #f6f7f9;
+    --card: #ffffff;
+    --line: #e3e6ea;
+    --line-soft: #eef0f3;
+    --ink: #1f2328;
+    --ink-2: #57606a;
+    --ink-3: #8b949e;
+    --accent: #2f62d8;
+    --accent-soft: #eaf0ff;
+    --ok: #1a7f37;
+    --ok-soft: #e8f5ec;
+    --warn: #9a5b00;
+    --warn-soft: #fff4e0;
+    --err: #b42318;
+    --err-soft: #fdf0ee;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 14px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+          "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 32px 20px 64px; }
+
+  header h1 { margin: 0 0 6px; font-size: 22px; letter-spacing: -.3px; }
+  header p { margin: 0; color: var(--ink-2); font-size: 13px; }
+
+  .panel {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 16px 18px;
+    margin-top: 18px;
+  }
+
+  /* 状态条 */
+  #status { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 3px 10px; border-radius: 999px;
+    background: var(--line-soft); color: var(--ink-2);
+    font-size: 12px; white-space: nowrap;
+  }
+  .pill b { color: var(--ink); font-weight: 600; }
+  .pill.state-ready { background: var(--ok-soft); color: var(--ok); }
+  .pill.state-wait  { background: var(--warn-soft); color: var(--warn); }
+  .pill.state-err   { background: var(--err-soft); color: var(--err); }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+
+  /* 搜索 */
+  .search-row { display: flex; gap: 10px; margin-top: 4px; }
+  #q {
+    flex: 1; min-width: 0;
+    padding: 11px 14px; font-size: 14px; font-family: inherit;
+    color: var(--ink); background: #fff;
+    border: 1px solid var(--line); border-radius: 8px; outline: none;
+  }
+  #q:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  #topk {
+    padding: 0 10px; font-size: 13px; font-family: inherit;
+    color: var(--ink); background: #fff;
+    border: 1px solid var(--line); border-radius: 8px; outline: none;
+  }
+  button {
+    font-family: inherit; cursor: pointer; border-radius: 8px;
+    border: 1px solid var(--line); background: #fff; color: var(--ink);
+    padding: 10px 16px; font-size: 14px;
+  }
+  button:hover { border-color: #c9ced6; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  button.primary:hover { background: #2855c0; }
+  button:disabled { opacity: .55; cursor: not-allowed; }
+
+  .hint { color: var(--ink-3); font-size: 12px; margin-top: 10px; }
+
+  /* 示例问题 */
+  .examples-head {
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 12px; color: var(--ink-3); margin-bottom: 10px;
+  }
+  .examples-head button { padding: 3px 10px; font-size: 12px; }
+  #examples { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip {
+    max-width: 100%; padding: 5px 11px; font-size: 12.5px;
+    background: #f8f9fb; border: 1px solid var(--line); border-radius: 999px;
+    color: var(--ink-2); text-align: left;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .chip:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+
+  /* 评估集命中提示 */
+  #eval-badge { margin-top: 16px; }
+  .badge {
+    display: block; padding: 10px 13px; border-radius: 8px; font-size: 13px;
+    border: 1px solid transparent;
+  }
+  .badge.ok { background: var(--ok-soft); border-color: #c9e8d2; color: var(--ok); }
+  .badge.miss { background: var(--warn-soft); border-color: #f2ddb4; color: var(--warn); }
+  .badge code { font-family: var(--mono); font-size: 12px; }
+
+  /* 结果 */
+  #summary { color: var(--ink-3); font-size: 12px; margin: 18px 0 10px; }
+  .hit {
+    background: var(--card); border: 1px solid var(--line);
+    border-left: 3px solid transparent;
+    border-radius: 10px; padding: 14px 16px; margin-bottom: 10px;
+  }
+  .hit.is-expected { border-left-color: var(--ok); }
+  .hit-head { display: flex; align-items: flex-start; gap: 11px; }
+  .rank {
+    flex: 0 0 24px; height: 24px; border-radius: 6px;
+    background: var(--line-soft); color: var(--ink-2);
+    font: 600 12px/24px var(--mono); text-align: center;
+  }
+  .hit-meta { flex: 1; min-width: 0; }
+  .src { font: 600 13px/1.5 var(--mono); color: var(--ink); word-break: break-all; }
+  .heading { font-size: 12px; color: var(--ink-3); margin-top: 2px; }
+  .score { font: 600 13px var(--mono); color: var(--accent); white-space: nowrap; }
+  .bar { height: 3px; background: var(--line-soft); border-radius: 2px; margin: 11px 0 10px; }
+  .bar i { display: block; height: 100%; border-radius: 2px; background: var(--accent); }
+  .text {
+    color: var(--ink-2); font-size: 13px; white-space: pre-wrap;
+    word-break: break-word; max-height: 7.8em; overflow: hidden;
+  }
+  .text.open { max-height: none; }
+  .more { margin-top: 8px; padding: 3px 9px; font-size: 12px; color: var(--accent); }
+  .tag {
+    display: inline-block; margin-left: 8px; padding: 1px 7px;
+    border-radius: 4px; background: var(--ok-soft); color: var(--ok);
+    font-size: 11px; vertical-align: 1px;
+  }
+
+  .empty {
+    padding: 40px 20px; text-align: center; color: var(--ink-3);
+    border: 1px dashed var(--line); border-radius: 10px; background: var(--card);
+  }
+  .msg-error { background: var(--err-soft); border-color: #f3c9c4; color: var(--err); }
+  .msg-wait { background: var(--warn-soft); border-color: #f2ddb4; color: var(--warn); }
+
+  footer {
+    margin-top: 26px; padding-top: 16px; border-top: 1px solid var(--line);
+    color: var(--ink-3); font-size: 12px; line-height: 1.9;
+  }
+  footer code { font-family: var(--mono); background: var(--line-soft); padding: 1px 5px; border-radius: 4px; }
+  #toast {
+    position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%) translateY(12px);
+    background: var(--ink); color: #fff; padding: 10px 18px; border-radius: 8px;
+    font-size: 13px; opacity: 0; pointer-events: none; transition: .25s;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>notes-rag · 检索效果</h1>
+    <p>输入一句「你会怎么问」的话，看向量召回了哪些笔记片段。只评价检索层，不代表答案正确。</p>
+  </header>
+
+  <div class="panel" id="status"><span class="pill">正在读取索引状态…</span></div>
+
+  <div class="panel">
+    <div class="search-row">
+      <input id="q" type="text" autocomplete="off"
+             placeholder="例如：rerank 为什么要对 top-20 做">
+      <select id="topk" title="返回条数">
+        <option value="3">top 3</option>
+        <option value="5" selected>top 5</option>
+        <option value="10">top 10</option>
+        <option value="20">top 20</option>
+      </select>
+      <button class="primary" id="go">搜索</button>
+    </div>
+    <div class="hint">Enter 直接搜索。示例问题来自 <code>data/eval/queries.jsonl</code>，点一下即可复现评估集里的 query。</div>
+  </div>
+
+  <div class="panel">
+    <div class="examples-head">
+      <span>评估集里的真实提问</span>
+      <button id="shuffle">换一批</button>
+    </div>
+    <div id="examples"></div>
+  </div>
+
+  <div id="eval-badge"></div>
+  <div id="summary"></div>
+  <div id="results">
+    <div class="empty">还没有搜索。输入一个问题，或点上面的示例。</div>
+  </div>
+
+  <footer>
+    <div>本页只读 <code>data/index/</code> 与评估集，<b>不调用 LLM、不生成答案</b>；<code>recall@5</code> 是检索层指标，不是答案正确率。</div>
+    <div id="llm-note"></div>
+    <div>服务启动：<code>uv run --no-sync python scripts/serve_ui.py</code>　·　索引重建后页面会自动热重载，无需重启服务。</div>
+  </footer>
+</div>
+<div id="toast"></div>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({
+  '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+}[c]));
+
+let examples = [], exOffset = 0, wasReady = null, busy = false;
+
+function toast(msg) {
+  const el = $('#toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => el.classList.remove('show'), 3200);
+}
+
+async function api(path) {
+  const r = await fetch(path, { cache: 'no-store' });
+  let data;
+  try { data = await r.json(); } catch { throw new Error(`响应不是 JSON（HTTP ${r.status}）`); }
+  if (!r.ok || data.ok === false) throw new Error(data.error || `HTTP ${r.status}`);
+  return data;
+}
+
+async function loadMeta() {
+  let m;
+  try { m = await api('/api/meta'); }
+  catch (e) {
+    $('#status').innerHTML = `<span class="pill state-err"><span class="dot"></span>连不上本地服务：${esc(e.message)}</span>`;
+    return;
+  }
+  const man = m.manifest || {};
+  const state = m.ready
+    ? `<span class="pill state-ready"><span class="dot"></span>索引就绪</span>`
+    : `<span class="pill state-wait"><span class="dot"></span>索引未就绪</span>`;
+  const pills = [
+    `<span class="pill">切分 <b>${esc(m.strategy)}</b></span>`,
+    `<span class="pill">chunk_size <b>${esc(m.chunk_size)}</b></span>`,
+    `<span class="pill">语料 <b>${esc(m.corpus_files)}</b> 篇</span>`,
+    `<span class="pill">索引 <b>${esc(man.chunks || '—')}</b> 块</span>`,
+    `<span class="pill">模型 <b>${esc(m.embed_model)}</b></span>`,
+    `<span class="pill">建于 <b>${esc(man.built_at || '—')}</b></span>`,
+    `<span class="pill">评估集 <b>${esc(m.eval_count)}</b> 条</span>`
+  ];
+  $('#status').innerHTML = state + pills.join('');
+  $('#llm-note').textContent = m.llm_enabled
+    ? 'LLM_API_KEY 已配置，但本页仍不调用生成层；生成层评测（正确性 / 幻觉 / 拒答）尚未实现。'
+    : 'LLM_API_KEY 未配置，生成层未启用；cli.py 的完整问答需要先在 .env 里填 key。';
+
+  const justReady = wasReady === false && m.ready;
+  wasReady = m.ready;
+  if (justReady) {
+    toast('索引已建好，现在可以搜了');
+    delete $('#results').dataset.hasResult;
+    $('#eval-badge').innerHTML = '';
+    $('#summary').textContent = '';
+  }
+  if (!m.ready) {
+    $('#results').innerHTML =
+      `<div class="empty msg-wait">${esc(m.error)}<br><br>页面每 15 秒自动检查一次，索引建好会提示，不用重启服务。</div>`;
+  } else if (!$('#results').dataset.hasResult) {
+    $('#results').innerHTML = `<div class="empty">索引已就绪，输入一个问题，或点上面的示例。</div>`;
+  }
+}
+
+function renderExamples() {
+  const box = $('#examples');
+  if (!examples.length) { box.innerHTML = '<span class="hint">评估集为空或读取失败</span>'; return; }
+  const slice = [];
+  for (let i = 0; i < Math.min(8, examples.length); i++) {
+    slice.push(examples[(exOffset + i) % examples.length]);
+  }
+  box.innerHTML = slice.map((r) =>
+    `<button class="chip" title="${esc(r.query)}" data-q="${esc(r.query)}">${esc(r.query)}</button>`
+  ).join('');
+  box.querySelectorAll('.chip').forEach((b) => {
+    b.addEventListener('click', () => { $('#q').value = b.dataset.q; doSearch(); });
+  });
+}
+
+async function loadQueries() {
+  try {
+    const d = await api('/api/queries');
+    examples = d.rows || [];
+    renderExamples();
+  } catch (e) { $('#examples').innerHTML = `<span class="hint">${esc(e.message)}</span>`; }
+}
+
+function renderHits(d) {
+  $('#summary').textContent =
+    `返回 ${d.hits.length} 条 · top_k=${d.top_k} · 检索耗时 ${d.elapsed_ms} ms`;
+
+  const badge = $('#eval-badge');
+  if (!d.eval) {
+    badge.innerHTML = '';
+  } else if (d.eval.hit) {
+    badge.innerHTML = `<div class="badge ok">评估集命中：第 <b>${d.eval.rank}</b> 条落在期望文档里。</div>`;
+  } else {
+    badge.innerHTML = `<div class="badge miss">评估集未命中：期望 <code>${esc(d.eval.expected.join(' / '))}</code>，top ${esc(d.top_k)} 里没有它。</div>`;
+  }
+
+  if (!d.hits.length) {
+    $('#results').innerHTML = '<div class="empty">没有召回任何片段。</div>';
+    return;
+  }
+  const expected = new Set(d.eval ? d.eval.expected : []);
+  $('#results').innerHTML = d.hits.map((h) => {
+    const isExp = expected.has(h.source);
+    const width = Math.max(0, Math.min(100, h.score * 100)).toFixed(1);
+    return `<article class="hit ${isExp ? 'is-expected' : ''}">
+      <div class="hit-head">
+        <span class="rank">${h.rank}</span>
+        <div class="hit-meta">
+          <div class="src">${esc(h.source)}${isExp ? '<span class="tag">期望文档</span>' : ''}</div>
+          ${h.heading ? `<div class="heading">${esc(h.heading)}</div>` : ''}
+        </div>
+        <span class="score">${h.score.toFixed(4)}</span>
+      </div>
+      <div class="bar"><i style="width:${width}%"></i></div>
+      <div class="text">${esc(h.text)}</div>
+      <button class="more">展开全文</button>
+    </article>`;
+  }).join('');
+
+  $('#results').querySelectorAll('.more').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const t = btn.previousElementSibling;
+      const open = t.classList.toggle('open');
+      btn.textContent = open ? '收起' : '展开全文';
+    });
+  });
+}
+
+async function doSearch() {
+  if (busy) return;
+  const q = $('#q').value.trim();
+  if (!q) { $('#q').focus(); return; }
+  busy = true;
+  $('#go').disabled = true;
+  $('#results').dataset.hasResult = '1';
+  $('#results').innerHTML = '<div class="empty">检索中…</div>';
+  $('#eval-badge').innerHTML = '';
+  $('#summary').textContent = '';
+  try {
+    const d = await api(`/api/search?q=${encodeURIComponent(q)}&top_k=${$('#topk').value}`);
+    renderHits(d);
+  } catch (e) {
+    $('#results').innerHTML = `<div class="empty msg-error">${esc(e.message)}</div>`;
+  } finally {
+    busy = false;
+    $('#go').disabled = false;
+  }
+}
+
+$('#go').addEventListener('click', doSearch);
+$('#q').addEventListener('keydown', (e) => { if (e.key === 'Enter') doSearch(); });
+$('#shuffle').addEventListener('click', () => { exOffset += 8; renderExamples(); });
+
+loadMeta();
+loadQueries();
+setInterval(loadMeta, 15000);
+</script>
+</body>
+</html>
