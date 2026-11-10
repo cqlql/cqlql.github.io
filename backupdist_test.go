@@ -394,3 +394,32 @@ func TestEmbeddedPreflightMinioWeakCredentialNotEchoed(t *testing.T) {
 		t.Errorf("%s 仍把 ${val} 拼进告警文案", name)
 	}
 }
+
+// preflight / install 的输出都会进任务日志：旧口径对 >8 位凭证显示「前 3 后 3」
+// （`Sup...321`）仍是泄漏。三处统一成恒 `***`，判据（敏感键名单）一行不动。
+// 从**嵌入产物**读，顺带挡住「改了脚本没重新 build」的口径漂移。
+func TestEmbeddedBackupScriptsNeverShowCredentialFragments(t *testing.T) {
+	for _, n := range []string{
+		"deploy/backup/lib/common.sh",
+		"deploy/backup/postgres/install.sh",
+		"deploy/backup/minio/install.sh",
+	} {
+		data, err := fs.ReadFile(backupScripts, n)
+		if err != nil {
+			t.Errorf("读取嵌入产物 %s 失败：%v", n, err)
+			continue
+		}
+		s := string(data)
+		for _, bad := range []string{`${val:0:3}`, `${val: -3}`} {
+			if strings.Contains(s, bad) {
+				t.Errorf("%s 仍把凭证片段拼进输出：%s", n, bad)
+			}
+		}
+		if !strings.Contains(s, `val="***"`) {
+			t.Errorf("%s 缺少统一脱敏 val=\"***\"", n)
+		}
+		if !strings.Contains(s, `*KEY*|*SECRET*|*PASSWORD*|*TOKEN*|*PASSWD*`) {
+			t.Errorf("%s 的敏感键名单不能丢（改脱敏口径不许顺手改判据）", n)
+		}
+	}
+}

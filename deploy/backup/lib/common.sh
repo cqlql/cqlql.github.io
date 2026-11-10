@@ -47,15 +47,11 @@ check_required_var() {
         err "[${var}] 未配置（${desc}）— 请在 $(basename "$f") 中填写"
         return 1
     fi
-    # 敏感信息脱敏（KEY / SECRET / PASSWORD / TOKEN 等只显示前后各 3 位）
+    # 🔴 凭证一律不回显：前 3 后 3 也是泄漏，preflight / install 的输出会进任务日志。
+    #    与 preflight_minio.sh 的弱凭证告警统一口径（2026-11-10，backup-once.md §8.2）。
+    #   `${val}` 只用于上面的空值判定，绝不拼进任何输出。
     case "$var" in
-        *KEY*|*SECRET*|*PASSWORD*|*TOKEN*|*PASSWD*)
-            if [ "${#val}" -gt 8 ]; then
-                val="${val:0:3}...${val: -3}"
-            else
-                val="***"
-            fi
-            ;;
+        *KEY*|*SECRET*|*PASSWORD*|*TOKEN*|*PASSWD*) val="***" ;;
     esac
     ok "[${var}] 已配置（${desc}）: ${val}"
     return 0

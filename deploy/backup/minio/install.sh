@@ -214,7 +214,8 @@ if [ -f "$ENV_FILE" ]; then
         fi
         case "$var" in
             *KEY*|*SECRET*|*PASSWORD*|*TOKEN*|*PASSWD*)
-                if [ "${#val}" -gt 8 ]; then val="${val:0:3}...${val: -3}"; else val="***"; fi
+                # 🔴 凭证一律不回显（前 3 后 3 也是泄漏），见 backup-once.md §8.2
+                val="***"
                 ;;
         esac
         ok "[${var}] ${desc}: ${val}"

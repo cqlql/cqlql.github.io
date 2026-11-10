@@ -1109,7 +1109,8 @@ Go 侧单页回退（§7 的 `serveIndex`）一行不用改，访问过的页仍
 ✅ 真机前置已闭环：21:4x 重新 `ops backup deploy` 后远端 `pg_backup.sh` / `minio_backup.sh`
 都带 `flock -n 9`（`docs/backup-once.md` §7.1）；2026-11-10 按 §8 七场景完成真机验收，
 逐条证据见 §8.1。✅ 验收发现的 preflight 弱凭证回显已于 22:4x 修好、重新部署并
-真机验证（`docs/backup-once.md` §8.2：只改告警文案，判据 / 退出码未动）。
+真机验证（`docs/backup-once.md` §8.2：只改告警文案，判据 / 退出码未动）；
+凭证展示口径也已统一成恒 `***`（§8.3）。
 
 回归：`go test ./internal/ui ./internal/backup`（六道门 / 计划接口 / 报告措辞 / 参数门 /
 脚本锁断言）、`cd web && npm test && npm run typecheck && npm run build`、
