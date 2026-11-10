@@ -22,6 +22,18 @@
 > 两道坎的分解动作见 §7.5（20:25–21:02，当时 prod 重启导致 SSH 不可达，21:04 恢复后
 > 按 §7.5 ⑦ 执行完毕）；真机新发现（`globals` 的 psql 错误被吞、报告里「装回 cron」
 > 是固定提醒）见 §7.6。
+> ✅ **2026-11-10 21:30 本仓修掉 `psql` 吞错（§7.7）、21:4x 已部署并真机验证（§7.8）**：
+> globals 分支不再无条件打「✅ 全局对象恢复完成」—— 捕获输出逐行判 `ERROR:`，
+> 「对象已存在」白名单放行并醒目告警，其余错误 / 链路失败一律 `exit 1`；
+> 业务库 `.sql` 分支加 `ON_ERROR_STOP=1` 让失败真中止。
+> 🔴 **globals 分支故意不开 `ON_ERROR_STOP`**（`pg_dumpall` 的 `CREATE ROLE postgres`
+> 在目标端必然已存在，开了会截断后续 `ALTER ROLE`）；`backupdist_test.go` 加嵌入产物断言，
+> 五种改坏方式实测全红、还原全绿，另有五种运行期桩函数冒烟全绿。
+> **21:4x 重新 `ops backup deploy`（脚本 9336 B → 11163 B）→ 临时库 `restore_test`
+> 恢复 rc=0（`PHASE 1→5`、真机读到「⚠️ …对象已存在…被跳过」告警、60 表 / Flyway 47）
+> → 删临时库、环境回基线。两端同源、闭环**。
+> §5.0 的评审结论（R1–R6）是实现的判据，不因落地或演练而失效。
+> 是固定提醒）见 §7.6。
 > §5.0 的评审结论（R1–R6）是实现的判据，不因落地或演练而失效。
 
 # 备份恢复
@@ -122,16 +134,20 @@ make pg-restore FILE=<dump 文件名> DB=restore_test
   → 文件非空 → `.sha256` 校验（**缺文件只警告**）。
 - 二次确认：打印目标主机 / 容器 / 库 / 源文件，**输入目标库名**才继续；不匹配即取消。
 - 全局对象：在同目录找最新的 `globals_*.sql`，经 stdin 喂给 `psql -U <user> -d postgres`；
-  找不到只警告跳过。
+  找不到只警告跳过。🔴 该分支**故意不开 `ON_ERROR_STOP`**：`pg_dumpall --globals-only`
+  里的 `CREATE ROLE postgres` 在目标端必然已存在，开了会在第一条错误处截断后续
+  `SET` / `ALTER ROLE`。改为捕获输出逐行判 `ERROR:`：「对象已存在」白名单放行并打
+  「⚠️ …但以下…被跳过」、要求逐行核对，其余错误与 ssh / 管道失败一律 `exit 1`（§7.7）。
 - `.dump` 分支：目标库不存在先 `createdb` → `scp` 到主服务器 `/tmp` → `docker cp` 进容器
   → `pg_restore -U <user> -d <库> --clean --if-exists --no-owner -j <JOBS>` → 删两处 `/tmp` 临时文件。
   并行 `-j` 不能读 stdin，所以必须落文件，这也是磁盘要留三份空间的原因。
-- `.sql` 分支：直接 stdin 喂给 `psql -d <库>`。
-- 🔴 脚本**没有** `set -e`，靠 `RET` 判断业务库恢复结果；`psql` 也没开 `ON_ERROR_STOP`。
-  2026-11-10 真机实证（§7.6）：`globals_*.sql` 里的 `CREATE ROLE postgres` 报
-  `ERROR: role "postgres" already exists` 之后，该管道**仍返回 0**，脚本照打
-  「✅ 全局对象恢复完成」继续往下跑。所以全局对象恢复失败**不一定会中止**：
-  必须逐行看输出，不能只看最后一行退出码，其余失败也要人工判读。
+- `.sql` 分支：`-v ON_ERROR_STOP=1` + stdin 喂给 `psql -d <库>`，SQL 报错真返回非 0。
+- 🔴 脚本**没有** `set -e`，靠 `RET` 判断业务库恢复结果。历史行为（§7.6 真机实证）：
+  `psql` 默认遇 SQL 错误仍返回 0，`globals_*.sql` 的 `ERROR: role "postgres" already exists`
+  被吞、脚本照打「✅ 全局对象恢复完成」继续往下跑，所以失败**不一定会中止**。
+  ✅ 2026-11-10 21:30 本仓修好（§7.7）、21:4x 已重新部署并真机验证（§7.8）：
+  「对象已存在」会打显式告警、其余 SQL 错误真中止。**值守仍要逐行看输出**，
+  不能只看最后一行退出码，其余失败也要人工判读。
 
 验证（恢复完到下一步之前）：关键表行数 / 表数量、`flyway_schema_history` 的版本、
 应用健康检查端点。🔴 **Flyway 单向**（[AGENTS.md](../AGENTS.md) 硬约束 7）：
@@ -225,6 +241,15 @@ make minio-restore             # ② 交互式输入 YES 才继续
     （会重跑 install.sh / crontab / logrotate；preflight 失败会回滚 `.old`，见
     [backup-deploy.md](backup-deploy.md) §4.5），远端脚本已带 `-n`；21:07 的正式恢复
     里二次确认串被正确读到、全链路 rc=0（§7.6）。**此坑已闭环**。
+11. 🔴 **`psql` 默认吞 SQL 错误**（21:07 真机发现、21:30 本仓修好，§7.6 / §7.7）：
+    `globals_*.sql` 的 `CREATE ROLE postgres` 报 `already exists` 后管道仍返回 0，
+    脚本照打「✅ 全局对象恢复完成」。修法是「捕获输出 + 逐行判 `ERROR:` +
+    `already exists` 白名单放行并告警 + 其余错误 / 链路失败中止」，
+    **不是**给 globals 开 `ON_ERROR_STOP`（会截断后续 `SET` / `ALTER ROLE`，比吞错更危险）；
+    业务库 `.sql` 分支无幂等噪声，直接开 `ON_ERROR_STOP=1`。
+    `backupdist_test.go` 从嵌入产物锁住这些片段，五种改坏方式实测全红、还原全绿。
+    🔴 **改了脚本必须重新 `ops backup deploy` 才生效**（第 10 条 / 硬约束 33）；
+    ✅ 21:4x 已重新部署并在临时库真机验证（§7.8），两端同源。
 
 ## 5. 工具侧方案与落地（已实现 · 真机演练已跑 · 2026-11-08 按原型评审定稿并同日落地）
 
@@ -643,10 +668,128 @@ preflight 失败会**恢复 `.old` 目录并重跑旧版 install.sh**（可能�
    脚本照打「✅ 全局对象恢复完成」继续跑。§3.1 原先写的「全局对象恢复失败会中止」
    **不成立**，已按真实行为修正。不为了这次演练再改远端脚本；值守时必须逐行看输出。
    该分支还执行了 `SET` / `ALTER ROLE`（既有行为），本次没有逐项核对角色属性。
+   ✅ **21:30 已在本仓修好（§7.7），21:4x 已重新部署并真机验证（§7.8）**。
 2. ⚠️ **报告里「请把定时任务按 §3.0 装回去（两条 cron 都要）」是固定提醒**，不是本次
    动作的结果：crontab 全程 4 条未改、没有停过定时任务，**不要照这行去动 cron**。
    同理，prod 上 `registry-cache` 容器 `Restarting` 是主机刚重启的连带现象，与恢复无关。
 
 **⑥ 仍未覆盖**：真正「脚本执行中途失败 / 失败桶」的运行期场景没有人为制造
 （不为了造故障去破坏环境），失败阶段与报告措辞仍由 11-08 界面预检门失败任务验证；
-`ops backup deps --pg-major` 的版本对齐能力按既定路线没做（换机器仍需人工装 18 客户端）。
+`ops backup deps --pg-major` 的版本对齐能力按既定路线没做（换机器仍需人工装 18 客户端）；
+§7.7 的 `psql` 吞错修复已在 §7.8 重新部署并真机验证（两端同源）；
+但「致命 ERROR 让脚本中止」只由桩函数冒烟覆盖，**没在真机上造过故障**。
+
+### 7.7 2026-11-10 21:24–21:30：修 `psql` 吞错（本仓已改 · 远端未部署）
+
+> **范围**：只改 `deploy/backup/postgres/pg_restore.sh` 与 `backupdist_test.go`，重编
+> `ops.exe`。**没有**改 `pg_backup.sh`、没有改 Go 侧恢复门禁 / 报告 / 界面、没有改二次确认
+> 与 `-n` 链路、没有跑 `ops backup deploy`、没有跑真机恢复。用户选择「修 globals 错误被吞」
+> 这一刀，其余待办（deps 版本对齐 / push 2 个提交）未动。
+
+**① 为什么不能直接开 `ON_ERROR_STOP`**：§7.6 ⑤ ① 的
+`ERROR: role "postgres" already exists` 不是偶发故障 —— `globals_*.sql` 由
+`pg_dumpall --globals-only` 生成，目标端一定已有 `postgres` 角色。给该分支开
+`ON_ERROR_STOP=1` 会让 psql 在第一条错误处停止，**后面的 `SET` / `ALTER ROLE` /
+其它角色全都不执行**，比吞错误更危险，也会把 §7.6 刚跑通的恢复链路打断。
+所以判据是「让假成功消失」，不是「让第一条错误变致命」。
+
+**② 实现**（`pg_restore.sh` §4）：
+
+| 分支 | 修法 | 结果 |
+| :--- | :--- | :--- |
+| globals | 保持 psql 跑完全部语句，捕获 `2>&1` 输出 → `grep 'ERROR:'` → `grep -v 'already exists'` 挑出致命错误；`GLOBALS_RC != 0` 或存在致命错误即 `exit 1` | 只有「已存在」时打「⚠️ 全局对象恢复完成，但以下…被跳过」并列出错误行、要求逐行核对；无错误才打「✅ 全局对象恢复完成」 |
+| 业务库 `.sql` | `psql -v ON_ERROR_STOP=1` | 没有幂等噪声，SQL 报错真返回非 0，由既有 `RET` 判失败 |
+
+不引入临时文件、不改 stdin 链路（`remote_docker_stdin` 仍不带 `-n`）、不碰二次确认 `read`。
+
+**③ 断言与改坏验证**：`backupdist_test.go` 新增
+`TestEmbeddedPGRestoreChecksPSQLErrors`，从**嵌入产物**读源码，锁住 globals 分支的
+输出捕获 / `ERROR:` 判定 / `already exists` 白名单 / 失败中止 / 条件告警 / 仍走 stdin 链路，
+并禁止 globals 出现 `psql -v ON_ERROR_STOP`；`.sql` 分支必须带 `-v ON_ERROR_STOP=1`。
+五种改坏（丢退出码判定、globals 误开 `ON_ERROR_STOP`、`.sql` 漏开关、丢白名单、
+改回无条件假成功）实测**全红**，还原后**全绿**。
+
+**③′ 行为冒烟（不只是源码断言）**：把 globals 分支整段抽出、用桩函数替代
+`remote_docker_stdin` 喂五种模拟 psql 输出，实测：
+
+| 模拟输出 | 退出码 | 结果 |
+| :--- | :--- | :--- |
+| 只有 `already exists` | 0 | ⚠️「…但以下…被跳过」并列出错误行，不再打 ✅ |
+| 真 SQL 错误（`permission denied` / `syntax error`） | 1 | ❌ 中止 |
+| 已存在 + 致命混合 | 1 | ❌ 中止，只回显致命行 |
+| ssh / 链路失败（rc=255，输出里无 ERROR） | 1 | ❌ 中止 |
+| 完全干净 | 0 | 才打「✅ 全局对象恢复完成」 |
+
+五种全绿，证实「假成功消失」而幂等链路没断。**这是脚本片段 + 桩函数的本地冒烟，
+不是真机恢复**。
+
+**④ 验证**：`gofmt -l` 空、`go vet ./...`、`go test -count=1 ./...`（10 包）、
+`bash -n`、脚本无 CR、`npm test` 98/98、`git diff --check` 全绿；
+`go build -o ops.exe .`（13,681,664 B）+ `ops.exe __dist-check` 通过，新二进制已带新脚本。
+
+**⑤ ✅ 已闭环（§7.8）**：按 §4 第 10 条 / 硬约束 33，21:4x 已按
+「`--dry-run` → 正式 deploy → 复核落地 → 临时库恢复 → 核对清理」跑完，
+远端脚本从 9336 B 换成 11163 B 的新版，真机读到 ⚠️ 告警、全链路 rc=0。
+**改了脚本必须重新 `ops backup deploy` 才生效**这条红线不变。
+
+### 7.8 2026-11-10 21:39–21:45：重新部署 + 真机验证 `psql` 吞错修复（已闭环）
+
+> **范围**：沿用 20:09「测试数据可覆盖、未正式上线」与 20:25「全套」授权，只跑
+> §7.7 ⑤ 写下的闭环路线：`--dry-run` → 正式 `ops backup deploy` → 复核落地 →
+> 临时库 `restore_test` 恢复 → 核对清理。不覆盖 `pass_up_dev`、不加 `--run-now` /
+> `--force`、不改 crontab 内容、不重置心跳。
+
+**① 部署前只读守卫**（任何一项不符就停）：
+
+| 项 | 结果 |
+| :--- | :--- |
+| `ops status --server k4 --json` | 可达、心跳仍 11-08 10:18（51.4h / 两条 danger，既有的）、磁盘 14.41 GB |
+| `ops restore list --component pg --json` | 候选 `daily/pass_up_dev_20261108_101840.dump`：`checksum=通过` / `archive=可解析` / `selectable=true` / `blockers=[]` |
+| `ops backup deploy all --server k4 --dry-run` | `pg / minio 本机=OK 远端=OK 保留远端配置`、目录 `/opt/passup-backup`、运行身份 `cql`、可用 14753 MB |
+| k4 只读 | `crontab` 4 条、`pg_restore.sh` **9336 B 且不含 `GLOBALS_OUT`**（确认是 21:06 旧脚本）、`SSH_BASE` / `-n` 在、PG 客户端 18.6 |
+| prod 只读 | 容器 `Up 39 minutes`、`pass_up_dev` **60 表 / Flyway 47**、`restore_test` **不存在**、crontab 0 行、容器内 `pg_restore 18.6` |
+
+**② 部署**：`ops backup deploy all --server k4` rc=0；install.sh × 2 → logrotate →
+`preflight_check.sh all` 以 `cql` 跑，**「通过，但有 18 项警告」**（弱凭证 / 桶未开版本控制
+等既有告警；SSH 连通、两端 MinIO 认证、PG 客户端、4 条定时任务全部 ✅）。
+没加 `--run-now` / `--force`，所以**没跑备份、没改心跳**。
+落地复核：`pg_restore.sh` **9336 B → 11163 B**、`cql:cql`、`GLOBALS_OUT` 3 处、
+`psql -v ON_ERROR_STOP=1` 1 处、`already exists` 白名单 2 处、`SSH_BASE` 5 处；
+crontab 4 条属主 `cql`、root crontab 带标签 0 行、远端 `backup.env` 保留、
+`/opt/passup-backup.old` 按惯例保留。
+
+**③ 真机恢复验证**（`ops restore run ... --db restore_test`，完整门禁、不带 `--dry-run`）：
+rc=0、`PHASE 1→5`、二次确认串被读到。globals 分支真机输出（**这是 §7.7 的验收点**）：
+
+```text
+📋 正在恢复全局对象（角色/权限）: /data/backups/postgres/daily/globals_20261108_101840.sql
+SET
+SET
+SET
+ALTER ROLE
+ERROR:  role "postgres" already exists
+⚠️  全局对象恢复完成，但以下「对象已存在」类错误被跳过（幂等）：
+ERROR:  role "postgres" already exists
+   请逐行核对上面的输出，确认被跳过的对象无需重建。
+```
+
+`SET` / `ALTER ROLE` 照常执行（**没被第一条 ERROR 截断**），假的
+「✅ 全局对象恢复完成」不再出现；业务库 `✅ 数据库恢复成功！`，报告只报脚本结果。
+🔴 报告里「请把定时任务按 §3.0 装回去（两条 cron 都要）」仍是**固定提醒**：
+crontab 全程 4 条未停，别照它去动 cron。
+
+**④ 核对与清理**：
+
+| 项 | 结果 |
+| :--- | :--- |
+| `restore_test` | 60 表 / Flyway 47，与 `pass_up_dev` 一致 |
+| `pass_up_dev` | 仍 60 表 / Flyway 47，**未被覆盖** |
+| `/tmp` 临时 dump | prod 宿主机与容器内都已不存在（脚本自己删了） |
+| 清理 | `dropdb restore_test` rc=0；库列表回到 `postgres,pass_up_dev,template1,template0` |
+| 环境复核 | crontab 4 条；心跳仍 11-08 10:18（51.4h / 两条 danger，既有的）、磁盘 14753 MB；候选仍 `checksum=通过 / archive=可解析 / selectable=true`；远端脚本仍 11163 B 带新逻辑 |
+
+**⑤ 结论**：§7.7 的「远端未部署」已闭环 —— 两端同源、真机跑通、环境回基线。
+值守仍需逐行看输出（告警行是给人看的，工具不判断应用是否可用）；
+Flyway / 应用健康仍是人工步骤（硬约束 7）。
+🔴 **仍未覆盖**：真正「脚本执行中途失败 / 失败桶」运行期场景（不为造故障破坏环境）；
+globals 分支的「致命 ERROR 中止」只由 §7.7 ③′ 的桩函数冒烟覆盖，**没在真机上造过**。

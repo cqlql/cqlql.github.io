@@ -292,3 +292,65 @@ func TestEmbeddedPGRestoreKeepsConfirmationStdin(t *testing.T) {
 		t.Errorf("%s 的二次确认 read 不见了：不许用绕过确认的方式修 stdin 坑", name)
 	}
 }
+
+// psql 默认遇 SQL 错误仍返回 0：只打 ERROR 就继续跑完，光看退出码会把失败当成功。
+// 2026-11-10 真机抓到 globals_*.sql 里 CREATE ROLE postgres 报 already exists 被吞、
+// 脚本照打「✅ 全局对象恢复完成」（docs/backup-restore.md §7.6 / §7.7）。
+// 🔴 globals 分支【不能】靠开 ON_ERROR_STOP 来修：pg_dumpall --globals-only 里的
+//
+//	CREATE ROLE postgres 在目标端必然已存在，开了会在第一条错误处截断，后面的
+//	ALTER ROLE / 其它角色反而不执行 —— 比吞错误更危险，还会打断刚跑通的恢复链路。
+//	正解是让 psql 跑完所有语句、捕获输出逐行判错：「对象已存在」白名单放行并
+//	醒目告警要求值守核对，其余 ERROR 与链路失败一律中止。
+//	业务库 .sql 分支没有这个幂等问题，必须开 ON_ERROR_STOP 让失败真中止。
+//
+// 从**嵌入产物**读，顺带挡住「改了脚本没重新 build」的口径漂移。
+func TestEmbeddedPGRestoreChecksPSQLErrors(t *testing.T) {
+	const name = "deploy/backup/postgres/pg_restore.sh"
+	data, err := fs.ReadFile(backupScripts, name)
+	if err != nil {
+		t.Fatalf("读取嵌入产物 %s 失败：%v", name, err)
+	}
+	s := string(data)
+
+	gi := strings.Index(s, "正在恢复全局对象（角色/权限）")
+	gj := strings.Index(s, "未找到 globals_*.sql")
+	if gi < 0 || gj < 0 || gj <= gi {
+		t.Fatalf("%s 找不到 globals 分支的起止标记", name)
+	}
+	globals := s[gi:gj]
+
+	// 必须用「行首 + 恰好 4 空格」锚定：参数解析里的 case 分支是 8 空格 `*)`，
+	// 直接找 "    *)" 会先命中它的后半段，把 .sql 分支切成空串。
+	si := strings.Index(s, "\n    *.sql)")
+	se := strings.Index(s, "\n    *)\n")
+	if si < 0 || se < 0 || se <= si {
+		t.Fatalf("%s 找不到 .sql 分支的起止标记（si=%d se=%d）", name, si, se)
+	}
+	sqlBranch := s[si:se]
+
+	for _, w := range []string{
+		"GLOBALS_OUT=", // 必须捕获输出，不能只看退出码
+		"GLOBALS_RC=$?",
+		"grep 'ERROR:'",                 // 逐行判错
+		"GLOBALS_FATAL",                 // 非白名单错误单独挑出来
+		"'already exists'",              // 幂等白名单
+		"exit 1",                        // 真失败必须中止
+		"remote_docker_stdin",           // 仍走 stdin 转发链路，不许改成 remote_exec
+		"if [ -n \"$GLOBALS_ERRORS\" ]", // ✅ 只能在无错误时打
+	} {
+		if !strings.Contains(globals, w) {
+			t.Errorf("%s 的 globals 分支缺少关键片段 %q", name, w)
+		}
+	}
+	if !strings.Contains(globals, "全局对象恢复完成，但以下") ||
+		!strings.Contains(globals, "请逐行核对") {
+		t.Errorf("%s 的 globals 分支必须把「已存在」错误显式告警，不许无条件打 ✅ 完成", name)
+	}
+	if strings.Contains(globals, "psql -v ON_ERROR_STOP") {
+		t.Errorf("%s 的 globals 分支不许开 ON_ERROR_STOP：会在第一条 already exists 处截断后续 ALTER ROLE（§7.7）", name)
+	}
+	if !strings.Contains(sqlBranch, "psql -v ON_ERROR_STOP=1") {
+		t.Errorf("%s 的 .sql 分支必须开 ON_ERROR_STOP=1，否则 SQL 报错仍返回 0、会被当成成功", name)
+	}
+}

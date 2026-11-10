@@ -170,11 +170,34 @@ GLOBALS_FILE=$(find "$DUMP_DIR" -maxdepth 1 -name "globals_*.sql" -type f -print
 
 if [ -n "$GLOBALS_FILE" ] && [ -s "$GLOBALS_FILE" ]; then
     echo "📋 正在恢复全局对象（角色/权限）: ${GLOBALS_FILE}"
-    if ! cat "$GLOBALS_FILE" | remote_docker_stdin psql -U "$DB_USER" -d postgres; then
-        echo "❌ 全局对象恢复失败，操作中止！"
+    # 🔴 psql 默认遇 SQL 错误仍返回 0，只把 ERROR 打到输出就继续跑 —— 光看退出码
+    #    会把失败当成成功（2026-11-10 真机实证：CREATE ROLE postgres 报
+    #    `ERROR: role "postgres" already exists` 被吞，脚本照打「✅ 全局对象恢复完成」，
+    #    见 docs/backup-restore.md §7.6）。
+    # 🔴 这里【不】开 ON_ERROR_STOP：globals_*.sql 由 pg_dumpall --globals-only 生成，
+    #    里面的 CREATE ROLE postgres 在目标端必然已存在；开了会在第一条错误处截断，
+    #    后面的 ALTER ROLE / 其它角色反而不执行 —— 比吞错误更危险。
+    #    正解：让 psql 跑完所有语句，捕获输出逐行判错；「对象已存在」是幂等噪声，
+    #    显式放行并打醒目警告要求值守核对，其余 ERROR 与 ssh/管道失败一律中止。
+    GLOBALS_OUT="$(cat "$GLOBALS_FILE" | remote_docker_stdin psql -U "$DB_USER" -d postgres 2>&1)"
+    GLOBALS_RC=$?
+    printf '%s\n' "$GLOBALS_OUT"
+    GLOBALS_ERRORS="$(printf '%s\n' "$GLOBALS_OUT" | grep 'ERROR:' || true)"
+    GLOBALS_FATAL="$(printf '%s\n' "$GLOBALS_ERRORS" | grep -v 'already exists' || true)"
+    if [ "$GLOBALS_RC" -ne 0 ] || [ -n "$GLOBALS_FATAL" ]; then
+        echo "❌ 全局对象恢复失败（psql/ssh 退出码 ${GLOBALS_RC}），操作中止！"
+        if [ -n "$GLOBALS_FATAL" ]; then
+            printf '%s\n' "$GLOBALS_FATAL"
+        fi
         exit 1
     fi
-    echo "✅ 全局对象恢复完成。"
+    if [ -n "$GLOBALS_ERRORS" ]; then
+        echo "⚠️  全局对象恢复完成，但以下「对象已存在」类错误被跳过（幂等）："
+        printf '%s\n' "$GLOBALS_ERRORS"
+        echo "   请逐行核对上面的输出，确认被跳过的对象无需重建。"
+    else
+        echo "✅ 全局对象恢复完成。"
+    fi
 else
     echo "⚠️  未找到 globals_*.sql，跳过全局对象恢复。"
 fi
@@ -214,8 +237,10 @@ case "$FILENAME" in
         remote_exec "docker exec ${CONTAINER_NAME} rm -f ${HOST_TMP}" || true
         ;;
     *.sql)
+        # 业务库 SQL 没有 globals 那种「对象已存在」幂等噪声：出错就该真中止。
+        # 开 ON_ERROR_STOP 让 psql 返回非 0，下面靠 RET 统一判失败（§5）。
         cat "$RESTORE_FILE" | remote_docker_stdin \
-            psql -U "$DB_USER" -d "$TARGET_DB"
+            psql -v ON_ERROR_STOP=1 -U "$DB_USER" -d "$TARGET_DB"
         RET=$?
         ;;
     *)
