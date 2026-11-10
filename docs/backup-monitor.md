@@ -109,6 +109,33 @@ KB / 字节统一按 `1024` 换算成 MB 并保留 1 位小数；段的 `collect
 > 手动触发一次备份也会写同一个 `last_success.txt`，所以「心跳新鲜」**不能反推「定时任务正常」**。
 > 工具侧手动备份的口径见 [backup-once.md](backup-once.md) §4.2；采集协议、阈值与 `assess()` 一行不改。
 
+### 3.2.1 心跳落后先看「开机窗口 + 调度点」（2026-11-10 只读实证）
+
+`ops status` 报「距上次 PG 成功 51.4 小时、超过 26h 阈值」时，先分清**机器没开**与
+**定时任务失败**，别直接当成工具故障。22:0x 在 k4 的只读实证：
+
+| 证据 | 结果 |
+| :--- | :--- |
+| 时间基准 | 远端 `date` = `2026-11-10 14:03 UTC`（本机 GMT+8）；`last_success.txt` 的时间戳按远端本地时间算，工具在远端用 `date -d` 与远端 `date +%s` 相减，所以 `51.4h` **不是时区算错** |
+| crontab 调度点 | `2:00` MinIO / `3:00` PG / `8:00`、`9:00` 巡检都是**远端 UTC**，对应北京时间 10:00 / 11:00 / 16:00 / 17:00 |
+| 开机窗口 | `last -x reboot`：`11-08 12:32` 关机 → `11-10 12:34 UTC` 才开机，约 48h 跨过 11-09、11-10 两天的全部调度点；今天开机时也已过 2/3/8/9 点 |
+| cron 服务 / 任务 | `systemctl is-active cron` = `active`、`is-enabled` = `enabled`；`cql` crontab 4 条完好；journalctl 里有 `(cql) RELOAD (crontabs/cql)` 与 root 的 hourly 任务，守护进程正常 |
+| 脚本日志 | `pg_backup.log` / MinIO 日志都停在 11-08 10:18 的成功记录，11-09 / 11-10 **无任何执行痕迹、无失败堆栈** |
+| 心跳与产物 | 两个 `last_success.txt` 都是 11-08 10:18，内容与 mtime 一致；`/data/backups/postgres` 只有那 4 个文件 |
+
+**结论**：两条 danger 是**机器长时间关机、调度点全部错过**，不是 cron 服务故障、
+crontab 丢失或脚本失败。下一次自动备份是 `11-11 02:00 UTC`（北京 10:00，MinIO）/
+`03:00 UTC`（北京 11:00，PG）。
+
+🔴 **判读边界**：这是**人工只读诊断**，`ops status` / 备份监控页**不读 crontab、
+不看开机历史**（§3.2），工具只按 `last_success.txt` 新鲜度出 danger。
+`ops backup once all --server k4 --dry-run` 只读预演通过（preflight「通过，18 项既有警告」），
+但**没有正式跑备份、没写心跳、没产生 dump**；手动触发不代表定时任务正常。
+`pg_backup.sh` 的分级保留是 daily 7 天（远端 `backup.env` 显式 7/30/365），
+11-08 的候选 2 天前、**不会被清理**。真要刷新心跳就正式跑 `once`，
+但按 [backup-once.md](backup-once.md) §8 七场景用例集专门验收，
+别在诊断里顺手跑一次 happy path 就当验收过了。
+
 ### 3.3 超时与失败
 
 - `ConnectTimeout=10`、`ServerAliveInterval=5`、`BatchMode=yes`；

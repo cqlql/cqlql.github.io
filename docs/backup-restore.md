@@ -578,7 +578,10 @@ dump 从 k4 scp 到本机临时目录，配置里把 `PG_SSH_HOST` 指到可达�
   恢复脚本 / `pg_backup.sh` 都走这条 ssh。
 - k4 `uptime 9 min`（刚开机）、`cron` / `ssh` 服务 active；`pg_backup.log` 停在
   11-08 10:18，`ops status --server k4 --json` 显示心跳 50.4 小时前、两条 danger
-  （超过 26h 阈值）、磁盘剩余 14.8 GB，无其它 problem。**心跳落后主要是关机造成**。
+  （超过 26h 阈值）、磁盘剩余 14.8 GB，无其它 problem。**心跳落后主要是关机造成**
+  —— 2026-11-10 22:0x 已实证（[backup-monitor.md](backup-monitor.md) §3.2.1）：k4 时区为
+  UTC、`11-08 12:32 → 11-10 12:34` 关机约 48h 跨过全部调度点，cron 服务与 4 条 crontab
+  完好、日志无失败记录。
 - crontab 4 条（2:00 / 3:00 备份，8:00 / 9:00 巡检）逐条核对未改；`backup.env` 的非凭证
   字段（`PG_SSH_HOST/PORT`、`PG_CONTAINER_NAME`、`PG_DB_NAME`）与清单一致。
 - ✅ **21:04 复核：`prod` 已重启完成**（`ASUS-PC`，22 / 2226 都能登录、k4→prod 也通，
