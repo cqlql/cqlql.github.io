@@ -171,6 +171,9 @@ ops backup compare-env [pg|minio|all] --server <name>
   `install.sh` 内部那次 preflight 也降权到同一身份。
   - `0` 通过；`2` 有警告（如尚未首次备份）→ 继续但输出警告；
   - `1` 有错误 → **恢复 `.old` 目录并重跑 install.sh**，然后失败退出。
+  - 🔴 `preflight_minio.sh` 的弱凭证告警**不回显凭证值**（只报键名 +「值已脱敏，不回显」，
+    2026-11-10 修，见 [backup-once.md](backup-once.md) §8.2）：preflight 输出会被
+    deploy / verify / `once` 原样转进任务日志，值一旦拼进去就会落到日志里。
 - `--run-now` 才执行 `pg_backup.sh` / `minio_backup.sh`，同样以 `user` 运行；成功后
   `backup-monitor` 的 `status` 立刻能看到心跳。
 

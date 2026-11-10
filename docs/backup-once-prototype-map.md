@@ -3,7 +3,8 @@
 > `docs/backup-once.md` §8.1）：本文件留作**交互回归基线**，不删、锚点不重命名；
 > 判据权威仍是 `docs/backup-once.md`，原型与分册冲突时**改原型，不是改分册**。
 > `ready` / `locked` / `failed` / `busy` 真机跑通，`blocked` / `timeout` / `offline`
-> 由代码判据 + 单测覆盖；三处判据修正见分册 §8.1 ③。
+> 由代码判据 + 单测覆盖；三处判据修正见分册 §8.1 ③，其中弱凭证回显已在 §8.2
+> 修复并重新部署验证。
 
 # backup-once-prototype.html 分区索引
 

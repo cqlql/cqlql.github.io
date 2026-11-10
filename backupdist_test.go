@@ -354,3 +354,43 @@ func TestEmbeddedPGRestoreChecksPSQLErrors(t *testing.T) {
 		t.Errorf("%s 的 .sql 分支必须开 ON_ERROR_STOP=1，否则 SQL 报错仍返回 0、会被当成成功", name)
 	}
 }
+
+// preflight 的输出会被 deploy / verify / once --dry-run / once 原样转发到任务日志。
+// 2026-11-10 按 §8.1 验收时发现弱凭证告警把 `12345678` 原样打进了日志：
+// 修法只改 warn 文案，${val} 仍用于判据，但绝不拼进任何输出。
+// 判据与退出码一行不改，preflight 仍是「通过，18 项警告」。
+// 从**嵌入产物**读，顺带挡住「改了脚本没重新 build」的口径漂移。
+func TestEmbeddedPreflightMinioWeakCredentialNotEchoed(t *testing.T) {
+	const name = "deploy/backup/preflight_minio.sh"
+	data, err := fs.ReadFile(backupScripts, name)
+	if err != nil {
+		t.Fatalf("读取嵌入产物 %s 失败：%v", name, err)
+	}
+	s := string(data)
+
+	i := strings.Index(s, "# --- 敏感信息是否为占位符 ---")
+	j := strings.Index(s, "# --- 依赖命令 ---")
+	if i < 0 || j < 0 || j <= i {
+		t.Fatalf("%s 找不到弱凭证循环的起止标记", name)
+	}
+	loop := s[i:j]
+
+	for _, want := range []string{
+		`case "$val" in`,
+		`*CHANGE_ME*|*YOUR_*|*123456*|admin)`,
+		`warn "[${v}] 疑似占位符/弱凭证`,
+		"值已脱敏，不回显",
+	} {
+		if !strings.Contains(loop, want) {
+			t.Errorf("%s 的弱凭证循环缺少 %q：判据或告警不能丢", name, want)
+		}
+	}
+	for _, line := range strings.Split(loop, "\n") {
+		if strings.Contains(line, "warn ") && strings.Contains(line, "${val}") {
+			t.Errorf("%s 的 warn 回显了凭证值：%s", name, strings.TrimSpace(line))
+		}
+	}
+	if strings.Contains(loop, "（${val}）") {
+		t.Errorf("%s 仍把 ${val} 拼进告警文案", name)
+	}
+}

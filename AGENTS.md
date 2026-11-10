@@ -10,8 +10,9 @@
 > `failed`（`pg 0 / minio 1` 分组件汇总）、`busy`（并发 409）真机跑通；
 > `blocked` / `timeout` / `offline` 由代码判据 + 单测覆盖，未造故障 / 断网。
 > 前置 §7.1 已闭环（21:4x 重新部署后远端两脚本都带 `flock -n 9`）。
-> 🔴 验收发现 preflight 弱凭证告警回显占位值 `12345678`（既有脚本行为，不是 `once`
-> 回显 `backup.env`），**本轮没改脚本**，见 §8.1 ③。
+> ✅ 验收发现的 preflight 弱凭证回显 `12345678` 已于 22:4x **修好并重新部署真机验证**
+> （`preflight_minio.sh` 只改告警一行不回显值，判据 / 退出码未动；任务日志已无该串），
+> 见 `docs/backup-once.md` §8.2。
 > 原型 `docs/backup-once-prototype.html`（19 个锚点，分区见 `backup-once-prototype-map.md`）
 > 留作交互回归基线：七场景 = 验收用例集，钉死「定时状态恒不采集 / 预演不是执行凭证 /
 > 弹窗无 sudo 密码框 / 撞锁·失败·超时是运行期结果、不是预演阻塞」，冲突时改原型。
@@ -699,7 +700,7 @@ ops menu --help
 | 备份恢复界面原型（**交互回归基线** · 代码已实现） | `docs/backup-restore-prototype.html`（分区见 `docs/backup-restore-prototype-map.md`） | 六场景 = 验收用例集；R1–R6 逐条对应实现；静态速览不连远端、不发请求、不执行动作，冲突时改原型；`ops restore ...` 已注册，真实参数以 `ops restore help` 为准 |
 | 备份能力部署（P1 ✅，监控的前置；CLI + 界面） | `docs/backup-deploy.md` | 复用 `install.sh`；不覆盖 `backup.env`；不静默迁移目录；logrotate 由工具落盘；界面安装必须 yes + 服务端预检门 |
 | 备份监控（P2a CLI ✅ / P2+ 界面 ✅；真机验收待做） | `docs/backup-monitor.md`（界面见 `docs/ui.md` §14） | 只读采集；时间差在远端算；`-` 不是 0；**单账号**（清单 `user/key`，采集不提权）；网页与 CLI 共用 `CollectForServer` / `Status`，前端不算指标；8 个键已进 `docs/config.md` §3 |
-| 手动备份（立即跑一次 · **已实现，2026-11-10 按 §8 七场景真机验收**） | `docs/backup-once.md` §8.1（界面见 `docs/ui.md` §15） | 独立子命令 + 独立页，复用已部署脚本与同一把任务锁；不提权 / 无 sudo 密码框、不查 crontab、不改监控采集判据；报告只报脚本结果且**不能当成定时任务正常**；§7.1 补锁前置已闭环；验收发现 preflight 弱凭证告警回显占位值（未改脚本） |
+| 手动备份（立即跑一次 · **已实现，2026-11-10 按 §8 七场景真机验收**） | `docs/backup-once.md` §8.1（界面见 `docs/ui.md` §15） | 独立子命令 + 独立页，复用已部署脚本与同一把任务锁；不提权 / 无 sudo 密码框、不查 crontab、不改监控采集判据；报告只报脚本结果且**不能当成定时任务正常**；§7.1 补锁前置已闭环；验收发现的 preflight 弱凭证回显已修复并部署验证（§8.2） |
 | 手动备份界面原型（**交互回归基线** · 代码已实现） | `docs/backup-once-prototype.html`（分区见 `docs/backup-once-prototype-map.md`） | 七场景 = 验收用例集；定时状态恒「不采集」、预演不是执行凭证、弹窗无 sudo 密码框、报告固定带手动触发提示；静态速览不连远端、不执行动作，冲突时改原型 |
 | 单机一键 Docker 部署（P3–P4 · 方案，未实现） | `docs/deploy.md` | `.env` 去 CRLF；镜像前缀必须等于 compose；Flyway 单向；方案键表在本文 §8，不进 config.md |
 | 一键启动与桌面快捷方式（S2/S3/S5 ✅，S4 人工验收待做） | `docs/one-click-launch.md` | 双击直达网页面板（隐藏守护 + 单实例）；`.lnk` 只指启动器；图标用独立 `.ico`；名字校验挡路径穿越；双击绝不触发写操作，页面写操作要显式确认 |
