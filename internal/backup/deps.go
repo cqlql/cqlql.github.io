@@ -9,6 +9,9 @@ package backup
 // 🔴 结构化状态、安装计划、官方文档链接全部由 Go 侧算好下发，前端只渲染。
 // 🔴 安装源按官方文档：PG 客户端可选走 PGDG 官方 apt 仓库（指定主版本），
 //    mc 走官方二进制地址并保留已验证的回退链路（见 depsInstallScriptWithMajor）。
+// 🔴 2026-11-10 版本对齐（分册 §7.9）：--pg-major 是显式目标主版本。旧口径只看命令
+//    在不在，16.15 已装却答「没有缺少的依赖」，归档深校验会一直被版本挡（§4 第 6 条）。
+//    现在已装但主版本低于目标也算待装；不带 --pg-major 的行为完全不变。
 
 import (
 	"pass-up/ops/internal/shared"
@@ -162,6 +165,42 @@ func probeDeps(t *shared.SSHTarget, ctx context.Context, comps []component, serv
 	return parseDepsProbeOutput(out, catalog, view)
 }
 
+// pgMajorFromVersion 从 `pg_restore (PostgreSQL) 18.6` 这类 --version 输出里取主版本号。
+// PostgreSQL 10 起主版本号就是第一个数字段；取不到回 0，调用方按「版本未知」保守跳过，
+// 绝不因为解析失败就把一台装好的机器判成需要重装。
+func pgMajorFromVersion(s string) int {
+	start := -1
+	for i := 0; i < len(s); i++ {
+		if s[i] >= '0' && s[i] <= '9' {
+			start = i
+			break
+		}
+	}
+	if start < 0 {
+		return 0
+	}
+	end := start
+	for end < len(s) && s[end] >= '0' && s[end] <= '9' {
+		end++
+	}
+	n, err := strconv.Atoi(s[start:end])
+	if err != nil || n < 1 || n > 99 {
+		return 0
+	}
+	return n
+}
+
+// needsPgVersionAlign 是「版本对齐」的唯一判据：显式给了目标主版本、客户端确实装了、
+// 版本串能解析、且已装主版本低于目标。高于目标不降级（高版本客户端能读低版本 dump）；
+// 没给 --pg-major 时一律不启用，保持「只补缺失」的旧语义。
+func needsPgVersionAlign(view DepsView, installed bool, version string) (int, bool) {
+	if view.PgMajor <= 0 || !installed {
+		return 0, false
+	}
+	cur := pgMajorFromVersion(version)
+	return cur, cur > 0 && cur < view.PgMajor
+}
+
 // parseDepsProbeOutput 是纯函数，便于把「连不上 / 脚本没跑完」与「真的没装」分开测：
 // 缺结束标记一律 collected=false，绝不拿空输出冒充「依赖齐全」。
 func parseDepsProbeOutput(out string, catalog []depSpec, view DepsView) (DepsView, error) {
@@ -187,6 +226,11 @@ func parseDepsProbeOutput(out string, catalog []depSpec, view DepsView) (DepsVie
 			installed[k] = v == "yes"
 		}
 	}
+	// 🔴 版本对齐（分册 §7.9）：把「已装但主版本不够」也计入 Missing，让原本「只补缺失」
+	//    的安装链路顺带装版本化客户端。判据在循环外只算一次，插入仍走 catalog 顺序
+	//    （页面表格 / CLI 清单顺序稳定，不能事后 append 把 pg_restore 排到 mc 后面）。
+	//    PGDG 的 postgresql-client-<n> 与旧版共存，pg_wrapper 自动指向最高版本，不卸载任何包。
+	alignFrom, needAlign := needsPgVersionAlign(view, installed["pg_restore"], versions["pg_restore"])
 	for _, d := range catalog {
 		it := DepItem{
 			Name: d.Name, Label: d.Label, Component: d.Component,
@@ -200,10 +244,18 @@ func parseDepsProbeOutput(out string, catalog []depSpec, view DepsView) (DepsVie
 			} else {
 				view.Missing = append(view.Missing, it.Name)
 			}
+		} else if needAlign && d.Name == "pg_restore" {
+			view.Missing = append(view.Missing, it.Name)
 		}
 	}
 	view.Collected = true
 	view.Plan = depPlan(view.Missing, view.PgMajor)
+	if needAlign {
+		// 放在计划最前面：界面已经渲染 plan，前端无需新增字段就能看到「为什么已装还要装」。
+		view.Plan = append([]string{fmt.Sprintf(
+			"版本对齐：已装 pg_restore 主版本 %d，低于指定主版本 %d；本次会按 PGDG 装 postgresql-client-%d（与旧版共存、不卸载，pg_wrapper 自动指向最高版本）",
+			alignFrom, view.PgMajor, view.PgMajor)}, view.Plan...)
+	}
 	return view, nil
 }
 
@@ -396,6 +448,21 @@ func runBackupDeps(args []string) int {
 	}
 	if len(view.Missing) == 0 {
 		fmt.Println("没有缺少的依赖。")
+		if view.PgMajor > 0 {
+			for _, it := range view.Items {
+				if it.Name != "pg_restore" {
+					continue
+				}
+				cur := pgMajorFromVersion(it.Version)
+				switch {
+				case cur >= view.PgMajor:
+					fmt.Printf("pg_restore 主版本 %d 已达到指定主版本 %d，无需版本对齐。\n", cur, view.PgMajor)
+				case cur == 0:
+					fmt.Println("WARN: 无法解析 pg_restore 版本，版本对齐未判定，请人工核对版本串。")
+				}
+				break
+			}
+		}
 		if len(view.Optional) > 0 {
 			fmt.Println("WARN: 可选依赖缺失：" + strings.Join(view.Optional, ", ") + "（install.sh 会给出提示）")
 		}
@@ -464,8 +531,9 @@ func depsUsage() string {
   ops backup deps [pg|minio|all] --server <name> [--json] [--dry-run] [--pg-major <n>] [--password-stdin]
     --json          只读：输出结构化依赖状态（界面数据源），collected=false 表示没采到
     --dry-run       只报告缺失项与安装计划，不改远端任何文件
-    --pg-major <n>  按 PostgreSQL 官方 PGDG apt 仓库安装 postgresql-client-<n>；
-                    不给则装发行版仓库的 postgresql-client
+    --pg-major <n>  目标 PostgreSQL 主版本，并启用版本对齐：按 PGDG 官方 apt 仓库装
+                    postgresql-client-<n>；已装但主版本低于 <n> 时也会对齐（与旧版共存、不卸载），
+                    已达到或高于则不动作；不给则沿用「只补缺失」的旧口径
     --password-stdin 从 stdin 读初始 sudo 密码（没有 --password 参数）
 
 只安装命令，不上传备份脚本、不写 crontab / logrotate / backup.env、不跑备份。

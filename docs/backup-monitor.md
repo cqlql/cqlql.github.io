@@ -513,5 +513,7 @@ CLI 据此退出 `2` 并照常支持 `--json`，界面据此显示「去配置�
   本轮实测的是 HTTP 接口、SPA 产物与前端单测（98/98），没有自动截图能力。
 - 60s 自动刷新、多标签页并发合并、切页停定时器、danger/warn 配色仍由
   `internal/ui/monitor_test.go` / `web/test/monitor.test.ts` 覆盖，没在真浏览器里等 60s。
-- 本轮**没有**改代码、`ops.exe` 或远端脚本；二进制仍是 §8.4 那次重建的版本。
-- 仍未做：S4 一键启动真机人工验收、deps 版本对齐、运行期失败场景、cron 自动跑验证。
+- 本轮**没有**改代码、`ops.exe` 或远端脚本（验收时二进制是 §8.4 那次重建的版本；
+  后来 23:3x 为 deps 版本对齐重建过 `ops.exe`，见 [backup-restore.md](backup-restore.md) §7.9）。
+- 仍未做：S4 一键启动真机人工验收、运行期失败场景、cron 自动跑验证
+  （deps 版本对齐已于 23:3x 闭环，见 [backup-restore.md](backup-restore.md) §7.9）。

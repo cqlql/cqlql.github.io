@@ -813,22 +813,23 @@ func installLine(prefix string, args []string) string {
 }
 
 // pgdgRepoScript 按 PostgreSQL 官方文档「Manual Repository Configuration」写
-// /etc/apt/sources.list.d/pgdg.sources。只在用户显式给了 --pg-major 时才生成：
-// 发版仓库的 postgresql-client 在多数机器上够用，PGDG 需要访问公网 apt 仓库，
-// 内网机器上默认启用只会把本来能装好的依赖搞失败。
+// /etc/apt/sources.list.d/pgdg.sources。只在用户显式给了 --pg-major 且本次确实要装
+// PG 客户端时才生成：发版仓库的 postgresql-client 在多数机器上够用，PGDG 需要访问
+// 公网 apt 仓库，内网机器上默认启用只会把本来能装好的依赖搞失败。
+// 🔴 2026-11-10 去掉了 `if ! command -v pg_restore` 包裹（分册 §7.9）：版本对齐场景里
+//    客户端**已经装了**，只是主版本低；旧条件会跳过配源，apt 里根本找不到
+//    postgresql-client-<n>，装完还是低版本。写源是幂等覆盖，不会动已装的包。
 func pgdgRepoScript() string {
 	return `  # PGDG 官方 apt 仓库：https://www.postgresql.org/download/linux/debian/
-  if ! command -v pg_restore >/dev/null 2>&1; then
-    . /etc/os-release
-    if [ -z "${VERSION_CODENAME:-}" ]; then echo '取不到发行版 codename，无法配置 PGDG 仓库' >&2; exit 1; fi
-    install -d /usr/share/postgresql-common/pgdg
-    if command -v curl >/dev/null 2>&1; then
-      curl -fsSL --connect-timeout 8 --max-time 60 https://www.postgresql.org/media/keys/ACCC4CF8.asc -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc
-    else
-      timeout 60 wget -q --timeout=8 --tries=1 -O /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
-    fi
-    printf '%s\n' 'Types: deb' 'URIs: https://apt.postgresql.org/pub/repos/apt' "Suites: ${VERSION_CODENAME}-pgdg" "Architectures: $(dpkg --print-architecture)" 'Components: main' 'Signed-By: /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc' > /etc/apt/sources.list.d/pgdg.sources
+  . /etc/os-release
+  if [ -z "${VERSION_CODENAME:-}" ]; then echo '取不到发行版 codename，无法配置 PGDG 仓库' >&2; exit 1; fi
+  install -d /usr/share/postgresql-common/pgdg
+  if command -v curl >/dev/null 2>&1; then
+    curl -fsSL --connect-timeout 8 --max-time 60 https://www.postgresql.org/media/keys/ACCC4CF8.asc -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc
+  else
+    timeout 60 wget -q --timeout=8 --tries=1 -O /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
   fi
+  printf '%s\n' 'Types: deb' 'URIs: https://apt.postgresql.org/pub/repos/apt' "Suites: ${VERSION_CODENAME}-pgdg" "Architectures: $(dpkg --print-architecture)" 'Components: main' 'Signed-By: /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc' > /etc/apt/sources.list.d/pgdg.sources
 `
 }
 

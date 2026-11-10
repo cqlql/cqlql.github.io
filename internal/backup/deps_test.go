@@ -1,6 +1,9 @@
 package backup
 
 import (
+	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -148,7 +151,7 @@ func TestDepsInstallScriptOfficialSources(t *testing.T) {
 		t.Errorf("默认不该配置 PGDG 仓库：\n%s", plain)
 	}
 	for _, want := range []string{
-		"dl.min.io/aistor/mc/release/linux-$arch/mc", // 官方文档当前地址
+		"dl.min.io/aistor/mc/release/linux-$arch/mc",       // 官方文档当前地址
 		"dl.minio.org.cn/client/mc/release/linux-$arch/mc", // 中国镜像（真机已验证）
 	} {
 		if !strings.Contains(plain, want) {
@@ -235,5 +238,154 @@ func TestDepsUsageHasOfficialDocs(t *testing.T) {
 		if !strings.Contains(u, want) {
 			t.Errorf("用法说明缺少 %s", want)
 		}
+	}
+}
+
+// 2026-11-10 分册 §7.9：--pg-major 从「仅安装时选包」升级为「显式目标主版本」。
+// 判据只认 pg_restore --version 的主版本，且只在显式指定时才启用。
+func TestPgMajorFromVersion(t *testing.T) {
+	cases := []struct {
+		in   string
+		want int
+	}{
+		{"pg_restore (PostgreSQL) 18.6", 18},
+		{"pg_restore (PostgreSQL) 16.15 (Ubuntu 16.15-1)", 16},
+		{"pg_dump (PostgreSQL) 18beta1", 18},
+		{"pg_restore (PostgreSQL) 15.3", 15},
+		{"", 0},
+		{"pg_restore", 0},
+		{"pg_restore (PostgreSQL) 0.1", 0},
+		{"garbage 1000 beta", 0},
+	}
+	for _, c := range cases {
+		if got := pgMajorFromVersion(c.in); got != c.want {
+			t.Errorf("pgMajorFromVersion(%q) = %d，想要 %d", c.in, got, c.want)
+		}
+	}
+}
+
+// 探测输出构造：只改 pg_restore / mc 的状态与版本串，其余依赖一律齐全。
+func depsProbeFixture(pgState, pgVersion, mcState string) string {
+	lines := []string{
+		"tar=yes", "crontab=yes", "ssh=yes", "scp=yes", "nc=yes",
+		"pg_restore=" + pgState, "mc=" + mcState, "logrotate=yes",
+		"VER_mc=mc version RELEASE.2024-01-01",
+		"DEPS_CHECK_OK=yes",
+	}
+	if pgVersion != "" {
+		lines = append(lines, "VER_pg_restore="+pgVersion)
+	}
+	return strings.Join(lines, "\n")
+}
+
+func TestParseDepsProbeOutputVersionAlignment(t *testing.T) {
+	catalog := depCatalog([]component{compPG, compMinio})
+	cases := []struct {
+		name          string
+		major         int
+		pgState       string
+		pgVersion     string
+		mcState       string
+		wantMissing   string
+		wantAlignNote bool
+	}{
+		{"低版本要对齐", 18, "yes", "pg_restore (PostgreSQL) 16.15", "yes", "pg_restore", true},
+		{"已对齐不动作", 18, "yes", "pg_restore (PostgreSQL) 18.6", "yes", "", false},
+		{"高于目标不降级", 18, "yes", "pg_restore (PostgreSQL) 19.2", "yes", "", false},
+		{"未指定主版本保持旧语义", 0, "yes", "pg_restore (PostgreSQL) 16.15", "yes", "", false},
+		{"版本串解析不出保守跳过", 18, "yes", "pg_restore (no version)", "yes", "", false},
+		{"真缺失走原逻辑不加对齐说明", 18, "no", "", "yes", "pg_restore", false},
+		{"对齐叠加 mc 缺失仍按 catalog 顺序", 18, "yes", "pg_restore (PostgreSQL) 16.15", "no", "pg_restore,mc", true},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			view, err := parseDepsProbeOutput(depsProbeFixture(c.pgState, c.pgVersion, c.mcState),
+				catalog, emptyDepsView("bk", "all", c.major))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := strings.Join(view.Missing, ","); got != c.wantMissing {
+				t.Errorf("missing = %q，想要 %q", got, c.wantMissing)
+			}
+			plan := strings.Join(view.Plan, "\n")
+			if has := strings.Contains(plan, "版本对齐："); has != c.wantAlignNote {
+				t.Errorf("plan 含版本对齐说明 = %v，想要 %v：%s", has, c.wantAlignNote, plan)
+			}
+			if c.wantAlignNote {
+				for _, want := range []string{"主版本 16", "指定主版本 18", "postgresql-client-18", "不卸载"} {
+					if !strings.Contains(plan, want) {
+						t.Errorf("版本对齐计划缺少 %q：%s", want, plan)
+					}
+				}
+			}
+			if c.major == 0 && strings.Contains(plan, "版本对齐") {
+				t.Error("没给 --pg-major 时绝不能出现版本对齐结论")
+			}
+		})
+	}
+}
+
+// 🔴 安装脚本红线：已装低版本时 PGDG 源必须照常配置。旧脚本用
+// `if ! command -v pg_restore` 把整个写源段包住，命令存在就跳过，
+// apt 里找不到 postgresql-client-18，装完还是 16.15（分册 §4 第 6 条）。
+func TestDepsInstallScriptAlignsInstalledClient(t *testing.T) {
+	s := depsInstallScriptWithMajor([]string{"pg_restore"}, 18)
+	if strings.Contains(s, "if ! command -v pg_restore") {
+		t.Error("PGDG 写源段不能再被「命令不存在」条件包住（版本对齐时命令本来就在）")
+	}
+	for _, want := range []string{
+		"pgdg.sources", "apt.postgresql.org", "ACCC4CF8.asc",
+		"apt-get install -y postgresql-client-18", "VERSION_CODENAME",
+	} {
+		if !strings.Contains(s, want) {
+			t.Errorf("版本对齐安装脚本缺少 %q：\n%s", want, s)
+		}
+	}
+	if strings.Contains(s, "apt-get install -y postgresql-client ") {
+		t.Error("指定主版本时不该再装通用 postgresql-client")
+	}
+	// 只缺 mc、或没给主版本时都不许碰 PGDG 源（内网机器不能莫名依赖公网）。
+	if strings.Contains(depsInstallScriptWithMajor([]string{"mc"}, 18), "pgdg.sources") {
+		t.Error("只装 mc 不该配置 PGDG 仓库")
+	}
+	if strings.Contains(depsInstallScript([]string{"pg_restore"}), "pgdg.sources") {
+		t.Error("没给 --pg-major 不该配置 PGDG 仓库")
+	}
+}
+
+func TestDepsUsageExplainsVersionAlignment(t *testing.T) {
+	u := depsUsage()
+	for _, want := range []string{"版本对齐", "已达到或高于则不动作", "不给则沿用"} {
+		if !strings.Contains(u, want) {
+			t.Errorf("用法说明缺少 %q", want)
+		}
+	}
+}
+
+// 🔴 本轮改了 PGDG 段的 if 包裹，必须用真实 sh 复核四种生成分支仍是合法语法：
+//
+//	空 then 分支 / 悬空 fi 在 dash 下会直接炸（11-07 的 mc 事故与 §7.7 都踩过）。
+func TestDepsInstallScriptIsValidShell(t *testing.T) {
+	sh, err := exec.LookPath("sh")
+	if err != nil {
+		t.Skip("本机没有 sh，跳过 shell 语法冒烟")
+	}
+	cases := map[string]string{
+		"默认":    depsInstallScript([]string{"pg_restore", "mc"}),
+		"指定主版本": depsInstallScriptWithMajor([]string{"pg_restore", "mc"}, 18),
+		"只缺 mc": depsInstallScriptWithMajor([]string{"mc"}, 18),
+		"只缺 pg": depsInstallScriptWithMajor([]string{"pg_restore"}, 18),
+	}
+	for name, script := range cases {
+		t.Run(name, func(t *testing.T) {
+			p := filepath.Join(t.TempDir(), "install.sh")
+			if err := os.WriteFile(p, []byte(script), 0644); err != nil {
+				t.Fatal(err)
+			}
+			out, err := exec.Command(sh, "-n", p).CombinedOutput()
+			if err != nil {
+				t.Errorf("sh -n 失败：%v\n%s\n--- 脚本 ---\n%s", err, out, script)
+			}
+		})
 	}
 }

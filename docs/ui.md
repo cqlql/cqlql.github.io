@@ -406,6 +406,9 @@ StrictMode 下 effect 会跑两次，用递增的 `pollId` 让旧轮询自己退
 - `pg_major`（可选，1..99 纯数字）只属于 `deps`：给了就按 PostgreSQL 官方 PGDG apt 仓库
   装 `postgresql-client-<n>`，不给则装发行版仓库的 `postgresql-client`。服务端与 CLI
   各验一次字符集，绝不让它变成任意字符串拼进远端 apt 包名。
+  ✅ 2026-11-10 起它同时是「目标主版本」（[backup-restore.md](backup-restore.md) §7.9）：
+  已装但主版本低于 `<n>` 也会对齐（`missing[]` 里出现 `pg_restore`、`plan[]` 首条给出
+  版本对齐说明），等于 / 高于不动作。**前端没有新增字段**，仍是渲染服务端下发的 `plan[]`。
 - 安装完自动复查每个命令、任务结束自动刷新只读状态；预检日志里出现「缺少依赖」时，
   备份页额外给一条可直接点的引导。
 **卸载（2026-11-07 晚追加，供「卸了再装」复测）**：`mode=deps-uninstall` +
@@ -418,7 +421,7 @@ crontab / backup.env；卸载后自动复查命令是否真的消失。判据见
 [backup-deploy.md](backup-deploy.md) §10.3、[components.md](components.md) §10。
 
 - 回归：`internal/backup/deps_test.go` / `deps_uninstall_test.go`（参数门 / 只读探测 /
-  官方源 / 卸载边界 / 采不到≠已装）、`internal/ui/deps_test.go`（GET 只读与白名单、
+  官方源 / 版本对齐判据与生成脚本 `sh -n` / 卸载边界 / 采不到≠已装）、`internal/ui/deps_test.go`（GET 只读与白名单、
   deps 与 deps-uninstall 的 confirm 门 / 预检门 / targets 白名单 / 409）、
   `web/test/{backup,components}.test.ts`（归一化、按钮门、请求参数）。
 

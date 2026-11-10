@@ -84,6 +84,9 @@ deploy/backup/
 `pg_restore` 深度校验要求**本地客户端版本不低于服务端 `pg_dump` 版本**
 （服务端 PG 18 的 dump 头为 `1.16`，PG 16 的 `pg_restore` 会报 `unsupported version`）。
 版本不足时跳过深度校验并记 `warn`，**不会误判备份失败**；要深度校验就装同版本客户端。
+`ops backup deps --pg-major <n>` 现在能把「已装但主版本低」的客户端对齐到 `<n>`
+（见 [backup-restore.md](backup-restore.md) §7.9），不必再手工装 PGDG 包；**归档判据本身
+没有放宽**，工具仍不提供绕过开关。
 
 ### 4.1 「手工 ssh 明明能连，preflight 却报 SSH 无法连通」
 
