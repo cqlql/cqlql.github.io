@@ -249,3 +249,46 @@ func TestEmbeddedBackupScriptsHaveLocks(t *testing.T) {
 		}
 	}
 }
+
+// pg_restore.sh 的二次确认必须能读到脚本 stdin（2026-11-08 真机写演练抓到）：
+// 2a 连通性检查 / 2b 容器健康的内部 ssh 默认转发脚本 stdin，会把工具经
+// StreamWith 喂进来的确认串读光，第 3 步 read 拿到 EOF →「数据库名称不匹配，
+// 恢复操作已取消」。人在备份机本地终端交互执行不容易踩到，工具一定会踩到。
+// 🔴 修法只给 remote_exec 加 -n；remote_docker_stdin 必须保留 stdin 转发，
+// 否则 globals_*.sql / .sql 的内容送不进容器内的 psql（docs/backup-restore.md §4 第 10 条）。
+// 从**嵌入产物**读，顺带挡住「改了脚本没重新 build」的口径漂移。
+func TestEmbeddedPGRestoreKeepsConfirmationStdin(t *testing.T) {
+	const name = "deploy/backup/postgres/pg_restore.sh"
+	data, err := fs.ReadFile(backupScripts, name)
+	if err != nil {
+		t.Fatalf("读取嵌入产物 %s 失败：%v", name, err)
+	}
+	s := string(data)
+	fnBody := func(fn string) string {
+		i := strings.Index(s, fn+"() {")
+		if i < 0 {
+			t.Fatalf("%s 找不到函数 %s", name, fn)
+		}
+		rest := s[i:]
+		j := strings.Index(rest, "\n}")
+		if j < 0 {
+			t.Fatalf("%s 的 %s 函数体没有结束", name, fn)
+		}
+		return rest[:j]
+	}
+	exec := fnBody("remote_exec")
+	withStdin := fnBody("remote_docker_stdin")
+	if !strings.Contains(exec, `"${SSH_BASE[@]}" -n "$SSH_TARGET"`) {
+		t.Errorf("%s 的 remote_exec 没带 -n，内部 ssh 会吞掉二次确认的 stdin", name)
+	}
+	if strings.Contains(withStdin, ` -n `) ||
+		!strings.Contains(withStdin, `"${SSH_BASE[@]}" "$SSH_TARGET"`) {
+		t.Errorf("%s 的 remote_docker_stdin 必须保留 stdin 转发（globals_*.sql 靠它喂 psql）", name)
+	}
+	if strings.Contains(s, "SSH_BASE=(ssh -n") {
+		t.Errorf("%s 把 -n 加进了基础数组：两条链路会一起失去 stdin 转发", name)
+	}
+	if !strings.Contains(s, `read -r -p "确认继续？`) {
+		t.Errorf("%s 的二次确认 read 不见了：不许用绕过确认的方式修 stdin 坑", name)
+	}
+}

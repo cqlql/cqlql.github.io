@@ -55,21 +55,26 @@ if [ -z "$SSH_HOST" ]; then
     exit 1
 fi
 
-# 构造 ssh 基础命令
-SSH_CMD=(ssh -p "$SSH_PORT")
+# 构造 ssh 基础命令（不含目标主机，便于两条链路分别选 stdin 行为）
+SSH_BASE=(ssh -p "$SSH_PORT")
 # 未配置私钥时使用默认密钥（~/.ssh/id_rsa 等）
 if [ -n "$SSH_KEY" ]; then
-    SSH_CMD+=(-i "$SSH_KEY")
+    SSH_BASE+=(-i "$SSH_KEY")
 fi
 # 拆解 SSH_OPTS 为数组（可追加额外选项，如 -o ServerAliveInterval=5；
 # 默认的 accept-new 不要替换成 no）
 # shellcheck disable=SC2206
 SSH_OPTS_ARR=($SSH_OPTS)
-SSH_CMD+=("${SSH_OPTS_ARR[@]}" "${SSH_USER}@${SSH_HOST}")
+SSH_BASE+=("${SSH_OPTS_ARR[@]}")
+SSH_TARGET="${SSH_USER}@${SSH_HOST}"
 
 # 在远端执行一条完整命令（作为整体传给远端 shell，避免参数拼接导致引号丢失）
+# 🔴 必须带 -n：ssh 默认把脚本 stdin 转发给远端命令，2a 连通性检查 / 2b 容器健康
+#    这些内部 ssh 会读光 stdin，第 3 步 read 二次确认拿到 EOF →「数据库名称不匹配」。
+#    工具经 StreamWith 喂确认串时同样依赖这条（docs/backup-restore.md §4 第 10 条）。
+#    -n 只能加在这里，不能加进上面的基础数组：下面 remote_docker_stdin 要转发 stdin。
 remote_exec() {
-    "${SSH_CMD[@]}" "$1"
+    "${SSH_BASE[@]}" -n "$SSH_TARGET" "$1"
 }
 
 # 在远端容器内执行命令（docker exec）
@@ -79,8 +84,9 @@ remote_docker() {
 
 # 在远端容器内执行命令，并把本地标准输入转发到远端容器内（docker exec -i）
 # 说明: ssh 不会自动转发本地 stdin，因此必须用管道 + docker exec -i 显式传入数据
+# 🔴 这里不能带 -n：globals_*.sql / .sql 分支靠 ssh 把管道里的内容送进容器内的 psql
 remote_docker_stdin() {
-    "${SSH_CMD[@]}" "docker exec -i ${CONTAINER_NAME} $*"
+    "${SSH_BASE[@]}" "$SSH_TARGET" "docker exec -i ${CONTAINER_NAME} $*"
 }
 
 # 将本地文件复制到主服务器（复用 SSH 端口/密钥/选项）
@@ -89,7 +95,7 @@ remote_copy() {
     scp -P "$SSH_PORT" \
         ${SSH_KEY:+-i "$SSH_KEY"} \
         ${SSH_OPTS_ARR[@]} \
-        "$src" "${SSH_USER}@${SSH_HOST}:${dst}"
+        "$src" "${SSH_TARGET}:${dst}"
 }
 
 # ---------- 1. 确定恢复源文件 ----------

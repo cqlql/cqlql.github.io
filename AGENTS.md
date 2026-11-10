@@ -27,8 +27,15 @@
 > **20:09 用户声明测试数据可覆盖并授权写演练（§7.4）**：MinIO 工具正式恢复全链路 rc=0
 > （3 桶、同名覆盖 / 多余对象保留已实证）、界面写任务失败阶段与报告已验证、
 > PG 用容器内 18.6 恢复到临时库（60 表 / Flyway 9 与生产库一致）；产物已清理、环境回基线。
-> 🔴 遗留：工具侧 PG 正式恢复仍未跑通（归档阻塞 + `pg_restore.sh` 内部 ssh 吞 stdin，§4 第 6/10 条），
-> 本次没改远端脚本；`ops backup deps --pg-major 18` 只补缺失、不能升级已装的 16.15。
+> ✅ **2026-11-10 收口进展（分册 §7.5）**：本仓 `pg_restore.sh` 的 stdin 坑已修
+> （`remote_exec` 加 `-n`、`remote_docker_stdin` 保留转发，加源码断言 + 真实 ssh 对照实证）；
+> k4 已手工装 PGDG `postgresql-client-18`，归档 1.16 变「可解析」，
+> `restore list/plan/run --dry-run` 全绿、`available=true`。判据与 `ops backup deps`
+> 的「只补缺失」语义一行未改。
+> 🔴 遗留：工具侧 PG 正式恢复**全链路仍未跑通** —— 新脚本尚未部署到 k4，且当次
+> `prod` 22 / 2226 都不返回 SSH banner；`ops backup deploy` 的 preflight 失败会回滚
+> `.old`（`docs/backup-deploy.md` §4.5），故没跑部署、也没触发正式恢复。
+> 待 prod 恢复后按 `docs/backup-restore.md` §7.5 ⑦ 补齐。
 > MinIO 对象数不采集（显示 `—`）、脚本固定恢复 `SRC_BUCKETS` 全部桶、只读预演不连 MinIO
 > （三条实现差异见分册 §5.2 / §7.1）。界面见 `docs/ui.md` §16 / 硬约束 33。
 > **2026-11-07 深夜界面新增「备份监控」**（第 5 个导航项，纯只读）：
@@ -159,8 +166,9 @@
 - **备份恢复已实现（真机只读 + 写演练均已跑，§7.3 / §7.4）**：`ops restore list/plan/run` +
   界面第 7 项 + `internal/restore/` + `web/src/features/restore/`，见
   `docs/backup-restore.md` §7 / `docs/ui.md` §16 / 硬约束 33；写演练在用户声明
-  「测试数据可覆盖」后执行，产物已清理、环境回基线。🔴 恢复脚本没改、远端不用重新部署；
-  工具侧 PG 正式恢复仍被归档阻塞 + 脚本 stdin 坑挡住（§4 第 6 / 10 条）。
+  「测试数据可覆盖」后执行，产物已清理、环境回基线。🔴 `pg_restore.sh` 的 stdin 坑
+  2026-11-10 已在本仓修好并加断言，**远端仍是旧脚本、必须重新 `ops backup deploy`**；
+  工具侧 PG 正式恢复全链路仍待部署与 prod 可达，见 `docs/backup-restore.md` §7.5。
 - 代码按能力分包：`main.go` 只做命令分发，`internal/<能力>/` 放实现，
   `internal/shared/` 放配置、ssh 封装与服务器清单模型。详见「目录与边界」。
 - 服务器（备份端 / 应用端）只在 `servers.json` 登记一处，命令用 `--server <name>` 选目标。
@@ -485,16 +493,18 @@
     阻塞分全局 `blockers` 与候选行 `row_blockers` 两级、换选中行重新取计划，前端不算 `available`。
     🔴 报告只报脚本结果，不写「恢复成功，服务正常」；Flyway / 应用健康是人工步骤（硬约束 7）。
     `minio_restore.sh` 固定恢复 `SRC_BUCKETS` 全部桶、对象数不采集、预演不跑 `mc mirror --dry-run`；
-    **恢复脚本本体一行未改**，禁止入 Crontab、必须有人值守。
+    `minio_restore.sh` 一行未改，`pg_restore.sh` 2026-11-10 只修 stdin（§7.5），
+    恢复逻辑 / 二次确认 / 禁止入 Crontab / 必须有人值守都没动。
     🔴 真机演练（§7.3）确认：只读归档检查用的是**备份机** `pg_restore`，正式恢复用的是
     **主服务器容器内**的 `pg_restore`，两侧版本可能不同（16.15 读不了归档 1.16、18.6 能读），
     会出现「dump 实际可恢复却被 `row_blocker` 挡下」。文案必须如实说明判的是哪一侧、
     给人工复核指引，**不提供绕过开关**；也不许因此删掉归档检查或去连生产端凭证。
+    解挡只能把**校验侧客户端对齐到执行侧版本**（2026-11-10 手工装 18，§7.5），不改判据。
     🔴 预演脚本不许用 `pg_restore -l ... | head`（POSIX sh 无 pipefail，失败会被吞成 0）。
-    🔴 真机写演练（§7.4）发现：`pg_restore.sh` 内部 `remote_exec` 的 ssh 会吞掉脚本 stdin，
-    经 ssh 喂二次确认串必然报「数据库名称不匹配」；修法只给 `remote_exec` 加 `-n`
-    （`remote_docker_stdin` 必须保留 stdin 转发 globals_*.sql），改脚本要重新
-    `ops backup deploy`。本次**未改远端脚本**，列为遗留风险（§4 第 10 条）。
+    🔴 `pg_restore.sh` 内部 `remote_exec` 的 ssh 会吞掉脚本 stdin（§7.4）：只能给
+    `remote_exec` 加 `-n`，`remote_docker_stdin` **必须**保留 stdin 转发 globals_*.sql，
+    不许全局加 `-n`、不许绕过二次确认；`backupdist_test.go` 从嵌入产物锁住这三条。
+    本仓已修（§7.5），**远端仍是旧脚本**，改脚本必须重新 `ops backup deploy` 才生效。
     详见 `docs/backup-restore.md` §5 / §7 与 `docs/ui.md` §16。
 
 ## 命令与验证

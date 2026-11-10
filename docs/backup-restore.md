@@ -17,6 +17,13 @@
 > PG 用容器内 `pg_restore 18.6` 恢复到临时库，**60 表 / Flyway 9 与生产库一致**。详见 §7.4。
 > 🔴 **工具侧 PG 正式恢复仍未跑通**：归档阻塞先挡下；且 `pg_restore.sh` 内部 `ssh` 会吞掉
 > stdin，解除归档阻塞后还需修脚本（§4 第 10 条）。演练产物已清理、环境回到基线。
+> ✅ **2026-11-10 两道坎各自收口一半（§7.5）**：本仓 `pg_restore.sh` 的 stdin 坑已修并加
+> 源码断言；备份机 k4 已手工装 PGDG `postgresql-client-18`（`pg_restore 18.6`），归档 1.16
+> 变「可解析」，`list / plan / run --dry-run` 全绿、`available=true`。stdin 修复用真实 ssh
+> 链路做了新旧脚本对照实证。🔴 但**新脚本尚未部署到 k4、正式恢复全链路仍未跑**：当次
+> `prod` 的 22 / 2226 都不返回 SSH banner（ICMP 全丢），而 `ops backup deploy` 的
+> preflight 失败会回滚 `.old`（[backup-deploy.md](backup-deploy.md) §4.5），故刻意没跑；
+> 待 prod 恢复后按 §7.5 清单补齐部署与临时库演练。
 > §5.0 的评审结论（R1–R6）是实现的判据，不因落地或演练而失效。
 
 # 备份恢复
@@ -192,6 +199,10 @@ make minio-restore             # ② 交互式输入 YES 才继续
    工具**不提供绕过开关**；🔴 `ops backup deps --pg-major 18` **不能**用来升级（20:09 真机
    确认：它只补「缺失」依赖，16.15 已装就报「没有缺少的依赖」）。要放行得手工装 PGDG
    `postgresql-client-18`，或按 §3 人工 SOP 在容器内恢复（本次演练走后者）。详见 §7.3 / §7.4。
+   ✅ **2026-11-10 已按前一条手工装 18**（§7.5）：备份机 `pg_restore` 变 18.6，同一份 dump
+   的只读归档检查变「可解析」、候选 `selectable=true`、`plan available=true`。
+   **判据一行未改、也没有加绕过开关**——只是把校验侧客户端对齐到执行侧版本；
+   `ops backup deps` 的「只补缺失」语义保持原样，换机器仍需人工装版本化客户端。
 7. 🔴 **磁盘要留三份**：`.dump` 同时占备份端、主服务器 `/tmp`、容器内 `/tmp`；
    `PG_RESTORE_JOBS` 调并发，不解决空间。传大文件前先看 `df`。
 8. 🔴 **身份与凭证**：以清单 `user` 跑（同一 HOME / `~/.ssh` / `~/.mc`）；
@@ -203,12 +214,16 @@ make minio-restore             # ② 交互式输入 YES 才继续
     `remote_exec "echo ok"` 等内部 `ssh` 读光脚本 stdin，第 3 步
     `read -r -p "输入目标库名"` 拿到 EOF →「数据库名称不匹配，恢复操作已取消」；
     经 ssh 喂 1 行 / 5 行确认串都失败。人在备份机**本地终端**交互执行没有这个问题，
-    但工具经 `StreamWith` 喂确认串同样会踩到（当前被归档阻塞挡住、暂不可达）。
-    修法是给 `remote_exec` 的 ssh 加 `-n`，**但不能全局加**：`remote_docker_stdin`
-    必须保留 stdin 转发（`globals_*.sql` 靠它喂 `psql`）。改本仓
-    `deploy/backup/postgres/pg_restore.sh` 后要重新 `ops backup deploy` 才生效
-    （会重跑 install.sh / crontab / logrotate）。本次演练**没有改远端脚本**，
-    列为已知遗留风险，见 §7.4。
+    但工具经 `StreamWith` 喂确认串同样会踩到（当时被归档阻塞挡住、暂不可达）。
+    ✅ **2026-11-10 本仓已修（§7.5）**：`SSH_CMD` 拆成 `SSH_BASE` / `SSH_TARGET`，
+    `remote_exec` 的 ssh 带 `-n`（内部调用不再读脚本 stdin），`remote_docker_stdin`
+    **不带** `-n**（`globals_*.sql` / `.sql` 仍靠它把内容喂进容器内 `psql`）；
+    二次确认的 `read` 一行未动，**不是绕过确认**。`backupdist_test.go` 从嵌入产物读源码
+    锁住三条（漏 `-n` / 全局加 `-n` / 给 stdin 链路加 `-n` 都要红），并用真实 ssh 链路
+    做了新旧脚本对照实证。🔴 **远端仍是 11-07 旧脚本**：改本仓后要重新
+    `ops backup deploy` 才生效（会重跑 install.sh / crontab / logrotate；preflight 失败会
+    回滚 `.old`，见 [backup-deploy.md](backup-deploy.md) §4.5），本次因 `prod` 不可达
+    **没有部署**。
 
 ## 5. 工具侧方案与落地（已实现 · 真机演练已跑 · 2026-11-08 按原型评审定稿并同日落地）
 
@@ -218,8 +233,10 @@ make minio-restore             # ② 交互式输入 YES 才继续
 > `backup-restore-prototype-map.md`）：六个场景、PG 与 MinIO 候选表、预演计划、确认弹窗门禁
 > 与任务报告；原型是静态速览，不连远端、不执行动作。**原型与本分册冲突时改原型。**
 > ✅ 只读链路（19:43，§7.3）与写动作演练（20:09，§7.4）都已连真机跑过；写演练由用户
-> 声明「测试数据可覆盖、未正式上线」后授权。🔴 工具侧 PG 正式恢复因归档阻塞 + 脚本
-> stdin 坑仍未跑通（§4 第 6 / 10 条），不提供绕过开关。
+> 声明「测试数据可覆盖、未正式上线」后授权。
+> ✅ 2026-11-10：归档阻塞已解除（备份机装 18 客户端）、stdin 坑本仓已修，
+> 只读 `list / plan / run --dry-run` 全绿（§7.5）。🔴 工具侧 PG **正式恢复仍没跑通**：
+> 新脚本尚未部署到 k4，且 `prod` SSH 不可用；不提供绕过开关，也不拿预演当执行凭证。
 
 ### 5.0 评审结论（对着原型六个场景逐条过）
 
@@ -327,12 +344,13 @@ R1 是评审里唯一的阻塞级矛盾：若照原型直译，实现时必然�
 
 ### 5.7 验收（真机；**只读 + 写动作均已跑**；用例集 = 原型六个场景）
 
-> **状态（2026-11-08 20:2x 更新）**：`ready` / `no-checksum` / `cron-running` / `offline` /
+> **状态（2026-11-10 更新）**：`ready` / `no-checksum` / `cron-running` / `offline` /
 > `blocked` 的只读判据见 §7.3；写动作部分（MinIO 正式恢复、界面失败任务、PG 临时库恢复
 > 与数据核对）见 §7.4，由用户授权「测试数据可覆盖」后执行，产物已清理、环境回到基线。
-> 🔴 仍缺：工具侧 PG 正式恢复全链路（归档阻塞 + 脚本 stdin 坑，§4 第 6 / 10 条）；
-> 真正的「脚本中途失败 / 失败桶」运行期场景没有人为制造（不破坏环境），
-> 失败阶段与报告措辞由界面预检门失败任务验证。
+> ✅ 2026-11-10 补：候选归档变「可解析」、`plan available=true`、`run --dry-run` 读出
+> 859 条 TOC（Dump Version 1.16-0）；stdin 修复有新旧脚本对照实证（§7.5）。
+> 🔴 仍缺：**部署新脚本之后的**工具侧 PG 正式恢复全链路（写临时库 + 60 表 / Flyway 核对），
+> 以及真正「脚本中途失败 / 失败桶」运行期场景（不破坏环境）；当前阻塞是 `prod` SSH 不可用。
 
 | 原型场景 | 判据 |
 | :--- | :--- |
@@ -376,8 +394,10 @@ R1 是评审里唯一的阻塞级矛盾：若照原型直译，实现时必然�
 
 ### 7.1 真机前置与已知差异
 
-- 🔴 **恢复脚本仍是远端已部署的那两份**，本次没有改 `deploy/backup/**`；工具只接一根线过去。
-  正式执行前确认 `ops backup deploy` 已把 `pg_restore.sh` / `minio_restore.sh` 落到备份机。
+- 🔴 **远端跑的仍是 11-07 部署的那两份脚本**：2026-11-08 落地时工具只接一根线过去，
+  `deploy/backup/**` 一行未改；**2026-11-10 本仓修了 `pg_restore.sh` 的 stdin 坑**（§7.5），
+  但还没部署。正式执行前必须重新 `ops backup deploy`，确认带 `-n` 的新版落到备份机
+  （preflight 失败会回滚 `.old`，见 [backup-deploy.md](backup-deploy.md) §4.5）。
 - 🔴 **MinIO 脚本固定恢复 `SRC_BUCKETS` 全部桶**；对象数 / 最近同步显示 `—`；只读预演不跑
   `mc mirror --dry-run`。三条差异见 §5.2，界面与计划里都已明说，不是遗漏。
 - 🔴 **界面子进程 30 分钟上限**：超时只结束本机等待，报告写「远端恢复脚本可能仍在执行」，
@@ -386,7 +406,9 @@ R1 是评审里唯一的阻塞级矛盾：若照原型直译，实现时必然�
   都是 §3.3 的人工收尾。任务日志与 HTTP 响应不含私钥路径与 DB / MinIO 凭证。
 - **§5.7 真机演练状态**：只读判据（§7.3）与写动作演练（§7.4）都已跑；`ops.exe`
   已按 §7.3 的修复重建，19:50 通过界面「重启」加载新 exe（同端口同 token、boot_id 已换）
-  并复验。🔴 工具侧 PG 正式恢复全链路仍未跑通（归档阻塞 + 脚本 stdin 坑，§4 第 6 / 10 条）。
+  并复验。✅ 2026-11-10 新 exe 再按 stdin 修复重建（13,679,616 B），但**远端脚本仍是
+  11-07 旧版**；🔴 工具侧 PG 正式恢复全链路仍未跑通，前置是「prod SSH 恢复 → 重新
+  `ops backup deploy` → 临时库演练」，见 §7.5。
 
 ### 7.2 回归要点
 
@@ -470,8 +492,87 @@ PG / MinIO 心跳都在 1.4 小时前、磁盘 14.8 GB 可用、`problems=[]`（
    只是当前被归档阻塞挡住、尚未可达。修法要给 `remote_exec` 的 ssh 加 `-n`，但
    `remote_docker_stdin` 必须保留 stdin 转发（`globals_*.sql` 靠它喂 `psql`），不能全局加；
    改本仓脚本后还要重新 `ops backup deploy`（会重跑 install.sh / crontab / logrotate）。
-   本次**没有改 `deploy/backup/**`**，列为已知遗留风险。
+   11-08 演练**没有改 `deploy/backup/**`**，当时列为已知遗留风险；该坑已在 2026-11-10
+   本仓修好并加断言、做了对照实证（§7.5），但**远端脚本仍未更新**。
 
-**仍未覆盖**：工具侧 PG 正式恢复全链路（上述两道坎）；真正「脚本执行中途失败 / 失败桶」
-的运行期场景没有人为制造（不为了造故障去破坏环境），失败阶段与报告措辞由界面预检门
-失败任务验证。要补这两项，先修脚本 stdin + 手工装 18 客户端，再重跑 §5.7 用例集。
+**仍未覆盖（2026-11-10 已推进两项，见 §7.5）**：工具侧 PG 正式恢复全链路仍需
+「重新部署新脚本 + prod 可达」；归档阻塞已解除、stdin 坑本仓已修并有对照实证。
+真正「脚本执行中途失败 / 失败桶」的运行期场景没有人为制造（不为了造故障去破坏环境），
+失败阶段与报告措辞由界面预检门失败任务验证。要补完，先按 §7.5 的顺序重跑 §5.7 用例集。
+
+### 7.5 2026-11-10 收口进展（脚本 stdin + 18 客户端；prod 不可达挂起）
+
+> **授权与边界**：用户授权「在 k4 装 18 客户端 + 重新 `ops backup deploy` + 用临时库
+> `restore_test` 跑一次工具侧 PG 正式恢复并核对、演练后清理」，不覆盖 `pass_up_dev`。
+> 只读前置核对时发现 `prod` 不可达，**只跑了不依赖生产端的部分**；部署与正式恢复主动挂起，
+> 没有拿 `--dry-run` 的结果当执行凭证，也没有改远端已部署的脚本。
+
+**① 本仓修复 stdin 坑**（§4 第 10 条）：`deploy/backup/postgres/pg_restore.sh` 把
+`SSH_CMD` 拆成 `SSH_BASE` / `SSH_TARGET`，`remote_exec` 带 `-n`、`remote_docker_stdin`
+不带；`backupdist_test.go` 从**嵌入产物**读源码锁住三条红线（漏 `-n` / 全局加 `-n` /
+给 stdin 链路加 `-n`），三种改坏方式都实测变红、还原后全绿。`go vet ./...`、
+`go test ./...`（10 包）、`bash -n`、无 CR、`go build -o ops.exe .`（13,679,616 B）
++ `__dist-check` 全过；**新 exe 已带修好的脚本，但远端尚未部署**。
+
+**② k4 手工装 PGDG 18 客户端**（按 §4 第 6 条既定路线，不改 `ops backup deps` 语义）：
+noble / amd64，写 `/etc/apt/sources.list.d/pgdg.sources` 与官方密钥后
+`apt-get install -y postgresql-client-18`。结果 `pg_restore` / `pg_dump` 均变 **18.6**，
+`postgresql-client-16` 与 `postgresql-client-common` 共存，`libpq5` 顺带升到 18.6；
+`sudo -n` 可用、crontab 仍是 4 条、**没有重新部署、没有跑备份**。判据一行未改、
+也没有加绕过开关，只是把校验侧客户端对齐到执行侧版本。
+
+**③ 只读链路实证**（本机 CLI → k4，不连 prod）：
+
+| 动作 | 结果 |
+| :--- | :--- |
+| `ops restore list --server k4 --component pg --json` | `checksum=通过` / `archive=可解析` / `freshness=2.1 天前` / `selectable=true` / `row_blockers=[]`，`scripts_ok=true`、磁盘 14.42 GB |
+| `ops restore plan ... --candidate daily/pass_up_dev_20261108_101840.dump --db restore_test --cron-confirmed` | `available=true`、全局阻塞「无」、首行回显恢复目标 `192.168.1.221:2226 / postgres / restore_test` |
+| `ops restore run ... --dry-run` | `PHASE 2/5` 用 18.6 读出归档：`TOC Entries: 859` / `Dump Version: 1.16-0` / `Dumped by pg_dump 18.6`；「归档目录可解析；未写生产端」，预演完成且声明不是执行凭证 |
+
+**④ stdin 修复的真实 ssh 对照实证**：把**修改后的脚本**按段落标记切到「第 3 步二次确认」
+之后、恢复动作之前（跳过 2d 校验和：远端 `.sha256` 里是绝对路径，本机临时目录对不上），
+dump 从 k4 scp 到本机临时目录，配置里把 `PG_SSH_HOST` 指到可达的 k4，让 2a 的内部 ssh
+走真实链路；`printf 'restore_test\n'` 喂 stdin：
+
+- 新脚本（`-n`）→ `PROBE_CONFIRMED=[restore_test]`，二次确认读到了确认串；
+- 同一份脚本去掉 `-n` → `❌ 数据库名称不匹配，恢复操作已取消。`，**复现 11-08 真机故障**。
+
+临时目录用完即清理。这是「脚本前段 + 真实 ssh」的对照验证，**不是完整恢复脚本端到端**；
+后者要等 prod 恢复、脚本部署后才能跑。
+
+**⑤ 挂起原因（只读诊断）**：
+
+- `prod 192.168.1.221` 的 22 / 2226 端口 TCP 都通、ARP `REACHABLE`，但**两个端口都不返回
+  SSH banner**（`Connection timed out during banner exchange`），ICMP 100% 丢包；
+  从本机与从 k4 过去一致，重试仍失败。30 秒长超时复核：`2226` 依然无 banner，
+  `22` 回 `kex_exchange_identification: read: Connection reset by peer` —— 不是慢启动。
+  恢复脚本 / `pg_backup.sh` 都走这条 ssh。
+- k4 `uptime 9 min`（刚开机）、`cron` / `ssh` 服务 active；`pg_backup.log` 停在
+  11-08 10:18，`ops status --server k4 --json` 显示心跳 50.4 小时前、两条 danger
+  （超过 26h 阈值）、磁盘剩余 14.8 GB，无其它 problem。**心跳落后主要是关机造成**。
+- crontab 4 条（2:00 / 3:00 备份，8:00 / 9:00 巡检）逐条核对未改；`backup.env` 的非凭证
+  字段（`PG_SSH_HOST/PORT`、`PG_CONTAINER_NAME`、`PG_DB_NAME`）与清单一致。
+
+**⑥ 为什么没跑 `ops backup deploy`**：[backup-deploy.md](backup-deploy.md) §4.5 写明
+preflight 失败会**恢复 `.old` 目录并重跑旧版 install.sh**（可能把任务装回 root crontab）。
+此刻 preflight 的 SSH 探测必然失败，跑下去只会把刚修的脚本回滚、把 crontab 弄成半状态，
+所以刻意不跑。同理，正式恢复也没有触发。
+
+**⑦ 待办（prod 恢复后按顺序，仍是 §5.7 用例集）**：
+
+1. 复核 `prod` SSH 与容器健康、`pass_up_dev` 基线（60 表 / Flyway 9）。
+2. `ops backup deploy --server k4`（不加 `--run-now`）：确认 `/opt/passup-backup/postgres/pg_restore.sh`
+   已带 `-n`、crontab 仍是 4 条且属主 `cql`、preflight 通过。
+3. `ops restore run --server k4 --component pg --candidate daily/pass_up_dev_20261108_101840.dump
+   --db restore_test --confirm yes --db-confirm restore_test --checks 1,1,1 --cron-confirmed`
+   —— **临时库**，不覆盖 `pass_up_dev`；看 `PHASE 1→5` 与「只报脚本结果」的报告。
+4. 核对 `restore_test` 的 60 表 / Flyway 9 → `dropdb restore_test` → 复核库列表、crontab、
+   心跳、容器健康，回到基线。
+5. 结论回写本文状态行 / §5.7 / §7.1、`AGENTS.md`、`ui.md` §16、原型 map；原型 HTML 的
+   场景语义不变（`blocked` 仍是设计态回归基线）。
+6. 可选：让 `ops backup deps --pg-major` 支持「已装但版本低」的对齐安装；本次按既定
+   路线**没有改**，换机器仍需人工装版本化客户端。
+
+> 若要撤回 18 客户端：`apt-get remove postgresql-client-18` 并删掉 PGDG 源与密钥即可，
+> 但 `libpq5` 已升到 18.6、16 客户端仍在，撤掉后 `/usr/bin/pg_restore` 会回到 16.15，
+> **归档阻塞会回来** —— 撤之前先确认是否还要走工具侧恢复。
