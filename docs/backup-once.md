@@ -1,4 +1,4 @@
-> 状态：**已实现 · 真机演练待做（2026-11-08 提出文档 → 原型 → 同日落地代码）**
+> 状态：**已实现 · 2026-11-10 22:1x 按 §8 七场景完成真机验收（逐条见 §8.1）**
 
 # 手动备份（立即跑一次）
 
@@ -14,9 +14,10 @@
 > 另有只读的 `GET /api/backup/once/plan`（动作计划）与 `/once/source`（备份对象回显）。
 > 同日按界面反馈把「目标服务器 = 备份机、生产端由 backup.env 决定」说清、并精简了页面布局。
 > 落地记录见 §7，界面见 [ui.md](ui.md) §15。
-> 🔴 **真机前置未完成**：`minio_backup.sh` 的补锁已在本仓改好并编进 `ops.exe`，
-> 但必须重新 `ops backup deploy` 把新脚本推到备份机才生效；§8 的真机用例尚未跑。
-> 在此之前，CLI 与界面**可预演、可看计划，正式执行要人工评估与定时窗口撞车的风险**。
+> ✅ **真机前置已闭环**（§7.1）：21:4x 重新 `ops backup deploy` 时补锁版已推到备份机，
+> 22:1x 只读复核两脚本都带 `flock -n 9`。§8 七场景已验收：`ready` / `locked` / `failed` /
+> `busy` 真机跑通，`blocked` / `timeout` / `offline` 由代码判据 + 单测覆盖（未造故障 / 断网）；
+> 逐条证据与三处判据修正见 §8.1。🔴 验收发现 preflight 弱凭证告警回显占位值，见 §8.1 ③。
 
 ## 1. 现状与缺口（落地前）
 
@@ -234,13 +235,14 @@ userinfo 与 path，`*_KEY` / `*_SECRET` / `PG_SSH_KEY` 一律不进响应，错
 | 5 | 文档与原型回改 | [ui.md](ui.md) §15、[AGENTS.md](../AGENTS.md) 状态 / 硬约束 32 / 命令表 / 速查表、[backup-scripts.md](backup-scripts.md) §6、[backup-restore.md](backup-restore.md) §5.3、原型与 map 的「交互基线」状态 |
 | 6 | 重建产物 | `npm test` / `typecheck` / `build` + `go vet` / `go test ./...` / `go build -o ops.exe .`（`__dist-check` 通过）；**没有新增任何 `ops.env` / `backup.env` 键**，文档键断言仍绿 |
 
-### 7.1 真机前置（仍未完成）
+### 7.1 真机前置（2026-11-10 已闭环）
 
-🔴 **远端备份机上的 `minio_backup.sh` 还是旧版（没有锁）**。本仓脚本已改、已编进 `ops.exe`,
-但脚本只有在 `ops backup deploy` 时才会推到备份机（硬约束 19）。
-**上线顺序**：在备份机重新 `ops backup deploy`（会重跑 install.sh / preflight，但不会动 `backup.env`）→
-用 `bash -n` 或直接看脚本确认锁已到位 → 再跑 §8 的真机用例。
-在此之前，工具仍可预演、可看计划；正式执行与 2:00 cron 撞车的风险由人评估。
+✅ **21:4x 重新 `ops backup deploy all --server k4` 时已把补锁版推到备份机**（那次部署是
+为 `pg_restore.sh` 的 stdin 修复，见 [backup-restore.md](backup-restore.md) §7.6 / §7.8）。
+22:1x 验收前只读复核：`pg_backup.sh` / `minio_backup.sh` 都含 `flock -n 9`（各 1 处），
+锁文件分别是 `/var/log/pg-backup/pg_backup.lock` 与 `/var/log/minio-backup/minio_backup.lock`；
+crontab 4 条属主 `cql`、远端 `backup.env` 保留。硬约束 19 仍成立：**以后改
+`deploy/backup/**` 仍必须重新部署才生效**。
 
 ### 7.2 回归要点
 
@@ -248,10 +250,10 @@ userinfo 与 path，`*_KEY` / `*_SECRET` / `PG_SSH_KEY` 一律不进响应，错
 嵌入脚本锁断言 / 文档键断言）、`cd web && npm test && npm run typecheck && npm run build`、
 `go build -o ops.exe .`。改了 `web/` 或 `deploy/backup/**` 两步都不能省（§3 / 硬约束 19、26）。
 
-## 8. 验收（真机，尚未执行）
+## 8. 验收（2026-11-10 已执行，逐条结论见 §8.1）
 
-> **状态**：代码已实现、本机回归全绿；下表**真机用例一条都还没跑**，前置见 §7.1
-> （远端 `minio_backup.sh` 需要重新部署拿补锁版）。跑完把结论写回本文状态行与工作日志。
+> **状态**：§7.1 前置已闭环、七场景按 §8.1 验收完毕；下表判据仍是唯一基准，
+> 其中「正常一次」一行已按 §4.2 口径修正（文案在报告里，监控页无来源字段）。
 >
 > **用例集 = 原型七个场景**（同为评审用例）：`ready` → 预演 / 正常一次；`blocked` → preflight 阻塞；
 > `locked` → 撞锁与 cron 窗口；`failed` → 分组件汇总；`timeout` → 30 分钟超时；
@@ -260,13 +262,44 @@ userinfo 与 path，`*_KEY` / `*_SECRET` / `PG_SSH_KEY` 一律不进响应，错
 | 用例 | 判据 |
 | :--- | :--- |
 | 预演 | `--dry-run` 前后远端文件、`last_success.txt`、桶内容完全一致；只有 preflight 和计划输出 |
-| 正常一次 | 备份端新增 dump / 对象，脚本退出 0，报告**只报脚本结果**；监控页心跳变新鲜且文案注明「手动触发」 |
+| 正常一次 | 备份端新增 dump（MinIO 为 `mc mirror --overwrite` 同名覆盖、对象数不变），脚本退出 0，报告**只报脚本结果**；两个心跳变新鲜；固定提醒「手动触发不代表定时任务正常」在**报告**里（监控页按 §4.2 只显示「最近一次成功」，无来源字段） |
 | preflight 阻塞 | 自检 `1` 时不执行脚本；`2`（尚未首次备份）放行 |
 | 撞锁 | 与正在跑的 PG 备份重叠时如实报「被锁挡下，本次未执行」，不重试、不改心跳 |
 | 与 cron 窗口重叠 | 补锁后的 MinIO 手动与定时两路只有一路真正 `mc mirror`，另一路被锁挡下；工具**没有**跑过 `crontab -l` |
 | 超时 | 超 30 分钟时报告写「远端可能仍在执行」，不写「已取消」；不自动重试 |
 | 门禁 | 缺 `confirm` / 未知 `name` / 任意路径 / 越权组件 / 带 `targets` 都被服务端拒绝；弹窗无 sudo 密码框；备份期间部署与重启 409 |
 | 隔离与脱敏 | 期间 `ops status` 与监控页仍只读；crontab / `backup.env` 不被改动；HTTP 响应与任务日志无私钥路径与凭证 |
+
+### 8.1 2026-11-10 22:1x 验收记录（真机 k4）
+
+> **范围**：沿用 21:4x 已重新部署的远端脚本（§7.1 前置已闭环）。只读动作 + 两次正式
+> `once`（撞锁仿真、正常一次），以及一个本地 UI 实例的 HTTP 门禁；没有改远端配置、
+> 没有动 crontab、没有造破坏性故障。原型七场景语义不变。
+
+**① 逐条结果**
+
+| 用例 | 结果 | 证据 |
+| :--- | :--- | :--- |
+| 预演 | ✅ | `--dry-run` rc=0；前后快照逐项一致（4 个备份文件、两个心跳内容 + mtime、crontab 指纹、两个 `backup.env` 指纹、三个桶对象 hash）；输出含「没执行脚本 / 没产生 dump / 没写心跳 / 不代表定时任务正常 / 工具不读 crontab」 |
+| 正常一次 | ✅ | `once all` rc=0、`pg 0 / minio 0`；新增 4 个文件（dump + globals + 两个 sha256）；两个心跳刷新到 `14:19:59` / `14:20:02`；`ops status --json` 的 `problems=[]`；报告「只报脚本结果」+「这不等于备份体系正常」+ 固定手动触发提醒 |
+| preflight 阻塞 | ⚠️ 未真机造 rc=1 | `internal/backup/once.go` 判据 `code==1` 停 / `code==2` 放行（§3 门②），`once_test.go` 覆盖；真机 preflight 正常路径多次实证。不为了造阻塞去改远端 `backup.env` |
+| 撞锁 | ✅ | 远端短暂持住 `minio_backup.lock`（`flock -n 9`，`HELD` 探针确认），`once all` 里 MinIO 报「上一次备份任务仍在运行中，本次执行取消」退出 1；不重试、不清场、MinIO 心跳未变 |
+| 与 cron 窗口重叠 | ✅ | §7.1 前置实证：远端 `pg_backup.sh` / `minio_backup.sh` 都带 `flock -n 9`；持锁仿真等价「两路只有一路真正 `mc mirror`」；工具全程没读 crontab（前后指纹一致） |
+| 超时 | ⚠️ 未真机等 30 分钟 | `backuprun.go` / `internal/ui/backup.go` 的「本机已停止等待，远端可能仍在执行」、`once_test.go:298` 覆盖「不写已取消、不自动重试」；不为了造超时挂 30 分钟 |
+| 门禁 | ✅ | 本地 UI 实例 11 个非法请求全被拒：缺 confirm / `YES` / 带 password / 带 `targets` / 带 `pg_major` / 越权组件 / 未知 mode / 缺 name → 400，未知 name → 404；无 token → 401；错误 Origin → 403。弹窗 `showPassword=false`（代码判据 + 前端单测） |
+| 隔离与脱敏 | ⚠️ 见 ③ | crontab 与两个 `backup.env` 指纹前后一致、`ops status` / 监控页仍只读、`once/plan` / `once/source` / `monitor/status` 响应无凭证串 |
+| busy | ✅ | 并发第二个 `once-dry` 任务 → 409「已有备份任务在运行，等它结束再试」 |
+
+**② 原型七场景对账**：`ready`（预演 + 正常一次）✅、`locked` ✅、`failed`（`pg 0 / minio 1` 分组件汇总）✅、`busy` ✅ 为真机；`blocked` / `timeout` / `offline` 未真机造故障或断网，由代码判据 + 单测覆盖（`status_test.go` 的「连不上仍回完整快照」、`once_test.go:265` 的完整快照、`once_test.go:298` 的超时报告）。三者的计划仍是 `available=true`，差异只在运行期日志与报告 —— 与原型 `data-runtime` 口径一致。
+
+**③ 🔴 验收发现（既有行为，不是 `once` 引入）**
+
+- §8 表格原写「监控页心跳变新鲜且文案注明手动触发」，与 §4.2「不改采集协议、监控页只显示最近一次成功」冲突：`ops status` / 监控页**没有**「手动触发」字样，这句固定在**手动备份报告**里。判据已按 §4.2 修正，原型 `data-scenes` 语义不变。
+- MinIO 是 `mc mirror --overwrite` **同名覆盖**，对象数不变（87/1/0），不是「新增对象」；判据已改成「新增 dump、桶内同名对象被覆盖」。
+- `preflight_minio.sh` 的「疑似占位符/弱凭证（`12345678`）」把配置里的弱凭证字面值打进了任务日志；`SRC_SECRET` / `DEST_SECRET` 的值显示 `***`（脱敏正确），`PG_SSH_KEY` / `id_rsa` 只是「未配置时用默认密钥」的提示文字。`once` 本身没有读或回显 `backup.env`（`once.go` 红线成立），回显来自既有 preflight 脚本。**本轮只如实记录，没改脚本**；要修就改 `deploy/backup/**` 的告警文案并重新 `ops backup deploy`（独立一刀）。
+- 撞锁仿真结束后，本地 ssh 断开使远端 `timeout 90 bash -s` 成为孤儿仍持锁，已按 PID 精确清理并复核 `FREE`；没有影响后续正常一次，也没有残留进程。
+
+**④ 环境状态（验收后，不回基线）**：心跳刷新到 `2026-11-10 14:19:59`（PG）/ `14:20:02`（MinIO），`ops status` 两条 danger 消失；`daily/` 共 12 个文件（11-08 四个 + 两次手动各四个）；crontab 4 条、远端 `backup.env` 未改、桶对象数 87/1/0。🔴 **心跳新鲜是手动触发的结果，不代表定时任务正常**（§4.2）；下一次自动备份仍是 `11-11 02:00 UTC`（北京 10:00，MinIO）/ `03:00 UTC`（北京 11:00，PG），[backup-monitor.md](backup-monitor.md) §3.2.1 的关机诊断仍有效。
 
 ## 9. 决策与备选
 

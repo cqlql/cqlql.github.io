@@ -1106,8 +1106,9 @@ Go 侧单页回退（§7 的 `serveIndex`）一行不用改，访问过的页仍
 
 「备份监控」页（§14）的判据、采集协议、阈值一行未改；手动备份不改 crontab、
 不改 `backup.env`、不装 / 卸依赖、不碰容器与镜像；不新增 `ops.env` / `backup.env` 键。
-🔴 真机前置：远端 `minio_backup.sh` 的补锁版要重新 `ops backup deploy` 才生效
-（`docs/backup-once.md` §7.1），在那之前正式执行与定时窗口撞车的风险由人评估。
+✅ 真机前置已闭环：21:4x 重新 `ops backup deploy` 后远端 `pg_backup.sh` / `minio_backup.sh`
+都带 `flock -n 9`（`docs/backup-once.md` §7.1）；2026-11-10 按 §8 七场景完成真机验收，
+逐条证据见 §8.1。🔴 验收发现 preflight 弱凭证告警回显占位值（既有行为，本轮未改脚本）。
 
 回归：`go test ./internal/ui ./internal/backup`（六道门 / 计划接口 / 报告措辞 / 参数门 /
 脚本锁断言）、`cd web && npm test && npm run typecheck && npm run build`、
