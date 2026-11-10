@@ -1,6 +1,8 @@
-> 状态：**现行**（2026-11-08；本仓单文件原型落地口径；同日带锚点原型扩到三份
+> 状态：**现行**（2026-11-08 起；本仓单文件原型落地口径；同日带锚点原型扩到三份
 > （`backup-restore-prototype.html` / `backup-once-prototype.html`），§1 清单已同步；
-> 同日晚手动备份原型随代码落地转为「交互回归基线」，不删、不改锚点）
+> 同日晚手动备份原型随代码落地转为「交互回归基线」，不删、不改锚点）。
+> **2026-11-10 扩到四份**：新增 `deploy-prototype.html` / `deploy-prototype-map.md`
+> （P3 方案 · 待评审 · 七场景验收用例集，§1 清单已同步）。
 
 # 本仓单文件原型约定（实例）
 
@@ -19,9 +21,10 @@
 | `components-prototype.html` | 1827 | 42 个 | `components-prototype-map.md` | `components.md` / `ui.md` §13 |
 | `backup-restore-prototype.html` | 759 | 19 个 | `backup-restore-prototype-map.md` | `backup-restore.md` §3–§5 / §7（代码已实现 · 交互回归基线；真机只读 §7.3 + 写演练 §7.4 + 工具侧 PG 正式恢复 §7.6 均已跑；`psql` 吞错修复 §7.7 已在 §7.8 部署并真机验证） |
 | `backup-once-prototype.html` | 706 | 19 个 | `backup-once-prototype-map.md` | `backup-once.md` §2–§4 / §8（代码已实现 · 交互回归基线；2026-11-10 按七场景完成真机验收，逐条见 §8.1） |
+| `deploy-prototype.html` | 847 | 19 个 | `deploy-prototype-map.md` | `deploy.md` §3 / §5 / §6 / §9（**方案未实现** · 评审基线与验收用例集；第一刀只做 `--dry-run` 对齐、不真实发布） |
 | `config-compare.html` | 590 | 无 | 无 | `ui.md` §12.5 |
 
-行数为 2026-11-08 快照，以 `wc -l` 为准。
+行数为 2026-11-08 快照（`deploy` 行为 2026-11-10 首版），以 `wc -l` 为准。
 🔴 原型标「方案 / 未实现」时，判据权威仍是能力分册；实现落地后要给 `ui.md` 补对应一节再回看原型。
 🔴 原型只是**交互速览**，判据以能力分册为准；原型与分册不一致时改原型，不是改分册。
 

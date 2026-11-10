@@ -1,4 +1,7 @@
-> 状态：**方案（未实现）**（2026-11-07）；未实现方案的配置键表从 config.md §5 移入本文 §8。
+> 状态：**方案（未实现）**；2026-11-10 23:4x 按当前代码基座刷新方案并补交互原型，
+> 进入「P3 第一刀」的**评审准备**（按 11-07 拍板：只做 `--dry-run` 与 `deploy.sh`
+> 逐条对齐，**不真实发布**）。命令未注册、代码未写、原型不连远端；
+> 未实现方案的配置键表从 config.md §5 移入本文 §8。
 
 # 单机一键 Docker 部署
 
@@ -23,7 +26,16 @@
 **部署目标与备份服务器可以是同一台，也可以是两台**；目标机一律由
 [servers.json](servers.md) 的 `--server <name>` 选择，不再在 `ops.env` 里重复写 host。
 
+**2026-11-10 基座校准**：P0/P1/P2 与备份恢复 / 手动备份均已落地，本仓已按能力竖切
+`internal/<能力>/`；P3 实现时沿用现有基座，不另起一套 —— 清单解析与 SSH 执行
+（`servers.json` → `shared.SSHTarget`）、界面唯一后台任务锁、写动作的
+「显式二次确认 + 服务端预检门」、只读动作「连不上回完整快照、不白屏、不猜 0」。
+新增能力继续在 `internal/deploy/` 下建包（见 AGENTS.md「目录与边界」）。
+
 ## 2. 命令
+
+🔴 **以下是草案**：`ops deploy` / `rollback` / `ps` / `logs` 均**未注册**
+（`main.go` 的 `commandHandler` 是动词唯一注册表），不要照抄执行。
 
 ```
 ops deploy [all|infra|ai|backend|web] [--server <name>] [--dry-run] [--no-build] [--no-sync]
@@ -40,6 +52,11 @@ ops ps / ops logs <service> [-f] [--server <name>]
     只读查看容器状态与日志
 ```
 
+**本轮第一刀只实现 `--dry-run` 链路**：`ops deploy ... --dry-run` 只做真实 ssh 只读
+预检并打印将执行的每条远端命令，与 `deploy.sh` 的人工步骤逐条对齐；不改远端任何文件、
+不构建镜像、不 `compose up`。正式发布路径、`rollback` / `ps` / `logs` 属于后续刀（§5）。
+界面侧同样先只有「只读预演」，**没有正式发布按钮**。
+
 ## 3. 部署流程
 
 ### 3.1 预检
@@ -49,6 +66,12 @@ ops ps / ops logs <service> [-f] [--server <name>]
   （免密 `sudo -n` 或一次性密码经 stdin）；Docker + compose 插件、目标端口未被非本栈容器占用、
   磁盘余量、`/data/postgres` 与 `/data/minio/data` 可写；
 - 远端加锁（`/opt/passup/.deploy/lock`），拿不到锁立刻失败，不排队。
+- **身份口径（2026-11-10 校准）**：统一用清单 `user/key` 登录，提权只走 P0 已真机验证的
+  免密 `sudo -n`；界面不新造密码收集框，确需一次性密码也只经 stdin（硬约束 9）。
+  任何输出 / 错误 / 日志不打印私钥路径（硬约束 8）。
+- **锁与并发（2026-11-10 校准）**：远端锁与界面唯一后台任务锁都要拿；拿不到立刻失败、
+  不排队。撞锁是**运行期结果**，不是预演阻塞（手动备份 `locked` 同理）；已有任务在跑时
+  界面直接挡住第二次请求（409），不排队、不复用别人的任务日志。
 
 ### 3.2 配置备份 + 同步
 
@@ -61,6 +84,8 @@ ops ps / ops logs <service> [-f] [--server <name>]
   否则同一根因会伪装成三个不相干故障（PG 认证失败 / Lettuce 握手断开 /
   api-key `invalid header value`）。
 - `docker/www/` 用 `--delete`（纯构建产物）；`secrets/` **不用** `--delete`，权限 `600`，内容不打印。
+- **同步是写动作**：只在正式发布路径执行；`--dry-run` 只打印 rsync 命令与 CRLF
+  归一化步骤，不落盘、不传文件、不覆盖远端 `.env`。
 
 ### 3.3 构建
 
@@ -98,6 +123,10 @@ ops ps / ops logs <service> [-f] [--server <name>]
 - ai：`127.0.0.1:8006/resume/health`；web：`127.0.0.1:80/`；
 - 总上限由 `PASS_UP_OPS_DEPLOY_HEALTH_TIMEOUT` 控制；
 - 失败 → 自动回滚到 `:previous` 并重建，输出失败日志尾部。
+- **本轮不真实发布**，健康门只做「判定单测 + 预演文本」：连续 2 次 200 的判据，
+  以及 200/404/超时/「第一次 200、第二次失败」都要有单测（§5），不在真机造故障。
+- 失败报告只报检查结果与日志尾部，**不写「服务已恢复正常 / 部署成功」**；
+  自动回滚属于 P4，但 §3.7 的如实报告口径本轮先钉死。
 
 ### 3.7 回滚
 
@@ -105,6 +134,7 @@ ops ps / ops logs <service> [-f] [--server <name>]
 - `ops rollback` 重新 tag 并 `compose up -d`；
 - 🔴 **只回滚镜像，不回滚数据库**：Flyway 迁移是单向的，回滚旧镜像可能因 schema 已前进而起不来。
   此时必须明确说「镜像已回滚但服务可能起不来，需要前向修复」，**不许假装成功**。
+- 🔴 本轮**不实现** `ops rollback`；原型只展示失败后的如实报告口径，不执行任何回滚。
 
 ## 4. 与现有 `docker/deploy.sh` 的关系
 
@@ -115,14 +145,19 @@ ops ps / ops logs <service> [-f] [--server <name>]
   - `deploy.sh` 没有健康门与自动回滚；新工具有。
 - 配置来源仍是 `pass-up.backend/docker/.env` 与 `deploy.env` 的语义；
   新工具**不重新发明**一套环境变量名，只负责搬运与校验。
+- **本轮边界**：对齐只跑 `--dry-run`（真实 ssh 只读预检 + 打印命令），不改远端、
+  不构建、不拉起；`deploy.sh` 保留、不删、不改，对齐完成后也不在本轮停用。
 
 ## 5. 文件与阶段
 
 ```
-ops/
-  internal/deploy/deploy.go               预检、rsync、构建、流转、compose up、健康门
-  internal/deploy/rollback.go             :previous 回滚与 state.env
-  internal/deploy/deploy_test.go          预检/命令拼装/健康门判定的单测（不碰真实 docker）
+ops/  （以下均为计划，当前一个文件都不存在）
+  internal/deploy/plan.go                只读计划 / 预检结果（服务端下发，前端只渲染）
+  internal/deploy/cli.go                 ops deploy 的 CLI 分发与 --dry-run 输出
+  internal/deploy/deploy.go              构建、流转、compose up、健康门（P3b）
+  internal/deploy/rollback.go            :previous 回滚与 state.env（P4）
+  internal/deploy/*_test.go              命令拼装 / rsync 参数 / CRLF / 健康门判定（不碰真实 docker）
+  web/src/features/deploy/               界面视图（待评审 + P3a 后按 ui.md §7 触发条件加）
 ```
 
 | 阶段 | 内容 | 验收 |
@@ -132,6 +167,14 @@ ops/
 
 测试：命令拼装与 rsync 参数单测（含 CRLF 归一化、`--delete` 只作用于 `www`）；
 健康门判定单测（200/404/超时/连续 2 次）；**不写会真实构建镜像的单测**。
+
+**本轮状态（2026-11-10 23:4x）**：完成「分册校准 + 交互原型」（`docs/deploy-prototype.html`，
+分区索引 `docs/deploy-prototype-map.md`），**供评审**；代码仍为零。评审通过后按两刀落地：
+
+| 刀 | 范围 | 不做 |
+| :--- | :--- | :--- |
+| P3a | 只读计划 + `ops deploy --dry-run`，输出与 `deploy.sh` 人工步骤逐条对齐 | 不构建镜像、不 `compose up`、不改远端任何文件 |
+| P3b | 构建 / 流转 / 拉起 / 健康门 + 界面步骤进度与实时日志 | 不做 `rollback`（P4） |
 
 ## 6. 风险与硬约束
 
@@ -146,6 +189,9 @@ ops/
 | 同机其他容器 | 默认不加 `--remove-orphans`，不 `down -v`，不删 `/data` |
 | 并发发布 | 远端锁 + 本地锁；拿不到锁立刻失败 |
 | 密钥与 `.env` | 只 rsync，不在终端回显；`secrets/` 权限保持 `600` |
+| 预演被当成执行凭证 | `--dry-run` 报告固定带「本次仅预演、未改动远端」；预演通过 ≠ 可以发布 |
+| 运行期失败 | 撞锁 / 构建失败 / 健康门失败 / 超时都是运行期结果，**不写成预演阻塞**；报告停在失败阶段、不假装成功 |
+| 界面写动作 | 双击落地页只读；正式发布必须显式二次确认 + 服务端预检门（`ui.md` §9） |
 
 ## 7. 决策与备选
 
@@ -154,7 +200,7 @@ ops/
 | 默认 `docker save` → `ssh docker load` | 强制走 registry | 不要求目标机能访问镜像仓库；registry 作为可选加速 |
 | 默认 `all` | 按服务发布 | 「一键」语义；单服务仍可用 `deploy backend` |
 | 远端锁 + 本地锁 | 只加本地锁 | 多人 / 多机发布时本地锁挡不住 |
-| 暂不竖切 Go 包 | `backup/` + `deploy/` 子包 | 当前领域 < 10，按母本阈值先横切；触发条件出现再拆（见 `AGENTS.md`） |
+| 新增能力按 `internal/<能力>/` 竖切 | 继续横切 `backup/` + `deploy/` | 2026-11-05 已按能力竖切 Go 包，AGENTS.md「目录与边界」要求新增能力继续建包；P3 沿用，**不复活旧决策** |
 | 只做单机 Docker | 纳入 k8s | 本期目标明确是单机一键；k8s 另起分册 |
 | 主机来自 `servers.json` | 每台机器各写一套 `DEPLOY_HOST` | 主机定义只维护一处，`--server` 选目标；避免与备份端配置漂移 |
 
@@ -166,7 +212,8 @@ ops/
 🔴 **本节是设计稿**：当前版本**没有任何代码读这些键**，写进 `ops.env` 会被
 `LoadConfig()` 直接拒绝并提示「应用部署（P3–P4）方案尚未实现」（原因表见
 `internal/shared/opsenv.go` 的 `retiredOpsEnvKeys`）。实现时先在 `opsEnvKeys` 登记，
-再删掉本节提示。
+再删掉本节提示；`opsenv_test.go` 会断言本节键名数量与 `retiredOpsEnvKeys` 一致，
+改键表要同步两处。🔴 **2026-11-10 本轮校准未改动任何键名**（12 个键原样保留）。
 
 目标机同样由 `--server` 从清单选择；以下只保留非主机类配置。
 
@@ -184,3 +231,17 @@ ops/
 | `PASS_UP_OPS_WEB_HEALTH` | `http://127.0.0.1:80/` | |
 | `PASS_UP_OPS_DEPLOY_HEALTH_TIMEOUT` | `120s` | |
 | `PASS_UP_OPS_DEPLOY_KEEP_PREVIOUS` | `1` | 保留几份旧镜像 tag（磁盘紧张时设 0） |
+
+## 9. 本轮交付与评审口径（2026-11-10）
+
+- 交付：本文按当前代码基座校准 + `docs/deploy-prototype.html`
+  （分区索引 `docs/deploy-prototype-map.md`）。原型是**交互速览 + 验收用例集**：
+  七个场景 = 第一刀与后续刀的判据基线；不连远端、不发网络请求、不执行任何动作。
+- 🔴 **判据权威仍是本分册**：原型与分册不一致时**改原型，不是改分册**。
+  界面视图按 `ui.md` §7 触发条件再加，本轮不改 `web/`。
+- 🔴 本轮**没有**：注册 `ops deploy` / 回滚命令、改 `opsEnvKeys` /
+  `retiredOpsEnvKeys`、写 `internal/deploy/`、改前端、连真机、构建镜像、真实发布。
+- 🔴 七个场景钉死四条口径：① 第一刀只有 `--dry-run`，**没有正式发布按钮**；
+  ② 预演不是执行凭证；③ 撞锁 / 构建失败 / 健康门失败 / 已有任务是运行期结果，
+  不写成预演阻塞；④ 不 `down -v`、不删 `/data`、Flyway 单向且回滚后如实说明。
+- 评审通过后先落 P3a（§5），只跑真机只读对齐；**真实发布要等 P3b 单独授权**。

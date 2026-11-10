@@ -4,7 +4,14 @@
 > P1 备份能力部署已实现并真机验证；一键启动与桌面快捷方式（S2/S3/S5 + 图标同源）已实现，
 > **双击 `启动运维.cmd` 直接开网页面板**（隐藏守护 / 单实例 / 自动开浏览器 / 关闭界面），
 > S4 真机人工验收待做；✅ **P2a 备份监控 CLI 与 P2+ 界面已实现，2026-11-10 完成真机验收**；
-> P3–P4 应用部署仍为方案、代码未实现（2026-11-08 更新）。
+> P3–P4 应用部署仍为方案、代码未实现（2026-11-10 方案刷新 + 交互原型待评审，见下）。
+> ✅ **2026-11-10 23:4x P3 第一刀启动（仅方案 + 原型，代码仍未实现）**：
+> `docs/deploy.md` 按当前代码基座校准（清单 `user/key` + 免密 sudo、界面唯一任务锁、
+> 二次确认门、只读失败回完整快照、按能力竖切 Go 包），新增
+> `docs/deploy-prototype.html`（19 个锚点 / 847 行 / 七场景 = 验收用例集，分区见
+> `deploy-prototype-map.md`）；🔴 命令未注册、`internal/deploy/` 仍不存在、未连真机、
+> 未构建镜像、未真实发布。第一刀按 11-07 拍板只做 `--dry-run` 与 `deploy.sh` 逐条对齐，
+> 正式发布要等 P3b 单独授权；界面第 8 个导航项仍是方案，本轮不改 `web/`。
 > ✅ **2026-11-10 23:1x 备份监控真机验收闭环（`docs/backup-monitor.md` §13）**：
 > k4 跑真实 `ssh` 的 `ops status` 四段卡片 / `--json` 契约、隔离清单 + 真实 ssh 的
 > 断网 / 认证失败（rc=1 + 完整快照）、7799 界面实例的 401/400/404/403 门禁 /
@@ -699,8 +706,9 @@ ops menu --help
 - 新增能力 = 本表加一行 + 新建分册；**不要往已有分册里堆**。
 - 🔴 本仓单文件原型一律按 `docs/prototype-conventions.md` 办：埋 `@section` 锚点 +
   `<主体>-map.md` 分区索引；改前先 `grep -n "@section"` 定点读，**不要通读全文**；
-  新增区块要同步补锚点 + 更新该表。带锚点的原型现有三份：
-  `components-prototype.html` / `backup-restore-prototype.html` / `backup-once-prototype.html`，各自分区语义见同目录
+  新增区块要同步补锚点 + 更新该表。带锚点的原型现有四份：
+  `components-prototype.html` / `backup-restore-prototype.html` / `backup-once-prototype.html` /
+  `deploy-prototype.html`，各自分区语义见同目录
   `<主体>-map.md`（只索引该文件内部，本表仍是唯一能力索引）；
   `config-compare.html` 暂无锚点。原型清单与验收见 `docs/prototype-conventions.md` §1 / §5。
 - 本仓未建 `docs/doc-conventions.md` 全量副本（避免重复通用条款）；仓库正式初始化时按母本
@@ -719,7 +727,8 @@ ops menu --help
 | 备份监控（P2a CLI ✅ / P2+ 界面 ✅；**2026-11-10 真机验收通过**，见 §13） | `docs/backup-monitor.md`（界面见 `docs/ui.md` §14） | 只读采集；时间差在远端算；`-` 不是 0；**单账号**（清单 `user/key`，采集不提权）；网页与 CLI 共用 `CollectForServer` / `Status`，前端不算指标；8 个键已进 `docs/config.md` §3 |
 | 手动备份（立即跑一次 · **已实现，2026-11-10 按 §8 七场景真机验收**） | `docs/backup-once.md` §8.1（界面见 `docs/ui.md` §15） | 独立子命令 + 独立页，复用已部署脚本与同一把任务锁；不提权 / 无 sudo 密码框、不查 crontab、不改监控采集判据；报告只报脚本结果且**不能当成定时任务正常**；§7.1 补锁前置已闭环；验收发现的三处 preflight 凭证口径问题已分别修复并部署验证：弱凭证回显（§8.2）、前 3 后 3 展示（§8.3）、`*123456*` 子串误报（§8.4） |
 | 手动备份界面原型（**交互回归基线** · 代码已实现） | `docs/backup-once-prototype.html`（分区见 `docs/backup-once-prototype-map.md`） | 七场景 = 验收用例集；定时状态恒「不采集」、预演不是执行凭证、弹窗无 sudo 密码框、报告固定带手动触发提示；静态速览不连远端、不执行动作，冲突时改原型 |
-| 单机一键 Docker 部署（P3–P4 · 方案，未实现） | `docs/deploy.md` | `.env` 去 CRLF；镜像前缀必须等于 compose；Flyway 单向；方案键表在本文 §8，不进 config.md |
+| 单机一键 Docker 部署（P3–P4 · 方案，未实现；2026-11-10 分册校准 + 原型待评审） | `docs/deploy.md` | `.env` 去 CRLF；镜像前缀必须等于 compose；Flyway 单向；方案键表在本文 §8，不进 config.md；第一刀只 `--dry-run` 与 `deploy.sh` 逐条对齐，不真实发布 |
+| 应用部署界面原型（**P3 方案 · 待评审**） | `docs/deploy-prototype.html`（分区见 `docs/deploy-prototype-map.md`） | 七场景 = 验收用例集；第一刀只有 `--dry-run`、**没有正式发布按钮**；预演不是执行凭证；撞锁 / 构建失败 / 健康门失败是运行期结果、不是预演阻塞；静态速览不连远端、不发请求、不执行动作，冲突时改原型 |
 | 一键启动与桌面快捷方式（S2/S3/S5 ✅，S4 人工验收待做） | `docs/one-click-launch.md` | 双击直达网页面板（隐藏守护 + 单实例）；`.lnk` 只指启动器；图标用独立 `.ico`；名字校验挡路径穿越；双击绝不触发写操作，页面写操作要显式确认 |
 | 配置（唯一维护处） | `docs/config.md` | `ops.env` 的键只在 `internal/shared/opsenv.go`（未知 `PASS_UP_OPS_*` 直接报错）；`backup.env` 的键只在 `internal/shared/env-schema.json`，模板 / 脚本兜底 / 白名单 / 键表都是生成物，漏跑生成器 `go test` 会红 |
 | 单文件原型（分区锚点约定 · 本仓实例） | `docs/prototype-conventions.md` | 改前先 grep 锚点定点读、不通读全文；锚点只能是注释、行号不写进 map；新增区块同步补锚点 + 更新 map 表 |
