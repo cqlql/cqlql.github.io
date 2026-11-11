@@ -264,8 +264,8 @@ details.card[open] summary{margin-bottom:10px}
         <button class="chip" data-scene="busy">已有任务在跑</button>
         <button class="chip" data-scene="release-invalid">发版信息校验失败</button>
         <button class="chip" data-scene="release-history">发版历史（只读）</button>
-        <button class="chip" data-scene="p3b-review">P3b 方案（评审稿）</button>
-        <span class="badge">P3a 只读预演已落 · §11 P3b 评审稿 · 十场景 · 判据以 docs/deploy.md 为准</span>
+        <button class="chip" data-scene="p3b-review">P3b 方案（已拍板）</button>
+        <span class="badge">P3a 只读预演已落 · §11 P3b 已拍板定稿 · 十场景 · 判据以 docs/deploy.md 为准</span>
       </div>
       <div class="banner info" style="margin-top:0;margin-bottom:16px">
         <span class="ico">i</span>
@@ -297,7 +297,13 @@ details.card[open] summary{margin-bottom:10px}
         正式发布按钮恒禁用、没连真机、没真实发布、一个配置键都没启用；
         <b>确认可落地 ≠ 授权发布</b>。同时按 §9.6 把首版占位目标机名统一改为
         <code>k2</code>（k1 是备份服务器、不是部署目标），并按 §3.4 / §3.5 修掉
-        命令基线里「流转不落盘 / 四段拉起」的写死表述。</span>
+        命令基线里「流转不落盘 / 四段拉起」的写死表述。<br>
+        <b>2026-11-11 20:3x 9 条待拍板按推荐结论拍板 → §11 转「已拍板定稿」</b>：
+        授权当次有效 / 暂存成功即删失败人工清 / 52 键由人核对 / 健康门失败
+        <b>不自动回滚</b> / 窗口 150 s 内置 / 台账不加 <code>running</code> /
+        <b>0 新键</b> / CLI-first 三批 / <b>默认每轮构建</b>（<code>--no-build</code>
+        才复用镜像）。🔴 <b>P3b-1 未开工</b>、按 §11.8 另需单独授权；
+        本页仍是静态数据，正式发布按钮恒禁用、代码零改动。</span>
       </div>
       <div class="page-head">
         <div>
@@ -481,7 +487,7 @@ details.card[open] summary{margin-bottom:10px}
           <b>第一刀没有正式发布按钮</b>：上面的「正式发布」恒禁用；P3b 才开放，届时必须
           输 <code>yes</code> + 勾选确认 + 过服务端预检门。预演通过不等于可以发布。
           发版信息校验失败（第 8 个场景）同样挡住计划；发版历史（第 9 个场景）只读、
-          <b>不改变计划</b>；P3b 评审稿（第 10 个场景）只是静态判据快照，
+          <b>不改变计划</b>；P3b 定稿（第 10 个场景）只是静态判据快照，
           同样<b>不改变计划、按钮恒禁用</b>；预演报告只回显发版信息、不落台账。
         </div>
       </div>
@@ -495,17 +501,19 @@ details.card[open] summary{margin-bottom:10px}
         <div id="reportBox"></div>
       </div>
 
-      <!-- ==== @section card-p3b ==== P3b 评审稿：六道门禁 / 六阶段 / 真机证据缺口 / 待拍板（静态，不发请求） -->
+      <!-- ==== @section card-p3b ==== P3b 已拍板定稿：六道门禁 / 六阶段 / 真机证据缺口 / 9 条拍板结论（静态，不发请求） -->
       <div class="card">
-        <h2>P3b 实现方案（评审稿） <small>docs/deploy.md §11 · 2026-11-11 19:5x · 仍只改文档与原型</small></h2>
+        <h2>P3b 实现方案（已拍板定稿） <small>docs/deploy.md §11 · 2026-11-11 20:3x · 仍只改文档与原型</small></h2>
         <div class="banner info">
           <span class="ico">i</span>
-          <span><b>这一区不是功能，是一份待评审的稿子</b>：输入是 §9.7 / §9.8 的手工冒烟实证
+          <span><b>这一区不是功能，是 §11 的定稿判据快照</b>：9 条待拍板已按推荐结论拍板
+          （逐条理由见 <code>docs/deploy.md</code> §11.10），输入仍是 §9.7 / §9.8 的手工冒烟实证
           （k2 上 6 容器 Running、三个健康门 200）与四条限制，不是照抄 §3 旧稿。
           🔴 <b>代码零改动</b>：<code>ops deploy</code> 仍只有 <code>--dry-run</code>、
           不带它仍 rc=2；没连真机、没真实发布、没启用任何配置键、没写台账文件。
-          🔴 <b>确认可落地 ≠ 授权发布</b>：一句「继续」不算授权，正式发布要一次明确授权
-          且只对当次任务有效。判据权威是 <code>docs/deploy.md</code> §11，冲突时改原型。</span>
+          🔴 <b>P3b-1 未开工</b>、按 §11.8 另需单独授权；<b>确认可落地 ≠ 授权发布</b>，
+          一句「继续」不算授权，正式发布要一次明确授权且只对当次任务有效。
+          判据权威是 <code>docs/deploy.md</code> §11，冲突时改原型。</span>
         </div>
         <div class="plan-grid">
           <div class="box">
@@ -543,10 +551,15 @@ details.card[open] summary{margin-bottom:10px}
           </div>
         </div>
         <div class="hintline" style="margin-top:10px">
-          <b>待评审拍板 9 条（§11.10）</b>：授权形态 / 暂存 tar.gz 清理 / 52 键由谁核对 /
-          健康门失败<b>不自动回滚</b>（建议）/ 150 s 窗口统一 / append-only 接受「崩溃丢一次尝试」/
-          P3b 首刀仍 <b>0 新键</b>（推荐）/ CLI-first 与界面单独一刀 / 构建来源默认值。
-          未拍板前不得据本节写代码；本区不发请求、不读文件、不执行任何动作。
+          <b>9 条拍板结论（§11.10，20:3x 按推荐定稿）</b>：① 授权 = 一次明确指令 +
+          <b>当次有效</b>（每次仍过六道门 / <code>--confirm yes</code>）；② tar.gz
+          <b>成功即删、失败保留由人清</b>；③ 生产 <code>.env</code> 52 键<b>由人核对</b>、
+          结论只落在当次检查项；④ 健康门失败 <b>P3b 不自动回滚</b>（<code>rollback</code> 属 P4）；
+          ⑤ 窗口 <b>150 s 内置默认</b>、不启用 <code>HEALTH_TIMEOUT</code>；⑥ 台账接受
+          「崩溃丢一次尝试」、<b>不加 <code>running</code></b>；⑦ P3b 首刀仍 <b>0 新键</b>；
+          ⑧ <b>CLI-first 拆 P3b-1/2/3</b>；⑨ <b>默认每轮构建</b>、
+          <code>--no-build</code> 才复用镜像。
+          🔴 P3b-1 未开工、按 §11.8 另需单独授权；本区不发请求、不读文件、不执行任何动作。
         </div>
       </div>
 
@@ -561,7 +574,7 @@ details.card[open] summary{margin-bottom:10px}
             <code>release-invalid</code> 属于第一刀可见范围；
             <code>locked</code> / <code>build-failed</code> / <code>health-fail</code> 是
             P3b / P4 的运行期判据预置；<code>release-history</code> 是 P3b 只读历史视图判据；
-            <code>p3b-review</code> 是 §11 评审稿的静态判据快照，
+            <code>p3b-review</code> 是 §11 已拍板定稿的静态判据快照，
             三者计划都仍是 <code>available=true</code>、<b>不改变门禁</b>。</li>
           <li><b>计划 available 的口径</b>：<code>locked</code> / <code>build-failed</code> /
             <code>health-fail</code> 三者的计划仍是 <code>available=true</code> —— 撞锁、构建失败、
@@ -608,6 +621,14 @@ details.card[open] summary{margin-bottom:10px}
             并把首屏「<code>internal/deploy/</code> 一个文件都不存在」改成 P3a 已落的事实。
             <b>仍只改文档与原型</b>：没写 Go / 前端、没注册新命令、没启用配置键、
             没连真机、没真实发布、正式发布按钮恒禁用。</li>
+          <li><b>2026-11-11 20:3x 9 条待拍板按推荐结论拍板 → §11 转「已拍板定稿」</b>：
+            本页 <code>card-p3b</code> / <code>p3b-review</code> 改列 9 条结论
+            （授权当次有效 / 成功即删失败人工清 / 52 键人工核对 / 不自动回滚 /
+            150 s 内置 / 不加 <code>running</code> / 0 新键 / CLI-first 三批 /
+            默认每轮构建），分册同步修掉 §3.6 与 §3.7 / §5 的自动回滚矛盾、
+            更新 §5 阶段划分。锚点数仍 28、十场景不变、<b>正式发布按钮恒禁用</b>；
+            🔴 <b>只定判据、不定开工</b>：P3b-1 按 §11.8 另需单独授权，
+            仍只改文档与原型、代码零改动、没连真机、没真实发布。</li>
         </ul>
       </details>
       <div class="footnote" style="margin-top:12px">
@@ -973,15 +994,15 @@ var SCENES = {
       manual:'历史只读，没有编辑 / 删除 / 重发；接口失败回 items: [] 不白屏。'}
   },
   'p3b-review': {
-    title:'P3b 方案（评审稿）',
-    banner:{k:'info', s:'<b>§11 是评审稿，不是已批准的实现计划</b>：本刀只写分册与原型，'
-      + '输入是 §9.7 / §9.8 的手工冒烟实证（k2 上 6 容器 Running、三个健康门 200）与四条限制。'
-      + '<b>确认可落地 ≠ 授权发布</b>：<code>ops deploy</code> 仍只有 <code>--dry-run</code>、'
-      + '不带它仍 rc=2，正式发布要一次明确授权且只对当次任务有效。'
+    title:'P3b 方案（已拍板定稿）',
+    banner:{k:'info', s:'<b>§11 已于 20:3x 按推荐结论拍板定稿，不是已批准开工的实现计划</b>：'
+      + '9 条结论见 <code>deploy.md</code> §11.10；输入仍是 §9.7 / §9.8 的手工冒烟实证与四条限制。'
+      + '<b>确认可落地 ≠ 授权开工 ≠ 授权发布</b>：<code>ops deploy</code> 仍只有 <code>--dry-run</code>、'
+      + '不带它仍 rc=2；P3b-1 按 §11.8 另需单独授权，正式发布要一次当次有效的明确授权。'
       + '本场景是静态判据快照，<b>不改门禁、不发请求、不执行动作</b>；正式发布按钮恒禁用。'},
     ctx:baseCtx({server:'k2（servers.json · §9.6）',
-      lint:'P3b 评审稿 · 代码零改动 · 0 新键',
-      health:'8009 / 8006 / 80 · 启动窗口内连续 2 次 200'}),
+      lint:'P3b 已拍板定稿 · 代码零改动 · 0 新键',
+      health:'8009 / 8006 / 80 · 150 s 窗口内连续 2 次 200'}),
     pre:[
       {k:'P3a 只读预演 / 零写入',v:'k1 / k2 已验 diff 0',s:'ok'},
       {k:'落盘 + 断点续传主链路',v:'§9.8 手工跑通（全测试值）',s:'ok'},
@@ -996,27 +1017,29 @@ var SCENES = {
       {t:'care',s:'六道门禁：显式动词 / <code>yes</code> + 服务端预检门 / 九项预检 / 双锁 / <code>ValidateRelease</code> / 备份与 <code>:previous</code>（§11.1）'},
       {t:'care',s:'默认逐镜像 gzip 落盘 → 按远端大小跳过 → 一次只 load 一个 → 每步看内存 / 磁盘；成功只删本次 6 个文件，不 <code>rm -rf</code> 暂存目录（§11.3）'},
       {t:'care',s:'拉起按两个 compose 单元（合并视图 + ai 独立），旧「四段顺序」已作废；健康门 ai 约 30 s 才就绪，必须给启动窗口（§11.5）'},
-      {t:'care',s:'健康门失败建议<b>不自动回滚</b>、只停在当前阶段 + 如实报告；§3.6 与 §3.7 / §5 的矛盾列为待拍板 C（§11.5）'},
-      {t:'good',s:'建议 P3b 首刀仍 <b>0 新键</b>：参数来自 <code>--server</code> / 真实 compose / 内置默认（§11.7）'},
-      {t:'good',s:'台账入账界线仍是「有没有真正开始执行」：预演 / 校验 / 预检 / 撞锁 / 409 不入账（§10.4 / §11.6）'}
+      {t:'care',s:'<b>结论 C（已拍板）</b>：健康门失败<b>不自动回滚</b>、停在当前阶段 + 如实报告 + 保留现场；`rollback` 仍属 P4，§3.6 与 §3.7 / §5 的矛盾已按结论修掉（§11.5）'},
+      {t:'good',s:'<b>结论 F / D（已拍板）</b>：P3b 首刀仍 <b>0 新键</b>（参数来自 <code>--server</code> / 真实 compose / 内置默认），健康门窗口 <b>150 s 内置默认</b>、不启用 <code>HEALTH_TIMEOUT</code>（§11.7）'},
+      {t:'good',s:'<b>结论 E（已拍板）</b>：台账入账界线仍是「有没有真正开始执行」；不加 <code>running</code> 起始事件、不改结果三枚举（§10.4 / §11.6）'},
+      {t:'care',s:'<b>结论 A / B / 9（已拍板）</b>：tar.gz 成功即删失败保留人工清；生产 <code>.env</code> 52 键由人核对、结论只落在当次检查项；默认每轮构建、<code>--no-build</code> 才复用镜像（§11.10）'}
     ],
     phases:['wait','wait','wait','wait','wait','wait'],
     log:[
-      {t:'sec',s:'[判据快照] 场景 p3b-review · §11 评审稿（静态数据，不是执行结果）'},
+      {t:'sec',s:'[判据快照] 场景 p3b-review · §11 已拍板定稿（静态数据，不是执行结果）'},
       {t:'ok',s:'只读预演：P3a 已落 CLI，k1 / k2 前后快照 diff 0（§9.3 / §9.6）'},
       {t:'ok',s:'主链路：逐镜像 gzip 落盘 651.7 MB → 逐个 load → 两个 compose up → 6 容器 Running'},
       {t:'ok',s:'健康门：8009 / 8006 / 80 各 200；启动窗口内连续 2 次 200 才算过'},
       {t:'warn',s:'未验证：加锁 / 配置备份 / rsync / CRLF 归一化 / 构建 / 回滚 / 台账'},
       {t:'warn',s:'生产 .env 52 键没同步、没打印、地址未核对；全链路用的是测试值'},
       {t:'warn',s:'k2 失联没拿到 dmesg / OOM 证据，不断言因果'},
-      {t:'warn',s:'9 条待拍板未决：未拍板前不得写代码；一句「继续」不算发布授权'},
+      {t:'warn',s:'9 条已于 20:3x 按推荐结论拍板（§11.10）；但 <b>P3b-1 未授权开工</b>、每批次单独授权，一句「继续」仍不算开工 / 发布授权'},
       {t:'warn',s:'本页静态数据：不发请求、不读文件、不写台账、不执行任何动作'}
     ],
-    report:{k:'info', title:'P3b 评审稿报告（静态快照）',
+    report:{k:'info', title:'P3b 定稿报告（静态快照）',
       lines:['主链路可落地，但<b>文档不能原样照抄进代码</b>：§3.4 默认流转被证伪、§3.5 四段顺序作废、§3.6 缺启动窗口（§9.8）。',
-        '一半流程仍无真机证据；<b>确认可落地 ≠ 授权发布</b>，P3b 实现与真实发布都要单独授权。',
+        '9 条待拍板已按推荐结论拍板：不自动回滚 / 150 s 内置 / 0 新键 / CLI-first 三批 / 默认构建等（§11.10）；§3.6 的矛盾已按结论 C 修掉。',
+        '一半流程仍无真机证据；<b>确认可落地 ≠ 拍板 ≠ 授权开工 ≠ 授权发布</b>，P3b-1 与真实发布都要单独授权。',
         '本场景不改变预演计划，也不写「服务已恢复正常 / 部署成功」。'],
-      manual:'评审稿只改文档与原型；代码零改动、不带 --dry-run 仍 rc=2、正式发布按钮恒禁用。'}
+      manual:'定稿仍只改文档与原型；代码零改动、不带 --dry-run 仍 rc=2、正式发布按钮恒禁用。'}
   }
 };
 // ==== @section data-release ==== 发版信息静态数据：基线 / 台账 / 十场景覆盖值（scenes 与范围正交）
