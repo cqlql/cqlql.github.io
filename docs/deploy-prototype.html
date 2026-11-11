@@ -146,6 +146,60 @@ pre.log .sec{color:#ffa940}
 details.card summary{cursor:pointer;font-size:13px;font-weight:600;color:var(--info)}
 details.card ul{margin:8px 0 0;padding-left:20px;font-size:12px;color:var(--muted);line-height:1.9}
 details.card code{background:var(--code-bg);padding:1px 5px;border-radius:4px;color:var(--text)}
+/* ==== @section css-release ==== 发版信息表单（借鉴小程序上传代码）/ 台账 / 校验提示 / 上传按钮 */
+.release-wrap{display:grid;grid-template-columns:minmax(230px,1fr) minmax(300px,1.35fr);gap:14px}
+.release-left{border:1px solid var(--border);border-radius:9px;padding:12px 14px;background:var(--code-bg)}
+.release-left .lbl,.rel-row .lbl{font-size:12px;color:var(--muted)}
+.online-ver{font-size:26px;font-weight:600;letter-spacing:.5px;margin:4px 0 2px}
+.online-ver.unknown{color:var(--warn);font-size:18px}
+.release-left .src{font-size:11px;color:var(--muted);line-height:1.7}
+.ledger{margin-top:12px;border-top:1px dashed var(--border);padding-top:9px;
+  font-size:12px;color:var(--muted);line-height:1.8}
+.ledger b{color:var(--text);font-weight:600}
+.rel-form{display:flex;flex-direction:column;gap:9px}
+.rel-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.rel-row .lbl{min-width:66px}
+.bumps{display:flex;flex-wrap:wrap;gap:6px}
+.bump{border:1px solid var(--border);background:#fff;border-radius:20px;padding:5px 12px;
+  font-size:12px;color:var(--muted);cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.bump input{margin:0;accent-color:var(--primary)}
+.bump.active{border-color:var(--primary);background:var(--primary-bg);color:var(--primary)}
+.rel-input,.rel-note{width:100%;border:1px solid var(--border);border-radius:6px;
+  padding:7px 10px;font-size:13px;line-height:1.6;font-family:inherit;
+  color:var(--text);background:#fff}
+.rel-input.mono{font-family:ui-monospace,Consolas,"Courier New",monospace}
+.rel-note{resize:vertical;min-height:56px}
+.field-hint{font-size:11px;color:var(--muted);line-height:1.7}
+.rel-check{border-radius:7px;padding:8px 11px;font-size:12px;line-height:1.75}
+.rel-check.ok{background:var(--ok-bg);border:1px solid #b7eb8f;color:var(--ok)}
+.rel-check.bad{background:var(--err-bg);border:1px solid #ffccc7;color:var(--err)}
+.release-foot{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:11px;
+  border-top:1px dashed var(--border);padding-top:11px}
+button.act.upload{background:#16a34a;border-color:#16a34a;color:#fff}
+button.act.upload:disabled{background:#f3f4f6;border-color:var(--border);color:var(--muted)}
+.modal .rel-sum{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;
+  padding:9px 11px;font-size:12px;line-height:1.8;margin-bottom:12px;color:var(--text)}
+.modal .rel-sum .k{color:var(--muted)}
+@media(max-width:820px){.release-wrap{grid-template-columns:1fr}}
+/* ==== @section css-history ==== 只读发版历史折叠区：筛选 / 表格 / 结果徽标 / 空态 / 失败提示 */
+.hist-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:10px 0}
+.hist-bar .hintline{margin-right:auto}
+.hist-scroll{overflow-x:auto;border:1px solid var(--border);border-radius:8px}
+table.hist{width:100%;border-collapse:collapse;font-size:12px;min-width:880px}
+table.hist th,table.hist td{padding:7px 9px;text-align:left;border-bottom:1px solid var(--border);
+  vertical-align:top;line-height:1.6}
+table.hist th{background:var(--code-bg);color:var(--muted);font-weight:600;white-space:nowrap}
+table.hist tr:last-child td{border-bottom:0}
+table.hist td.mono{font-family:ui-monospace,Consolas,"Courier New",monospace;white-space:nowrap}
+table.hist td.note{max-width:230px;word-break:break-all}
+.rg{border-radius:20px;padding:2px 9px;font-size:11px;white-space:nowrap}
+.rg.ok{background:var(--ok-bg);border:1px solid #b7eb8f;color:var(--ok)}
+.rg.bad{background:var(--err-bg);border:1px solid #ffccc7;color:var(--err)}
+.rg.care{background:var(--warn-bg);border:1px solid #ffd591;color:var(--warn)}
+.hist-empty{border:1px dashed var(--border);border-radius:8px;padding:14px;
+  font-size:12px;color:var(--muted);line-height:1.9;background:var(--code-bg)}
+.hist-empty b{color:var(--text)}
+details.card[open] summary{margin-bottom:10px}
 /* ==== @section css-modal ==== 未来发布门禁弹窗（纯展示）/ toast / 响应式 */
 .modal-mask{position:fixed;inset:0;background:rgba(15,23,42,.45);display:flex;
   align-items:center;justify-content:center;padding:20px;z-index:20}
@@ -180,7 +234,7 @@ details.card code{background:var(--code-bg);padding:1px 5px;border-radius:4px;co
 </style>
 </head>
 <body>
-<!-- ==== @section html-shell ==== 导航（8 项，第 8 项为方案）/ 工具条 / 七个场景 chip / 说明 banner / 页头 -->
+<!-- ==== @section html-shell ==== 导航（8 项，第 8 项为方案）/ 工具条 / 九个场景 chip / 说明 banner / 页头 -->
 <div class="shell">
   <aside class="sider">
     <div class="brand">PassUp 运维</div>
@@ -208,7 +262,9 @@ details.card code{background:var(--code-bg);padding:1px 5px;border-radius:4px;co
         <button class="chip" data-scene="build-failed">构建失败</button>
         <button class="chip" data-scene="health-fail">健康门失败</button>
         <button class="chip" data-scene="busy">已有任务在跑</button>
-        <span class="badge">P3 方案 · 待评审 · 2026-11-10 · 判据以 docs/deploy.md 为准</span>
+        <button class="chip" data-scene="release-invalid">发版信息校验失败</button>
+        <button class="chip" data-scene="release-history">发版历史（只读）</button>
+        <span class="badge">P3 方案 · 待评审 · 2026-11-11 发版信息 + 版本历史 · 判据以 docs/deploy.md 为准</span>
       </div>
       <div class="banner info" style="margin-top:0;margin-bottom:16px">
         <span class="ico">i</span>
@@ -216,17 +272,28 @@ details.card code{background:var(--code-bg);padding:1px 5px;border-radius:4px;co
         不执行任何动作。<code>ops deploy</code> / <code>ops rollback</code> <b>均未注册</b>，
         <code>internal/deploy/</code> 一个文件都不存在。本轮（第一刀）按 2026-11-07 拍板
         <b>只做 <code>--dry-run</code> 与 <code>deploy.sh</code> 人工步骤逐条对齐，不真实发布</b>；
-        所以本页<b>没有正式发布按钮</b>。动作计划（能否执行 / 阻塞原因 / 影响清单 / 将执行的命令）
+        所以本页<b>没有可用的正式发布按钮</b>（发版信息里的「上传 / 正式发布」恒禁用）。
+        动作计划（能否执行 / 阻塞原因 / 影响清单 / 将执行的命令）
         由服务端下发、前端只渲染，原型里用静态对象投影。
         <code>locked</code> / <code>build-failed</code> / <code>health-fail</code> 是
-        <b>P3b / P4 的运行期判据预置</b>，第一刀不会出现，只用来钉死报告文案。</span>
+        <b>P3b / P4 的运行期判据预置</b>，第一刀不会出现，只用来钉死报告文案。<br>
+        <b>2026-11-11 借鉴微信开发者工具「上传代码」弹窗</b>：新增「发版信息」区
+        （线上版本号 / 更新类型 / 版本号 / 项目备注 / 上次填写）与第八个场景
+        <code>release-invalid</code>。这些字段<b>只是发版元信息，不是镜像 tag</b>；
+        第一刀表单可填写但「上传 / 正式发布」恒禁用，预演只回显、<b>不落台账</b>。
+        判据见 <code>docs/deploy.md</code> §10；本页仍是静态数据，不写任何文件。<br>
+        <b>2026-11-11 10:0x 补齐「版本历史」</b>：新增只读折叠的「发版历史」区与第九个场景
+        <code>release-history</code>。台账改成 <b>append-only 的正式发布尝试事件流</b> ——
+        成功 / 失败 / 回滚都留痕，<b>预演与门禁阻塞不入账</b>；回滚另记一条、不改旧记录；
+        只读接口失败回 <code>items: []</code> 不白屏。判据见 <code>docs/deploy.md</code> §10.4。</span>
       </div>
       <div class="page-head">
         <div>
           <h1>应用部署</h1>
           <div class="meta">第 8 个导航项（<b>方案，未实现</b>）。默认视图只读；目标机只来自
             <code>servers.json</code> 的 <code>--server &lt;name&gt;</code>，与备份机可同可不同。
-            流程：<code>预检 → 配置同步 → 构建 → 传输 → 拉起 → 健康门</code>。
+            流程：<code>预检 → 配置同步 → 构建 → 传输 → 拉起 → 健康门</code>；
+            发布前另填「发版信息」（§10，借鉴小程序上传代码），只作元信息、不替代镜像 tag。
             第一刀只开放「只读预演」，正式发布要等 P3b 单独授权。</div>
         </div>
         <span class="tag neutral">零跨页状态 · 与部署共用任务锁（未来）</span>
@@ -245,7 +312,12 @@ details.card code{background:var(--code-bg);padding:1px 5px;border-radius:4px;co
           2. <code>docker/.env</code> 是 CRLF，同步必须转 LF；镜像引用逐字等于 compose 的
           <code>image:</code> 前缀，远端注入 <code>IMAGE_TAG</code>。<br>
           3. Flyway 单向：<b>只回滚镜像，不回滚数据库</b>；回滚后起不来要如实说明，不许假装成功。<br>
-          4. 私钥路径不打印；写动作必须显式二次确认 + 服务端预检门；预演不是执行凭证。
+          4. 私钥路径不打印；写动作必须显式二次确认 + 服务端预检门；预演不是执行凭证。<br>
+          5. 发版号白名单 <code>^[A-Za-z0-9.]{1,32}$</code> 且<b>不是镜像 tag</b>；
+          备注单行 ≤200 字、不写远端不拼命令；线上版本号未采集不猜 <code>0</code>；
+          预演不落台账、上传恒禁用（§10）。<br>
+          6. 发版历史 append-only、只读：预演 / 门禁阻塞不入账，真正执行的成功 / 失败 /
+          回滚都留痕；接口失败回 <code>items: []</code> 不白屏（§10.4）。
         </div>
       </div>
 
@@ -277,6 +349,87 @@ details.card code{background:var(--code-bg);padding:1px 5px;border-radius:4px;co
           <b>明确指出缺哪一项</b>，不要开始构建；目标端口被非本栈容器占用、用户不在 docker 组同理。
         </div>
       </div>
+
+      <!-- ==== @section card-release ==== 发版信息（借鉴小程序上传代码）：线上版本号 / 更新类型 / 版本号 / 项目备注 / 取消·上传 -->
+      <div class="card">
+        <h2>发版信息 <small>借鉴小程序「上传代码」· 判据见 docs/deploy.md §10；第一刀只回显、不落台账、不写远端</small></h2>
+        <div class="release-wrap">
+          <div class="release-left">
+            <div class="lbl">线上版本号（只读）</div>
+            <div class="online-ver" id="onlineVer">1.16.0</div>
+            <div class="src" id="onlineSrc">来源：远端 .deploy/state.env · 只读快照</div>
+            <div class="ledger" id="lastRelease"></div>
+            <div class="field-hint" style="margin-top:8px">
+              连不上 / 文件不存在 → <b>未采集</b>，不猜 <code>0</code> / <code>1.0.0</code>；
+              非三段式不自动推算下一版；台账是追加的历史，回滚不动它。
+            </div>
+          </div>
+          <div class="rel-form">
+            <div class="rel-row">
+              <span class="lbl">更新类型</span>
+              <div class="bumps" id="bumpRow">
+                <label class="bump"><input type="radio" name="bump" value="major">版本升级</label>
+                <label class="bump"><input type="radio" name="bump" value="minor">特性更新</label>
+                <label class="bump"><input type="radio" name="bump" value="patch">修订补丁</label>
+                <label class="bump"><input type="radio" name="bump" value="last">上次填写</label>
+              </div>
+            </div>
+            <div class="rel-row">
+              <span class="lbl">版本号</span>
+              <input class="rel-input mono" id="verInput" type="text" maxlength="64" placeholder="1.16.1">
+            </div>
+            <div class="field-hint">仅限字母、数字、小数点（1–32 字）；🔴 <b>不是镜像 tag</b>，
+              <code>IMAGE_TAG</code> 仍用 git 短 commit，服务端 <code>ValidateRelease</code> 逐字再验。</div>
+            <div class="rel-row">
+              <span class="lbl">项目备注</span>
+              <textarea class="rel-note" id="noteInput" maxlength="300" placeholder="修复若干问题"></textarea>
+            </div>
+            <div class="field-hint">单行、≤200 字、无控制字符；只进本机台账与报告，
+              <b>不写远端、不拼进任何 shell 命令</b>。</div>
+            <div class="rel-check ok" id="releaseCheck"></div>
+          </div>
+        </div>
+        <div class="release-foot">
+          <button class="act" id="btnReleaseReset">取消（重置表单）</button>
+          <button class="act" id="btnTryInvalid">试填非法值</button>
+          <button class="act upload" id="btnUpload" disabled>上传 / 正式发布</button>
+          <span class="hintline" id="uploadHint"></span>
+        </div>
+        <div class="hintline" style="margin-top:8px">
+          🔴 小程序的「上传」只到平台、还要审核发布；<b>本工具点上传就是直接改现网</b>。
+          第一刀<b>没有可用的正式发布按钮</b>（上传恒禁用），P3b 才开放且要 <code>yes</code> +
+          勾选 + 服务端预检门 + 再验发版信息；预演只回显、<b>不落台账</b>。
+          「上次填写」从本机台账读回版本号与备注、不自动再 +1，不触发任何动作。
+          试填非法值可立刻看到 <code>available=false</code> 的校验门禁。
+        </div>
+      </div>
+
+      <!-- ==== @section card-history ==== 只读发版历史折叠区（静态台账 / 按 server 筛选 / 模拟接口失败空数组） -->
+      <details class="card" id="historyCard">
+        <summary>发版历史（只读 · 本机台账 · 默认折叠；判据见 docs/deploy.md §10.4）</summary>
+        <div class="hist-bar">
+          <label class="field">目标机（默认跟随当前 --server）
+            <select id="historyServer">
+              <option value="all">全部</option>
+              <option value="k4">k4</option>
+              <option value="prod">prod</option>
+            </select>
+          </label>
+          <button class="act" id="btnHistoryFail">模拟只读接口失败</button>
+          <span class="hintline" id="historySummary"></span>
+        </div>
+        <div id="historyArea"></div>
+        <div class="hintline" style="margin-top:10px">
+          🔴 台账 append-only：<b>预演 / 校验失败 / 预检 / 409 都不入账</b>；过了门禁真正执行的
+          成功 / 失败 / 回滚都留痕（失败带 <code>failed_stage</code>），回滚另追加一条
+          <code>kind=rollback</code>、不改旧记录。不自动轮转 / 清理、不设条数上限，
+          <b>不接备份能力、不上送远端</b>，换机 / 重装会丢，如实说明。<br>
+          🔴 只读接口失败回 <code>ok=true</code> + <code>data.error</code> +
+          <b><code>items: []</code></b>：数组恒为 <code>[]</code>、不能是 <code>null</code>
+          （Go nil slice 会让前端白屏），也不能回 <code>ok:false</code>。
+          本页<b>没有</b>编辑 / 删除 / 重发按钮，不发请求、不读文件，数据全是静态内存对象。
+        </div>
+      </details>
 
       <!-- ==== @section card-plan ==== 计划三框（将执行的命令 / 影响清单 / 阻塞与警告）/ 实现命令 / 按钮门 -->
       <div class="card">
@@ -311,6 +464,8 @@ details.card code{background:var(--code-bg);padding:1px 5px;border-radius:4px;co
         <div class="hintline" style="margin-top:8px">
           <b>第一刀没有正式发布按钮</b>：上面的「正式发布」恒禁用；P3b 才开放，届时必须
           输 <code>yes</code> + 勾选确认 + 过服务端预检门。预演通过不等于可以发布。
+          发版信息校验失败（第 8 个场景）同样挡住计划；发版历史（第 9 个场景）只读、
+          <b>不改变计划</b>；预演报告只回显发版信息、不落台账。
         </div>
       </div>
 
@@ -327,25 +482,49 @@ details.card code{background:var(--code-bg);padding:1px 5px;border-radius:4px;co
       <details class="card">
         <summary>设计注记与分册对照（判据权威：docs/deploy.md）</summary>
         <ul>
-          <li>七场景 = 验收用例集：<code>ready</code> / <code>blocked</code> / <code>offline</code> /
-            <code>locked</code> / <code>build-failed</code> / <code>health-fail</code> / <code>busy</code>。
-            前三个属于第一刀可见范围，后四个是 P3b / P4 的运行期判据预置。</li>
+          <li>九场景 = 验收用例集：<code>ready</code> / <code>blocked</code> / <code>offline</code> /
+            <code>locked</code> / <code>build-failed</code> / <code>health-fail</code> /
+            <code>busy</code> / <code>release-invalid</code> / <code>release-history</code>
+            （后两个 2026-11-11 新增）。前三个与 <code>release-invalid</code> 属于第一刀可见范围；
+            <code>locked</code> / <code>build-failed</code> / <code>health-fail</code> 是
+            P3b / P4 的运行期判据预置；<code>release-history</code> 是 P3b 只读历史视图判据，
+            计划仍 <code>available=true</code>。</li>
           <li><b>计划 available 的口径</b>：<code>locked</code> / <code>build-failed</code> /
             <code>health-fail</code> 三者的计划仍是 <code>available=true</code> —— 撞锁、构建失败、
             健康门失败都是<b>运行期结果</b>，预演挡不住，不能写成全局阻塞；
-            只有 <code>blocked</code> / <code>offline</code> / <code>busy</code> 才挡住预演。
+            只有 <code>blocked</code> / <code>offline</code> / <code>busy</code> /
+            <code>release-invalid</code>（发版信息校验）才挡住预演。
             与 <code>backup-once-prototype.html</code> 的 <code>locked</code> 口径同源。</li>
+          <li><b>发版信息（§10）借鉴小程序「上传代码」</b>：线上版本号只读、未采集不猜 0；
+            更新类型只做三段式自动推算；版本号白名单由服务端逐字再验且<b>不是镜像 tag</b>；
+            备注单行、不写远端；「上次填写」读本机台账不自动 +1；上传恒禁用。
+            校验失败挡住计划，预演不落台账；冲突时改原型，判据以 <code>deploy.md</code> §10 为准。</li>
+          <li><b>发版历史（§10.4）</b>：台账 append-only 的<b>正式发布尝试事件流</b> ——
+            预演 / 校验失败 / 预检 / 409 <b>不入账</b>，真正执行的成功 / 失败 / 回滚都留痕
+            （失败带 <code>failed_stage</code>），回滚另追加 <code>kind=rollback</code> 不改旧记录。
+            只读折叠区默认收起、按 <code>server</code> 筛选；不自动轮转 / 清理、不接备份能力、
+            不上送远端，换机会丢；接口失败回 <code>items: []</code> 不白屏、不猜、不补写。
+            <code>release-history</code> 场景钉死这套判据。</li>
           <li>分册 §3.1 预检 / §3.2 同步 / §3.3 构建 / §3.4 传输 / §3.5 拉起 / §3.6 健康门 /
             §3.7 回滚 / §6 风险表 —— 本页只做交互速览，<b>冲突时改原型，不是改分册</b>。</li>
           <li>界面视图按 <code>docs/ui.md</code> §7 触发条件再加；本轮不改 <code>web/</code>，
             不注册命令，不改 <code>opsEnvKeys</code> / <code>retiredOpsEnvKeys</code>。</li>
           <li>2026-11-10 23:4x 本轮交付：分册按当前代码基座校准 + 本原型 + 分区索引
             <code>docs/deploy-prototype-map.md</code>；<b>仍为方案，代码未实现</b>。</li>
+          <li>2026-11-11 08:4x 只改文档与原型：新增「发版信息」区、第八个场景与
+            <code>deploy.md</code> §10；<b>没注册命令、没写 Go / 前端、没新增配置键、
+            没连远端、没真实发布</b>。</li>
+          <li>2026-11-11 10:0x 评审追问「版本历史是否保留」后按 B 补齐：修掉台账
+            「只记成功却带 <code>result</code>」的矛盾，补 <code>deploy.md</code> §10.4
+            （保留策略 / 追溯字段 / 只读接口 / 空数组红线）、「发版历史」折叠区与第九个场景；
+            <b>仍然只改文档与原型</b>，没加接口、没建台账文件、没写 Go / 前端。</li>
         </ul>
       </details>
       <div class="footnote" style="margin-top:12px">
-        原型是静态交互速览：不连远端、不发网络请求、不执行任何动作。切换场景只改内存里的静态数据；
-        URL 可用 <code>?scene=health-fail</code> 直达某个场景，便于评审逐条对照。
+        原型是静态交互速览：不连远端、不发网络请求、不执行任何动作，表单填写只改内存里的静态数据、
+        不写任何文件。切换场景只改内存里的静态数据；
+        URL 可用 <code>?scene=health-fail</code> / <code>?scene=release-invalid</code> /
+        <code>?scene=release-history</code> 直达某个场景，便于评审逐条对照。
       </div>
     </div>
   </main>
@@ -355,9 +534,12 @@ details.card code{background:var(--code-bg);padding:1px 5px;border-radius:4px;co
 <div class="modal-mask" id="modalMask" hidden>
   <div class="modal">
     <h3>正式发布 · 二次确认（P3b，未开放）</h3>
-    <div class="sub">这里只展示<b>未来</b>的门禁长什么样；本轮没有真实发布，弹窗不会执行任何动作。</div>
+    <div class="sub">这里只展示<b>未来</b>的门禁长什么样；本轮没有真实发布，弹窗不会执行任何动作。
+      顶部回显借鉴小程序「上传代码」的发版信息（线上 → 本次 + 备注），供人发布前再核一眼。</div>
+    <div class="rel-sum" id="modalRelease"></div>
     <div class="alert bad">第一刀只有 <code>--dry-run</code> 对齐，正式发布要等 P3b 单独授权。
-      所有输入与按钮在原型里恒禁用。</div>
+      所有输入与按钮在原型里恒禁用。🔴 小程序的「上传」只到平台还要审核；
+      本工具点上传就是直接改现网，所以门禁只会更严。</div>
     <div class="alert care">Flyway 迁移是单向的：自动回滚只回滚镜像，不回滚数据库；
       回滚后服务可能起不来，报告必须如实说明「需要前向修复」。</div>
     <ul class="impact">
@@ -429,7 +611,7 @@ function renderReport(report){
   html += '</div>';
   $('reportBox').innerHTML = html;
 }
-// ==== @section data-scenes ==== 七个场景的静态数据（上下文 / banner / 预检 / 计划门禁 / 判据日志与报告）
+// ==== @section data-scenes ==== 九个场景的静态数据（上下文 / banner / 预检 / 计划门禁 / 判据日志与报告）
 function baseCtx(over){
   var c = {
     server:'k4（servers.json）',
@@ -639,8 +821,128 @@ var SCENES = {
     report:{k:'err', title:'预演未执行',
       lines:['本地任务锁被占用，请求被挡住（409）；<b>失败停在预检之前</b>。','没有远端写入，也没有新任务日志。'],
       manual:'等当前任务结束后重试；工具不排队、不自动续跑。'}
+  },
+  'release-invalid': {
+    title:'发版信息校验失败',
+    banner:{k:'err', s:'<b>借鉴小程序发版信息后新增的门禁</b>：版本号 <code>1.16.1; rm -rf /</code> 含空格 / 分号、项目备注含换行，<code>ValidateRelease</code> 拒绝生成计划（<code>available=false</code>）。<b>不落台账、不写远端、不发请求</b>；服务端逐字再验，前端提示不算数。'},
+    ctx:baseCtx({lint:'发版信息校验未通过'}),
+    pre:preOK(),
+    available:false,
+    blockers:[
+      {t:'bad',s:'版本号只允许字母 / 数字 / 小数点（1–32 字）；含空格 / 分号 / shell 元字符一律拒绝'},
+      {t:'bad',s:'项目备注必须单行、≤200 字、无控制字符；不写远端、不拼进任何命令'},
+      {t:'care',s:'校验失败与预检不通过 / 连不上 / 409 同属全局阻塞；撞锁 / 构建失败 / 健康门失败仍是运行期结果'},
+      {t:'care',s:'线上版本号 1.16.0 是只读快照；版本号不是镜像 tag，IMAGE_TAG 仍用 git 短 commit'}
+    ],
+    warnings:[],
+    phases:['fail','wait','wait','wait','wait','wait'],
+    log:[
+      {t:'sec',s:'[判据快照] 场景 release-invalid · 发版信息校验'},
+      {t:'err',s:'ValidateRelease FAIL version="1.16.1; rm -rf /"'},
+      {t:'err',s:'ValidateRelease FAIL note 含换行'},
+      {t:'warn',s:'计划 available=false；未生成预演、未落台账、未写 state.env'},
+      {t:'warn',s:'第一刀没有正式发布按钮；P3b 也会在服务端再验一次'}
+    ],
+    report:{k:'err', title:'预演未执行',
+      lines:['发版信息校验未通过，<b>失败停在计划生成之前</b>；没有远端写入，也没有发版记录。',
+        '版本号与备注都不拼进任何 shell 命令；线上版本号未采集时同样不猜 0。'],
+      manual:'修正版本号 / 备注后重新走只读预演；预演不是执行凭证，第一刀不落台账。'}
+  },
+  'release-history': {
+    title:'发版历史（只读）',
+    banner:{k:'info', s:'<b>版本历史保留口径</b>：本机台账 <code>deploy-releases.jsonl</code> append-only，'
+      + '<b>预演 / 校验失败 / 预检 / 409 都不入账</b>，过了门禁真正执行的成功 / 失败 / 回滚都留痕；'
+      + '回滚另追加一条 <code>kind=rollback</code>、不改旧记录。历史只读、默认折叠、按 server 筛选，'
+      + '<b>不改变预演计划</b>（<code>available=true</code>）。判据见 <code>deploy.md</code> §10.4。'},
+    ctx:baseCtx({lint:'发版历史只读（不改计划）'}),
+    pre:preOK(),
+    available:true,
+    blockers:[],
+    warnings:[
+      {t:'good',s:'只读折叠区：没有编辑 / 删除 / 重发 / 上送远端按钮；行只展开详情，不触发动作'},
+      {t:'care',s:'台账不自动轮转 / 清理 / 设上限，也不随配置保存被删；<b>不接备份能力、不上送远端</b>，换机会丢，如实说明'},
+      {t:'care',s:'接口失败回 <code>ok=true</code> + <code>data.error</code> + <code>items: []</code>；数组恒为 <code>[]</code>，不能是 <code>null</code> 或 <code>ok:false</code>'},
+      {t:'good',s:'线上版本号仍取远端只读快照（当前 1.16.0）；远端只存当前值，历史不是历史源'},
+      {t:'good',s:'「上次填写」只读最后一条 <code>result=success</code> 的 release，失败与回滚不参与'}
+    ],
+    phases:['done','wait','wait','wait','wait','wait'],
+    log:[
+      {t:'sec',s:'[判据快照] 场景 release-history · 版本历史（只读）'},
+      {t:'ok',s:'GET /api/deploy/releases?server=k4 → items 5 条（成功 2 / 失败 2 / 回滚 1）'},
+      {t:'',s:'最近一条：2026-11-10 22:07 rollback 1.16.1 → 1.16.0（不改旧记录）'},
+      {t:'warn',s:'2026-11-10 22:05 release 1.16.1 failed @ 健康门：失败也留痕，报告停在失败阶段'},
+      {t:'warn',s:'预演 / 校验失败 / 预检 / 409 各 0 条：没有真正开始执行，不入账'},
+      {t:'warn',s:'模拟只读接口失败 → items: []，页面照常渲染、不白屏、不猜、不补写'},
+      {t:'warn',s:'本页静态数据：不发请求、不读文件、不写台账'}
+    ],
+    report:{k:'info', title:'发版历史报告（静态快照）',
+      lines:['台账 append-only：<b>成功 / 失败 / 回滚都留痕</b>，预演与门禁阻塞不入账。',
+        '远端 <code>state.env</code> 只留当前版本号；历史只在本机，换机会丢，不假装已备份。',
+        '只读视图不改变计划，也不写「服务已恢复正常」。'],
+      manual:'历史只读，没有编辑 / 删除 / 重发；接口失败回 items: [] 不白屏。'}
   }
 };
+// ==== @section data-release ==== 发版信息静态数据：基线 / 台账 / 九场景覆盖值（scenes 与范围正交）
+var RELEASE_BASE = {
+  online:'1.16.0',
+  source:'来源：远端 .deploy/state.env 的 RELEASE_VERSION · 只读快照',
+  bump:'patch',
+  version:'1.16.1',
+  note:'修复若干问题',
+  last:{version:'1.16.0', note:'修复若干问题', ts:'2026-11-08 21:40', tag:'a1b2c3d'}
+};
+// 只覆盖静态展示值，不覆盖门禁判据；服务端口径见 deploy.md §10
+var RELEASE_OVERRIDES = {
+  offline:{online:'未采集', source:'SSH 未建立：不猜 0 / 1.0.0，也不自动推算下一版'},
+  'release-invalid':{version:'1.16.1; rm -rf /', note:'修复若干问题\n顺手清理了日志'}
+};
+var BUMP_LABEL = {major:'版本升级', minor:'特性更新', patch:'修订补丁', last:'上次填写'};
+function sceneRelease(scene){
+  var r = {
+    online:RELEASE_BASE.online, source:RELEASE_BASE.source, bump:RELEASE_BASE.bump,
+    version:RELEASE_BASE.version, note:RELEASE_BASE.note, last:RELEASE_BASE.last
+  };
+  var over = RELEASE_OVERRIDES[scene || 'ready'];
+  if (over) Object.keys(over).forEach(function(k){ r[k] = over[k]; });
+  return r;
+}
+// ==== @section data-history ==== 只读发版历史静态数据：台账事件流 / 按 server 投影 / 结果枚举
+// 字段名与 deploy.md §10.2 逐字一致；这里只是内存里的静态对象，不读文件、不发请求。
+// 时间倒序：线上 1.16.0 来自最后一次成功的 release；1.16.1 那次失败并已回滚，所以不在远端当前值里。
+var HISTORY_BASE = [
+  {ts:'2026-11-10 22:07', server:'k4', scope:'all', kind:'rollback',
+   online_version:'1.16.1', release_version:'1.16.0', bump:'—', note:'回滚到 :previous（不回滚数据库）',
+   image_tag:'a1b2c3d', result:'success', failed_stage:'', task_id:'task-2207'},
+  {ts:'2026-11-10 22:05', server:'k4', scope:'all', kind:'release',
+   online_version:'1.16.0', release_version:'1.16.1', bump:'修订补丁', note:'readiness 第二次 404',
+   image_tag:'e4f5g6h', result:'failed', failed_stage:'健康门', task_id:'task-2205'},
+  {ts:'2026-11-08 21:40', server:'k4', scope:'all', kind:'release',
+   online_version:'1.15.3', release_version:'1.16.0', bump:'特性更新', note:'修复若干问题',
+   image_tag:'a1b2c3d', result:'success', failed_stage:'', task_id:'task-2140'},
+  {ts:'2026-11-08 20:03', server:'k4', scope:'all', kind:'release',
+   online_version:'1.15.3', release_version:'1.16.0', bump:'特性更新', note:'docker build exit 1',
+   image_tag:'c3d4e5f', result:'failed', failed_stage:'构建', task_id:'task-2003'},
+  {ts:'2026-11-07 11:26', server:'k4', scope:'backend', kind:'release',
+   online_version:'1.15.2', release_version:'1.15.3', bump:'修订补丁', note:'修复若干问题',
+   image_tag:'b2c3d4e', result:'success', failed_stage:'', task_id:'task-1126'},
+  {ts:'2026-11-06 15:45', server:'prod', scope:'all', kind:'release',
+   online_version:'2.0.0', release_version:'2.0.1', bump:'修订补丁', note:'主服务器补丁',
+   image_tag:'f7g8h9i', result:'success', failed_stage:'', task_id:'task-1545'},
+  {ts:'2026-11-05 09:10', server:'prod', scope:'all', kind:'release',
+   online_version:'2.0.0', release_version:'2.0.1', bump:'修订补丁', note:'save/load 传输中断',
+   image_tag:'f7g8h9i', result:'failed', failed_stage:'传输', task_id:'task-0910'}
+];
+var RESULT_LABEL = {success:'成功', failed:'失败', rollback:'回滚'};
+var RESULT_CLASS = {success:'ok', failed:'bad', rollback:'care'};
+function historyKind(x){
+  return x.kind === 'rollback' ? 'rollback' : x.result;   // 徽标按 kind 优先，回滚单列
+}
+function historyRows(server){
+  if (server && server !== 'all') {
+    return HISTORY_BASE.filter(function(x){ return x.server === server; });
+  }
+  return HISTORY_BASE.slice();   // 恒返回数组，不返回 null
+}
 // ==== @section data-runtime ==== 计划基线 / 影响清单常量 / 范围映射 / 运行时状态
 var PLAN_BASE = [
   {c:"ssh k4 'docker info && test -w /data/postgres && test -r docker/secrets/'", k:'只读预检'},
@@ -672,18 +974,26 @@ var WARN_BASE = [
   {t:'care',s:'首期不删 <code>deploy.sh</code>；对齐完成后也不在本轮停用'}
 ];
 var PREVIEW_PHASES = ['done','wait','wait','wait','wait','wait'];
-var state = { scene:'ready', scope:'all', server:'k4', previewed:false };
+var state = { scene:'ready', scope:'all', server:'k4', previewed:false,
+  release:sceneRelease('ready'), historyServer:'k4', historyError:false };
 // ==== @section fn-plan ==== 查表投影（场景 + 范围 → 一份计划）/ 能否执行 / 预演命令
 function planFor(){
   // 场景与范围是两个正交维度：场景只管门禁与判据，范围只管命令子集。
+  // 发版信息是第三个维度：只做格式校验，非法值挡住计划（deploy.md §10.3）。
   var s = SCENES[state.scene];
   var sc = SCOPES[state.scope];
+  var v = validateRelease(state.release);
+  var blockers = s.blockers.length ? s.blockers.slice() : (s.warnings.length ? s.warnings.slice() :
+      [{t:'good',s:'无阻塞、无警告；计划可生成'}]);
+  if (!v.ok) {
+    blockers.unshift({t:'bad',s:'发版信息校验失败：' + v.errs.join('；') +
+      '（服务端 ValidateRelease 逐字再验，不落台账、不改远端）'});
+  }
   return {
-    available:s.available,
+    available:s.available && v.ok,
     commands:sc.keep.map(function(i){ return PLAN_BASE[i]; }),
     impact:IMPACT,
-    blockers:s.blockers.length ? s.blockers : (s.warnings.length ? s.warnings :
-      [{t:'good',s:'无阻塞、无警告；计划可生成'}]),
+    blockers:blockers,
     warnings:s.warnings,
     note:sc.note,
     scopeLabel:sc.keep.length + ' 条命令（' + state.scope + '）'
@@ -695,9 +1005,13 @@ function cmdLine(){
 }
 function previewLog(){
   var p = planFor();
+  var r = state.release;
   var lines = [
     {t:'sec',s:'[只读预演] ' + SCENES[state.scene].title + ' · ' + state.scope + ' · ' + state.server},
     {t:'ok',s:'预检 6/6 通过（只读，不写远端）'},
+    {t:'',s:'发版信息（仅回显）：线上 ' + r.online + ' → 本次 ' + r.version
+      + '（' + BUMP_LABEL[r.bump] + '）· 备注「' + r.note.replace(/[\r\n]+/g,' ⏎ ') + '」'},
+    {t:'warn',s:'发版信息未落台账、未写远端 state.env；版本号不是镜像 tag'},
     {t:'',s:'将执行的命令（只打印，不执行）：'}
   ];
   p.commands.forEach(function(x,i){
@@ -713,17 +1027,172 @@ function previewLog(){
 }
 function previewReport(){
   var s = SCENES[state.scene];
-  if (!s.available) {
+  if (!planFor().available) {
     return {k:'err', title:'预演未执行',
-      lines:['计划被阻塞（' + esc(s.title) + '）；没有远端写入，也没有新任务日志。'],
-      manual:'预演不是执行凭证；阻塞原因见上方「阻塞与警告」。'};
+      lines:['计划被阻塞（' + esc(s.title) + '）；没有远端写入，也没有新任务日志 / 发版记录。'],
+      manual:'预演不是执行凭证；阻塞原因见上方「阻塞与警告」，发版信息只回显、不落台账。'};
   }
   return {k:'info', title:'预演报告（原型模拟）',
     lines:['预检通过，' + planFor().scopeLabel + '已逐条打印，与 <code>deploy.sh</code> 人工步骤对齐。',
+      '发版信息仅回显（线上 ' + esc(state.release.online) + ' → 本次 ' + esc(state.release.version) + '），未落台账。',
       '远端零写入；未构建镜像、未 <code>compose up</code>、未触发健康门。'],
     manual:'本次仅预演，未改动远端任何文件；预演通过 ≠ 可以发布。'};
 }
-// ==== @section fn-render ==== 主渲染：banner / 上下文 / 预检 / 计划 / 按钮门 / 阶段 / 日志 / 报告
+// ==== @section fn-release ==== 版本号推算 / 白名单校验 / 表单渲染 / 门禁刷新（借鉴小程序上传代码）
+function bumpVersion(online, kind){
+  var m = /^(\d+)\.(\d+)\.(\d+)$/.exec(online || '');
+  if (!m || kind === 'last') return null;
+  var a = [parseInt(m[1],10), parseInt(m[2],10), parseInt(m[3],10)];
+  if (kind === 'major') return (a[0]+1) + '.0.0';
+  if (kind === 'minor') return a[0] + '.' + (a[1]+1) + '.0';
+  if (kind === 'patch') return a[0] + '.' + a[1] + '.' + (a[2]+1);
+  return null;
+}
+function validateRelease(r){
+  var errs = [];
+  if (!/^[A-Za-z0-9.]{1,32}$/.test(r.version)) {
+    errs.push('版本号只允许字母 / 数字 / 小数点，长度 1–32（服务端逐字再验）');
+  }
+  if (/[\r\n]/.test(r.note)) errs.push('项目备注必须单行');
+  if (r.note.length > 200) errs.push('项目备注最多 200 字');
+  if (/[\x00-\x08\x0b\x0c\x0e-\x1f]/.test(r.note)) errs.push('项目备注含控制字符');
+  return {ok:errs.length === 0, errs:errs};
+}
+function bumpHint(){
+  if (!/^(\d+)\.(\d+)\.(\d+)$/.test(state.release.online)) {
+    return '线上发版号「' + state.release.online + '」未采集 / 非三段式：不自动推算，也不猜 0，可手填。';
+  }
+  if (state.release.bump === 'last') return '上次填写：从本机台账读回版本号与备注，不自动再 +1。';
+  return BUMP_LABEL[state.release.bump] + '：按线上版本号自动推算，仍可手改，服务端逐字再验。';
+}
+function renderReleasePanel(){
+  var r = state.release;
+  var ov = $('onlineVer');
+  ov.textContent = r.online;
+  ov.className = 'online-ver' + (r.online === '未采集' ? ' unknown' : '');
+  $('onlineSrc').textContent = r.source;
+  $('verInput').value = r.version;
+  $('noteInput').value = r.note;
+  Array.prototype.forEach.call(document.querySelectorAll('#bumpRow input[name="bump"]'), function(i){
+    i.checked = (i.value === r.bump);
+    i.parentNode.classList.toggle('active', i.checked);
+  });
+  var last = r.last;
+  $('lastRelease').innerHTML = '<b>上次发版记录</b>（本机台账，只读）<br>'
+    + esc(last.ts) + ' · <b>' + esc(last.version) + '</b> · ' + esc(last.note) + '<br>'
+    + '镜像 tag：<code>' + esc(last.tag) + '</code>（与发版号无关）';
+  $('uploadHint').textContent = '上传 / 正式发布恒禁用：第一刀只有 --dry-run，P3b 才开放。';
+  $('btnUpload').disabled = true;
+}
+function refreshReleaseGate(){
+  var v = validateRelease(state.release);
+  var p = planFor();
+  var box = $('releaseCheck');
+  box.className = 'rel-check ' + (v.ok ? 'ok' : 'bad');
+  box.innerHTML = v.ok
+    ? '<b>格式校验通过（仅前端提示）</b>：线上 ' + esc(state.release.online) + ' → 本次 '
+      + esc(state.release.version) + '（' + esc(BUMP_LABEL[state.release.bump] || '手填') + '）。<br>'
+      + esc(bumpHint()) + ' 计划是否可用仍由服务端下发，预演不是执行凭证。'
+    : '<b>发版信息校验未通过，计划被挡住（available=false）</b><br>'
+      + v.errs.map(function(x){ return '· ' + esc(x); }).join('<br>')
+      + '<br>不落台账、不改远端；服务端 ValidateRelease 是唯一判据。';
+  $('modalRelease').innerHTML = '<span class="k">线上版本号</span> ' + esc(state.release.online)
+    + ' → <span class="k">本次</span> <b>' + esc(state.release.version) + '</b>'
+    + '（' + esc(BUMP_LABEL[state.release.bump] || '手填') + '）<br>'
+    + '<span class="k">项目备注</span> ' + esc(state.release.note.replace(/[\r\n]+/g,' ⏎ ')) + '<br>'
+    + '<span class="k">回显仅供确认</span>：P3b 由服务端逐字再验后才写台账 / state.env；本页不执行动作。';
+  $('btnPreview').disabled = !p.available;
+  $('gateHint').innerHTML = p.available
+    ? '计划 <b>available=true</b>：可跑只读预演（撞锁 / 构建失败 / 健康门失败不改这个门；发版信息已校验）'
+    : (v.ok ? '计划 <b>available=false</b>：预检 / 连不上 / 并发门禁挡住，预演不可用'
+            : '计划 <b>available=false</b>：发版信息校验失败，预演不可用');
+}
+function invalidatePreview(){
+  var s = SCENES[state.scene];
+  state.previewed = false;
+  renderPhases(s.phases);
+  $('snapshotTag').innerHTML = '<span class="snapshot">判据快照 · ' + esc(s.title)
+    + '（静态数据，不是执行结果）</span>';
+  renderLog(s.log);
+  renderReport(s.report);
+}
+function setBump(kind){
+  var r = state.release;
+  r.bump = kind;
+  if (kind === 'last') {
+    r.version = r.last.version;
+    r.note = r.last.note;
+  } else {
+    var next = bumpVersion(r.online, kind);
+    if (next) r.version = next;
+  }
+  state.previewed = false;
+  render();
+  toast(kind === 'last' ? '已读回上次填写（不再 +1）' : '已按' + BUMP_LABEL[kind] + '推算版本号');
+}
+function resetRelease(){
+  state.release = sceneRelease(state.scene);
+  state.previewed = false;
+  render();
+  toast('已重置发版信息（原型：只改内存里的静态数据）');
+}
+function tryInvalid(){
+  state.release.version = '1.16.1; rm -rf /';
+  state.release.note = '修复若干问题\n顺手清理了日志';
+  state.previewed = false;
+  render();
+  toast('已填非法值：版本号含空格 / 分号，备注含换行');
+}
+// ==== @section fn-history ==== 只读发版历史渲染：筛选 / 徽标 / 统计 / 空数组与接口失败空态
+function renderHistory(){
+  // 第九场景默认展开，便于逐条对照判据；其它场景保持折叠（默认只读、不抢主流程）。
+  $('historyCard').open = (state.scene === 'release-history');
+  $('historyServer').value = state.historyServer;
+  if (state.historyError) {
+    $('historySummary').textContent = '只读接口失败判据：items: []（不白屏）';
+    $('historyArea').innerHTML = '<div class="hist-empty"><b>未读到台账</b>（原型模拟：'
+      + 'ok=true + data.error + items: []）<br>'
+      + '数组恒为 <code>[]</code>，不是 <code>null</code>；页面照常渲染，不白屏、不猜历史、'
+      + '不补写。也不能回 <code>ok:false</code>（前端会抛成 HTTP 错误）。<br>'
+      + '再次点「模拟只读接口失败」可恢复静态台账。</div>';
+    return;
+  }
+  var rows = historyRows(state.historyServer);
+  var cnt = {success:0, failed:0, rollback:0};
+  rows.forEach(function(x){ cnt[historyKind(x)]++; });
+  $('historySummary').textContent = '共 ' + rows.length + ' 条（成功 ' + cnt.success
+    + ' / 失败 ' + cnt.failed + ' / 回滚 ' + cnt.rollback + '）· '
+    + (state.historyServer === 'all' ? '全部目标机' : state.historyServer)
+    + ' · 只含正式发布尝试，预演 0 条';
+  if (!rows.length) {
+    $('historyArea').innerHTML = '<div class="hist-empty"><b>暂无发版记录</b>（items: []）：'
+      + '预演、校验失败、预检阻塞、409 并发都不入账；只有真正开始执行的正式发布才留痕。</div>';
+    return;
+  }
+  var head = '<tr><th>时间</th><th>目标机</th><th>发版号（线上 → 本次）</th><th>更新类型</th>'
+    + '<th>镜像 tag</th><th>结果</th><th>失败阶段</th><th>备注</th><th>任务 id</th></tr>';
+  var body = rows.map(function(x){
+    var k = historyKind(x);
+    return '<tr>'
+      + '<td class="mono">' + esc(x.ts) + '</td>'
+      + '<td class="mono">' + esc(x.server) + '</td>'
+      + '<td class="mono">' + esc(x.online_version) + ' → <b>' + esc(x.release_version) + '</b></td>'
+      + '<td>' + esc(x.bump) + '</td>'
+      + '<td class="mono">' + esc(x.image_tag) + '</td>'
+      + '<td><span class="rg ' + RESULT_CLASS[k] + '">' + esc(RESULT_LABEL[k] || k) + '</span></td>'
+      + '<td>' + (x.failed_stage ? esc(x.failed_stage) : '—') + '</td>'
+      + '<td class="note">' + esc(x.note) + '</td>'
+      + '<td class="mono">' + esc(x.task_id) + '</td>'
+      + '</tr>';
+  }).join('');
+  $('historyArea').innerHTML = '<div class="hist-scroll"><table class="hist">' + head + body + '</table></div>';
+}
+function toggleHistoryError(){
+  state.historyError = !state.historyError;
+  renderHistory();
+  toast(state.historyError ? '模拟只读接口失败：items: []，页面不白屏' : '已恢复静态台账（只读）');
+}
+// ==== @section fn-render ==== 主渲染：banner / 上下文 / 预检 / 计划 / 按钮门 / 阶段 / 日志 / 报告 / 历史
 function render(){
   var s = SCENES[state.scene];
   var p = planFor();
@@ -738,6 +1207,7 @@ function render(){
     cell('锁状态', esc(c.lock), c.lock.indexOf('占用') >= 0 || c.lock === '未知' ? 'care' : '') +
     cell('镜像前缀', '<code>'+esc(c.image)+'</code>') +
     cell('镜像 tag', esc(c.tag)) +
+    cell('线上发版号', esc(state.release.online), state.release.online === '未采集' ? 'care' : '') +
     cell('健康门端口', esc(c.health)) +
     cell('配置校验', esc(c.lint));
   $('ctxChain').innerHTML = '数据方向：<code>本机三个仓库</code> → <code>rsync / docker save | ssh docker load</code> → '
@@ -761,12 +1231,12 @@ function render(){
   }).join('');
   $('cmdLine').textContent = cmdLine();
 
-  var btn = $('btnPreview');
-  btn.disabled = !p.available;
-  $('gateHint').innerHTML = p.available
-    ? '计划 <b>available=true</b>：可跑只读预演（撞锁 / 构建失败 / 健康门失败不改这个门）'
-    : '计划 <b>available=false</b>：预检 / 连不上 / 并发门禁挡住，预演不可用';
   $('btnPublish').disabled = true;
+  // 发版信息表单与门禁统一由 fn-release 渲染：不在这里另算一套判据。
+  renderReleasePanel();
+  refreshReleaseGate();
+  // 发版历史只读：统一由 fn-history 渲染，不改计划、不参与门禁判定。
+  renderHistory();
 
   if (state.previewed) {
     renderPhases(PREVIEW_PHASES);
@@ -793,11 +1263,13 @@ function openModal(){
 function closeModal(){
   $('modalMask').hidden = true;
 }
-// ==== @section fn-events ==== 场景与范围切换 / 预检 / 预演 / 弹窗 / 事件绑定
+// ==== @section fn-events ==== 场景 / 范围 / 目标机 / 历史筛选 / 预检 / 预演 / 弹窗 / 事件绑定
 function setScene(name){
   if (!SCENES[name]) return;
   state.scene = name;
+  state.release = sceneRelease(name);   // 切场景回到该场景的发版信息基线
   state.previewed = false;
+  state.historyError = false;          // 接口失败判据只在手动触发时成立
   render();
   toast('已切到判据场景：' + SCENES[name].title);
 }
@@ -809,6 +1281,7 @@ function setScope(v){
 }
 function setServer(v){
   state.server = v;
+  state.historyServer = v;   // 历史默认跟随当前目标机，仍可手动切「全部」
   state.previewed = false;
   render();
 }
@@ -818,6 +1291,26 @@ function bind(){
   });
   $('scopeSelect').addEventListener('change', function(e){ setScope(e.target.value); });
   $('serverSelect').addEventListener('change', function(e){ setServer(e.target.value); });
+  Array.prototype.forEach.call(document.querySelectorAll('#bumpRow input[name="bump"]'), function(i){
+    i.addEventListener('change', function(e){ setBump(e.target.value); });
+  });
+  $('verInput').addEventListener('input', function(e){
+    state.release.version = e.target.value;
+    invalidatePreview();
+    refreshReleaseGate();
+  });
+  $('noteInput').addEventListener('input', function(e){
+    state.release.note = e.target.value;
+    invalidatePreview();
+    refreshReleaseGate();
+  });
+  $('btnReleaseReset').addEventListener('click', resetRelease);
+  $('btnTryInvalid').addEventListener('click', tryInvalid);
+  $('historyServer').addEventListener('change', function(e){
+    state.historyServer = e.target.value;
+    renderHistory();
+  });
+  $('btnHistoryFail').addEventListener('click', toggleHistoryError);
   $('btnPreflight').addEventListener('click', function(){
     state.previewed = false;
     render();
@@ -839,6 +1332,7 @@ function bind(){
 (function init(){
   var m = /[?&]scene=([a-z-]+)/.exec(window.location.search || '');
   if (m && SCENES[m[1]]) state.scene = m[1];
+  state.release = sceneRelease(state.scene);   // ?scene=release-invalid 直达时也要拿到该场景基线
   bind();
   render();
 })();
