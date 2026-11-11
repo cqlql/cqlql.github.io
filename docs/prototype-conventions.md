@@ -2,13 +2,19 @@
 > （`backup-restore-prototype.html` / `backup-once-prototype.html`），§1 清单已同步；
 > 同日晚手动备份原型随代码落地转为「交互回归基线」，不删、不改锚点）。
 > **2026-11-10 扩到四份**：新增 `deploy-prototype.html` / `deploy-prototype-map.md`
-> （P3 方案 · 待评审 · 七场景验收用例集，§1 清单已同步）。
+> （当时是 P3 方案 · 待评审 · 七场景验收用例集，§1 清单已同步；
+> 11-11 已评审通过并扩到九场景，见下文）。
 > **2026-11-11 08:4x**：`deploy-prototype.html` 借鉴小程序「上传代码」新增发版信息区与
 > 第 8 个场景 `release-invalid`（23 锚点 / 1145 行 / 八场景），判据见 `deploy.md` §10。
 > **同日 10:0x 补齐版本历史**：新增只读「发版历史」区与第 9 个场景 `release-history`
 > （27 锚点 / 1341 行 / 九场景），判据见 `deploy.md` §10.4（台账改成 append-only 的
 > 正式发布尝试事件流、失败 / 回滚留痕、只读接口失败回 `items: []`）。
 > 两轮都**只改文档与原型、代码未实现**，§1 清单与 `deploy-prototype-map.md` 已同步。
+> **2026-11-11 12:3x 评审通过 → P3a 第一刀开工**：`deploy-prototype.html` 把五处
+> 「`.env` 是 CRLF」写死表述改成**远端只读探测 → 检出 CR 才归一化**（分册 §3.2），
+> 补一条本轮落地注记（27 锚点 / **1350 行** / 九场景，锚点数不变）。
+> 🔴 **P3a 是 CLI-only**：本原型仍是**界面视图**的评审基线与验收用例集，
+> 没加导航项 / 接口 / `web/`；`deploy.md` §9.1 记评审结论与遗留项。
 
 # 本仓单文件原型约定（实例）
 
@@ -27,7 +33,7 @@
 | `components-prototype.html` | 1827 | 42 个 | `components-prototype-map.md` | `components.md` / `ui.md` §13 |
 | `backup-restore-prototype.html` | 759 | 19 个 | `backup-restore-prototype-map.md` | `backup-restore.md` §3–§5 / §7（代码已实现 · 交互回归基线；真机只读 §7.3 + 写演练 §7.4 + 工具侧 PG 正式恢复 §7.6 均已跑；`psql` 吞错修复 §7.7 已在 §7.8 部署并真机验证） |
 | `backup-once-prototype.html` | 706 | 19 个 | `backup-once-prototype-map.md` | `backup-once.md` §2–§4 / §8（代码已实现 · 交互回归基线；2026-11-10 按七场景完成真机验收，逐条见 §8.1） |
-| `deploy-prototype.html` | 1341 | 27 个 | `deploy-prototype-map.md` | `deploy.md` §3 / §5 / §6 / §9 / §10 发版信息 / §10.4 版本历史（**方案未实现** · 九场景评审基线与验收用例集；第一刀只做 `--dry-run` 对齐、不真实发布、上传恒禁用；发版历史只读折叠区） |
+| `deploy-prototype.html` | 1350 | 27 个 | `deploy-prototype-map.md` | `deploy.md` §3 / §5 / §6 / §9 含 §9.1 / §10 发版信息 / §10.4 版本历史（**界面视图未实现** · P3a 已落 CLI 只读 `--dry-run`；九场景评审基线与验收用例集；第一刀只做 `--dry-run` 对齐、不真实发布、上传恒禁用；发版历史只读折叠区；CRLF 改成远端探测口径） |
 | `config-compare.html` | 590 | 无 | 无 | `ui.md` §12.5 |
 
 行数为 2026-11-08 快照（`deploy` 行为 2026-11-11 补齐版本历史后的版本），以 `wc -l` 为准。

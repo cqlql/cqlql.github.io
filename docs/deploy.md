@@ -1,6 +1,17 @@
-> 状态：**方案（未实现）**；2026-11-10 23:4x 按当前代码基座刷新方案并补交互原型，
-> 进入「P3 第一刀」的**评审准备**（按 11-07 拍板：只做 `--dry-run` 与 `deploy.sh`
-> 逐条对齐，**不真实发布**）。命令未注册、代码未写、原型不连远端；
+> 状态：**P3a 只读预演（`ops deploy --dry-run`）已落地；14:4x 已在 k2 装好
+> Docker 29.9.3 / Compose 5.7.0；15:2x 用户确认拓扑：k1=备份服务器、
+> k2=应用部署目标（§9.6）；✅ 16:4x 手工端到端冒烟**链路已跑通**
+> （6 容器 Running、三个健康门各连续 2 次 200，§9.8）**。
+> 🔴 `172.16.0.222:5000/passup` 只是 compose 的**镜像仓库前缀**，
+> `172.16.0.222:2221` 是运维机本机 WSL2 转发，**都不是部署目标**。
+> 🔴 上面跑通的是**手工链路 + 全测试值配置**，不是工具发布：
+> `ops deploy` 仍只有 `--dry-run`，P3b 真实发布 / P4 回滚仍是方案（未实现、未授权）。
+> 现行判据见 §2 / §5 / §9.1–§9.8；
+> 🔴 第一刀不构建镜像、不 `compose up`、不写远端、不落台账、不改 `web/`、
+> 不启用 §8 的任何配置键。以下为演进记录（带时间戳的「命令未注册 / 代码零改动」
+> 均指**当时**，不是现行状态）。
+> 2026-11-10 23:4x 按当前代码基座刷新方案并补交互原型，进入「P3 第一刀」的
+> **评审准备**（按 11-07 拍板：只做 `--dry-run` 与 `deploy.sh` 逐条对齐，**不真实发布**）。
 > 未实现方案的配置键表从 config.md §5 移入本文 §8。
 > **2026-11-11 08:4x 借鉴微信开发者工具「上传代码」弹窗**（线上版本号 / 更新类型 /
 > 版本号 / 项目备注 / 上次填写）新增 §10 发版信息方案，原型加「发版信息」区与第 8 个
@@ -12,6 +23,12 @@
 > 修掉「`result` 恒为 success」的自相矛盾；补保留策略、追溯字段、只读历史接口与
 > 「失败回 `ok=true` + `items: []`、数组恒为 `[]`」的白屏红线；原型加只读「发版历史」
 > 折叠区与第 9 个场景 `release-history`。**仍然只改文档与原型**，代码零改动。
+> **2026-11-11 12:3x 评审通过，落 P3a 第一刀**：按 §9 的顺序先修订本文事实偏差
+> （§3.1 锁 / §3.2 CRLF 判据 / §4 与真实 `deploy.sh` 的对齐），再拍板范围（§5 / §9）。
+> 🔴 **P3a 仍是只读**：只注册 `ops deploy ... --dry-run`，不带 `--dry-run` 直接拒绝；
+> 不构建镜像、不 `compose up`、不写远端任何文件、不落台账、不改 `web/`、
+> **一个 `ops.env` 方案键都不启用**（§8 12 键原样，`opsenv_test.go` 数量断言不动）。
+> 真实发布（P3b）仍要单独授权。
 
 # 单机一键 Docker 部署
 
@@ -44,8 +61,11 @@
 
 ## 2. 命令
 
-🔴 **以下是草案**：`ops deploy` / `rollback` / `ps` / `logs` 均**未注册**
+🔴 **只有 `ops deploy ... --dry-run` 已注册**（P3a 第一刀，2026-11-11 12:3x）。
+下面其余命令仍是草案：`rollback` / `ps` / `logs` / `releases` / 正式发布路径 **未注册**
 （`main.go` 的 `commandHandler` 是动词唯一注册表），不要照抄执行。
+第一刀也**不接受** `--no-build` / `--no-sync` / `--release-version` 等 P3b 参数，
+CLI 会回「未知参数」；见 `internal/deploy/cli.go` 的 `parseDeployArgs`。
 
 ```
 ops deploy [all|infra|ai|backend|web] [--server <name>] [--dry-run] [--no-build] [--no-sync]
@@ -69,6 +89,9 @@ ops deploy releases [--server <name>]        P3b 草案：只读查看本机发�
 预检并打印将执行的每条远端命令，与 `deploy.sh` 的人工步骤逐条对齐；不改远端任何文件、
 不构建镜像、不 `compose up`。正式发布路径、`rollback` / `ps` / `logs` 属于后续刀（§5）。
 界面侧同样先只有「只读预演」，**没有正式发布按钮**。
+🔴 **P3a 是 CLI-only**：不带 `--dry-run` 的 `ops deploy` 由服务端**直接拒绝**并回一句
+「第一刀只开放只读预演，正式发布待 P3b 单独授权」，不生成计划、不碰远端 —— 门禁钉在
+代码里，比只写在文档里更硬。界面第 8 个导航项本刀不加（§5 / §9），`web/` 一行不动。
 
 **发版信息（借鉴小程序「上传代码」，2026-11-11 新增方案，见 §10）**：不是新命令、
 也不是新配置键。P3b 的正式发布才接受 `--release-version <v>` / `--release-note <text>`
@@ -86,6 +109,10 @@ ops deploy releases [--server <name>]        P3b 草案：只读查看本机发�
   （免密 `sudo -n` 或一次性密码经 stdin）；Docker + compose 插件、目标端口未被非本栈容器占用、
   磁盘余量、`/data/postgres` 与 `/data/minio/data` 可写；
 - 远端加锁（`/opt/passup/.deploy/lock`），拿不到锁立刻失败，不排队。
+- 🔴 **第一刀 `--dry-run` 不拿锁**：拿锁会在远端写文件，与「不改远端任何文件」直接冲突。
+  只读计划里**只打印**这条命令并标注「属于正式发布路径（P3b）」，实际不执行；
+  只读预检也不 `mkdir -p`、不 `touch`、不写 `state.env`。撞锁是运行期结果，
+  不是预演阻塞（原型 `locked` 场景已标「判据预置 · P3b / P4」）。
 - **身份口径（2026-11-10 校准）**：统一用清单 `user/key` 登录，提权只走 P0 已真机验证的
   免密 `sudo -n`；界面不新造密码收集框，确需一次性密码也只经 stdin（硬约束 9）。
   任何输出 / 错误 / 日志不打印私钥路径（硬约束 8）。
@@ -100,9 +127,14 @@ ops deploy releases [--server <name>]        P3b 草案：只读查看本机发�
   - backend：`docker/docker-compose.base.yml`、`docker/docker-compose.yml`、`docker/.env`、
     `docker/Caddyfile`、`docker/secrets/`、`docker/www/{client,admin}`
   - ai：`docker/docker-compose.yml`
-- 🔴 **`docker/.env` 是 CRLF**：同步时统一转 LF（或远端 `sed -i 's/\r$//'`）。
-  否则同一根因会伪装成三个不相干故障（PG 认证失败 / Lettuce 握手断开 /
-  api-key `invalid header value`）。
+- 🔴 **CRLF 是待探测的历史故障，不是写死的前提**：同一根因会伪装成三个不相干故障
+  （PG 认证失败 / Lettuce 握手断开 / api-key `invalid header value`）。
+  2026-11-11 复核本机 `pass-up.backend/docker/.env` 检出为 **LF（CR 计数 0）**，
+  说明「是 CRLF」多半来自远端手工编辑 / git 换行转换，**不能拿本机文件当判据**。
+  实现口径：只读预检先对**远端** `.env` 做一次换行探测（只读 `od` / `grep -c $'\r'`
+  等价命令，不落盘），把「检出 CR / 未检出 CR / 文件不存在」写进报告；
+  正式发布路径**只在检出 CR 时**才做 `sed -i 's/\\r$//'` 归一化。
+  P3a 的 `--dry-run` 只打印这条探测命令、不执行任何归一化。
 - `docker/www/` 用 `--delete`（纯构建产物）；`secrets/` **不用** `--delete`，权限 `600`，内容不打印。
 - **同步是写动作**：只在正式发布路径执行；`--dry-run` 只打印 rsync 命令与 CRLF
   归一化步骤，不落盘、不传文件、不覆盖远端 `.env`。
@@ -120,20 +152,32 @@ ops deploy releases [--server <name>]        P3b 草案：只读查看本机发�
 
 ### 3.4 传输
 
-两种模式：
+🔴 **2026-11-11 按 §9.7 / §9.8 真机实证修订**：原来的「默认流转不落盘」
+已被证伪，不再是默认，也不能作为唯一路径。三种模式：
 
-- 默认「流转」：`docker save <完整镜像引用> | ssh ... 'docker load'`，
-  不落本地 tar，也不要求远端能访问镜像仓库（沿用现有 `deploy.sh` 的免仓库思路）；
+- **默认「落盘 + 断点续传」（实证可用）**：本机逐镜像
+  `docker save <完整引用> | gzip -1 > <name>.tar.gz`，逐个传到远端暂存目录
+  （如 `/opt/passup/.images`，按远端文件大小跳过已传完的），再逐个
+  `gunzip -c <file> | docker load`，每个 load 后看内存 / 磁盘余量再继续。
+  🔴 一次只处理一个镜像、每个文件独立可重传；暂存文件由发布流程在成功后清理，
+  不要自动 `rm` 整个目录。§9.8 实测 6 个镜像 **651.7 MB** 全部到位。
+- 「流转不落盘」：`docker save ... | ssh ... 'docker load'`，沿用现有 `deploy.sh`
+  的免仓库思路，**只适合链路稳、内存余量足的目标机**：§9.7 实测原约 2 GB
+  在 **81.3 s** 后 `Connection reset by peer`、随后 k2 整机失联
+  （未取到 dmesg / OOM 证据，不断言因果）。降为可选快路径。
 - 配了 `PASS_UP_OPS_DEPLOY_REGISTRY`：`docker push` + 远端 `compose pull`。
 
-两种模式都使用**与 compose 中一致的完整镜像引用**，不做「load 后再 tag」的绕路。
+三种模式都使用**与 compose 中一致的完整镜像引用**，不做「load 后再 tag」的绕路
+（真实 `deploy.sh` 里也没有 `docker tag`，见 §4）。
 
 ### 3.5 拉起
 
-- 顺序：`infra` → `ai` → `backend` → `web`；
-- backend/infra 合并 compose：
-  `docker compose -f docker-compose.base.yml -f docker-compose.yml up -d`；
-- ai 单独 compose（`passup-network` 为 external）；
+- 🔴 **拉起单位由 compose 文件决定，不是四个服务逐个起**（§9.8 实测）：
+  backend / infra / web 在 `-f docker-compose.base.yml -f docker-compose.yml`
+  合并视图里一次 `up -d`；ai 是独立 compose（`passup-network` 为 external），
+  单独 `up -d`。先跑合并视图再跑 ai，6 容器 Running。
+  旧表述「`infra → ai → backend → web` 四段顺序」是草案、与真实 compose 结构
+  不符（合并视图一次就全拉起，插不进 ai 这一步），**已作废，别按它去拆 `up` 命令**。
 - 🔴 不使用 `down -v`，不删除 `/data`，默认**不加** `--remove-orphans`
   （同机可能还有别的 compose 项目）。
 
@@ -141,10 +185,16 @@ ops deploy releases [--server <name>]        P3b 草案：只读查看本机发�
 
 - backend：远端 `curl 127.0.0.1:8009/actuator/health/readiness`，连续 2 次 200；
 - ai：`127.0.0.1:8006/resume/health`；web：`127.0.0.1:80/`；
+- 🔴 **必须给启动窗口**（§9.8 实证）：`compose up -d` 返回只代表容器已启动，
+  Java / AI 服务还要初始化 —— ai 首次立刻查是 `000`、约 30 s 后才 200。
+  口径改为「在超时窗口内每 5 s 轮询、**必须连续 2 次 200** 才算过」，
+  不是起来立刻连查两次。
 - 总上限由 `PASS_UP_OPS_DEPLOY_HEALTH_TIMEOUT` 控制；
 - 失败 → 自动回滚到 `:previous` 并重建，输出失败日志尾部。
-- **本轮不真实发布**，健康门只做「判定单测 + 预演文本」：连续 2 次 200 的判据，
+- **P3a 第一刀不真实发布**，健康门只做「判定单测 + 预演文本」：连续 2 次 200 的判据，
   以及 200/404/超时/「第一次 200、第二次失败」都要有单测（§5），不在真机造故障。
+  §9.8 的手工冒烟虽在 k2 真机跑通了三个健康门，但那是**测试环境 + 全测试值**的
+  一次性脚本，不是工具发布，也没有故意造故障；P3b 的判定单测仍待补。
 - 失败报告只报检查结果与日志尾部，**不写「服务已恢复正常 / 部署成功」**；
   自动回滚属于 P4，但 §3.7 的如实报告口径本轮先钉死。
 
@@ -163,10 +213,31 @@ ops deploy releases [--server <name>]        P3b 草案：只读查看本机发�
 ## 4. 与现有 `docker/deploy.sh` 的关系
 
 - **首期不删除脚本**；新工具先以 `--dry-run` 跑，输出与 `deploy.sh` 的人工步骤逐条对齐后再停用。
-- 差异：
-  - `deploy.sh` 只发 backend；新工具一次发 infra / ai / backend / web；
-  - `deploy.sh` 把 tar 落到远端磁盘再 `load`，再按 compose 引用补 tag；新工具用流转并统一引用；
-  - `deploy.sh` 没有健康门与自动回滚；新工具有。
+- **2026-11-11 实读 `pass-up.backend/docker/deploy.sh` 后的差异**（旧表把脚本写错了两处，
+  已按代码校正；P3a 逐条对齐以真实脚本为准，不能以旧描述为准）：
+  - **拉起范围**：脚本 Step 5 只 `up -d --no-build backend-java`，失败再
+    `rm -s -f backend-java` 重来；新工具按 `infra → ai → backend → web` 发布。
+  - 🔴 **脚本里没有 `docker tag`**：旧表述「load 后再按 compose 引用补 tag」**作废**。
+    Step 5 只 `export IMAGE_TAG` 然后 `up -d --no-build backend-java`；注释里提到的
+    「补 tag」并未实现，靠 compose 的 `${IMAGE_TAG:-latest}` 与本地同名镜像兜底。
+  - 🔴 **镜像引用本来就不一致**：`deploy.env.example` 是 `IMAGE_NAME=passup/backend-java`，
+    compose 写的是 `172.16.0.222:5000/passup/backend-java:${IMAGE_TAG:-latest}` ——
+    这正是脚本那段回退的根因，也是 §3.3「前缀必须逐字等于 compose」的现实依据。
+    新工具用 `docker save <完整引用> | ssh docker load` 流转，不做二次 tag。
+  - **配置同步范围**：脚本 Step 4 是 `rsync -avz --delete` **整个 `docker/`**
+    （排除 `deploy.env*` / `deploy.sh` / `.env.example` / `Dockerfile.dev` /
+    `docker-compose.dev.yml`），并不是「只发 backend」；整目录 `--delete` 会连带删掉
+    `secrets/` 里远端独有文件，与 §3.2「`secrets/` 不用 `--delete`」冲突，
+    新工具按 §3.2 分目录同步。
+  - **compose 合并**：脚本只用 `-f docker-compose.yml`；新工具按 §3.5
+    `-f docker-compose.base.yml -f docker-compose.yml up -d`。
+  - **身份与目标机**：脚本从 `deploy.env` 读 `DEPLOY_HOST=172.16.0.222` /
+    `DEPLOY_USER=root`；新工具只认 `servers.json` 的 `--server <name>` + 清单 `user/key`
+    + 免密 `sudo -n`（硬约束 9），私钥路径不打印。
+    🔴 `DEPLOY_HOST=172.16.0.222` 是 `deploy.sh` 自己的变量，
+    `172.16.0.222:5000/passup` 只是 compose 的镜像仓库前缀；**两者都不是部署目标**。
+    部署目标由 `--server <name>` 决定，15:2x 用户确认为 `k2`（见 §9.6）。
+  - **健康门**：脚本没有健康门与自动回滚；新工具有（P3b）。
 - 配置来源仍是 `pass-up.backend/docker/.env` 与 `deploy.env` 的语义；
   新工具**不重新发明**一套环境变量名，只负责搬运与校验。
 - **本轮边界**：对齐只跑 `--dry-run`（真实 ssh 只读预检 + 打印命令），不改远端、
@@ -175,34 +246,58 @@ ops deploy releases [--server <name>]        P3b 草案：只读查看本机发�
 ## 5. 文件与阶段
 
 ```
-ops/  （以下均为计划，当前一个文件都不存在）
-  internal/deploy/plan.go                只读计划 / 预检结果（服务端下发，前端只渲染）
-  internal/deploy/cli.go                 ops deploy 的 CLI 分发与 --dry-run 输出
+ops/
+  ── P3a 已落（2026-11-11）────────────────────────────────────
+  internal/deploy/plan.go                只读计划 / 命令草案 / 与 deploy.sh 的逐条对齐 / 空视图
+  internal/deploy/preflight.go           远端只读预检脚本（sh -s）与 SEC 分节解析
+  internal/deploy/cli.go                 ops deploy 动词分发 / --dry-run 硬门禁 / 人读报告与 --json
+  internal/deploy/deploy_test.go        只读脚本源码断言 / 门禁 / 范围子集 / 空数组 / 镜像前缀
+  main.go                                commandHandler 注册 deploy 动词 + usage
+  ── 以下仍是计划，当前一个文件都不存在（P3b / P4）──────────────
   internal/deploy/deploy.go              构建、流转、compose up、健康门（P3b）
   internal/deploy/release.go             ValidateRelease / 发版台账 append-only 读写（P3b，§10）
   internal/deploy/history.go             台账只读投影 / 按 server 筛选 / 空视图（P3b，§10.4）
   internal/deploy/rollback.go            :previous 回滚与 state.env + rollback 留痕（P4）
-  internal/deploy/*_test.go              命令拼装 / rsync 参数 / CRLF / 健康门 / 发版号白名单 /
-                                        台账追加与空数组（不碰真实 docker）
-  web/src/features/deploy/               界面视图（待评审 + P3a 后按 ui.md §7 触发条件加）
+  web/src/features/deploy/               界面视图（按 ui.md §7 触发条件，P3b 再加）
 ```
+
+测试已覆盖：参数白名单与 `--dry-run` 门禁、预检脚本**源码级只读断言**、
+CRLF 四种探测结论、scope 子集、离线完整快照、所有数组恒 `[]`、镜像前缀逐字取自
+compose、与真实 `deploy.sh` 的对齐文案。**不写会真实构建镜像的单测**；
+健康门「连续 2 次 200」的判定单测仍属 P3b（本刀只打印命令、不执行健康门）。
 
 | 阶段 | 内容 | 验收 |
 | :--- | :--- | :--- |
 | P3 | 预检 + 配置同步 + backend/ai 构建与流转 + compose up + 健康门 | `--dry-run` 与 `deploy.sh` 逐条对齐；真实环境一键发布成功 |
 | P4 | `rollback` / `ps` / `logs` + web 构建同步 | 故意让健康门失败，能自动回滚并说明原因 |
 
-测试：命令拼装与 rsync 参数单测（含 CRLF 归一化、`--delete` 只作用于 `www`）；
-健康门判定单测（200/404/超时/连续 2 次）；**不写会真实构建镜像的单测**。
+测试（P3a 已落 + P3b 待补）：命令拼装 / rsync 参数 / `--delete` 只作用于 `www` /
+CRLF **探测**结论已在 `deploy_test.go`；健康门判定（200/404/超时/连续 2 次）、
+发版号白名单、台账追加与空数组仍属 P3b。**不写会真实构建镜像的单测**。
 
-**本轮状态（2026-11-10 23:4x）**：完成「分册校准 + 交互原型」（`docs/deploy-prototype.html`，
-分区索引 `docs/deploy-prototype-map.md`），**供评审**；代码仍为零。评审通过后按两刀落地：
+**本轮状态（2026-11-11 12:3x 评审通过，12:5x 代码与本地链路验收闭环，
+13:5x 网络恢复后补真机验收，见 §9.3）**：
+`docs/deploy-prototype.html`（分区索引 `docs/deploy-prototype-map.md`）留作交互回归基线，
+判据权威仍是本分册。按两刀落地：
 
 | 刀 | 范围 | 不做 |
 | :--- | :--- | :--- |
 | P3a | 只读计划 + `ops deploy --dry-run`，输出与 `deploy.sh` 人工步骤逐条对齐 | 不构建镜像、不 `compose up`、不改远端任何文件；**不落台账、不写 `state.env`** |
 | P3b | 构建 / 流转 / 拉起 / 健康门 + 界面步骤进度与实时日志 + 发版信息落台账 + **只读发版历史**（§10.4） | 不做 `rollback`（P4）；历史只读、无编辑 / 删除 / 重发 |
 | P4 | `rollback` 追加一条 `kind=rollback` 台账事件 | 不删、不改已有台账记录 |
+
+**P3a 范围拍板（2026-11-11，对应 §9 的待拍板项）**：
+
+- **CLI-only**：不改 `web/`、不加第 8 个导航项、不加 `/api/deploy/*` 接口。
+  §9 与 `ui.md` §7 已定「本轮不改 `web/`，界面视图按 §7 触发条件随 P3b 再加」，
+  且第一刀的验收是 CLI 输出与 `deploy.sh` 逐条对齐；原型是评审基线，不是本刀交付。
+- 🔴 **一个配置键都不启用**：§8 的 12 键原样留在方案里，`opsEnvKeys` /
+  `retiredOpsEnvKeys` / `opsenv_test.go` 的数量断言一行不动。只读计划的参数全部来自
+  `--server`（`servers.json`）、兄弟仓 compose 里真实的 `image:` 前缀、兄弟仓相对路径
+  与内置默认 `/opt/passup`；这样顺带满足硬约束 5「前缀逐字等于 compose」，
+  不给人一个能配错的机会。配置键等 P3b 真要构建 / 流转时再分批启用。
+- **只注册一个顶层动词** `ops deploy`，且只有 `--dry-run` 可用（§2）；
+  `rollback` / `ps` / `logs` / `releases` 仍不注册。
 
 ## 6. 风险与硬约束
 
@@ -211,7 +306,7 @@ ops/  （以下均为计划，当前一个文件都不存在）
 | 首次部署缺前置 | `/data`、`.env`、`secrets/` 未就绪时，预检必须**明确指出缺哪一项**，不要开始构建 |
 | Docker 权限 | 目标用户不在 `docker` 组会 permission denied；预检先 `docker info` 探一次；必要时用清单里的 `user` + 免密 sudo |
 | 多台应用服务器 | 由 `--server` 逐台发布；本期不做并行批量（锁与端口冲突都按单机设计） |
-| 镜像很大 | Java 镜像 1GB+，流转耗时；可切 registry 模式或 `--no-build` |
+| 镜像很大 / 链路弱 | Java 镜像 1GB+；§9.7 实证 `docker save \| ssh docker load` 流转 81.3 s 被 RST 且 k2 失联，§9.8 改逐镜像 gzip 落盘 + 断点续传（651.7 MB）后成功。**默认走落盘模式**，registry / `--no-build` 只是可选加速（§3.4）；每个 load 之间看内存 / 磁盘 |
 | Flyway 单向 | 镜像可回滚，schema 不可；回滚文案必须如实 |
 | CRLF | 见 §3.2，这是本仓库最容易复发的部署故障 |
 | 同机其他容器 | 默认不加 `--remove-orphans`，不 `down -v`，不删 `/data` |
@@ -232,7 +327,7 @@ ops/  （以下均为计划，当前一个文件都不存在）
 
 | 决策 | 备选 | 为什么选这个 |
 | :--- | :--- | :--- |
-| 默认 `docker save` → `ssh docker load` | 强制走 registry | 不要求目标机能访问镜像仓库；registry 作为可选加速 |
+| **默认逐镜像落盘 + 断点续传**（2026-11-11 §9.8 修订） | 强制走 registry / 只用 `save \| ssh load` 流转 | 同样不要求目标机访问镜像仓库，且弱链路 / 小内存机上可断点续跑、一次只 load 一个镜像；原「默认流转不落盘」在 §9.7 真机失败，降为可选快路径 |
 | 默认 `all` | 按服务发布 | 「一键」语义；单服务仍可用 `deploy backend` |
 | 远端锁 + 本地锁 | 只加本地锁 | 多人 / 多机发布时本地锁挡不住 |
 | 新增能力按 `internal/<能力>/` 竖切 | 继续横切 `backup/` + `deploy/` | 2026-11-05 已按能力竖切 Go 包，AGENTS.md「目录与边界」要求新增能力继续建包；P3 沿用，**不复活旧决策** |
@@ -256,6 +351,10 @@ ops/  （以下均为计划，当前一个文件都不存在）
 再删掉本节提示；`opsenv_test.go` 会断言本节键名数量与 `retiredOpsEnvKeys` 一致，
 改键表要同步两处。🔴 **2026-11-10 本轮校准未改动任何键名**（12 个键原样保留）；
 **2026-11-11 借鉴发版信息同样一个键都没加**（§10.2），`opsenv_test.go` 的数量断言不动。
+🔴 **2026-11-11 P3a 第一刀同样一个键都不启用**（§5）：只读预演不读 `ops.env` 里的
+部署键，参数来自 `--server`、真实 compose 与内置默认；本节 12 行表格、
+`retiredOpsEnvKeys` 的「尚未实现」标记、测试里 12 == 12 的断言**全部保持原样**。
+「实现时先在 `opsEnvKeys` 登记」这句话从 P3b 分批启用时才开始生效。
 
 目标机同样由 `--server` 从清单选择；以下只保留非主机类配置。
 
@@ -274,7 +373,7 @@ ops/  （以下均为计划，当前一个文件都不存在）
 | `PASS_UP_OPS_DEPLOY_HEALTH_TIMEOUT` | `120s` | |
 | `PASS_UP_OPS_DEPLOY_KEEP_PREVIOUS` | `1` | 保留几份旧镜像 tag（磁盘紧张时设 0） |
 
-## 9. 本轮交付与评审口径（2026-11-10；2026-11-11 补发版信息）
+## 9. 本轮交付与评审口径（2026-11-10；2026-11-11 补发版信息 + 评审通过）
 
 - 交付：本文按当前代码基座校准 + `docs/deploy-prototype.html`
   （分区索引 `docs/deploy-prototype-map.md`）。原型是**交互速览 + 验收用例集**：
@@ -285,8 +384,9 @@ ops/  （以下均为计划，当前一个文件都不存在）
   模拟接口失败回空数组）。
 - 🔴 **判据权威仍是本分册**：原型与分册不一致时**改原型，不是改分册**。
   界面视图按 `ui.md` §7 触发条件再加，本轮不改 `web/`。
-- 🔴 本轮**没有**：注册 `ops deploy` / 回滚命令、改 `opsEnvKeys` /
-  `retiredOpsEnvKeys`、写 `internal/deploy/`、改前端、连真机、构建镜像、真实发布。
+- 🔴 **2026-11-10 23:4x 当时没有**：注册 `ops deploy` / 回滚命令、改 `opsEnvKeys` /
+  `retiredOpsEnvKeys`、写 `internal/deploy/`、改前端、连真机、构建镜像、真实发布
+  （P3a 已于 12:3x 注册 `ops deploy --dry-run`，见 §9.1；其余项至今仍未做）。
 - 🔴 九个场景钉死六条口径：① 第一刀只有 `--dry-run`，**没有正式发布按钮**；
   ② 预演不是执行凭证；③ 撞锁 / 构建失败 / 健康门失败 / 已有任务是运行期结果，
   不写成预演阻塞；④ 不 `down -v`、不删 `/data`、Flyway 单向且回滚后如实说明；
@@ -294,11 +394,328 @@ ops/  （以下均为计划，当前一个文件都不存在）
   上传恒禁用，线上版本号未采集不猜 `0`；
   ⑥ **版本历史 append-only**：预演 / 门禁阻塞不入账，过了门禁真正执行的成功 / 失败 /
   回滚都留痕，历史只读、不自动清理、失败接口回 `items: []` 不白屏（§10.4）。
-- **2026-11-11 两刀都仍未碰代码**：没注册 `--release-version` / `--release-note` /
+- **2026-11-11 10:0x 当时两刀都仍未碰代码**（P3a 已于 12:3x 落地，见 §9.1）：
+  没注册 `--release-version` / `--release-note` /
   `ops deploy releases`，没写 `internal/deploy/release.go` / `history.go`、
   没加 `GET /api/deploy/releases`、没改 `web/` / `opsEnvKeys` / `retiredOpsEnvKeys`；
   只同步了分册、原型、分区索引、`prototype-conventions.md` 清单与文档速查的口径。
 - 评审通过后先落 P3a（§5），只跑真机只读对齐；**真实发布要等 P3b 单独授权**。
+
+### 9.1 评审结论与 P3a 落地记录（2026-11-11 12:3x）
+
+**评审通过（附条件）**，条件就是下面三条遗留项，均不阻塞第一刀代码：
+
+1. **落地前先修事实偏差**：§3.1 锁 / §3.2 CRLF / §4 与真实 `deploy.sh` 的差异已按
+   2026-11-11 实读结果修好（本轮完成）；原型 `PLAN_BASE` / `WARN_BASE` 里写死的
+   「`.env` 是 CRLF」与无条件 `sed -i` 同步改成「远端探测 → 检出 CR 才归一化」，
+   按 `deploy-prototype-map.md` 的约定**冲突时改原型、不改分册**。
+2. **范围按 §5 拍板**：CLI-only、12 键不启用、只有一个 `--dry-run` 动词。
+3. **真实发布仍不授权**：P3b 单独授权，本刀无正式发布按钮、不连生产做写动作。
+
+**遗留项（P3b 前置，需人确认后手工处理）**：
+
+- ✅ **拓扑已由用户确认（15:2x，本条关闭）**：
+  `k1`（`cql@172.16.0.211:22`）= **备份服务器**，
+  `k2`（`cql@172.16.0.212:22`）= **应用部署目标**。
+  已据此把 `servers.json` 里 k2 的 `role` 从 `backup` 改成 `app`、两台 `note` 同步，
+  `default` 仍是 `k1`，备份 / 监控的默认目标不受影响（改前留了 `.bak`，见 §9.6）。
+  🔴 **旧推断作废**：13:5x 曾据 `deploy.env.example` 的 `DEPLOY_HOST=172.16.0.222`
+  与 compose 前缀推断「真实应用主机 172.16.0.222 未登记」；实测
+  `172.16.0.222:2221` 的 `hostname=DESKTOP-KMO5NDN` / `172.30.147.179`
+  与运维机本机 WSL2 完全相同，是宿主机 LAN IP + 2221 转发，不是独立服务器。
+  `172.16.0.222:5000/passup` 只是**镜像仓库前缀**，`PG_SSH_HOST/PORT` 是备份脚本
+  从备份机连主服务器的参数，都与「部署到哪台机器」无关。
+  **`ops deploy --server k2` 直连本来就成立**（清单条目一直在），
+  不需要登记 222、不需要搬运密钥；此前「直连不成立」只针对 2221 那个入口。
+- ✅ **14:1x 提议 → 15:2x 正式确认以 `k2` 为目标**：`--server k2` 天然可用，
+  14:1x 已跑通只读预演（§9.4）、14:4x 已装好 Docker（§9.5）。
+  🔴 但两条门槛没变：P3b 的构建 / 流转 / 拉起 / 健康门**未实现且未授权**；
+  配置前置（`/opt/passup`、`.env`、`secrets/`、compose、镜像）仍全缺。
+  现阶段「部署到 k2」只能等于「以 k2 为目标跑只读预演」。
+- 🔴 **身份口径**：`deploy.sh` 用 `DEPLOY_USER=root` 直连，本仓统一清单
+  `user/key` + 免密 `sudo -n`（硬约束 9）。k2 上 `sudo -n true` 已验证可用、
+  14:4x 装 Docker 后 `cql` 已在 docker 组（新会话 `docker info` 拿到 29.9.3）。
+  13:5x 在 2221 上用 k1 凭据 `docker info` 拿到 29.7.2 只是跳板实测，
+  **不再是登记前置**。
+- **CRLF 远端实测值（13:5x 采集，结论「文件不存在」）**：k1、k2 与 2221 的
+  只读探测都回 `env=missing` / `env_cr=—`，报告按 §3.2 显示「文件不存在（不猜）」，
+  **没有把本机 LF 的检出结果冒充远端结论**。等部署前置 `/opt/passup/docker/.env`
+  就绪后再跑一次才能给出 LF / CRLF 实测值。
+
+### 9.2 P3a 只读预演验收记录（2026-11-11 12:5x）
+
+**已真跑通过**（本机 Windows + WSL Ubuntu-24.04，均为只读）：
+
+| 项 | 命令 / 判据 | 结果 |
+| :--- | :--- | :--- |
+| 硬门禁 | `ops deploy all --server k1`（不带 `--dry-run`） | rc=2，直接拒绝并说明「没有生成计划、没有连接远端」 |
+| 离线完整快照 | `ops deploy all --server k1 --dry-run` | ssh exit 255 → `collected=false`、九项检查值恒 `—`、rc=1；人读报告仍打印对齐表 / 命令草案 / 影响清单 |
+| `--json` 契约 | `ops deploy infra --server k2 --dry-run --json` | `collected=false` / `available=false` / 9 checks / 4 commands / 1 blocker；数组恒 `[]`，退出码与人读路径同为 1 |
+| 真实 sh 执行预检脚本 | 在 WSL 用 `sh -s` 跑 `preflightScript()` 原文（base64 传入，避开 Windows→WSL 的 stdin 换行转换） | rc=0、12 条 SEC 分节；`parsePreflight` 能吃下，输出已固化成 `TestParsePreflightRealShellSnapshot` |
+| 远端零写入 | 同一轮前后探测 `/opt/passup` | 前后均 `missing`，一致；单测另有源码级只读断言锁住写动作 |
+| 全量回归 | `go test ./... -count=1` | 11 个包全绿 |
+| 二进制 | `go build -o ops.exe .` | 12:54 重建（此前是 11-09 旧版），界面下次启动生效 |
+
+**顺带修掉的缺陷**：预检脚本原来用行尾锚点匹配 `ss -ltn` 的端口，而该行尾是 Peer
+Address，真机上 `SEC ports` 永远采不到（WSL 实测返回空）。改成取第 4 列
+`Local Address:Port` 的末段再按本项目端口白名单过滤后，真实 sh 输出
+`SEC ports=:5432,:6379,:8007,:8008`；新增 `TestPreflightPortProbeUsesLocalAddress`
+与真实 sh 快照 fixture 两条单测锁住，不许退回行尾锚点。
+
+🔴 **12:5x 当时的限制**（13:5x 网络恢复后已在 §9.3 补验）：三台目标机 22 端口
+全部不可达（`Test-NetConnection` 三个 `False`），`ops servers list` 里的「可达」
+是 **11-06 13:35 的缓存时间戳**、不是实时探测；所以当时只对齐了代码里的真实脚本
+内容，没在真实目标机上跑过预检。别把 12:5x 的本地链路读成真机结论。
+
+全程没造故障、没真实发布、没写远端任何文件、没落台账、没写 `state.env`、
+没构建镜像、没 `compose up`、没改 `web/`、没启用 §8 的任何方案键。
+
+### 9.3 真机补验（2026-11-11 13:5x，网络恢复后）
+
+用户告知 `172.16.0.211:22`、`172.16.0.222:2221` 恢复可达后补跑，**全部只读**。
+Python socket 实测：`.211:22` OPEN、`.212:22` OPEN、`.222:2221` OPEN，
+`.222:22` ConnectionRefused；用户原文 `172.16.0.2222:2221` 是笔误（该串 DNS 都解析不了）。
+
+| 项 | 结果 |
+| :--- | :--- |
+| k1 真机只读预演 | `ops deploy all --server k1 --dry-run` → rc=0、`collected=true` / `available=true`、`blockers=0`；九项真实采集（docker / compose 未装、`/opt/passup` 缺失、`.env` 不存在、compose `0/3`、端口 `:80`、磁盘 `—`、线上版本号 `—`） |
+| `--json` 契约 | 同一台：9 checks / 7 commands / 7 alignments / 6 impact / 12 warnings / `blockers: []`，`note` 仍带「预演通过 ≠ 可以发布」；数值没采到恒 `—`，不猜 0 |
+| 远端零写入 | 跑 `--dry-run` 前后各抓一次只读快照（6 个路径 `stat` + `crontab -l` md5 + `docker ps` md5），**diff 0 处变化**；全部路径前后均 `MISSING` |
+| 2221 入口只读状态（**非部署目标**） | 经 k1 跳板把 `preflightScript()` 原文 base64 传到 `cql@172.16.0.222:2221` 的 `sh -s`，rc=0 / 12 条 SEC；`docker=29.7.2`、`compose=5.4.0`、`SEC ports=:5432,:6379,:8007,:8008`、`dir=missing`、`env=missing` |
+| CRLF 远端实测 | k1 与 2221 都回 `env=missing` / `env_cr=—` → 结论「文件不存在（不猜）」，**没拿本机 LF 冒充远端**；§9.1 该条待采集项关闭 |
+
+🔴 **拓扑结论（13:5x 当时；15:2x 已确认部署目标是 k2，见 §9.6）**：
+`172.16.0.222:2221` 的 `hostname` 是 `DESKTOP-KMO5NDN`、`172.30.147.179`，
+与运维机本机 WSL2 **完全相同**；它是工作机宿主机的 LAN IP + 2221 转发到本机 WSL，
+不是独立生产服务器，且该机 `/opt/passup` 同样不存在、容器列表是
+gitea / postgres / minio / registry 等开发环境。
+`backup/postgres.env` 的 `PG_SSH_HOST/PORT/USER` 与它互证，但 `PG_SSH_KEY` 指向
+**备份机**上的文件、运维机没有；运维机用 k1/k2 的 key 直连 2221 对 `cql` / `root`
+都是 `Permission denied (publickey)`。**没有擅自登记清单、没有搬运密钥。**
+
+🔴 **15:2x 修正「仍未闭环」**：上面「`ops deploy` 直连应用主机不成立」的结论
+只对 **2221 那个入口**成立；用户确认部署目标是 `k2` 后，`ops deploy --server k2`
+本来就能直连（清单条目一直在），**不需要登记 222、不需要分发密钥**。
+k1 是备份服务器，它的 `collected=true` 只证明链路与零写入，不证明应用目标就绪。
+§5 的逐条对齐表已在 §4 按真实 `deploy.sh` 校正过，k1 / k2 的报告都完整打印 7 行对照。
+P3b 真实发布仍需单独授权。
+
+### 9.4 改以 k2 为目标（2026-11-11 14:1x，用户提议）
+
+用户提议「部署到 ssh k2」。`k2` 已在清单里，`--server k2` 直接可用，本轮只做只读验证：
+
+| 项 | 结果 |
+| :--- | :--- |
+| k2 只读预演 | `ops deploy all --server k2 --dry-run --json` → rc=0、`collected=true` / `available=true` / `blockers=0`；9 checks / 7 commands / 7 alignments / 12 warnings；镜像前缀仍逐字取自 compose（`172.16.0.222:5000/passup`）、远端目录内置默认 `/opt/passup` |
+| 九项实况 | **8 项不合格**：Docker `—`、compose `—`、`/opt/passup` 缺失、目录不可写、`.env` 不存在、compose/Caddyfile `0/3`、端口 `—`、磁盘 `—`、线上版本号 `—`。缺前置只是 warnings、不是 blockers（第一刀不构建不发布） |
+| 远端零写入 | 前后只读快照（5 路径 `stat` + `crontab -l` md5 + `docker ps` md5）**diff 0 处变化**，全部 `MISSING`、crontab 空 |
+| 环境实况 | `cql@k2` / hostname `k2`；`/opt` 空、`/data` 空、**没有 docker**、无 passup 目录、crontab 空 —— 与 k1 同类的空白测试机，不是现成应用主机 |
+| `ops component list --server k2`（只读） | Ubuntu 24.04 x86_64、免密 sudo OK、apt-get/curl OK、根分区 32146 MB；Docker 引擎 `missing`、compose 插件无、官方 apt 仓库未配且 `download.docker.com` 探测失败（WARN：安装可能在 `apt-get update` 失败，需 `--proxy` 或内网镜像源）；写计划 `docker install = 是`，`minio install` 被「Docker 未就绪」挡住 |
+
+🔴 **两道门槛，都不是换目标机能绕开的**：
+
+1. **代码层**：`ops deploy` 只有 `--dry-run`，不带它直接 rc=2 拒绝；构建镜像 /
+   `docker save` 流转 / `docker load` / `compose up` / 健康门（P3b）**没有实现、也没有授权**，
+   界面也没有正式发布按钮。当前工具**没有任何能改现网的发布动作**。
+2. **环境层**：k2 首次部署前置全缺 —— Docker 引擎 + compose 插件、`/data`、
+   `.env`、`secrets/`、compose / Caddyfile、`/opt/passup`（§3.1）。
+   即便 P3b 写好了，这台机器也起不来。
+
+**14:1x 当时没有**：改 `servers.json`、改 k2 的 `role`、执行 `component install`、
+装 Docker、写远端任何文件、构建镜像、真实发布。当时 k2 的 `role=backup` 会在报告里
+多一条备份机警告，不影响 `--server` 选择（15:2x 已改成 `app`，见 §9.6）。
+**14:4x 已按用户「按你的建议继续」装了 Docker 引擎（唯一一次写远端），见 §9.5。**
+
+### 9.5 k2 Docker 前置落地（2026-11-11 14:4x）
+
+**只读先行**：`ops component install docker --server k2 --dry-run` rc=0，计划是
+「卸载冲突包 → ca-certificates/curl → 官方 GPG key → deb822 docker.sources →
+apt install 5 个包 → `systemctl enable --now docker` → `usermod -aG docker`」，
+明确不做 hello-world、不动容器/镜像、不删 `/var/lib/docker`、不改 crontab / `backup.env`。
+唯一风险是 `download.docker.com` 探测不到，只读查实：
+
+| 探测 | 结果 |
+| :--- | :--- |
+| k2 直连官方 `InRelease` | `curl (35) Connection reset by peer`，http=000 |
+| k2 → aliyun / tuna / ustc 的 docker-ce 镜像、`archive.ubuntu.com`、aliyun ubuntu | **全部 http=200**：有外网，只是官方域名被 reset |
+| 代理 | 运维机 `127.0.0.1:7897` 在听、LAN IP `172.16.0.222`；k2 能连该端口，经它访问官方 `InRelease` 与 `gpg` 都 http=200 |
+| 带 `--proxy http://172.16.0.222:7897` 复跑 `--dry-run` | 「apt 仓库可达：是」，计划不变，只剩「docker 组需重新登录」一条警告 |
+
+**写动作（本轮唯一一次）**：
+`ops component install docker --server k2 --proxy http://172.16.0.222:7897` → rc=0，
+Docker **29.9.3** / Compose **v5.7.0**、`docker.service` active、`cql` 已加入 docker 组。
+
+**装后复核**：`ops component list --server k2` → docker `ok`（29.9.3）、compose 插件 ok、
+service active、用户组 ok、官方 apt 仓库 ok、根分区 31673 MB；
+`ops deploy all --server k2 --dry-run --json` 九项里 **Docker / compose 两项转 ok**，
+其余 7 项仍不合格（`/opt/passup` 缺失、目录不可写、`.env` 不存在、compose `0/3`、
+端口 `—`、磁盘 `—`、线上版本号 `—`）——这些是**配置同步前置**，不是引擎问题。
+crontab md5 与装前一致（仍为空）、`/opt/passup` 仍 `MISSING`，与安装计划承诺一致；
+新 ssh 会话 `docker info` 能拿到 29.9.3，说明组变更已生效。
+
+🔴 **剩余前置（工具不能凭空造，等人确认）**：
+
+- `/opt/passup`、`/data` 目录（第一刀不 mkdir）；
+- `docker/.env`：本机兄弟仓现成，8614 B / **52 个键**，含 DB 密码、JWT secret、
+  微信支付私钥路径、豆包 API key 等生产凭证 —— 🔴 **不擅自同步、不打印值**，
+  且其中的 DB / Redis / MinIO 地址是否指向 k2 要人逐项核对；
+- `docker-compose.base.yml` / `docker-compose.yml` / `Caddyfile` / `secrets/` /
+  `www/{client,admin}`：本机兄弟仓现成（§3.2 的同步清单），等 P3b 配置同步；
+- 镜像 `172.16.0.222:5000/passup/*:<tag>`：P3b 才构建 / 流转。
+- 🔴 `ops component install minio` 装的是**备份端本机 MinIO（9000）**，
+  与应用栈 compose 里的 minio（8007 / 8008）不是一回事，别顺手去装。
+
+⚠️ 已知噪音：`component list` 仍报「仓库可达性 err / 探测不到 download.docker.com」，
+那是不带代理的直连探测；引擎已装好、apt 源已写入，不影响现状，
+但下次 `update docker` 仍要带 `--proxy`。
+P3b 真实发布依旧**未实现、未授权**。
+
+### 9.6 拓扑确认与清单角色落地（2026-11-11 15:2x）
+
+用户明确：**`cql@172.16.0.211:22`（k1）= 备份服务器；
+`cql@172.16.0.212:22`（k2）= 应用部署目标**。这关闭了 §9.1 的第一条遗留项，
+也作废了 13:5x「真实应用主机 172.16.0.222 未登记」的推断。
+
+**配置改动**（`servers.json`，改前留 `servers.json.bak-20261111`）：
+
+| 字段 | 改前 | 改后 |
+| :--- | :--- | :--- |
+| k1 `note` | 测试机（备份端，ssh 别名 k1） | 备份服务器（ssh 别名 k1） |
+| k2 `role` | `backup` | **`app`** |
+| k2 `note` | 测试机（备份端，ssh 别名 k2） | 应用部署目标（ssh 别名 k2） |
+| `default` | `k1` | `k1`（不变） |
+
+`role` 合法值是 `backup` / `app` / `db` / `other`（`internal/shared/servers.go` 的
+`validRoles`，`docs/servers.md` 的示例里本来就有 `app`）。`default=k1` 明确指定，
+不依赖「唯一 `role=backup`」的退化逻辑，所以备份 / 监控的默认目标不受影响；
+`ops servers list` 已复读校验，k2 显示 `app`。
+
+**代码改动**（`internal/deploy/cli.go`）：早期版本在备份机警告里硬编码
+「真实应用主机 172.16.0.222 尚未登记（docs/deploy.md §9.1）」，`deployUsage()`
+也写了同一句 —— 拓扑确认后是明确错误信息。改成纯函数
+`roleWarning(name, role)`：只对 `role=backup` 出中性提示，文案不含任何硬编码 IP；
+部署目标只由 `--server <name>` 决定。`deploy_test.go` 新增 `TestRoleWarning`
+（`app` / `db` / `other` / 空角色不出警告，`backup` 出警告且不含 IPv4）。
+`ops.exe` 15:24 重建。
+
+**真机复核**：
+
+- `ops deploy all --server k2 --dry-run --json` rc=0，warnings 从 12 条降到 **11**，
+  备份机提示 0 条、含 222 的 0 条；Docker `29.9.3` / compose `5.7.0` 仍 ok，
+  `collected=true` / `blockers=0`。
+- `ops deploy all --server k1 --dry-run --json` rc=0，保留 1 条
+  「role 是 backup（备份服务器）… 不是应用主机就绪结论」，同样不含 222。
+- `ops deploy help` 文案同步成「k1=备份服务器、k2=应用部署目标；
+  `172.16.0.222:5000/passup` 只是镜像仓库前缀」。
+
+🔴 只改了清单角色 / note 与上面两处文案（15:2x 当时），**没动任何凭证、
+没改 `sudo`、没装新东西、没写远端**；P3b 真实发布依旧未实现、未授权。
+
+### 9.7 测试环境端到端冒烟 · 第一次（2026-11-11 16:2x，卡在镜像传输）
+
+> 🔴 **本节是第一次尝试的失败记录，保留原貌**；16:4x k2 恢复后链路已跑通，
+> 见 §9.8。下面「恢复后的改进路径」已在 §9.8 实际执行并验证。
+
+用户授权「现在都是测试环境，随便造，目前只想把流程跑通」。本轮目标是
+**手工端到端验证一次部署链路**（§3 的六段），不是实现 P3b —— 工具侧
+`ops deploy` 仍然只有 `--dry-run`，不带它 rc=2，界面也没有发布按钮。
+
+**已完成的（可复现）**：
+
+1. 造了一份**全测试值**的独立配置 `.tmp-deploy-smoke/`（已加进 `.gitignore`）：
+   52 个键名取自兄弟仓真实 `docker/.env`、但值全部替换成 `smoke_only_*` /
+   容器内服务名（`postgres` / `redis` / `minio` / `ai`），**LF、无 CRLF**；
+   `secrets/` 里两个微信支付 PEM 是占位文本、不是真密钥；compose 三件套、
+   Caddyfile、`www/{client,admin}`、`ai/docker-compose.yml` 从兄弟仓复制。
+   🔴 **兄弟仓原 `.env` 一字未动、真实凭证没有同步到 k2**。
+2. k2 上 `sudo -n mkdir -p /opt/passup/{docker,ai} /data/{postgres,minio/data}`
+   + `chown cql:cql`，再用 `tar czf - | ssh 'tar xzf - -C /opt/passup'` 同步，
+   `SYNC_OK`，属主 `cql:cql`、`.env` 2742 B。
+3. 本机 `docker compose -f docker-compose.base.yml -f docker-compose.yml
+   --env-file .env config --quiet` rc=0，解析出的 5 个镜像
+   （`backend-java:latest` / `caddy:2.11.1` / `postgres:18` / `redis:7` /
+   quay.io minio）与 ai 的 `ai:latest` 正好是流转清单。
+4. 镜像**不需要构建**：运维机 Docker Desktop / WSL 里这 6 个镜像现成
+   （`backend-java:latest` 896 MB、`ai:latest` 298 MB），可直接 `docker save`。
+
+🔴 **失败点**：按 §3.4 的「流转不落盘」跑
+`docker save <6 镜像> | ssh k2 'docker load'`，**81.3 s 后**
+`Read from remote host 172.16.0.212: Connection reset by peer`，
+远端 `docker load` rc=255、本机 `docker save` rc=0。紧接着 k2 **整机失联**：
+本机 TCP 22 超时、从 k1 `ping` 100% 丢包、`ip neigh` 显示 `FAILED`，
+而 k1(`172.16.0.211:22`) 与 `172.16.0.222:2221` 同期正常；16:33 复查仍超时。
+
+- 时间点与大流量 `docker load` 重合，但**没拿到 k2 的 dmesg / OOM 日志，
+  没有证据确定因果**，不写「是 load 把机器打挂了」，只记录现象。
+- 🔴 **本次流程没有跑通**：`compose up`、健康门、真实发布**全都没执行**，
+  `ops deploy --server k2 --dry-run` 在 k2 失联后回 `collected=false` + rc=1
+  （完整九项快照，值恒 `—`），符合离线红线。不假装成功。
+
+**恢复后的改进路径**：已把 6 个镜像逐个 `docker save | gzip -1` 成本地
+tar.gz（合计 **651.7 MB**，原来约 2 GB），并写好可断点续跑的
+`.tmp-deploy-smoke/run-flow.py`：k2 回来后跑
+`python .tmp-deploy-smoke/run-flow.py`，会自动检查可达性 → 按远端大小跳过
+已传完的文件 → 逐个传输 + `gunzip -c ... | docker load` → 每个 load 后打印
+内存/磁盘 → `compose up`（backend+infra+web，再 ai）→ 三个健康门连续 2 次 200。
+🔴 脚本在 k2 不通时直接退出、不做任何动作；任何一步失败都停在失败阶段，
+不写「部署成功」。
+🔴 这条实证要回喂 P3b：§3.4 的「`docker save | ssh docker load` 流转不落盘」
+在弱链路 / 小内存目标机上不稳，实现时**应同时提供落盘 + 断点续传模式**，
+并且一次只 load 一个镜像、每个之间看资源余量。
+
+### 9.8 恢复后链路跑通 + 部署文档落地性确认（2026-11-11 16:4x–17:0x）
+
+> 🔴 本节是**手工冒烟**的结论，不是工具发布：`ops deploy` 仍只有 `--dry-run`，
+> P3b / P4 未实现、未授权。全链路用**全测试值** `.tmp-deploy-smoke/`，
+> 兄弟仓真实 `.env` 一字未动、真凭证没有上 k2。§9.7 的失败记录保留原貌，
+> k2 是怎么恢复的、上次失联的原因**没有取证**（没拿到 dmesg / OOM 日志），不断言因果。
+
+**续跑做法**：k2 恢复后执行 `python .tmp-deploy-smoke/run-flow.py`，
+改走「本机逐镜像 `docker save | gzip -1` 落盘（6 个 tar.gz，**651.7 MB**，
+原约 2 GB）→ 逐个 `cat >` 传到 `/opt/passup/.images`，按远端大小跳过已传完的
+→ 逐个 `gunzip -c ... | docker load`，每个 load 后打印内存 / 磁盘 →
+`compose up`（backend+infra+web 合并视图，再 ai）→ 三个健康门」。
+脚本每一步可断点续跑、任何一步失败都停在失败阶段，k2 不通时直接退出不动作。
+
+**本次（17:0x）在 k2 上重新复核的实测值**：
+
+| 项 | 实测 |
+| :--- | :--- |
+| 容器 | `backend-java` / `ai` / `postgres` / `frontend-web` / `redis` / `minio` **6 个 Running** |
+| 健康门 | `8009/actuator/health/readiness` = **200**、`8006/resume/health` = **200**、`80/` = **200** |
+| 镜像 | 6 个引用与 compose 的 `image:` **逐字一致**，没有 `docker tag` 绕路 |
+| 暂存 | `/opt/passup/.images/` 6 个 tar.gz 齐全，可重传、可由发布流程成功后清理 |
+| 身份 / 写入 | 清单 `user` + 免密 `sudo -n`；没写 crontab、没写 `backup.env`、没写真实凭证 |
+
+🔴 表中健康门是本次 17:0x 的**单次复核**；`run-flow.py` 的正式判据仍是
+「150 s 启动窗口内每轮连续 2 次 200」，两者不矛盾。
+🔴 `run-flow.py` 是**一次性冒烟脚本**，不是产品代码；本轮没写台账、没走远端锁、
+没做配置备份 / rsync、没构建镜像、没执行回滚、没接界面。
+
+**「部署文档是否可以落地」逐条核对**（判据 = 有没有真机证据，不是文档写没写）：
+
+| §3 段 | 方案口径 | 本轮真机证据 | 结论 |
+| :--- | :--- | :--- | :--- |
+| 3.1 预检 | 远端只读探测 + 加锁 | P3a 的九项只读 `--dry-run` 在 k1 / k2 跑过（§9.2 / §9.3 / §9.6）；**加锁从未执行** | 只读部分可落地；锁仍待 P3b |
+| 3.2 备份 + 同步 | 备份 `.env` 到 `.deploy/backup/<ts>`、rsync 两处、远端 CRLF 探测 | 手工 `tar czf - \| ssh tar xzf -` 一次同步**测试值**配置；没建备份目录、没跑 rsync、没跑归一化 | 仍是方案，未验证 |
+| 3.3 构建 | backend / ai `docker build` + web `pnpm build` | **没构建**：运维机 Docker Desktop 已有 6 个现成镜像，直接 save/load | 本轮跳过，未验证 |
+| 3.4 传输 | 默认「流转不落盘」 | ❌ §9.7：81.3 s 后 RST + k2 失联；✅ §9.8：落盘 + 分批 + 断点续传后 651.7 MB 全到位 | **原默认口径被证伪**，已按 §3.4 修订 |
+| 3.5 拉起 | `infra → ai → backend → web` 四段 | 实际是 backend/infra/web 合并 compose 一次 `up -d` + ai 单独 compose，6 容器 Running | 结果达标；**顺序口径与真实 compose 结构不符**，已按 §3.5 修订 |
+| 3.6 健康门 | 三个 URL 连续 2 次 200 | 三个 200 全绿；ai 首次立刻查是 `000`、约 30 s 后才好 | 判据成立；**必须补启动窗口**，已按 §3.6 修订 |
+| 3.7 回滚 | `:previous` + `ops rollback` | 没执行 | 未验证、未实现（P4） |
+| §10 发版 / 台账 | append-only 事件流、只读历史 | 没执行（代码零改动） | 未验证 |
+
+**结论（可以落地，但带四条限制）**：
+
+1. **主链路可落地**：配置就位 + 镜像以「落盘分批」方式送达后，`compose up` +
+   健康门在 k2 真机跑通，§3.5 / §3.6 的判据成立，**不需要目标机访问镜像仓库**。
+2. **文档原样不能直接照抄进代码**：§3.4 默认流转、§3.5 四段顺序、§3.6 缺启动窗口
+   三处已被实证纠正；§6 风险表与 §7 决策表同步回喂，别再按旧口径实现。
+3. **一半流程仍无真机证据**：预检加锁、配置备份 / rsync、构建、回滚、发版台账
+   都只是方案；且本轮用的是**全测试值**配置，生产 `.env` 的 52 键（含 DB 密码 /
+   JWT secret / 微信支付私钥路径 / 豆包 API key）**没有同步、没有打印、地址未核对**。
+4. 🔴 **确认可落地 ≠ 授权发布**：P3b 真实发布 / P4 回滚仍要单独授权，
+   工具侧不带 `--dry-run` 的 `ops deploy` 依旧 rc=2 拒绝，界面没有发布按钮。
 
 ## 10. 发版信息（借鉴小程序「上传代码」· 2026-11-11 新增方案）
 
@@ -402,12 +819,14 @@ ops/  （以下均为计划，当前一个文件都不存在）
   原型对应 `card-history` 折叠区与第 9 个场景 `release-history`（静态数据、不发请求、
   不读文件），并带一个「模拟只读接口失败 → 空数组」的判据开关。
 
-### 10.5 本轮边界
+### 10.5 本轮边界（2026-11-11 10:0x 当时口径）
 
-只改 `docs/deploy.md`（§2 / §3.7 / §5 / §6 / §7 / §9 / §10 含新增 §10.4）与
+当时只改 `docs/deploy.md`（§2 / §3.7 / §5 / §6 / §7 / §9 / §10 含新增 §10.4）与
 `docs/deploy-prototype.html`，并同步分区索引、`prototype-conventions.md` 清单、
-`docs/ui.md` 的原型指针与 `AGENTS.md` 文档速查口径。**没有**：注册命令、写
+`docs/ui.md` 的原型指针与 `AGENTS.md` 文档速查口径。**当时没有**：注册命令、写
 `internal/deploy/release.go` / `history.go`、加 `GET /api/deploy/releases`、创建
 `deploy-releases.jsonl`、改 `web/`、改 `opsEnvKeys`、连真机、构建镜像、真实发布。
-评审通过后随 P3b 一起落地；若要把版本号接进镜像 tag，另开决策（本方案明确否掉，
-理由见 §7）。
+🔴 **12:3x 起 P3a 已注册 `ops deploy --dry-run`**（CLI-only，见 §5 / §9.1），
+但上述发版台账 / 历史接口 / 界面 / 配置键**至今仍一行未动**，
+评审通过后的发版信息部分随 P3b 一起落地；若要把版本号接进镜像 tag，另开决策
+（本方案明确否掉，理由见 §7）。

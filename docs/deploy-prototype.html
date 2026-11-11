@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>应用部署（P3）· 交互速览与验收用例集（方案，未实现）</title>
+<title>应用部署（P3）· 交互速览与验收用例集（界面视图未实现 · P3a 为 CLI 只读预演）</title>
 <!-- ==== @section index ==== 分区索引入口；改本页前先查 docs/deploy-prototype-map.md -->
 <style>
 /* ==== @section css-base ==== 变量 / 全局 / 导航 / 工具条 / 场景条 / 标签（与 backup-once-prototype.html 同口径） */
@@ -309,8 +309,9 @@ details.card[open] summary{margin-bottom:10px}
           <b>常驻红线（与 docs/deploy.md §3 / §6 一致）</b><br>
           1. 不 <code>down -v</code>、不删 <code>/data</code>、默认不加 <code>--remove-orphans</code>；
           <code>www</code> 才用 <code>--delete</code>，<code>secrets/</code> 不用且权限 <code>600</code>。<br>
-          2. <code>docker/.env</code> 是 CRLF，同步必须转 LF；镜像引用逐字等于 compose 的
-          <code>image:</code> 前缀，远端注入 <code>IMAGE_TAG</code>。<br>
+          2. <b>远端</b> <code>docker/.env</code> 换行先只读探测，<b>检出 CR 才</b>归一化成 LF
+          （本机检出为 LF，不作判据，结论写进报告）；镜像引用逐字等于 compose 的
+          <code>image:</code> 前缀，远端注入 <code>IMAGE_TAG</code>（§3.2）。<br>
           3. Flyway 单向：<b>只回滚镜像，不回滚数据库</b>；回滚后起不来要如实说明，不许假装成功。<br>
           4. 私钥路径不打印；写动作必须显式二次确认 + 服务端预检门；预演不是执行凭证。<br>
           5. 发版号白名单 <code>^[A-Za-z0-9.]{1,32}$</code> 且<b>不是镜像 tag</b>；
@@ -518,6 +519,14 @@ details.card[open] summary{margin-bottom:10px}
             「只记成功却带 <code>result</code>」的矛盾，补 <code>deploy.md</code> §10.4
             （保留策略 / 追溯字段 / 只读接口 / 空数组红线）、「发版历史」折叠区与第九个场景；
             <b>仍然只改文档与原型</b>，没加接口、没建台账文件、没写 Go / 前端。</li>
+          <li><b>2026-11-11 12:3x 评审通过，P3a 第一刀开工</b>：按分册 §9.1 先修事实偏差，
+            本页把「<code>.env</code> 是 CRLF」的五处写死表述改为<b>远端只读探测 → 检出 CR
+            才归一化</b>（<code>card-context</code> 红线 / <code>baseCtx()</code> lint /
+            <code>ready</code> 警告 / <code>PLAN_BASE</code> 第 3 条 / <code>WARN_BASE</code>），
+            并同步 §4 与真实 <code>deploy.sh</code> 的对齐口径（脚本里没有 <code>docker tag</code>、
+            Step 4 是整目录 <code>rsync --delete</code>）。
+            <b>P3a 是 CLI-only</b>：本页仍是界面视图的评审基线，没加导航项、没加接口、
+            没改 <code>web/</code>、没启用 <code>ops.env</code> 方案键、没连生产写远端。</li>
         </ul>
       </details>
       <div class="footnote" style="margin-top:12px">
@@ -620,7 +629,7 @@ function baseCtx(over){
     image:'172.16.0.222:5000/passup',
     tag:'a1b2c3d（git 短 commit）',
     health:'8009 / 8006 / 80',
-    lint:'CRLF → LF · 前缀逐字一致'
+    lint:'远端探测换行 · 检出 CR 才转 LF · 前缀逐字一致'
   };
   if (over) Object.keys(over).forEach(function(k){ c[k] = over[k]; });
   return c;
@@ -644,7 +653,7 @@ var SCENES = {
     available:true,
     blockers:[],
     warnings:[
-      {t:'care',s:'<code>docker/.env</code> 是 CRLF：同步时统一转 LF（否则伪装成 PG 认证 / Lettuce 握手 / invalid header value 三类故障）'},
+      {t:'care',s:'远端 <code>docker/.env</code> 换行先只读探测，检出 CR 才转 LF（本机检出为 LF，不作判据）；否则伪装成 PG 认证 / Lettuce 握手 / invalid header value 三类故障'},
       {t:'care',s:'镜像前缀必须逐字等于 compose 的 <code>image:</code>；save/load 不做「load 后再 tag」的绕路'},
       {t:'care',s:'Java 镜像 1GB+，流转耗时；首期不删 <code>deploy.sh</code>，对齐后再停用'},
       {t:'good',s:'不 <code>down -v</code>、不删 <code>/data</code>、不加 <code>--remove-orphans</code>'}
@@ -947,7 +956,7 @@ function historyRows(server){
 var PLAN_BASE = [
   {c:"ssh k4 'docker info && test -w /data/postgres && test -r docker/secrets/'", k:'只读预检'},
   {c:"ssh k4 'flock -n /opt/passup/.deploy/lock -c true'", k:'拿锁'},
-  {c:"rsync -a --delete backend/docker/ k4:/opt/passup/ && sed -i 's/\\r$//' docker/.env", k:'配置同步 · CRLF→LF'},
+  {c:"ssh k4 'grep -c $'\\r' docker/.env' 只读探测；检出 CR 才 rsync 后 sed -i 's/\\r$//'", k:'配置同步 · CRLF 按远端探测归一化'},
   {c:"docker build -f docker/Dockerfile -t <prefix>/{backend-java,ai}:<tag> .", k:'本机构建'},
   {c:"docker save <prefix>/backend-java:<tag> | ssh k4 'docker load'", k:'流转（不落盘）'},
   {c:"IMAGE_TAG=<tag> docker compose -f base.yml -f docker-compose.yml up -d", k:'拉起 · 不 down -v'},
@@ -969,7 +978,7 @@ var IMPACT = [
   {t:'good',s:'不打印：私钥路径、<code>secrets/</code> 内容、<code>.env</code> 全文'}
 ];
 var WARN_BASE = [
-  {t:'care',s:'<code>docker/.env</code> 是 CRLF，同步统一转 LF'},
+  {t:'care',s:'远端 <code>docker/.env</code> 换行先只读探测；检出 CR 才归一化，结论写进报告（§3.2）'},
   {t:'care',s:'镜像前缀逐字等于 compose 的 <code>image:</code>；远端注入 <code>IMAGE_TAG</code>'},
   {t:'care',s:'首期不删 <code>deploy.sh</code>；对齐完成后也不在本轮停用'}
 ];

@@ -27,6 +27,10 @@ deploy/component/**/*.key
 deploy/component/**/*.pem
 deploy/component/**/*.log
 
+# P3 部署链路冒烟用的测试配置（全测试值，不进 Git）
+# 见 docs/deploy.md §9.7；真实 .env 在 pass-up.backend/docker/，绝不复制进仓。
+.tmp-deploy-smoke/
+
 # 系统杂项
 .DS_Store
 Thumbs.db

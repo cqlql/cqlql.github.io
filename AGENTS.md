@@ -4,7 +4,17 @@
 > P1 备份能力部署已实现并真机验证；一键启动与桌面快捷方式（S2/S3/S5 + 图标同源）已实现，
 > **双击 `启动运维.cmd` 直接开网页面板**（隐藏守护 / 单实例 / 自动开浏览器 / 关闭界面），
 > S4 真机人工验收待做；✅ **P2a 备份监控 CLI 与 P2+ 界面已实现，2026-11-10 完成真机验收**；
-> P3–P4 应用部署仍为方案、代码未实现（2026-11-10 方案刷新 + 交互原型待评审，见下）。
+> **2026-11-11 12:3x P3 应用部署方案评审通过**，P3a 第一刀（CLI 只读 `--dry-run`）已落地；
+> ✅ **15:2x 用户确认拓扑：k1（`172.16.0.211:22`）= 备份服务器、
+> k2（`172.16.0.212:22`）= 应用部署目标**（`docs/deploy.md` §9.6）；已把 k2 清单
+> `role` 改成 `app`、`default` 仍 `k1`，两处硬编码「真实应用主机 222」的文案改掉，
+> `ops.exe` 15:24 重建。
+> ✅ 13:5x k1 真机只读预检 + 零写入 diff 0（§9.3）；14:4x k2 装好 Docker 29.9.3 /
+> Compose v5.7.0（§9.5，带 `--proxy http://172.16.0.222:7897` 绕开官方仓库被 reset）。
+> 🔴 `172.16.0.222:5000/passup` 只是镜像仓库前缀、`172.16.0.222:2221` 是运维机
+> 本机 WSL2 转发，**都不是部署目标**；旧推断「应用主机 222 未登记」已作废。
+> 🔴 剩余前置（`/opt/passup`、`.env` 52 键含生产凭证、`secrets/`、compose、镜像）
+> 待人确认，P3b 真实发布 / P4 回滚仍为方案、**未授权**（见下）。
 > ✅ **2026-11-11 08:4x 借鉴微信开发者工具「上传代码」弹窗（只改文档 + 原型）**：
 > `docs/deploy.md` 新增 §10 发版信息（线上版本号只读 / 更新类型四选一 / 版本号白名单 /
 > 项目备注 / 上次填写 / 取消·上传），`docs/deploy-prototype.html` 加「发版信息」区
@@ -25,6 +35,121 @@
 > 不接备份能力、不上送远端，换机会丢；草案接口失败回 `ok=true` + `data.error` +
 > **`items: []`**（数组恒 `[]`，不能是 `null` 或 `ok:false`，见 `ui.md` §11.4-5 / §12.5-3）。
 > 🔴 仍未加接口 / 台账文件 / Go / `web/` / 新配置键，代码零改动。
+> ✅ **2026-11-11 12:3x 评审通过 → 落 P3a 第一刀（CLI-only 只读预演）**：分册
+> `docs/deploy.md` 先按真实 `deploy.sh` 修订 §3.1（第一刀不拿锁）/ §3.2（CRLF 改成
+> **远端只读探测 → 检出 CR 才归一化**，本机检出为 LF 不作判据）/ §4（脚本里**没有
+> `docker tag`**、Step 4 是整目录 `rsync --delete`、root 登录与镜像前缀不一致）；
+> 原型五处写死表述同步改掉，§9.1 记评审结论与遗留项。范围拍板：**只注册
+> `ops deploy --dry-run`**，不带 `--dry-run` 服务端直接拒绝；不改 `web/` /
+> 不加导航项 / 不加接口，**§8 的 12 个方案键一个都不启用**（`opsEnvKeys` /
+> `retiredOpsEnvKeys` / `opsenv_test.go` 数量断言一行不动），参数来自 `--server`、
+> 真实 compose 前缀与内置默认；不落台账、不写 `state.env`、不改远端任何文件。
+> 🔴 **12:3x 当时遗留**（15:2x 已作废，见 §9.6）：曾据 `deploy.env.example` +
+> compose 前缀推断「真实应用主机 172.16.0.222 未登记」；本刀用已登记机器验证只读
+> 链路与零写入、不擅自写清单。用户后来确认部署目标是 k2，222 只是镜像仓库前缀 /
+> 运维机 WSL2 转发，`ops deploy --server k2` 直连本来就成立。
+> P3b 真实发布仍要单独授权。
+> ✅ **2026-11-11 12:5x P3a 本地链路验收闭环**（`docs/deploy.md` §9.2）：不带
+> `--dry-run` rc=2 拒绝；k1/k2 ssh exit 255 回九项完整快照 + rc=1（`--json` 同码、
+> 数组恒 `[]`）；WSL 真实 `sh -s` 跑预检脚本 rc=0 / 12 条 SEC、`/opt/passup` 前后均
+> `missing` 证零写入；`go test ./...` 11 包全绿、`ops.exe` 12:54 重建。顺带修掉
+> `ss -ltn` 端口探测用行尾锚点（行尾其实是 Peer Address、永远采不到）的缺陷，
+> 改取第 4 列 `Local Address:Port`，新增源码断言 + 真实 sh 快照 fixture 两条单测。
+> 🔴 **12:5x 当时**生产三台 `.211` / `.212` / `.222` 的 22 端口全部不可达，
+> `ops servers list` 的「可达」是 11-06 缓存；真机目标机对齐当时没做（§9.2）。
+> ✅ **13:5x 网络恢复后补验**（`docs/deploy.md` §9.3）：`.211:22` / `.212:22` /
+> `.222:2221` OPEN，`.222:22` 不通；k1 真机 `--dry-run` rc=0 / `collected=true` /
+> 9 checks / 7 alignments / `blockers=0`，前后只读快照（6 路径 stat + crontab/md5 +
+> docker ps/md5）**diff 0 处变化**；经 k1 跳板在 `cql@172.16.0.222:2221` 用
+> `sh -s` 跑预检脚本 rc=0 / 12 条 SEC（docker 29.7.2、compose 5.4.0、
+> ports 5432/6379/8007/8008、`/opt/passup` missing）。两端 CRLF 实测都是
+> `env=missing` → 「文件不存在，不猜」，§9.1 该待采集项关闭。
+> 🔴 **拓扑修正**：2221 那台的 hostname `DESKTOP-KMO5NDN` / `172.30.147.179`
+> 与运维机本机 WSL2 完全相同，是宿主机 LAN IP + 2221 转发，**不是独立生产服务器**；
+> `postgres.env` 的 `PG_SSH_KEY` 在备份机上、运维机没有，k1/k2 的 key 直连 2221
+> 对 cql/root 都 `Permission denied (publickey)`。**没擅自登记清单、没搬运密钥**。
+> 🔴 **15:2x 作废上面这条「P3b 前置」**：那只是 2221 入口的问题，不是部署目标的
+> 前置。用户确认 k2 是应用部署目标后，`--server k2` 直连本来就成立，
+> 不需要登记 222 / 分发密钥。真前置是 k2 上的 `/opt/passup`、`.env`、`secrets/`、
+> compose 与镜像（§9.5），以及 P3b 单独授权。
+> ✅ **14:1x 用户提议改以 k2 为部署目标**（`docs/deploy.md` §9.4）：k2 已在清单
+> （`cql@172.16.0.212:22`、免密 sudo），`--server k2` 天然可用、无需登记新条目；
+> 只读预演 rc=0 / `collected=true` / `available=true` / 9 checks / 7 alignments /
+> `blockers=0` / 12 warnings，零写入前后快照 diff 0。🔴 但 k2 是**空机**：
+> 没 Docker / compose 插件、`/opt` 与 `/data` 空、`/opt/passup` 不存在、crontab 空，
+> 九项预检 8 项不合格（缺前置只是 warnings，不是 blockers）。
+> `ops component list --server k2`（只读）：Ubuntu 24.04、免密 sudo OK、根分区
+> 32146 MB、`docker install` 计划 = 是，但 `download.docker.com` 探测失败，
+> 安装可能在 `apt-get update` 挂，需要 `--proxy` 或内网镜像源。
+> 🔴 两道门槛换目标机绕不开：**P3b 构建 / 流转 / 拉起 / 健康门未实现未授权**
+> （不带 `--dry-run` 直接 rc=2）、**首次部署前置全缺**。
+> 🔴 `172.16.0.222:5000/passup` 是 compose 的**镜像仓库前缀**，不是部署目标；
+> 部署目标只由 `--server <name>` 决定，别再混用。
+> **没改清单 / 没改 k2 的 role / 没写远端 / 没真实发布**（14:1x 当时；
+> 15:2x 用户确认拓扑后已把 k2 的 `role` 改成 `app`，见 §9.6）。
+> ✅ **14:4x 用户「按你的建议继续」→ 装 Docker 前置**（`docs/deploy.md` §9.5）：
+> 先 `ops component install docker --server k2 --dry-run` rc=0（计划不跑 hello-world、
+> 不动容器/镜像、不删 `/var/lib/docker`、不改 crontab / `backup.env`）；查实 k2 直连
+> `download.docker.com` 是 `Connection reset by peer`，但国内 docker-ce 镜像源与
+> `archive.ubuntu.com` 都 200，运维机 `127.0.0.1:7897` 有代理、LAN IP `172.16.0.222`，
+> k2 经它访问官方 `InRelease` / `gpg` 都 200；带 `--proxy http://172.16.0.222:7897`
+> 复跑 dry-run 显示「apt 仓库可达：是」后，**真装 rc=0**：Docker 29.9.3 /
+> Compose v5.7.0、service active、cql 加入 docker 组。装后 `component list` docker ok，
+> `ops deploy --server k2 --dry-run --json` 九项里 Docker / compose 转 ok、其余 7 项
+> 仍是配置同步前置；crontab md5 未变、`/opt/passup` 仍 MISSING，与计划承诺一致。
+> 🔴 剩余前置不擅自造：`/opt/passup` + `/data`、`docker/.env`（本机 8614 B / 52 键，
+> 含 DB 密码 / JWT secret / 微信支付私钥路径 / 豆包 API key，**不擅自同步、不打印值**，
+> 且 DB/Redis/MinIO 地址要人核对）、compose/Caddyfile/`secrets/`/`www`、镜像。
+> 🔴 `ops component install minio` 是备份端 9000，不是应用栈 compose 的 8007/8008，别顺手装。
+> ⚠️ `component list` 仍报「仓库可达性 err」是不带代理的直连探测，引擎已装好；
+> 下次 `update docker` 仍要带 `--proxy`。**P3b 真实发布依旧未实现、未授权**。
+> ✅ **15:2x 用户确认拓扑 → 清单角色与代码文案落地**（`docs/deploy.md` §9.6）：
+> **k1（`cql@172.16.0.211:22`）= 备份服务器、k2（`cql@172.16.0.212:22`）= 应用部署目标**。
+> `servers.json` 改前留 `servers.json.bak-20261111`，只改 k2 `role` `backup`→`app`
+> 与两台 `note`，`default` 仍 `k1`（不依赖「唯一 role=backup」退化逻辑，
+> 备份 / 监控默认目标不受影响）；`ops servers list` 复读校验 k2 显示 `app`。
+> 🔴 旧推断「真实应用主机 172.16.0.222 未登记」作废：`172.16.0.222:5000/passup`
+> 只是 compose 镜像仓库前缀、`172.16.0.222:2221` 是运维机本机 WSL2 转发，
+> **都不是部署目标**；`--server k2` 直连本来就成立，不需要登记 222 / 分发密钥。
+> `internal/deploy/cli.go` 里两处硬编码「真实应用主机 172.16.0.222 尚未登记」
+> （备份机警告 + `deployUsage()`）改成纯函数 `roleWarning(name, role)`：
+> 只对 `role=backup` 出中性提示、文案不含任何硬编码 IP；
+> `deploy_test.go` 加 `TestRoleWarning` 锁住；`ops.exe` 15:24 重建。
+> 真机复核：k2 `--dry-run --json` warnings 12→11、备份机提示 0 / 含 222 的 0，
+> Docker 29.9.3 / compose 5.7.0 仍 ok；k1 保留 1 条中性备份机提示、同样不含 222。
+> 🔴 没动凭证 / `sudo`、没装新东西、没写远端；P3b 真实发布仍**未实现、未授权**。
+> 🔴 **16:2x 用户「测试环境随便造、只想把流程跑通」→ 手工端到端冒烟第一次未跑通
+> （16:4x 恢复后已跑通，见 §9.8；本段是当时记录，保留原貌）**
+> （`docs/deploy.md` §9.7）：造全测试值配置（`.tmp-deploy-smoke/`，52 键假值 /
+> LF / 假 PEM，已 gitignore，**兄弟仓原 `.env` 一字未动、真凭证没同步到 k2**）
+> → k2 建 `/opt/passup/{docker,ai}` + `/data` 并 tar 同步成功
+> → 本机 `docker compose config` rc=0（5+1 镜像与运维机现成镜像一致，不用构建）。
+> 🔴 按 §3.4 跑 `docker save <6 镜像> | ssh k2 'docker load'`，**81.3s 后
+> `Connection reset by peer`**（远端 load rc=255 / 本机 save rc=0），随后
+> **k2 整机失联**：本机 TCP 22 超时、从 k1 ping 100% 丢包 + `ip neigh FAILED`，
+> 16:35 复查仍不通，而 k1 / `172.16.0.222:2221` 同期正常。时间点与大流量
+> load 重合但**没拿到 dmesg / OOM 证据，不断言因果**。
+> **当时 `compose up` / 健康门 / 真实发布全都没执行**，不假装成功。
+> ✅ 已把 6 个镜像压成本地 tar.gz（**651.7 MB**，原约 2GB），写好可断点续跑脚本
+> `.tmp-deploy-smoke/run-flow.py`：k2 恢复后跑它，分批传 + 逐个 load + 每步看
+> 内存/磁盘 + compose up + 三个健康门连续 2 次 200；k2 不通时直接退出不动作。
+> 🔴 **回喂 P3b**：§3.4「流转不落盘」在弱链路 / 小内存目标机不稳，
+> 实现时要提供落盘 + 断点续传 + 一次只 load 一个镜像。
+> 🔴 工具侧 `ops deploy` 仍只有 `--dry-run`，P3b 未实现未授权。
+> ✅ **16:4x k2 恢复 → 手工端到端链路跑通；16:5x 部署文档落地性确认完成**
+> （`docs/deploy.md` §9.8）：改走「逐镜像 gzip 落盘 **651.7 MB** → 分批传
+> `/opt/passup/.images` → 逐个 `docker load` → `compose up` → 健康门」，
+> k2 **6 容器 Running**，backend 8009 / ai 8006 / web 80 **三个健康门各 200**
+> （17:0x 再次复测全绿）。脚本 `.tmp-deploy-smoke/run-flow.py` 可断点续跑。
+> 🔴 结论：**主链路可落地，但文档不能原样照抄进代码** —— §3.4 默认「流转不落盘」
+> 被 §9.7 证伪、已改默认「落盘 + 断点续传」；§3.5 四段拉起顺序与真实 compose
+> 结构不符已修；§3.6 补启动窗口（ai 需 ~30 s，立刻查会误判 `000`）；
+> §6 风险表 / §7 决策表同步回喂。
+> 🔴 **仍无真机证据**：预检加锁、配置备份 / rsync、构建（本轮用现成镜像）、
+> 回滚、发版台账；全链路用**全测试值**配置，兄弟仓真 `.env` 一字未动、
+> 52 键生产凭证没同步 / 没打印 / 地址未核对。
+> 🔴 确认可落地 **≠ 授权发布**：P3b / P4 未实现未授权，不带 `--dry-run` 仍 rc=2，
+> 界面无发布按钮。本轮**只改文档**，没动 Go / `web/` / 远端配置。
 > ✅ **2026-11-10 23:4x P3 第一刀启动（仅方案 + 原型，代码仍未实现）**：
 > `docs/deploy.md` 按当前代码基座校准（清单 `user/key` + 免密 sudo、界面唯一任务锁、
 > 二次确认门、只读失败回完整快照、按能力竖切 Go 包），新增
@@ -215,8 +340,12 @@
   `ops menu` 是显式的交互菜单入口，`ops shortcut` 建桌面 `.lnk`。见 `docs/one-click-launch.md`。
 - `ops ui` 的「备份监控」页（P2+）已实现：只读快照 + 30s 缓存 + 四张卡 +
   60s 自动刷新，与 CLI 共用一份 `Status`；见 `docs/ui.md` §14 / `docs/backup-monitor.md` §12。
-- **仍是方案、代码未实现**：`ops deploy` / `ops rollback`（P3–P4 单机 Docker 部署，
-  设计见 `docs/deploy.md`）。草案命令未注册、不要照抄执行。
+- **P3a 已落地（2026-11-11）**：`ops deploy ... --dry-run` 是唯一可用的部署动词，
+  只做真实 ssh 只读预检 + 打印将执行的远端命令，与 `deploy.sh` 人工步骤逐条对齐；
+  不带 `--dry-run` 直接拒绝。设计见 `docs/deploy.md`。
+- **仍是方案、代码未实现**：`ops deploy` 的正式发布路径（P3b）/ `ops rollback`（P4）/
+  `ops ps` / `ops logs` / `ops deploy releases`。命令未注册，不要照抄执行；
+  真实发布要单独授权。
 - **手动备份已实现且真机验收已跑（2026-11-10，§8.1）**：`ops backup once` + 界面第 6 项，
   见 `docs/backup-once.md` / `docs/ui.md` §15；§7.1 补锁前置已闭环，七场景逐条结论见 §8.1，
   心跳已被手动备份刷新（**不代表定时任务正常**）。
@@ -620,7 +749,9 @@ ops shortcut [--name <名字>] [--remove]
 ops menu --help
 ```
 
-上面只列**已实现**命令；`ops deploy` / `ops rollback`（P3–P4）尚未实现，不要照抄执行。
+上面只列**已实现**命令；`ops deploy ... --dry-run`（P3a 只读预演）已实现并注册在
+`commandHandler`，正式发布路径 / `ops rollback` / `ops ps` / `ops logs` /
+`ops deploy releases`（P3b–P4）尚未实现，不要照抄执行。
 `ops restore run` 的 `--db` / `--candidate` / 门禁参数以 `ops restore help` 与
 `docs/backup-restore.md` §5 / §7 为准；正式执行会覆盖生产端，必须有人值守。
 `ops status` 与界面的「备份监控」页都用清单 `user/key`
@@ -706,7 +837,9 @@ ops menu --help
   现在只是调 `shared.AcquireSingleton` 的薄包装（互斥体实现只在 shared 一份）。
 - 命令入口统一 `Cmd<动词>`（如 `backup.CmdBackup`、`servers.CmdServers`）；
   能力的 CLI 分发与 usage 归各自包，测试文件也随能力归位。
-- `docs/deploy.md` §5 的文件树仍是 P3–P4 的**计划**，`deploy.go` / `rollback.go` 不存在；
+- `docs/deploy.md` §5 的文件树里 `internal/deploy/{plan,preflight,cli}.go` 与
+  `deploy_test.go` 是 P3a 已落；`deploy.go` / `release.go` / `history.go` /
+  `rollback.go` 仍是 P3b–P4 的**计划**、不存在；
   P2a 的 `internal/monitor/{config,status,cli}.go` 已落地（见 `docs/backup-monitor.md` §7）。
   新增能力继续在 `internal/<能力>/` 下建包。
 
@@ -747,8 +880,8 @@ ops menu --help
 | 备份监控（P2a CLI ✅ / P2+ 界面 ✅；**2026-11-10 真机验收通过**，见 §13） | `docs/backup-monitor.md`（界面见 `docs/ui.md` §14） | 只读采集；时间差在远端算；`-` 不是 0；**单账号**（清单 `user/key`，采集不提权）；网页与 CLI 共用 `CollectForServer` / `Status`，前端不算指标；8 个键已进 `docs/config.md` §3 |
 | 手动备份（立即跑一次 · **已实现，2026-11-10 按 §8 七场景真机验收**） | `docs/backup-once.md` §8.1（界面见 `docs/ui.md` §15） | 独立子命令 + 独立页，复用已部署脚本与同一把任务锁；不提权 / 无 sudo 密码框、不查 crontab、不改监控采集判据；报告只报脚本结果且**不能当成定时任务正常**；§7.1 补锁前置已闭环；验收发现的三处 preflight 凭证口径问题已分别修复并部署验证：弱凭证回显（§8.2）、前 3 后 3 展示（§8.3）、`*123456*` 子串误报（§8.4） |
 | 手动备份界面原型（**交互回归基线** · 代码已实现） | `docs/backup-once-prototype.html`（分区见 `docs/backup-once-prototype-map.md`） | 七场景 = 验收用例集；定时状态恒「不采集」、预演不是执行凭证、弹窗无 sudo 密码框、报告固定带手动触发提示；静态速览不连远端、不执行动作，冲突时改原型 |
-| 单机一键 Docker 部署（P3–P4 · 方案，未实现；2026-11-10 分册校准 + 原型待评审；2026-11-11 新增 §10 发版信息 / §10.4 版本历史） | `docs/deploy.md` | `.env` 去 CRLF；镜像前缀必须等于 compose；Flyway 单向；方案键表在本文 §8，不进 config.md；第一刀只 `--dry-run` 与 `deploy.sh` 逐条对齐，不真实发布；§10 发版号只是元信息、不是镜像 tag，不新增配置键；§10.4 台账 append-only 记正式发布尝试（预演不入账、失败 / 回滚留痕）、历史只读、接口失败回 `items: []` |
-| 应用部署界面原型（**P3 方案 · 待评审**） | `docs/deploy-prototype.html`（分区见 `docs/deploy-prototype-map.md`） | 九场景 = 验收用例集；第一刀只有 `--dry-run`、**没有正式发布按钮**；预演不是执行凭证；撞锁 / 构建失败 / 健康门失败是运行期结果、不是预演阻塞；发版信息校验失败是全局阻塞、预演不落台账、上传恒禁用；只读「发版历史」折叠区按 server 筛选、成功 / 失败 / 回滚徽标、模拟接口失败回 `items: []`；静态速览不连远端、不发请求、不执行动作，冲突时改原型 |
+| 单机一键 Docker 部署（**P3a 只读预演已落地、本地链路验收闭环** / P3b 真实发布 + P4 回滚仍是方案、未授权；2026-11-11 评审通过 + 分册事实修订，§9.1–§9.8） | `docs/deploy.md` | 远端 `.env` 换行**先探测、检出 CR 才转 LF**（本机 LF 不作判据）；镜像前缀必须逐字等于 compose；Flyway 单向；方案键表在 §8、不进 config.md、P3a 一个键都不启用；第一刀只 `ops deploy --dry-run` 与 `deploy.sh` 逐条对齐、不拿锁不写远端、不真实发布；§4 按真实脚本校正（没有 `docker tag`、Step 4 整目录 `rsync --delete`、root 登录差异）；§10 发版号只是元信息、不是镜像 tag；§10.4 台账 append-only（预演不入账、失败 / 回滚留痕）、历史只读、接口失败回 `items: []`；✅ 15:2x 拓扑确认：k1=备份服务器、k2=应用部署目标（§9.6，k2 `role=app`），旧推断「222 未登记」作废；✅ 13:5x 真机补验 §9.3（k1 零写入 diff 0）；14:1x 提议 → 15:2x 正式确认以 k2 为目标（§9.4 / §9.6，只读预演已通、零写入 diff 0）；✅ 14:4x 已装 Docker 29.9.3 / Compose 5.7.0（§9.5，带 `--proxy http://172.16.0.222:7897`，九项里两项转 ok）；🔴 P3b 未实现未授权、`.env` 52 键含生产凭证等前置仍待人确认；`172.16.0.222:5000/passup` 只是镜像仓库前缀不是部署目标；✅ 16:4x 手工端到端冒烟跑通（§9.8：6 容器 Running / 三个健康门 200），§3.4 默认改「落盘 + 断点续传」（原流转不落盘被 §9.7 证伪）、§3.5 拉起单位按真实 compose、§3.6 补启动窗口；🔴 全测试值配置，加锁 / 备份 rsync / 构建 / 回滚 / 台账仍未验证，P3b 未授权；`ops.exe` 15:24 已重建 |
+| 应用部署界面原型（**评审通过 · 交互回归基线**；界面视图仍未实现，P3a 是 CLI-only） | `docs/deploy-prototype.html`（分区见 `docs/deploy-prototype-map.md`） | 九场景 = 验收用例集；第一刀只有 `--dry-run`、**没有正式发布按钮**；预演不是执行凭证；撞锁 / 构建失败 / 健康门失败是运行期结果、不是预演阻塞；发版信息校验失败是全局阻塞、预演不落台账、上传恒禁用；只读「发版历史」折叠区按 server 筛选、成功 / 失败 / 回滚徽标、模拟接口失败回 `items: []`；静态速览不连远端、不发请求、不执行动作，冲突时改原型 |
 | 一键启动与桌面快捷方式（S2/S3/S5 ✅，S4 人工验收待做） | `docs/one-click-launch.md` | 双击直达网页面板（隐藏守护 + 单实例）；`.lnk` 只指启动器；图标用独立 `.ico`；名字校验挡路径穿越；双击绝不触发写操作，页面写操作要显式确认 |
 | 配置（唯一维护处） | `docs/config.md` | `ops.env` 的键只在 `internal/shared/opsenv.go`（未知 `PASS_UP_OPS_*` 直接报错）；`backup.env` 的键只在 `internal/shared/env-schema.json`，模板 / 脚本兜底 / 白名单 / 键表都是生成物，漏跑生成器 `go test` 会红 |
 | 单文件原型（分区锚点约定 · 本仓实例） | `docs/prototype-conventions.md` | 改前先 grep 锚点定点读、不通读全文；锚点只能是注释、行号不写进 map；新增区块同步补锚点 + 更新 map 表 |
