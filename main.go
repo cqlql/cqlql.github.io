@@ -75,12 +75,15 @@ func commandHandler(name string) (func([]string) int, bool) {
 //   - 备份部署执行器：ui 不能 import backup，函数值由这里递进去。
 //     同一个执行器也跑 `component ...` 子命令（见 backuprun.go），
 //     因此环境组件与备份部署共用界面里唯一一个后台任务锁。
+//   - 应用部署适配层（P3b-3）：ui 不 import deploy，预演 / 发布 / 历史经
+//     ui.DeployAPI 注入，实现在根包 deployrun.go。
 func runUI(a []string) int {
 	return ui.CmdUI(a, webDist,
 		func() (shared.ShortcutInfo, error) {
 			return launcher.CreateShortcutOnDesktop(launcher.DefaultShortcutName)
 		},
 		runBackupSubprocess,
+		newDeployAPI(),
 	)
 }
 
@@ -154,6 +157,8 @@ func usage() {
                                          应用部署只读预演（P3a；不改远端）
   ops deploy release --server <name> --confirm yes --config-dir <dir> --release-version <v>
                                          应用部署正式发布（P3b-1；六道门禁 + 六阶段，写远端）
+  ops deploy releases [--server <name>] [--json]
+                                         只读查看本机发版台账（P3b-2；不连远端）
 
 组件: pg | minio | all（默认 all）
 环境组件: docker | minio（minio 依赖 docker；镜像走离线 tar，凭证走 backup/minio.env）

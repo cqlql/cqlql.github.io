@@ -77,6 +77,12 @@ type uiState struct {
 	// 采集器可注入：单测不连真实 SSH。写任务仍用 backupTask 那把唯一的锁。
 	restoreProbe restoreProbe
 
+	// ---- P3b-3 应用部署（第 8 个导航项，见 deploy.go）----
+	// 预演 / 发布 / 历史都经 DeployAPI 由 main.go 注入，ui 不 import deploy。
+	// 任务日志与 backupTask 共用同一把全局后台锁；deployView 只存阶段 / 门禁 / 报告。
+	deployAPI  DeployAPI
+	deployView *deployViewState
+
 	// ---- 「重启自己」的事实（见 restart.go）----
 	// bootID 是**这个进程实例**的标识，/api/health 会带上它。不能用 PID 代替：
 	// 重启之后 PID 一定变，但「服务还在」与「重启成功了」必须能分开 —— 交接失败时
@@ -93,10 +99,10 @@ type uiState struct {
 // exitProcess 是 /api/shutdown 的测试缝：生产环境就是 os.Exit。
 var exitProcess = os.Exit
 
-// CmdUI 启动本机界面。static 通常是根包的 webDist；createShortcut 与 runner 由
-// main.go 注入（实现分别在 launcher / 根包，ui 不能反向依赖它们）。
+// CmdUI 启动本机界面。static 通常是根包的 webDist；createShortcut / runner /
+// deployAPI 由 main.go 注入（实现分别在 launcher / 根包，ui 不能反向依赖它们）。
 // 测试可以传 fstest.MapFS 与假实现，不依赖「前端构建了没有」、真桌面或真 SSH。
-func CmdUI(args []string, static fs.FS, createShortcut func() (shared.ShortcutInfo, error), runner BackupRunner) int {
+func CmdUI(args []string, static fs.FS, createShortcut func() (shared.ShortcutInfo, error), runner BackupRunner, deployAPI DeployAPI) int {
 	// --background 必须在 flag 解析**之前**拦下：它要把后面的参数原样交给
 	// 隐藏守护，自己不参与 ui 的参数解析（也只活几百毫秒）。
 	if len(args) > 0 && args[0] == "--background" {
@@ -270,6 +276,8 @@ func CmdUI(args []string, static fs.FS, createShortcut func() (shared.ShortcutIn
 		createShortcut: createShortcut,
 		runner:         runner,
 		task:           &backupTask{},
+		deployAPI:      deployAPI,
+		deployView:     newDeployViewState(deployStagesOf(deployAPI)),
 		bootID:         newBootID(),
 		port:           actual,
 		configDir:      dir,
@@ -449,6 +457,18 @@ func (u *uiState) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case r.Method == http.MethodGet && r.URL.Path == "/api/restore/plan":
 		// 备份恢复：换选中行 = 重新取一次计划（服务端重采 + 自己算阻塞）。
 		u.handleRestorePlan(w, r)
+	case r.Method == http.MethodGet && r.URL.Path == "/api/deploy/plan":
+		// P3b-3：只读预演（与 ops deploy --dry-run --json 同源，零写入）。
+		u.handleDeployPlan(w, r)
+	case r.Method == http.MethodGet && r.URL.Path == "/api/deploy/releases":
+		// P3b-3：只读发版历史（失败恒 ok=true + items: []）。
+		u.handleDeployReleases(w, r)
+	case r.Method == http.MethodPost && r.URL.Path == "/api/deploy/release":
+		// P3b-3：正式发布任务（六道门 + 服务端预检门 + 409 + 脱离请求）。
+		u.handleDeployRelease(w, r)
+	case r.Method == http.MethodGet && r.URL.Path == "/api/deploy/task":
+		// P3b-3：增量日志 + 六阶段进度 + 最终报告。
+		u.handleDeployTask(w, r)
 	case r.Method == http.MethodGet && r.URL.Path == "/api/components/status":
 		u.handleComponentStatus(w, r)
 	case r.Method == http.MethodGet && r.URL.Path == "/api/components/images":

@@ -336,7 +336,7 @@ func fullGateText() string {
 		"SEC docker_dir=present", "SEC ai_dir=present", "SEC data=present",
 		"SEC env=present", "SEC secrets=present", "SEC compose_files=3/3",
 		"SEC ai_compose=present", "SEC docker=yes", "SEC compose=yes",
-		"SEC previous=abc1234", "SEC env_cr=0", "SEC end=1", "",
+		"SEC previous=abc1234", "SEC online_version=1.16.0", "SEC env_cr=0", "SEC end=1", "",
 	}, "\n")
 }
 

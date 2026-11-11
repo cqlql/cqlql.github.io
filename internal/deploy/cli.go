@@ -1,11 +1,12 @@
 package deploy
 
-// ops deploy：P3a 第一刀的 CLI 唯一入口。
+// ops deploy：P3a / P3b-1 / P3b-2 的 CLI 唯一入口。
 //
-// 🔴 只有 `--dry-run` 可用。不带它就**直接拒绝**，不生成计划、不碰远端 ——
-//    正式发布（P3b）要单独授权，门禁钉在代码里而不是只写在文档里。
+// 🔴 三条路径：`--dry-run` 只读预演、`release ... --confirm yes` 正式发布、
+//    `releases` 只读发版历史；不带任何动词且不带 --dry-run 仍**直接拒绝**。
 // 🔴 目标机只认 servers.json 的 name；不接受任意 host、私钥路径不打印。
 // 🔴 只读失败也回完整快照并打印报告（rc=1），不是一句错误就退出。
+// 🔴 正式发布结束时由 CLI 层 append 一行台账；预演 / 门禁阻塞路径完全不碰台账。
 
 import (
 	"pass-up/ops/internal/shared"
@@ -32,6 +33,7 @@ type options struct {
 	DryRun         bool
 	JSON           bool
 	Release        bool // 显式发布动词 `ops deploy release`
+	Releases       bool // 只读历史动词 `ops deploy releases`（P3b-2）
 	Confirm        string
 	ConfigDir      string
 	AIConfigDir    string
@@ -44,9 +46,9 @@ type options struct {
 
 var errHelp = errors.New("help")
 
-// parseDeployArgs 只认第一刀的白名单参数。P3b 的 --no-build / --no-sync /
-// --release-version / --release-note 以及 rollback / ps / logs / releases 一律拒绝，
-// 免得草案命令被人当成能跑的开关。
+// parseDeployArgs 按三条路径分白名单：预演只认 --server / --dry-run / --json，
+// release 才接受发布参数，releases 只认 --server / --json。
+// rollback / ps / logs 以及 --no-sync 仍一律拒绝，免得草案命令被当成能跑的开关。
 func parseDeployArgs(args []string) (options, error) {
 	opt := options{Scope: ScopeAll}
 	if len(args) == 0 {
@@ -60,6 +62,10 @@ func parseDeployArgs(args []string) (options, error) {
 		case "release":
 			// 门 1：显式发布动词。没有它就是只读预演 / 直接拒绝。
 			opt.Release = true
+			i = 1
+		case "releases":
+			// P3b-2：只读发版历史。本身就是只读，不需要 --dry-run，也不连远端。
+			opt.Releases = true
 			i = 1
 		default:
 			opt.Scope = args[0]
@@ -103,6 +109,9 @@ func parseDeployArgs(args []string) (options, error) {
 		case strings.HasPrefix(a, "--server="):
 			opt.Server = strings.TrimPrefix(a, "--server=")
 		case a == "--dry-run":
+			if opt.Releases {
+				return opt, errors.New("发版历史本身就是只读，不接受 --dry-run；只接受 --server / --json")
+			}
 			opt.DryRun = true
 		case a == "--json":
 			opt.JSON = true
@@ -226,6 +235,17 @@ func gitShortCommit(dir string) (string, error) {
 	return strings.TrimSpace(string(b)), nil
 }
 
+// runReleaseHistoryCLI：只读本机台账，不连远端、不读清单、不创建文件、不触发任务。
+func runReleaseHistoryCLI(opt options) int {
+	path := ReleaseLogPath(shared.UserConfigDir())
+	h := ReadReleaseHistory(path, opt.Server)
+	if opt.JSON {
+		return writeReleaseHistoryJSON(h)
+	}
+	printReleaseHistory(h, path)
+	return 0
+}
+
 // runReleaseCLI 是 P3b-1 唯一的写路径：门禁没过连清单都不读、远端都不连。
 func runReleaseCLI(opt options) int {
 	if err := releaseGate(opt); err != nil {
@@ -308,6 +328,19 @@ func runReleaseCLI(opt options) int {
 	ctx, cancel := context.WithTimeout(context.Background(), releaseTimeout)
 	defer cancel()
 	rep := RunRelease(ctx, rcfg, &SSHRunner{Target: t})
+	// P3b-2 入账点：只在「门 3 + 门 4 都过、真正开始执行」之后追加一条，成功 / 失败都留痕；撞锁不写。
+	// 台账写失败只如实报警告，不改变发布结果 rc，也不事后补写（§10.3-6 / 结论 E）。
+	if ShouldRecord(rep) {
+		ev := BuildReleaseEvent(rep, rcfg, time.Now())
+		ledgerPath := ReleaseLogPath(shared.UserConfigDir())
+		if e := AppendRelease(ledgerPath, ev); e != nil {
+			rep.LedgerError = e.Error()
+			rep.Warnings = append(rep.Warnings, "发版台账追加失败（不补写、不改变发布结果）："+e.Error())
+		} else {
+			rep.LedgerRecorded = true
+			rep.Warnings = append(rep.Warnings, "发版台账已 append 一条（不覆盖旧记录）："+ledgerPath)
+		}
+	}
 	if opt.JSON {
 		return exitCodeForRelease(rep, writeReleaseJSON(rep))
 	}
@@ -336,11 +369,11 @@ func writeReleaseJSON(rep ReleaseReport) int {
 }
 
 func printReleaseReport(rep ReleaseReport) {
-	fmt.Println("==> 应用部署正式发布（P3b-1 · CLI 主链路）")
+	fmt.Println("==> 应用部署正式发布（P3b-1 主链路 + P3b-2 台账）")
 	fmt.Printf("  目标机：%s（%s）  范围：%s  镜像：%s  tag：%s\n",
 		rep.Server, rep.Host, rep.Scope, rep.ImagePrefix, rep.ImageTag)
-	fmt.Printf("  发版号：%s（只作人读元信息，不是镜像 tag）  备注长度：%d\n",
-		rep.ReleaseVersion, len([]rune(rep.ReleaseNote)))
+	fmt.Printf("  发版号：%s → %s（只作人读元信息，不是镜像 tag）  备注长度：%d\n",
+		rep.OnlineVersion, rep.ReleaseVersion, len([]rune(rep.ReleaseNote)))
 	fmt.Printf("  远端 .env 换行：%s   :previous：%s\n", EnvEndingText(rep.EnvLineEnding), rep.PreviousTag)
 	fmt.Println("\n==> 六道门禁")
 	for _, g := range rep.Gates {
@@ -383,7 +416,9 @@ func printReleaseReport(rep ReleaseReport) {
 		fmt.Printf("  🔴 失败：%s\n", rep.Error)
 	}
 	fmt.Printf("  %s\n", rep.Note)
-	fmt.Println("  🔴 健康门失败不自动回滚（`rollback` 属 P4）；预演 / 门禁阻塞不入账，本刀不落发版台账、不写 state.env。")
+	fmt.Printf("  台账：recorded=%v  %s\n", rep.LedgerRecorded, rep.LedgerError)
+	fmt.Println("  🔴 健康门失败不自动回滚（`rollback` 属 P4）；预演 / 校验失败 / 预检阻塞 / 撞本地单例锁不入账。")
+	fmt.Println("  🔴 台账只在任务结束时 append 一行：进程被 kill / 断电会丢一次尝试，不猜、不补写、不加 running（结论 E）；不写 state.env。")
 }
 
 // CmdDeploy 是 deploy 顶层动词的唯一入口（main.go 注册）。
@@ -397,6 +432,10 @@ func CmdDeploy(args []string) int {
 		fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
 		return 2
 	}
+	// 🔴 P3b-2：只读发版历史独立成路，不连远端、不碰写路径。
+	if opt.Releases {
+		return runReleaseHistoryCLI(opt)
+	}
 	// 🔴 P3b-1：只有显式 `release` 动词才进写路径；六道门在 releaseGate / RunRelease 里再验。
 	if opt.Release {
 		return runReleaseCLI(opt)
@@ -407,56 +446,14 @@ func CmdDeploy(args []string) int {
 		return 2
 	}
 
-	cfg, err := shared.LoadConfig()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "ERROR: %v\n", scrub(err.Error()))
-		return 2
-	}
-	list, err := shared.LoadServers(cfg)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "ERROR: %v\n", scrub(err.Error()))
-		return 2
-	}
-	srv, err := list.Resolve(opt.Server, cfg.DefaultServer)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "ERROR: %v\n", scrub(err.Error()))
-		return 2
-	}
-	t := shared.NewSSHTarget(srv)
-	host := HostLabel(t)
-
-	exe, err := os.Executable()
-	if err != nil {
-		exe = ""
-	}
-	opsDir := filepath.Dir(exe)
-	repos := DetectRepos(opsDir)
-	prefix := notCollected
-	if repos.Backend {
-		if v, e := ReadImagePrefix(filepath.Join(filepath.Dir(opsDir), "pass-up.backend", "docker")); e == nil {
-			prefix = v
-		}
-	}
-
+	// 🔴 P3b-3：只读预演的组装逻辑与界面 GET /api/deploy/plan 共用
+	//    buildDryRunPlan 一处，CLI 的人读报告 / --json / 退出码逐字不变。
 	ctx, cancel := context.WithTimeout(context.Background(), collectTimeout)
 	defer cancel()
-	pf := Collect(ctx, t, host)
-	req := PlanRequest{
-		Server:      srv.Name,
-		Host:        host,
-		Scope:       opt.Scope,
-		ImagePrefix: prefix,
-		ImageTag:    notCollected, // 第一刀不构建、不采集 git commit，不猜值
-		RepoPaths:   repos,
-	}
-	p := BuildPlan(pf, req)
-	p.Warnings = append(p.Warnings, "镜像 tag 未采集（第一刀不构建）；`<tag>` 是占位，P3b 才按 git 短 commit 取值")
-
-	// 目标机身份由清单 role 决定（k1=backup 备份服务器、k2=app 应用部署目标）。
-	// 在备份机上跑预演时给一条提示，免得把备份机快照误读成应用目标就绪结论。
-	// 🔴 不硬编码任何 IP：部署目标只由 --server 选择（§9.1）。
-	if w := roleWarning(srv.Name, srv.Role); w != "" {
-		p.Warnings = append(p.Warnings, w)
+	p, err := buildDryRunPlan(ctx, opt.Server, opt.Scope)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "ERROR: %v\n", scrub(err.Error()))
+		return 2
 	}
 
 	// 🔴 --json 与 人读报告的退出码必须一致：连不上 / 有全局阻塞都是 rc=1，
@@ -576,10 +573,19 @@ func deployUsage() {
                        [--ai-config-dir <ai 配置目录>] [--image-prefix <前缀>]
                        [--image-tag <tag>] [--no-build] [--json]
                        正式发布（P3b-1 CLI 主链路）：六道门禁 + 六阶段状态机 +
-                       落盘流转断点续传 + 两个 compose 单元 + 150 s 健康门。
+                       落盘流转断点续传 + 两个 compose 单元 + 150 s 健康门；
+                       任务结束时 append 一条发版台账（P3b-2）。
+  ops deploy releases [--server <name>] [--json]
+                       只读发版历史（P3b-2）：本机 deploy-releases.jsonl，按时间倒序；
+                       不连远端、不创建文件、不改台账、不触发任何动作。
 
-🔴 只读预演不带 --dry-run 直接拒绝；release 与 --dry-run 不能同用。
-   rollback / ps / logs / releases 仍未注册；界面视图与发版台账属后续批次。
+🔴 只读预演不带 --dry-run 直接拒绝；release 与 --dry-run 不能同用；
+   releases 本身就是只读，不接受 --dry-run。
+   rollback / ps / logs 仍未注册；界面步骤进度 / 实时日志 / 第 8 个导航项 /
+   GET /api/deploy/releases 属 P3b-3，回滚属 P4。
+🔴 台账是 append-only 的正式发布尝试事件流：预演 / 校验失败 / 预检阻塞 /
+   撞本地单例锁不入账；过了门 3 真正开跑的发布，成功 / 失败都留一条。
+   失败响应恒 ok=true + data.error + items: []，不回 null、不回 ok:false。
 🔴 门 2：--confirm yes 由服务端逐字再验，授权只对当次任务有效、不落盘、不缓存。
 🔴 门 3：必须显式 --config-dir —— 工具不擅自读生产 .env、不擅自同步 52 键凭证；
    缺 /data / .env / secrets/ / compose 会点名哪一项，不开始构建、不同步。

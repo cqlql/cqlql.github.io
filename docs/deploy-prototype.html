@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>应用部署（P3）· 交互速览与验收用例集（界面视图未实现 · P3a 预演 / P3b-1 CLI 主链路已落）</title>
+<title>应用部署（P3）· 交互速览与验收用例集（界面已实现 · 静态回归基线 · P3b-3 四接口已落）</title>
 <!-- ==== @section index ==== 分区索引入口；改本页前先查 docs/deploy-prototype-map.md -->
 <style>
 /* ==== @section css-base ==== 变量 / 全局 / 导航 / 工具条 / 场景条 / 标签（与 backup-once-prototype.html 同口径） */
@@ -270,10 +270,14 @@ details.card[open] summary{margin-bottom:10px}
       <div class="banner info" style="margin-top:0;margin-bottom:16px">
         <span class="ico">i</span>
         <span><b>交互速览与验收用例集，不是运行中的界面</b>：静态数据、不连真实远端、不发网络请求、
-        不执行任何动作。<b>已注册</b>的只有 CLI 侧 <code>ops deploy --dry-run</code>
-        （P3a 只读预演，<code>internal/deploy/{plan,preflight,cli}.go</code> 与单测已落）；
-        <code>ops rollback</code> / <code>ps</code> / <code>logs</code> / <code>releases</code>
-        与正式发布路径<b>仍未注册</b>，界面第 8 个导航项仍是方案。
+        不执行任何动作。<b>已注册</b>：CLI 侧 <code>ops deploy --dry-run</code>（P3a 只读预演）、
+        <code>ops deploy release ... --confirm yes</code>（P3b-1）、
+        <code>ops deploy releases</code>（P3b-2），以及四个界面接口
+        <code>/api/deploy/{plan,releases,release,task}</code>（P3b-3，见 §9.13 / ui.md §17）；
+        <code>rollback</code> / <code>ps</code> / <code>logs</code> <b>仍未注册</b>（P4）。
+        ✅ <b>界面第 8 个导航项已于 23:0x 实现</b>，但<b>本页仍是静态判据快照</b>：
+        原型内的「上传 / 正式发布」按钮继续恒禁用；真实界面里按钮<b>默认不可用</b>，
+        要预演 + 发版信息 + 二次确认 + 服务端六道门才解锁，正式发布仍未授权。
         2026-11-11 12:3x 评审通过后第一刀按 2026-11-07 拍板
         <b>只做 <code>--dry-run</code> 与 <code>deploy.sh</code> 人工步骤逐条对齐，不真实发布</b>；
         所以本页<b>没有可用的正式发布按钮</b>（发版信息里的「上传 / 正式发布」恒禁用）。
@@ -305,18 +309,21 @@ details.card[open] summary{margin-bottom:10px}
         才复用镜像）。✅ <b>21:2x P3b-1 CLI 主链路已在测试环境落地并真机验收</b>
         （分册 §9.9）：<code>ops deploy release ... --confirm yes</code> 六道门 /
         六阶段 / 落盘续传 / 两个 compose 单元 / 150 s 健康门，k4 测试值最小栈 rc=0。
-        🔴 <b>P3b-1 是 CLI-only</b>：本页仍是界面视图的静态判据快照，第 8 个导航项 /
-        <code>/api/deploy/*</code> 属 P3b-3、仍未实现，<b>界面「上传 / 正式发布」
-        按钮恒禁用</b>；P3b-2 台账 / P4 回滚仍未实现、未授权。</span>
+        ✅ <b>22:1x P3b-2 台账 + 只读历史 CLI、23:0x P3b-3 界面 + 四接口已落地</b>
+        （§9.12 / §9.13）：第 8 个导航项、六阶段进度、实时日志、发版信息与只读历史都已实现；
+        🔴 <b>本页仍是静态判据快照</b>，「上传 / 正式发布」在本页恒禁用；
+        P4 回滚 / 远端 <code>state.env</code> 写入 / 正式发布仍未实现、未授权。</span>
       </div>
       <div class="page-head">
         <div>
           <h1>应用部署</h1>
-          <div class="meta">第 8 个导航项（<b>方案，未实现</b>）。默认视图只读；目标机只来自
+          <div class="meta">第 8 个导航项（✅ <b>23:0x 已实现</b>；本页是静态回归基线）。
+            默认视图只读；目标机只来自
             <code>servers.json</code> 的 <code>--server &lt;name&gt;</code>，与备份机可同可不同。
             流程：<code>预检 → 配置同步 → 构建 → 传输 → 拉起 → 健康门</code>；
             发布前另填「发版信息」（§10，借鉴小程序上传代码），只作元信息、不替代镜像 tag。
-            第一刀只开放「只读预演」，正式发布要等 P3b 单独授权。</div>
+            实现里「只读预演」是前置，正式发布按钮默认不可用、门禁齐全才解锁，
+            且正式发布仍要一次当次有效的明确授权。</div>
         </div>
         <span class="tag neutral">零跨页状态 · 与部署共用任务锁（未来）</span>
       </div>
@@ -488,8 +495,9 @@ details.card[open] summary{margin-bottom:10px}
           <span class="hintline" id="gateHint"></span>
         </div>
         <div class="hintline" style="margin-top:8px">
-          <b>第一刀没有正式发布按钮</b>：上面的「正式发布」恒禁用；P3b 才开放，届时必须
-          输 <code>yes</code> + 勾选确认 + 过服务端预检门。预演通过不等于可以发布。
+          <b>本页（原型）没有可用的正式发布按钮</b>：上面的「正式发布」恒禁用；实现里
+          按钮改为「默认不可用 + 门禁齐全才解锁」，必须输 <code>yes</code> + 三项勾选 +
+          过服务端预检门（每次写动作服务端再跑一遍只读预演）。预演通过不等于可以发布。
           发版信息校验失败（第 8 个场景）同样挡住计划；发版历史（第 9 个场景）只读、
           <b>不改变计划</b>；P3b 定稿（第 10 个场景）只是静态判据快照，
           同样<b>不改变计划、按钮恒禁用</b>；预演报告只回显发版信息、不落台账。
@@ -600,10 +608,11 @@ details.card[open] summary{margin-bottom:10px}
             <code>release-history</code> 场景钉死这套判据。</li>
           <li>分册 §3.1 预检 / §3.2 同步 / §3.3 构建 / §3.4 传输 / §3.5 拉起 / §3.6 健康门 /
             §3.7 回滚 / §6 风险表 —— 本页只做交互速览，<b>冲突时改原型，不是改分册</b>。</li>
-          <li>界面视图按 <code>docs/ui.md</code> §7 触发条件再加；本轮不改 <code>web/</code>，
-            不注册命令，不改 <code>opsEnvKeys</code> / <code>retiredOpsEnvKeys</code>。</li>
+          <li>2026-11-10 当时：界面视图按 <code>docs/ui.md</code> §7 触发条件再加；本轮不改
+            <code>web/</code>，不注册命令，不改 <code>opsEnvKeys</code> / <code>retiredOpsEnvKeys</code>
+            （✅ 23:0x 已按触发条件加上第 8 项，见 §9.13 / ui.md §17）。</li>
           <li>2026-11-10 23:4x 本轮交付：分册按当前代码基座校准 + 本原型 + 分区索引
-            <code>docs/deploy-prototype-map.md</code>；<b>仍为方案，代码未实现</b>。</li>
+            <code>docs/deploy-prototype-map.md</code>；<b>当时仍为方案，代码未实现</b>。</li>
           <li>2026-11-11 08:4x 只改文档与原型：新增「发版信息」区、第八个场景与
             <code>deploy.md</code> §10；<b>没注册命令、没写 Go / 前端、没新增配置键、
             没连远端、没真实发布</b>。</li>
@@ -635,8 +644,15 @@ details.card[open] summary{margin-bottom:10px}
             更新 §5 阶段划分。锚点数仍 28、十场景不变、<b>正式发布按钮恒禁用</b>；
             🔴 <b>只定判据、不定开工</b>（20:3x 当时）。✅ <b>21:2x 用户授权测试环境
             开工</b>：P3b-1 CLI 主链路落地并在 k4 全测试值最小栈跑通（分册 §9.9），
-            但<b>本页仍是界面视图的静态判据快照</b>，P3b-3 未实现、按钮恒禁用，
-            P3b-2 台账 / P4 回滚仍未实现、未授权。</li>
+            但<b>本页仍是界面视图的静态判据快照</b>、按钮恒禁用
+            （以上为 21:2x 当时状态；P3b-2 / P3b-3 已于 22:1x / 23:0x 落地，见下一条）。</li>
+          <li><b>2026-11-11 23:0x 用户「继续 P3b-3 界面」→ 界面 + 四接口落地</b>
+            （<code>deploy.md</code> §9.13 / <code>ui.md</code> §17）：第 8 个导航项、
+            六阶段步骤条、实时日志、发版信息表单、如实报告与只读发版历史；
+            与 CLI 共用预演 / 发布状态机 / 台账投影。<b>本页仍是静态交互速览</b>：
+            不连远端、不发请求、不执行任何动作，十场景 / 28 锚点 / 门禁查表一律不动，
+            原型内发布按钮继续恒禁用；实现里按钮<b>默认不可用</b>、门禁齐全才解锁，
+            正式发布仍未授权，P4 回滚属计划。</li>
         </ul>
       </details>
       <div class="footnote" style="margin-top:12px">
@@ -1007,7 +1023,8 @@ var SCENES = {
       + '9 条结论见 <code>deploy.md</code> §11.10；输入仍是 §9.7 / §9.8 的手工冒烟实证与四条限制。'
       + '<b>确认可落地 ≠ 授权开工 ≠ 授权发布</b>：<code>ops deploy</code> 仍只有 <code>--dry-run</code>、'
       + '不带它仍 rc=2；P3b-1 按 §11.8 另需单独授权，正式发布要一次当次有效的明确授权。'
-      + '本场景是静态判据快照，<b>不改门禁、不发请求、不执行动作</b>；正式发布按钮恒禁用。'},
+      + '本场景是静态判据快照，<b>不改门禁、不发请求、不执行动作</b>；正式发布按钮恒禁用。'
+      + '以上为 20:3x 定稿当时口径；现状见 <code>deploy.md</code> §9.13 / <code>ui.md</code> §17。'},
     ctx:baseCtx({server:'k2（servers.json · §9.6）',
       lint:'P3b 已拍板定稿 · 代码零改动 · 0 新键',
       health:'8009 / 8006 / 80 · 150 s 窗口内连续 2 次 200'}),
@@ -1016,7 +1033,7 @@ var SCENES = {
       {k:'落盘 + 断点续传主链路',v:'§9.8 手工跑通（全测试值）',s:'ok'},
       {k:'远端加锁 / 配置备份 / rsync',v:'无真机证据',s:'care'},
       {k:'本机构建（backend / ai / web）',v:'没构建，用现成镜像',s:'care'},
-      {k:'回滚 / 台账 / 只读历史',v:'未实现（P4 / P3b-2）',s:'care'},
+      {k:'回滚 / 台账 / 只读历史',v:'20:3x 当时未实现；台账 22:1x 已落，回滚属 P4',s:'care'},
       {k:'生产 .env 52 键核对',v:'没同步 / 没打印 / 地址未核对',s:'care'}
     ],
     available:true,
@@ -1047,7 +1064,7 @@ var SCENES = {
         '9 条待拍板已按推荐结论拍板：不自动回滚 / 150 s 内置 / 0 新键 / CLI-first 三批 / 默认构建等（§11.10）；§3.6 的矛盾已按结论 C 修掉。',
         '一半流程仍无真机证据；<b>确认可落地 ≠ 拍板 ≠ 授权开工 ≠ 授权发布</b>，P3b-1 与真实发布都要单独授权。',
         '本场景不改变预演计划，也不写「服务已恢复正常 / 部署成功」。'],
-      manual:'定稿仍只改文档与原型；代码零改动、不带 --dry-run 仍 rc=2、正式发布按钮恒禁用。'}
+      manual:'定稿当时只改文档与原型、代码零改动；本页仍是静态判据快照、按钮恒禁用（现状见 §9.13 / ui.md §17）。'}
   }
 };
 // ==== @section data-release ==== 发版信息静态数据：基线 / 台账 / 十场景覆盖值（scenes 与范围正交）

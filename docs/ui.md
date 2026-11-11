@@ -46,7 +46,7 @@
 > 评审要点区与第 10 个场景 `p3b-review`（28 锚点 / 1482 行 / 十场景，分区见
 > `deploy-prototype-map.md`）。🔴 **仍只改文档与原型**：界面视图与 `/api/deploy/*`
 > 一行未动、`web/` 未改；P3b-3（界面步骤进度 / 实时日志）按 §11.8 单独一刀、
-> 仍要单独授权，正式发布按钮恒禁用。
+> 仍要单独授权，正式发布按钮恒禁用（**以上为 19:5x 当时状态**，现状见本段末尾 23:0x 与 §17）。
 > **2026-11-11 20:3x §11 的 9 条待拍板按推荐结论拍板 → 定稿**：范围维持
 > **CLI-first**，P3b 拆 P3b-1（CLI 主链路）/ P3b-2（台账 + 只读历史）/
 > **P3b-3（界面步骤进度 / 实时日志 + 第 8 个导航项 + `/api/deploy/*`）**；
@@ -54,7 +54,17 @@
 > `ops deploy release ... --confirm yes` 已注册、k4 测试值最小栈 rc=0；
 > 🔴 **但 P3b-1 是 CLI-only**，界面视图 / 第 8 个导航项 / `/api/deploy/*`
 > 仍属 P3b-3、一行未动，发布按钮继续保持「恒禁用」，正式发布未授权。
-> P3b-2 / P3b-3 / P4 每批单独授权。
+> ✅ **22:1x P3b-2 台账 + 只读历史 CLI 已落地**（`deploy.md` §9.12）：
+> `ops deploy releases` 已注册，`--json` 回本文件 §11.4-5 / §12.5-3 的
+> `ok=true` + `data.error` + `items: []` 结构；**22:1x 当时**草案接口
+> `GET /api/deploy/releases` 仍归 P3b-3、未实现，`web/` 一行未动。
+> ✅ **23:0x 用户「继续 P3b-3 界面」→ 第 8 个导航项「应用部署」已落地**（§17）：
+> 四个 `/api/deploy/*`（只读预演 / 只读发版历史 / 正式发布任务 / 增量日志与六阶段）、
+> 发版信息表单、六阶段步骤条、实时日志、如实报告与只读历史折叠区；
+> 与 CLI 共用 `buildDryRunPlan` / `RunReleaseWith` / `ReadReleaseHistory`，
+> 界面不另算指标。🔴 发布按钮**默认不可用**（门禁齐全才解锁），正式发布仍未授权；
+> 本刀没连真机、没点过正式发布、不写 `state.env`、0 新键、没做 P4。
+> P4 每批单独授权。
 
 # 界面（`ops ui`）
 
@@ -128,6 +138,15 @@ web/                             前端源码（不在 internal/ 下，见 §3 �
         utils/format.ts          只格式化：null → —、0 仍是 0、数组兜底、默认机
         pages/MonitorPage.tsx    目标机 + 问题清单 + 四张卡 + 60s 刷新
         index.ts                 对外只导出 MonitorPage
+      deploy/                    应用部署（P3b-3，§17，第 8 个导航项）
+        api.ts                   plan / releases / release / task 四个接口 + targets
+        service.ts               启动发布 + 增量日志轮询 + 页面重载后接回
+        types.ts                 与 Go 的 Plan / ReleaseEvent / deployTaskView 对齐
+        utils/format.ts          归一化（数组恒 []）/ 版本推算 / 按钮门 / 状态码翻译
+        components/              DeployStages / DeployLog / ReleaseForm /
+                                 ReleaseConfirmModal / ReleaseHistory
+        pages/DeployPage.tsx     预演 + 发版信息 + 进度 + 日志 + 报告 + 历史
+        index.ts                 对外只导出 DeployPage
       system/                    全局顶部工具栏（§7 / §11）：api / restartFlow / components
     shared/
       api/http.ts                唯一请求底座：令牌、信封、401、ApiError
@@ -138,7 +157,7 @@ webdist.go                       //go:embed all:web/dist（根包，package main
 ```
 
 🔴 **没有 `router/`、顶层 `pages/`、`shared/domain/`、`hooks/`、`store/`** ——
-不是漏了，是母本第二节那条「目录是长出来的」：五个 feature 各管各的状态、
+不是漏了，是母本第二节那条「目录是长出来的」：七个 feature（含 restore / deploy）各管各的状态、
 零个跨页面共享状态，多页用 `Sider + Menu` 的选中态切换即可（判据见 §7）。
 出现跨页面共享状态时才建目录，别为了结构完整先铺空壳。
 
@@ -1250,4 +1269,106 @@ writer、stdin 可喂脚本内二次确认串），既有 `Stream` / `RunScript`
 两级阻塞 / 门禁矩阵 / 报告措辞 / 六道门 / 计划接口）、
 `cd web && npm test && npm run typecheck && npm run build`、`go build -o ops.exe .`。
 真机按分册 §5.7 六场景演练，结论回写分册状态行与工作日志。
+
+## 17. 应用部署页（第 8 个导航项，2026-11-11 23:0x · P3b-3）
+
+> 状态：**已实现并本地验收**（`deploy.md` §9.13）；交互回归基线仍是
+> `docs/deploy-prototype.html` 十场景（分区见 `deploy-prototype-map.md`）。
+> 🔴 原型是**静态判据快照**，不连远端、不发请求、不执行动作；判据权威是
+> `deploy.md` 与本节，冲突时改原型。正式发布仍要一次当次有效的明确授权。
+
+### 17.1 加在哪里
+
+`App.tsx` 的 `NAV_ITEMS` 第 8 项「应用部署」（`CloudUploadOutlined`），与「看」（备份监控）/
+「装」（备份能力部署 / 环境组件）/「用」（手动备份）/「恢复」（备份恢复）都不混屏：
+它是**唯一会直接改现网业务栈**的页，六道门与二次确认不能和只读页共用一套控件。
+仍不引 `router/`（§7 的触发条件没变），访问过的页保持挂载。
+
+### 17.2 四个接口与数据契约
+
+| 方法 / 路径 | 数据来自 | 失败语义 |
+| :--- | :--- | :--- |
+| `GET /api/deploy/plan?server=&scope=` | P3a `buildDryRunPlan`（CLI 同源） | 200 + 完整空视图 + `error`；所有数组恒 `[]` |
+| `GET /api/deploy/releases?server=` | P3b-2 `ReadReleaseHistory`（CLI 同源） | 200 + `ok=true` + `data.error` + **`items: []`**（§11.4-5 / §12.5-3 白屏红线） |
+| `POST /api/deploy/release` | `RunReleaseForUI` → `RunReleaseWith` 六阶段 | 400 / 404 / 409 逐条见 §17.3；启动成功后任务脱离请求 |
+| `GET /api/deploy/task?after=` | `backupTask.view(after)` + `deployViewState` | 增量日志 + 六阶段 + 门禁 + 最终报告；`after` / `next` 是字节游标 |
+
+🔴 **依赖方向**：`ui` 不 import `deploy`。`ui.DeployAPI` 由 `main.go` 注入（实现在仓根
+`deployrun.go`），与 `monitorProbe` / `restoreProbe` / `BackupRunner` 同构；`CmdUI` 因此
+多一个参数，测试传假实现即可，不依赖真机或构建产物。
+🔴 **0 新键**：没有新增 / 启用任何 `ops.env` 键，§8 的方案键表与数量断言一行未动。
+
+### 17.3 门禁：按钮默认不可用，服务端逐字再验
+
+前端 `releaseGate()` 只决定「按钮能不能点」：选了目标机 + 只读预演通过
+（`available=true`、`collected=true`、无全局阻塞）+ 发版号三段式 + 备注合法 +
+没有任务在跑。换目标机 / 范围会**作废上一次预演结论**。
+
+服务端 `handleDeployRelease` 再加一遍（缺一不可）：
+
+1. `POST` + token + `Origin`；`confirm=="yes"` 与三项勾选**逐字**校验；
+2. `json.Decoder.DisallowUnknownFields`：**界面不接受任何本机路径**，
+   也不开放 `--no-build` / `--force` 等参数（配置目录由 `UIDefaultConfigDir()` 固定解析）；
+3. scope / bump / 版本号 / 备注白名单，版本号与备注过 `ValidateRelease`；
+4. **服务端自己再跑一遍只读预检**（`UIPrecheck`：本机固定目录 `.env` 在不在 +
+   P3a 只读预演），前端点没点过预演都不算数；
+5. `server` 只认 `servers.json` 的 name（未知 404），不接受任意 host；
+6. 与备份 / 组件 / 恢复**共用界面唯一后台任务锁**（409），任务用 goroutine 跑，
+   **不绑 `r.Context()`**：刷新页面 / 关标签页不打断已经开始的发布。
+
+二次确认弹窗回显「线上 → 本次」+ 更新类型 + 备注 + 影响清单，`yes` + 三项勾选，
+**没有 sudo 密码框**（沿用 P0 清单 `user/key` + 免密 `sudo -n`）。授权当次有效、
+不落盘、不缓存（§11.10 结论 1）。
+🔴 撞锁 / 构建失败 / 健康门失败是**运行期结果**，不是预演阻塞；预演通过 ≠ 可以发布。
+
+### 17.4 六阶段、实时日志与如实报告
+
+- 阶段名与状态由 Go 侧 `StageNames()` / `deployViewState.snapshot()` 下发
+  （预检 → 配置同步 → 构建 → 传输 → 拉起 → 健康门），前端只把 `status` 翻译成
+  antd `Steps` 的 `wait/process/finish/error`，**不自己推断跑到哪一步、不算指标**。
+- 进度来自 `deploy.RunReleaseWith` 的可选 `emit` 钩子：它只推「报告里本来就有的
+  行 / 阶段 / 门禁」，`rep.logf` 是唯一日志追加点；钩子带 `recover`，界面写日志
+  panic 不许拖垮发布主链路。`CLI RunRelease`（`emit=nil`）行为逐字不变。
+- 任务日志复用 `backupTask` 的 `backupLogWriter` / `view(after)` 增量实现（256 KB 上限），
+  `deploy-release` 只占锁与标签，不进 `POST /api/backup/run` 的模式白名单。
+- 报告只报脚本结果：成功**不写**「服务已恢复正常」，失败停在 `failed_stage`、
+  **不写**「发布成功」；健康门失败**不自动回滚**（`rollback` 属 P4），Flyway 单向。
+  台账状态（是否 append / 失败原因）如实显示，崩溃丢一次尝试不猜、不补写。
+
+### 17.5 发版信息与只读历史
+
+- 线上版本号只读。远端 `state.env` 本刀**不写**，没采到就显示「未采集 / 首次发版」，
+  **不猜 `0` / `1.0.0`**（硬约束 3）；更新类型只在三段式在线版本上推算版本号，
+  「上次填写」取台账最后一条成功 `release`，**不自动 +1**。
+  发版号**不是镜像 tag**，备注不写远端、不拼进命令；前端校验只是格式提示，
+  唯一判据是服务端 `ValidateRelease`。
+- 发版历史默认折叠、只读：按 server 筛选、时间倒序，列含线上 → 本次 / 更新类型 /
+  镜像 tag / 结果 / 失败阶段 / 备注 / task_id；徽标按 `kind` 优先（回滚单列）。
+  **没有**编辑 / 删除 / 重发 / 上送远端按钮；接口失败如实提示「读不到」，
+  而不是「没有记录」。`items` 在 Go 侧（`normalizeDeployData`）与前端
+  （`normalizeHistory`）各挡一道，恒为数组。
+
+### 17.6 实现差异（别照旧稿改代码）
+
+1. 原型的「上传 / 正式发布」在 P3a / P3b-1 / P3b-2 期间**恒禁用**；P3b-3 之后改成
+   **默认不可用 + 门禁齐全才解锁**，不是「默认可点」。原型里的控件仍是静态模拟。
+2. 原型演示的线上版本号 `1.16.0` 来自远端 `state.env`；实现里本刀不写 `state.env`，
+   首次发版显示「未采集」，这是**如实**，不是采集失败。
+3. 界面**不收** `--config-dir` 路径、`--no-build`、`--ai-config-dir` 等 CLI 参数：
+   前者由服务端固定解析且 `UIPrecheck` 只 `stat` `.env`（不读值、不打印），
+   后者保持「默认每轮构建」。要换快路径走 CLI。
+4. 服务端 `UIPrecheck` 与 `RunRelease` 门 3 会各跑一次只读预演，加上页面「只读预演」
+   共三次；多跑只读命令是刻意的（服务端预检门不信任前端），代价可忽略。
+
+### 17.7 边界与回归
+
+本刀**没连真机、没在界面点过正式发布、没做正式发布、没写远端 `state.env`、
+没碰生产凭证、没实现 `rollback` / `ps` / `logs`（P4）、没提交**。
+备份监控 / 手动备份 / 恢复 / 组件 / 配置的接口与判据一行未改。
+回归：`go vet ./...`、`go test ./...`（11 包，含 `internal/deploy/uiapi_test.go`
+与 `internal/ui/deploy_test.go`）、
+`cd web && npm test`（108 例，含 `web/test/deploy.test.ts`）`&& npm run typecheck && npm run build`、
+`go build -o ops.exe .`；四个接口用隔离配置目录的 7799 实例做过本地冒烟
+（401 / 403 / 400 / 404 / 409、空数组、六阶段、SPA 产物）。
+真机上从界面跑一次正式发布仍待人备好前置 + 一次当次有效的明确授权。
 

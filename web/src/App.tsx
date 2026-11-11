@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { AppstoreOutlined, CloudServerOutlined, DashboardOutlined, DatabaseOutlined, PlayCircleOutlined, RollbackOutlined, SettingOutlined } from '@ant-design/icons'
+import { AppstoreOutlined, CloudServerOutlined, CloudUploadOutlined, DashboardOutlined, DatabaseOutlined, PlayCircleOutlined, RollbackOutlined, SettingOutlined } from '@ant-design/icons'
 import { App as AntApp, ConfigProvider, Layout, Menu } from 'antd'
 import type { MenuProps } from 'antd'
 import zhCN from 'antd/locale/zh_CN'
@@ -7,13 +7,14 @@ import zhCN from 'antd/locale/zh_CN'
 import { BackupPage, OncePage } from './features/backup/index.ts'
 import { ComponentsPage } from './features/components/index.ts'
 import { ConfigPage } from './features/config/index.ts'
+import { DeployPage } from './features/deploy/index.ts'
 import { MonitorPage } from './features/monitor/index.ts'
 import { RestorePage } from './features/restore/index.ts'
 import { ServersPage } from './features/servers/index.ts'
 import { StoppedNotice, ToolbarActions } from './features/system/index.ts'
 import { ErrorBoundary } from './shared/ui/ErrorBoundary.tsx'
 
-type PageKey = 'servers' | 'backup' | 'monitor' | 'components' | 'config' | 'once' | 'restore'
+type PageKey = 'servers' | 'backup' | 'monitor' | 'components' | 'config' | 'once' | 'restore' | 'deploy'
 
 const NAV_ITEMS: MenuProps['items'] = [
   { key: 'servers', icon: <CloudServerOutlined />, label: '服务器管理' },
@@ -29,6 +30,9 @@ const NAV_ITEMS: MenuProps['items'] = [
   // 第 7 项：恢复是覆盖生产数据的写动作，独立成页、不与只读监控混屏
   //（docs/backup-restore.md §5.1 / docs/backup-once.md §2.2）。
   { key: 'restore', icon: <RollbackOutlined />, label: '备份恢复' },
+  // 第 8 项（P3b-3）：应用部署。默认视图只读、发布按钮按门禁解锁，
+  // 与「看」/「装」/「用」/「恢复」都不混屏（docs/ui.md §17）。
+  { key: 'deploy', icon: <CloudUploadOutlined />, label: '应用部署' },
 ]
 
 // 窄窗口放不下 200px 侧栏，退化成顶部横向菜单；只是布局变化，不增加一次点击。
@@ -46,7 +50,7 @@ function useNarrow() {
 }
 
 /**
- * 六个 feature、七页（backup 一页拆成「部署」与「手动备份」两页，另有「备份恢复」），但**仍然没有 router/**。
+ * 七个 feature、八页（backup 一页拆成「部署」与「手动备份」两页，另有「备份恢复」与「应用部署」），但**仍然没有 router/**。
  *
  * 判据见 docs/ui.md §7：路由的价值是「刷新后停在那页 / 能把链接发给别人」，
  * 而这个界面是本机回环、地址里带着一次性 token 的单机工具，链接发出去也没用；
@@ -169,6 +173,9 @@ export default function App() {
                 <RestorePage onGoMonitor={() => openPage('monitor')} onGoConfig={() => openPage('config')} />
               </ErrorBoundary>
             )}
+          </div>
+          <div className="app-pane" hidden={page !== 'deploy'}>
+            {visited.includes('deploy') && <ErrorBoundary><DeployPage /></ErrorBoundary>}
           </div>
         </Layout.Content>
       </Layout>

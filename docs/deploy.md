@@ -18,8 +18,27 @@
 > 三条本机构建链受 mirror / pnpm 限制未通（工具如实停在 `构建`）；
 > 全测试值 6 业务镜像业务栈在 k3 复跑 rc=0、三真实健康门各连续 2 次 200。
 > 🔴 全程用全测试值；生产 `.env` 52 键一字未动、没碰 `prod`、没做正式发布；
-> P3b-2 台账 / P3b-3 界面 / P4 回滚仍未实现、未授权。
-> 现行判据见 §2 / §5 / §9.1–§9.8；
+> P3b-2 台账 / P3b-3 界面 / P4 回滚**在 21:5x 当时**仍未实现、未授权。
+> ✅ **22:1x 用户「那就继续 p3」→ P3b-2 落地**（本刀只做台账 + 只读历史，§9.12）：
+> 新增 `internal/deploy/release.go` / `history.go` / `release_test.go`，
+> `ops deploy releases [--server <name>] [--json]` 已注册；`ValidateRelease` 从
+> `deploy.go` 移到 `release.go` 并补控制字符判据；正式发布在任务结束时 append 一条
+> `deploy-releases.jsonl`（门 3 + 门 4 都过才写，撞锁不写，成功 / 失败都留痕）。
+> `go test ./...` 11 包全绿。
+> 🔴 **22:1x 当时不碰** P3b-3 界面 / 第 8 导航项 / `/api/deploy/*`、不写远端 `state.env`、
+> 不实现 `rollback`（P4）、不新增配置键、不连真机、不做正式发布。
+> ✅ **23:0x 用户「继续 P3b-3 界面」→ P3b-3 落地**（本刀只做界面 + 接口，§9.13）：
+> 第 8 个导航项「应用部署」、四个 `/api/deploy/*` 接口、六阶段步骤条与实时日志、
+> 发版信息表单与只读发版历史；`internal/deploy/uiapi.go`（进度钩子 + 界面同源入口）、
+> 根包 `deployrun.go`（`ui.DeployAPI` 适配）、`internal/ui/deploy.go`（门禁与任务视图）、
+> `web/src/features/deploy/` 与 `web/test/deploy.test.ts`。
+> `go test ./...` 11 包全绿、`go vet` 无告警、前端 `npm test` 108 例 /
+> `typecheck` / `build` 全绿，四个接口本地冒烟（401/403/400/409、空数组、六阶段）通过。
+> 🔴 **本刀没连真机、没在界面点过正式发布、没写远端 `state.env`、0 新键、
+> 不实现 `rollback`（P4）、不碰生产 `.env` 52 键、没提交**。正式发布仍要一次
+> 当次有效的明确授权（§11.1）；界面发布前置（本机固定配置目录的 `.env`）由人备好，
+> 工具不擅自读 / 同步凭证（结论 B）。
+> 现行判据见 §2 / §5 / §9.1–§9.13、§10.4.2、§11.8；
 > 🔴 第一刀不构建镜像、不 `compose up`、不写远端、不落台账、不改 `web/`、
 > 不启用 §8 的任何配置键。以下为演进记录（带时间戳的「命令未注册 / 代码零改动」
 > 均指**当时**，不是现行状态）。
@@ -93,10 +112,11 @@
 
 ## 2. 命令
 
-🔴 **已注册的只有两条路径**（`main.go` 的 `commandHandler` 是动词唯一注册表）：
-`ops deploy ... --dry-run`（P3a 只读预演，12:3x）与
-`ops deploy release ... --confirm yes`（P3b-1 CLI 主链路，21:2x，见 §9.9）。
-其余命令仍是草案：`rollback` / `ps` / `logs` / `releases` **未注册**，不要照抄执行。
+🔴 **已注册的只有三条路径**（`main.go` 的 `commandHandler` 是动词唯一注册表）：
+`ops deploy ... --dry-run`（P3a 只读预演，12:3x）、
+`ops deploy release ... --confirm yes`（P3b-1 CLI 主链路，21:2x，见 §9.9）与
+`ops deploy releases [--server <name>] [--json]`（P3b-2 只读发版历史，22:1x，见 §9.12）。
+其余命令仍是草案：`rollback` / `ps` / `logs` **未注册**，不要照抄执行。
 只读预演模式**不接受** `--no-build` / `--no-sync` / `--release-version` 等参数，
 CLI 会回「未知参数」；这些参数只在 `release` 动词后可用。
 
@@ -114,8 +134,9 @@ ops rollback [all|ai|backend] [--server <name>]
 ops ps / ops logs <service> [-f] [--server <name>]
     只读查看容器状态与日志
 
-ops deploy releases [--server <name>]        P3b 草案：只读查看本机发版台账（§10.4）
-    --server 省略 = 全部；按时间倒序；不连远端、不改台账、不触发任何动作
+ops deploy releases [--server <name>] [--json]   ✅ P3b-2 已注册：只读查看本机发版台账（§10.4）
+    --server 省略 = 全部；按时间倒序；不连远端、不创建文件、不改台账、不触发任何动作
+    --json 回 ok=true + data.items（恒 []，失败时另带 data.error）
 ```
 
 **本轮第一刀只实现 `--dry-run` 链路**：`ops deploy ... --dry-run` 只做真实 ssh 只读
@@ -130,9 +151,13 @@ ops deploy releases [--server <name>]        P3b 草案：只读查看本机发�
 落盘流转、配置备份、健康门启动窗口、台账入账点与分批文件计划已通过评审，
 9 条待拍板按推荐结论拍板（§11.10）；构建**默认每轮执行**、显式 `--no-build` 才复用
 现成镜像（§9.8 实证快路径），健康门窗口取 **150 s 内置默认**。
-🔴 **21:2x 起新增 `ops deploy release` 一条注册路径**（见 §9.9）：
-上面其余草案命令依然「不要照抄执行」；P3b-2 / P3b-3 / P4 每批次单独授权，
-真实环境的正式发布仍未授权。
+🔴 **21:2x 起新增 `ops deploy release`、22:1x 起新增 `ops deploy releases` 两条注册路径**
+（见 §9.9 / §9.12）：上面其余草案命令依然「不要照抄执行」；
+P4 单独授权，真实环境的正式发布仍未授权。
+✅ **23:0x P3b-3 另起四个界面接口**（不新增 CLI 动词，清单见 §9.13）：
+`GET /api/deploy/plan` / `GET /api/deploy/releases` /
+`POST /api/deploy/release` / `GET /api/deploy/task`。CLI 与界面共用同一份预演、
+同一条发布状态机、同一份台账投影；`--dry-run` 与 `release` 的人读报告 / `--json` 逐字未变。
 
 **发版信息（借鉴小程序「上传代码」，2026-11-11 新增方案，见 §10）**：不是新命令、
 也不是新配置键。P3b 的正式发布才接受 `--release-version <v>` / `--release-note <text>`
@@ -318,11 +343,29 @@ ops/
                                         ValidateRelease（门 5 的纯函数，不落台账）
   internal/deploy/deploy_release_test.go 六道门 / 失败停点 / 断点续跑 / 连续 2 次 200 四类判定
   internal/deploy/cli.go                 release 动词 / --confirm yes / 人读与 --json 报告
-  ── 以下仍是计划，当前一个文件都不存在（P3b-2 / P3b-3 / P4）─────
-  internal/deploy/release.go             发版台账 append-only 读写（P3b-2，§10）
-  internal/deploy/history.go             台账只读投影 / 按 server 筛选 / 空视图（P3b-2，§10.4）
+  ── P3b-2 已落（2026-11-11 22:1x，验收见 §9.12）──────────────────
+  internal/deploy/release.go             ValidateRelease（从 deploy.go 移来）+ 门 3/4 入账判据 /
+                                        事件投影 / append-only JSONL 写入（0600）
+  internal/deploy/history.go             台账只读投影 / 按 server 筛选 / 按 ts 倒序 / 空视图
+  internal/deploy/release_test.go        白名单 / 入账界线 / 追加不覆盖 / 空数组红线 / 端到端串联
+  internal/deploy/cli.go                 releases 动词、发布结束 append 一条、报告带台账状态
+  main.go                                usage 加只读发版历史一行
+  ── P3b-3 已落（2026-11-11 23:0x，验收见 §9.13）──────────────────
+  internal/deploy/uiapi.go               进度事件 / StageNames / 界面同源预演与历史 /
+                                        UIPrecheck / RunReleaseForUI（六道门 + 台账）
+  internal/deploy/uiapi_test.go          进度钩子事件序列 / panic 旁路 / 空视图 / 固定目录
+  internal/deploy/deploy.go              RunReleaseWith（可选 emit；CLI RunRelease 委托它）
+  internal/deploy/cli.go                 只读预演改调 buildDryRunPlan（与界面共用一处）
+  deployrun.go（仓根）                   ui.DeployAPI 的适配层，由 main.go 注入
+  internal/ui/deploy.go                  四接口 / 门禁 / 任务视图 / 空数组归一化
+  internal/ui/deploy_test.go             401 / 400 / 404 / 409 / 门禁 / 增量日志
+  internal/ui/{ui,backup}.go             路由与 uiState 注入 / deploy-release 任务模式
+  web/src/features/deploy/**             第 8 导航项：页面 / 表单 / 阶段条 / 日志 /
+                                        只读历史 / 二次确认弹窗
+  web/src/App.tsx / index.css            第 8 项导航 + 少量表单样式
+  web/test/deploy.test.ts                归一化 / 门禁 / 轮询编排
+  ── 以下仍是计划，当前一个文件都不存在（P4）────────────────────────
   internal/deploy/rollback.go            :previous 回滚与 state.env + rollback 留痕（P4）
-  web/src/features/deploy/               界面视图（按 ui.md §7 触发条件，P3b-3 再加）
 ```
 
 测试已覆盖：参数白名单与 `--dry-run` 门禁、预检脚本**源码级只读断言**、
@@ -335,15 +378,23 @@ compose、与真实 `deploy.sh` 的对齐文案。**不写会真实构建镜像�
 | P3 | 预检 + 配置同步 + 构建与流转 + compose up + 健康门（按 §11.8 拆 P3b-1/2/3） | P3a：`--dry-run` 与 `deploy.sh` 逐条对齐（已验）；P3b：真实环境发布须当次明确授权，健康门失败**停在当前阶段 + 如实报告** |
 | P4 | `rollback` / `ps` / `logs` + web 构建同步 | 由人**显式**执行 `ops rollback` 回滚镜像并如实说明 Flyway 单向；**不自动回滚**（结论 C） |
 
-测试（P3a + P3b-1 已落，P3b-2 待补）：命令拼装 / 分目录同步 / `--delete` 语义只
+测试（P3a + P3b-1 + P3b-2 已落）：命令拼装 / 分目录同步 / `--delete` 语义只
 作用于 `www` / CRLF **探测** / 阶段失败停点 / 断点续跑按大小跳过 / 健康门四类判定 /
-发版号白名单 / 报告数组恒 `[]` 都已有单测（`deploy_test.go` +
-`deploy_release_test.go`）。台账追加与空数组仍属 P3b-2。**不写会真实构建镜像 /
+发版号白名单 / 报告数组恒 `[]` 已有单测（`deploy_test.go` +
+`deploy_release_test.go`）；**P3b-2 新增** `release_test.go` 锁备注控制字符与 JSON 转义 /
+门 3/4 入账界线（撞锁不写）/ 失败必带 `failed_stage` / 追加不覆盖旧行 / 三种失败形态空数组恒 `[]` /
+按 server 筛选与 ts 倒序 / 只读不创建文件 / 线上版本号只读采集 / 报告→台账→历史串联。
+**P3b-3 新增** `uiapi_test.go`（进度事件与报告逐字一致 / 钩子 panic 是旁路 / 完整空视图 /
+固定配置目录 / 本机前置挡住）与 `internal/ui/deploy_test.go` / `web/test/deploy.test.ts`
+（401 / 403 / 400 / 404 / 409、门禁逐字、空数组红线、六阶段进度、增量日志、轮询编排）。
+**不写会真实构建镜像 /
 真 `compose up` / 真造故障的单测**。
 🔴 **§11 已于 20:3x 拍板定稿**（19:5x 评审稿 → 9 条按推荐结论拍板，见 §11.10）：
 `deploy.go` / `deploy_release_test.go` 已于 **21:2x 随 P3b-1 落地**（§9.9），
-`release.go` / `history.go` / `rollback.go` 仍不存在；分批顺序见 §11.8，
-**P3b-2 / P3b-3 / P4 每批次单独授权**，一句「继续」不算授权。
+`release.go` / `history.go` / `release_test.go` 已于 **22:1x 随 P3b-2 落地**（§9.12），
+`uiapi.go` / `internal/ui/deploy.go` / `web/src/features/deploy/` 已于 **23:0x 随 P3b-3 落地**
+（§9.13）；`rollback.go` 仍不存在；分批顺序见 §11.8，
+**P4 仍需单独授权**，正式发布仍要一次当次有效的明确授权，一句「继续」不算。
 
 **本轮状态（2026-11-11 12:3x 评审通过，12:5x 代码与本地链路验收闭环，
 13:5x 网络恢复后补真机验收，见 §9.3）**：
@@ -354,13 +405,15 @@ compose、与真实 `deploy.sh` 的对齐文案。**不写会真实构建镜像�
 | :--- | :--- | :--- |
 | P3a（已落） | 只读计划 + `ops deploy --dry-run`，输出与 `deploy.sh` 人工步骤逐条对齐 | 不构建镜像、不 `compose up`、不改远端任何文件；**不落台账、不写 `state.env`** |
 | **P3b-1** | CLI 主链路：六阶段状态机 + 配置备份 / 同步 + 默认构建 + 落盘流转 + 两个 compose 单元 + 150 s 健康门（§11.8） | 不发版台账、不改界面、不连真机造故障；**不自动回滚**（结论 C） |
-| **P3b-2** | `ValidateRelease` + append-only 台账 + 只读发版历史 / `ops deploy releases` | 不编辑 / 删除 / 重发、**不加 `running` 起始事件**（结论 E） |
-| **P3b-3** | 界面步骤进度 + 实时日志 + 第 8 个导航项 + `/api/deploy/*` | 不把发布按钮做成默认可用；此前按钮恒禁用 |
+| **P3b-2 ✅ 22:1x 已落** | `ValidateRelease` + append-only 台账 + 只读发版历史 / `ops deploy releases`（§9.12） | 不编辑 / 删除 / 重发、**不加 `running` 起始事件**（结论 E）；不写 `state.env` |
+| **P3b-3 ✅ 23:0x 已落** | 界面步骤进度 + 实时日志 + 第 8 个导航项 + 四个 `/api/deploy/*`（§9.13） | 发布按钮**默认不可用**（预演 + 发版信息 + 二次确认 + 服务端六道门才放行）；不写 `state.env`、不自动回滚、不开放 `--no-build` / 任意路径 |
 | P4 | `rollback` 追加一条 `kind=rollback` 台账事件 | 不删、不改已有台账记录 |
 
 🔴 **每批次单独授权**（§11.8）：20:3x 的 9 条拍板**只定判据、不定开工**；
-21:2x 用户授权测试环境后 P3b-1 已落地（§9.9），不带任何动词仍直接拒绝，
-P3b-2 / P3b-3 / P4 与真实环境的正式发布仍要单独授权。
+21:2x 用户授权测试环境后 P3b-1 已落地（§9.9），22:1x 用户「那就继续 p3」后 P3b-2
+已落地（§9.12），23:0x 用户「继续 P3b-3 界面」后 P3b-3 已落地（§9.13），
+不带任何动词仍直接拒绝；
+**P4 与真实环境的正式发布仍要单独授权**。
 
 **P3a 范围拍板（2026-11-11，对应 §9 的待拍板项）**：
 
@@ -955,12 +1008,141 @@ Spring Boot `ConfigurationPropertiesBindException`、容器重启 14 次。
 命名返回值缺失导致 `duration_ms` 恒 0；改成命名返回值后真机回 90973，
 新增 `TestRunReleaseReportsDuration` 锁住。
 
-🔴 仍未验证：三条构建链（本机 mirror / pnpm 限制）、生产 `.env` 52 键人工核对、
-P3b-2 台账 / P3b-3 界面 / P4 回滚；**正式发布未授权**，界面按钮恒禁用。
+🔴 **21:5x 当时**仍未验证：三条构建链（本机 mirror / pnpm 限制）、生产 `.env` 52 键
+人工核对、P3b-2 台账 / P3b-3 界面 / P4 回滚；**正式发布未授权**，界面按钮恒禁用。
+
+### 9.12 P3b-2 发版台账 + 只读历史落地（2026-11-11 22:1x）
+
+用户「那就继续 p3」→ 按 §11.8 已拍板的 **CLI-first** 顺序，本刀只做 P3b-2
+（它是 P3b-3 界面的数据前置），**没有**顺手把界面 / 回滚 / 正式发布一起摊开。
+
+**落地的代码**（`go test ./...` 11 包全绿、`go vet ./...` 无告警）：
+
+| 文件 | 内容 |
+| :--- | :--- |
+| `internal/deploy/release.go` | `ValidateRelease` 从 `deploy.go` 移来（判据未放宽，补控制字符拒绝）；`ReleaseEvent` 12 字段 / `ReleaseLogPath` / `AppendRelease`（`O_APPEND` + 0600）/ `ShouldRecord` / `BuildReleaseEvent` |
+| `internal/deploy/history.go` | `ReadReleaseHistory` 只读投影：按 `server` 筛选、按 `ts` 倒序、三种失败形态恒 `ok=true` + `data.error` + `items: []`；人读与 `--json` 输出 |
+| `internal/deploy/cli.go` | 注册 `ops deploy releases`（只认 `--server` / `--json`）；`release` 结束时 append 一条；报告加 `online_version` / `ledger_recorded` / `ledger_error` |
+| `internal/deploy/deploy.go` | 只读预检顺带采 `RELEASE_VERSION` → `SEC online_version=`（文件不存在 / 没写就如实「未采集」，不猜 0）；门禁名常量化 |
+| `internal/deploy/release_test.go` | 白名单与备注控制字符 / JSON 转义 / 入账界线 / 追加不覆盖 / 空数组红线 / 筛选与倒序 / 只读不建文件 / 报告→台账→历史串联 |
+
+**入账界线（本刀实现口径）**：`ShouldRecord` 要求门 3「只读预检门」**与**
+门 4「双锁」都通过 —— 这就是 §11.6 的「过完门、真正开始执行」；之后构建失败 /
+配置备份失败 / 传输失败 / 健康门失败 / 成功都留一条，失败带 `failed_stage`。
+预演、`ValidateRelease` 失败、预检不通过、连不上、撞**本地单例锁**（409）
+与**门 4 远端 `flock` 撞锁**一律不入账。
+🔴 文档口径差异如实记下：§10.2 早期设计稿的「要写」清单把「撞锁」列了进去，
+但 §11.2（20:3x 拍板定稿）明确「预演 / 校验失败 / 预检 / **撞锁** / 409 一律不入账」，
+§11.6 也要求过完门。**本刀按 §11.2 定稿优先：撞锁不写**，并已在 §10.2 加注；
+没有改判据文档、没有加 `running` 起始事件（结论 E）。门 6 备份失败发生在阶段 ②
+执行段内（远端已经动过），仍要留痕。
+
+**台账**：固定落 `shared.UserConfigDir()/deploy-releases.jsonl`，读写两侧都走
+`ReleaseLogPath`，**不跟** `ops.env` 里那个可覆盖 `servers.json` 路径的现行键漂移
+（键名见 config.md；否则发布写 A、历史读 B，历史会凭空少一半）。字段与 §10.2 一致；`bump` 是界面的
+更新类型辅助字段，CLI 没有这个输入，恒留空、不推算；`task_id` 是
+`cli-<时间戳>-<server>` 形式的关联标识，不是唯一任务 ID。
+
+**本地验收（无真机、无正式发布）**：CLI 冒烟实测空台账回
+`{"ok":true,"data":{"items":[],"error":"台账文件不存在…"}}` 且**不创建文件**；
+3 行样例按时间倒序、按 `--server k3` 筛出 2 条；人为破坏第 4 行后回
+`ok=true` + `data.error`（点名第 4 行）+ `items: []`；
+`releases --dry-run` 与 `releases --confirm yes` 均 rc=2 拒绝。
+单测另锁：旧行不被覆盖、失败记录缺 `failed_stage` 拒写、非法 `kind/result`
+（含 `running`）拒写、备注含 `\x00` / `\t` / `\x7f` 拒写、`$()` 与 `<script>` 只作
+纯文本且 `json.Marshal` 转义、报告→事件→append→只读历史串联后读出「成功 + 停在健康门的失败」。
+
+🔴 **本刀没做**：P3b-3 界面步骤进度 / 实时日志 / 第 8 个导航项 /
+`GET /api/deploy/releases`（接口仍属草案）；**不写远端 `state.env` 的
+`RELEASE_VERSION`**（`online_version` 只从现存 `state.env` 只读采集，因此首次部署
+通常显示「未采集」，写入属后续批次）；`rollback` / `ps` / `logs` 仍属 P4；
+没有编辑 / 删除 / 重发 / 自动清理入口；§8 的 12 个方案键与 `opsenv_test.go`
+数量断言一行未动；没连真机、没构建、没做正式发布，生产 `.env` 52 键一字未动。
+🔴 三条构建链仍待本机 mirror / pnpm 修复后复验；正式发布仍需一次当次有效的明确授权。
+
+### 9.13 P3b-3 界面 + `/api/deploy/*` 落地（2026-11-11 23:0x）
+
+> **授权与范围**：用户「继续 P3b-3 界面」是 §11.8 要求的**当批单独明确授权**。
+> 本刀只做界面步骤进度 / 实时日志 / 第 8 个导航项 / 四个 `/api/deploy/*` 接口；
+> **不加 CLI 动词、不改 P3b-1 / P3b-2 判据、0 新键、不写远端 `state.env`、
+> 不实现 `rollback`（P4）、不连真机、没在界面点过正式发布、没做正式发布、没提交**。
+> 真实环境的正式发布仍按 §11.1 要一次**当次有效**的明确授权。
+
+**四个接口**（页面与 `/api/*` 一律校验 token，写操作另校验 `Origin`；只认清单里的 `name`）：
+
+| 方法 / 路径 | 作用 | 门禁与失败语义 |
+| :--- | :--- | :--- |
+| `GET /api/deploy/plan?server=&scope=` | P3a 只读预演的完整快照，与 `ops deploy --dry-run --json` **同源**（`buildDryRunPlan` 一处组装） | 范围白名单、非空 `server` 查清单（未知 404）；连不上 / 配置错也回 **200 + 完整空视图 + `error`**，数组恒 `[]`、不猜 0 |
+| `GET /api/deploy/releases?server=` | P3b-2 台账的只读投影 | 不连远端、不校验清单（历史里可有已删机器）；文件不存在 / 读失败 / 坏行一律 **200 + `ok=true` + `data.error` + `items: []`**，绝不回 `null` / `ok:false` |
+| `POST /api/deploy/release` | 启动正式发布后台任务 | ① `confirm=="yes"` + 三项勾选；② 服务端**自己再跑一遍**只读预检（`UIPrecheck`：本机固定目录 `.env` + P3a 预演）；③ scope / bump / 发版号 / 备注白名单（`ValidateRelease`）；④ 拒绝未知字段（**界面不接受任意本机路径，也不开放 `--no-build` / `--force`**）；⑤ `server` 只认清单（404）；⑥ 与备份 / 组件共用界面唯一后台任务锁（409）；⑦ 任务脱离 `r.Context()`、日志增量轮询、上限同 256 KB |
+| `GET /api/deploy/task?after=` | 六阶段进度 + 门禁 + 增量日志 + 最终报告 | 阶段名与状态由 Go 侧 `StageNames()` / `deployViewState` 下发，前端只翻译不推断；`after` / `next` 字节游标，刷新页面能接回一个已在跑的任务 |
+
+**Go 侧怎么接的**（依赖方向仍单向：`main → ui → shared`、`main → deploy`，`ui` **不 import `deploy`**）：
+
+- `internal/deploy/uiapi.go`：进度事件 `ProgressEvent` / `ProgressFunc`；`RunReleaseWith(ctx,cfg,r,emit)`
+  是 `RunRelease` 的超集，`RunRelease` 委托它且 `emit=nil`——**CLI 行为逐字不变**。
+  事件只推「报告里本来就有的行 / 阶段 / 门禁」，`rep.logf` 是唯一日志追加点；
+  `emitEvent` 带 `recover`，界面写日志失败 / panic **不许拖垮发布主链路**（单测已锁）。
+  `StageNames()` 是六阶段名字的唯一来源，界面不硬编码。
+- 同源入口：`DryRunPlan` / `UIPlanJSON` 与 CLI 共用 `buildDryRunPlan`；`UIHistoryJSON`
+  复用 P3b-2 的 `ReadReleaseHistory`；`RunReleaseForUI` 复用 `RunReleaseWith` +
+  `ShouldRecord` / `BuildReleaseEvent` / `AppendRelease`，**台账仍由执行链路在任务结束时 append**，
+  界面按钮不写台账、没有事后补记。
+- 根包 `deployrun.go` 实现 `ui.DeployAPI` 并由 `main.go` 注入 `ui.CmdUI`（第五参），
+  与 `backuprun.go` 的 `BackupRunner` 同构；`internal/ui/deploy.go` 的 `normalizeDeployData`
+  在服务端再补一层空数组，与前端 `normalizePlan` / `normalizeHistory` 双层挡白屏。
+- 任务日志与 `backupTask` 共用同一把锁和同一个增量日志实现，新增 `deploy-release`
+  模式只用于占锁 / 标签，**不进** `parseBackupMode` / `isBackupWriteMode`，
+  `POST /api/backup/run` 调不到它（单测已锁）。
+
+**前端**（`web/src/features/deploy/`，第 8 个导航项「应用部署」，仍无 `router/`）：
+
+- 默认视图只读；换目标机 / 范围会**作废上一次预演结论**，必须重新点「只读预演」。
+- 发版信息：线上版本号只读、**未采集就显示「未采集 / 首次发版」（不猜 0、不自动推算）**；
+  四选一更新类型只在三段式在线版本上推算；「上次填写」取台账最后一条成功 `release`，
+  **不自动 +1**；版本号三段式与备注只是前端格式提示，服务端 `ValidateRelease` 再验。
+- 正式发布按钮**默认不可用**：选机 + 预演通过（`available=true` 且 `collected=true`、无阻塞）
+  \+ 发版信息合法 + 没有任务在跑，才允许打开二次确认弹窗；弹窗回显线上 → 本次、
+  更新类型、备注与影响清单，`yes` + 三项勾选、**没有 sudo 密码框**。
+- 六阶段步骤条 / 实时日志 / 如实报告 / 只读发版历史折叠区（按 server 筛选、徽标按
+  `kind` 优先、失败显示 `failed_stage`、没有编辑 / 删除 / 重发 / 上送按钮）。
+  报告只报脚本结果：成功不写「服务已恢复正常」，失败停在失败阶段、不写「发布成功」。
+
+**三处明确取舍**（写进判据，避免下次照旧稿改回去）：
+
+1. **界面不接受任何路径**：门 3 的 `--config-dir` 在 CLI 是显式参数，界面若收路径就
+   会变成「把任意本机目录同步到远端」的代理。改由 `UIDefaultConfigDir()` 固定解析
+   （配置目录下 `deploy/config/`），`UIPrecheck` 只 `stat` `.env` 在不在，**不打开、
+   不读值、不打印**；缺了就点名挡住，由人按目录备好 `.env` / compose / `secrets/` / `www/`
+   （结论 B：工具不擅自造、不擅自同步 52 键凭证）。
+2. **不开放 `--no-build`**：界面默认每轮构建（§11.10 结论 9），少一个能配错的开关；
+   `--no-build` 仍是 CLI 的显式快路径。
+3. **线上版本号仍显示「未采集」**：本刀不写远端 `state.env`（P3b-2 起就没写），
+   只读预演也拿不到 `RELEASE_VERSION`，按硬约束 3 如实显示，不猜 `0` / `1.0.0`；
+   要采集与写入是后续单独一刀。
+
+**验收**（本地，不连真机）：`go vet ./...` 无告警、`go test ./...` **11 包全绿**；
+前端 `npm test` **108 例全绿**、`npm run typecheck` / `npm run build` 通过；
+`go build -o ops.exe .` 重建（产物已嵌进二进制）。用隔离配置目录起 7799 实例做接口冒烟：
+无 token 401 / 外来 Origin 403 / 非法范围 400 / 缺 `yes` 400 / 带 `config_dir` 字段 400 /
+完整门禁但缺发布前置 400（点名「本机配置目录缺 .env」）/ 台账不存在仍 `ok=true` +
+`items: []` / 任务快照返回六个 `wait` 阶段（预检 → 配置同步 → 构建 → 传输 → 拉起 → 健康门）/
+SPA 产物含第 8 导航项与 `/api/deploy/plan`。
+
+🔴 **本刀没做**：没连真机、没点过界面「正式发布」、没做正式发布、没写远端 `state.env`、
+没碰生产 `.env` 52 键与 `prod`、0 新键（§8 的 12 方案键与 `opsenv_test.go` 数量断言
+一行未动）、不实现 `rollback` / `ps` / `logs`（P4）、不自动回滚、没有提交 / push。
+三条构建链仍待本机 mirror / pnpm 修复后复验；界面发布要真正跑通，还要人备好本机
+固定配置目录与远端前置，并给一次当次有效的明确授权（§11.1）。
 
 ## 10. 发版信息（借鉴小程序「上传代码」· 2026-11-11 新增方案）
 
-> 本节只是**设计稿**，截至 2026-11-11 代码为零。判据仍以 §2 / §3 / §6 / §9 为准；
+> ✅ **22:1x P3b-2 已落**：append-only 台账、只读历史 CLI 与入账判据见 §9.12；
+> ✅ **23:0x P3b-3 已落**：界面表单、第 8 个导航项与四个 `/api/deploy/*` 接口
+> （判据与验收见 §9.13），与 CLI 共用同一份预演 / 发布状态机 / 台账投影；
+> 🔴 **远端 `state.env` 写入仍是设计稿**（线上版本号如实显示「未采集」），
+> 发布按钮默认不可用、正式发布仍未授权。
+> 判据仍以 §2 / §3 / §6 / §9 为准；
 > 原型对应 `docs/deploy-prototype.html` 的 `card-release` / `card-history` 区与
 > 第 8、9 个场景 `release-invalid` / `release-history`
 > （分区索引 `docs/deploy-prototype-map.md`）。**§10.4 版本历史**是 2026-11-11 10:0x
@@ -978,16 +1160,20 @@ P3b-2 台账 / P3b-3 界面 / P4 回滚；**正式发布未授权**，界面按�
 | 线上版本号 `1.16.0`（只读） | 远端 `/opt/passup/.deploy/state.env` 的 `RELEASE_VERSION`，随只读预检一条 `cat` 带回 | 只读快照；连不上 / 文件不存在显示「未采集 / 首次发版」，**不猜 `0` / `1.0.0`**（硬约束 3） |
 | 更新类型：版本升级 / 特性更新 / 修订补丁 | `x.y.z` 三段式分别 `x+1.0.0` / `x.y+1.0` / `x.y.z+1`；非三段式或「未采集」**不自动推算**，只让人手填 | 纯界面辅助，不是服务端判据；手填值仍过白名单 |
 | 上次填写 | 从台账最后一条 `kind=release` 且 `result=success` 读回**版本号 + 项目备注**，不自动再 +1 | 失败记录与 `rollback` 不参与；没有成功记录时该单选禁用并提示「暂无历史发版」；不触发任何动作（§10.4） |
-| 版本号 `1.16.1`（仅限字母、数字、小数点） | 白名单 `^[A-Za-z0-9.]{1,32}$`，服务端 `ValidateRelease` 逐字再验 | 🔴 **不是镜像 tag**：`IMAGE_TAG` 仍用 git 短 commit，版本号不拼进 `docker build -t` / compose `image:`（硬约束 5） |
+| 版本号 `1.16.1` | **落地为三段式** `^v?[0-9]+\.[0-9]+\.[0-9]+$`（P3b-1 起，服务端 `ValidateRelease` 逐字再验）；本表初稿的宽白名单 `^[A-Za-z0-9.]{1,32}$` 会放行 `abc`，已作废 | 🔴 **不是镜像 tag**：`IMAGE_TAG` 仍用 git 短 commit，版本号不拼进 `docker build -t` / compose `image:`（硬约束 5） |
 | 项目备注「修复若干问题」 | 单行、≤200 字、无控制字符；只进本机台账与报告 | 🔴 **不写远端、不拼进任何 shell 命令**；日志 / 报告按纯文本转义展示 |
 | 取消 / 上传 | 取消 = 重置表单；上传 = **正式发布** | 🔴 小程序的「上传」只到平台、还要审核发布；本工具点上传**就是直接改现网**，门禁必须更严（§10.3）；第一刀**恒禁用** |
 
 ### 10.2 数据落点（不新增配置键）
 
-- 远端 `state.env`：**只存当前值**。发布成功后追加 / 更新 `RELEASE_VERSION`，值按 shell
-  字面量转义（文件会被 `source`，`$(...)` / 反引号必须失效，口径同硬约束 23 ③）；
+- 远端 `state.env`：**只存当前值**。设计上发布成功后追加 / 更新 `RELEASE_VERSION`，
+  值按 shell 字面量转义（文件会被 `source`，`$(...)` / 反引号必须失效，口径同硬约束 23 ③）；
   失败 / 预演不写。🔴 **远端不留历史**：旧版本号被下一次成功发布覆盖，历史只在本机台账。
-- 本机配置目录 `deploy-releases.jsonl`（0600，append-only）：每行一条 JSON，字段
+  🔴 **P3b-2 本刀没写 `state.env`**：只读预检顺带采 `RELEASE_VERSION`（§9.12），
+  文件不存在就如实「未采集」，写入属后续批次。
+- 本机配置目录 `deploy-releases.jsonl`（0600，append-only）：路径固定取
+  `shared.UserConfigDir()`，读写两侧同一个 `ReleaseLogPath()`，**不随** `ops.env` 里
+  可能覆盖的 `servers.json` 路径漂移（§9.12）。每行一条 JSON，字段
   `ts / server / scope / kind / online_version / release_version / bump / note /
   image_tag / result / failed_stage / task_id`。
   - `kind`：`release`（正式发布尝试）/ `rollback`（P4 回滚）。
@@ -1001,6 +1187,8 @@ P3b-2 台账 / P3b-3 界面 / P4 回滚；**正式发布未授权**，界面按�
     409 并发被挡（这些连远端都没碰，不许出现「预演也留了一条发版记录」）；
     **要写** —— 过了门禁真正开跑的正式发布，无论成功还是撞锁 / 构建失败 / 健康门失败 /
     超时，都留一条并停在失败阶段；P4 的回滚另追加一条 `kind=rollback`。
+    🔴 **22:1x 落地校准**：本行「撞锁」与 §11.2 定稿「撞锁 / 409 一律不入账」冲突，
+    实现按 §11.2 定稿 → **撞锁不写**（门 4 没过就还没真正开始执行），见 §9.12。
   - 台账**不删、不改、不覆盖**已有行；回滚不改发布记录，也不删自己的记录（§3.7）。
   - `task_id` 关联界面任务日志；本工具**无登录 / 认证体系，不记操作人**，追溯只到
     任务与本机时间。不存凭证、不存私钥路径、不存 `.env` / `secrets/` 全文。
@@ -1045,9 +1233,11 @@ P3b-2 台账 / P3b-3 界面 / P4 回滚；**正式发布未授权**，界面按�
 
 #### 10.4.2 只读接口与视图
 
-- 草案接口 `GET /api/deploy/releases?server=<name>`（**未实现**）：只读本机台账，
-  `server` 省略 = 全部，按 `ts` 倒序；不连远端、不触发任务、不写台账。
-  CLI 同源 `ops deploy releases`（§2）。
+- ✅ **只读接口 `GET /api/deploy/releases?server=<name>` 已于 23:0x 随 P3b-3 落地**（§9.13）：
+  只读本机台账，`server` 省略 = 全部，按 `ts` 倒序；不连远端、不触发任务、不写台账。
+  ✅ **CLI 同源 `ops deploy releases` 已于 22:1x 落地**（§2 / §9.12），
+  两侧都复用 `ReadReleaseHistory` 这一份投影；`--json` 回下面这副 `ok` / `data` 结构，
+  接口把 `data` 原样透出并再补一层空数组归一化。
 - 🔴 **失败响应红线**（本仓事故口径，`ui.md` §11.4-5 / §12.5-3）：文件不存在 / 读失败 /
   解析出错，一律回 `ok=true` + `data.error` + **`items: []`**；**数组恒为 `[]`、不能是
   `null`** —— Go nil slice 编 JSON 是 `null`，前端 `.find` 会整页白屏；也**不能回
@@ -1067,10 +1257,11 @@ P3b-2 台账 / P3b-3 界面 / P4 回滚；**正式发布未授权**，界面按�
 `docs/ui.md` 的原型指针与 `AGENTS.md` 文档速查口径。**当时没有**：注册命令、写
 `internal/deploy/release.go` / `history.go`、加 `GET /api/deploy/releases`、创建
 `deploy-releases.jsonl`、改 `web/`、改 `opsEnvKeys`、连真机、构建镜像、真实发布。
-🔴 **12:3x 起 P3a 已注册 `ops deploy --dry-run`**（CLI-only，见 §5 / §9.1），
-但上述发版台账 / 历史接口 / 界面 / 配置键**至今仍一行未动**，
-评审通过后的发版信息部分随 P3b 一起落地；若要把版本号接进镜像 tag，另开决策
-（本方案明确否掉，理由见 §7）。
+🔴 **12:3x 起 P3a 已注册 `ops deploy --dry-run`**（CLI-only，见 §5 / §9.1）；
+**22:1x 起 P3b-2 已落** append-only 台账与只读历史 CLI（§9.12），
+**23:0x 起 P3b-3 已落**只读接口 / 界面 / 六阶段进度与实时日志（§9.13）；
+**远端 `state.env` 写入与配置键至今仍一行未动**，正式发布仍未授权；
+若要把版本号接进镜像 tag，另开决策（本方案明确否掉，理由见 §7）。
 
 ## 11. P3b 实现方案（已拍板定稿 · 2026-11-11 20:3x）
 
@@ -1083,7 +1274,11 @@ P3b-2 台账 / P3b-3 界面 / P4 回滚；**正式发布未授权**，界面按�
 > 🔴 **P3b-1 / 2 / 3 每批次单独授权**（§11.8），正式发布另要一次当次有效的明确授权；
 > 一句「继续」不算授权。
 > ✅ **21:2x 状态更新**：用户已明确授权测试环境开工，P3b-1 落地并真机验收（§9.9）；
-> P3b-2 / P3b-3 / P4 仍需单独授权，正式发布仍未授权。判据权威仍是 §3 / §5 / §9 / §10，
+> ✅ **22:1x 状态更新**：用户「那就继续 p3」→ P3b-2 落地，台账 + 只读历史 CLI
+> 已本地验收（§9.12）。
+> ✅ **23:0x 状态更新**：用户「继续 P3b-3 界面」→ P3b-3 落地并本地验收（§9.13）；
+> P4 仍需单独授权，正式发布仍未授权。
+> 判据权威仍是 §3 / §5 / §9 / §10，
 > **本节与既有判据冲突处以拍板结论为准**（结论 C 已修 §3.6 的自动回滚矛盾）。
 > 输入是 §9.7 / §9.8 的手工冒烟实证与四条限制，不是照抄 §3 旧稿 ——
 > §9.8 结论 2 已明确「文档不能原样照抄进代码」。
@@ -1202,8 +1397,10 @@ P3b-2 台账 / P3b-3 界面 / P4 回滚；**正式发布未授权**，界面按�
   这个代价要在报告里如实写明；**不加 `result=running` 起始事件**，
   不扩 `RESULT_LABEL` 的成功 / 失败 / 回滚三枚举、不扩徽标、不改原型静态数据。
   理由：② 要改 §10.4 已评审过的字段与枚举，还会引入需要清理的半成品记录。
-- 只读 `GET /api/deploy/releases` 与 `ops deploy releases` 仍属 P3b 后半段；
-  失败响应恒回 `ok=true` + `data.error` + **`items: []`**（§10.4.2 白屏红线）。
+- ✅ **22:1x `ops deploy releases` 已随 P3b-2 落地**（§9.12）；
+  ✅ **23:0x 只读 `GET /api/deploy/releases` 随 P3b-3 落地**（§9.13），与 CLI 共用
+  `ReadReleaseHistory`。失败响应恒回 `ok=true` + `data.error` +
+  **`items: []`**（§10.4.2 白屏红线）。
 
 ### 11.7 配置键：P3b 首刀仍 0 新键（结论 F 已拍板选 A）
 
@@ -1224,16 +1421,20 @@ P3b-2 台账 / P3b-3 界面 / P4 回滚；**正式发布未授权**，界面按�
 | 批次 | 文件（§5 计划树） | 单测 | 不做 |
 | :--- | :--- | :--- | :--- |
 | P3b-1 ✅ 21:2x 已落（§9.9） | `deploy.go`：阶段状态机 + 落盘流转 + 两个 compose 单元 + 健康门判定 | 阶段失败停点、断点续跑按大小跳过、连续 2 次 200 四类判定、命令拼装 | 不发版台账、不改界面、不连真机造故障 |
-| P3b-2 | `release.go` / `history.go`：`ValidateRelease` + append-only 台账 + 只读投影 | 白名单、备注转义、空数组恒 `[]`、按 server 筛选、追加不覆盖 | 不做编辑 / 删除 / 重发、不自动清理 |
-| P3b-3 | 界面步骤进度与实时日志 + `POST /api/deploy/*` + 第 8 个导航项 | 门禁 401/400/409、任务锁、报告如实 | 不把发布按钮做成默认可用 |
+| P3b-2 ✅ 22:1x 已落（§9.12） | `release.go` / `history.go` / `release_test.go`：`ValidateRelease` + append-only 台账 + 只读投影 + `ops deploy releases` | 白名单、备注转义、空数组恒 `[]`、按 server 筛选、追加不覆盖、入账界线 | 不做编辑 / 删除 / 重发、不自动清理、**不写 `state.env`** |
+| P3b-3 ✅ 23:0x 已落（§9.13） | 界面步骤进度与实时日志 + 四个 `/api/deploy/*` + 第 8 个导航项 | 门禁 401/403/400/404/409、任务锁、报告如实、空数组红线、增量日志（Go 侧 2 份 + 前端 1 份单测） | 发布按钮默认不可用（按门禁解锁）；不写 `state.env`、不自动回滚 |
 | P4 | `rollback.go`：`:previous` + `kind=rollback` 留痕 | 回滚不改旧记录、Flyway 单向文案 | 不改台账旧行 |
 
-🔴 每批次**单独授权**；P3b-1 落地前，不带 `--dry-run` 仍然直接拒绝。
-🔴 `deploy.go` / `release.go` / `history.go` / `rollback.go` **当前一个文件都不存在**，
-§5 的文件树是计划，不是现状。
+🔴 每批次**单独授权**；不带任何动词且不带 `--dry-run` 仍然直接拒绝。
+✅ `deploy.go` / `deploy_release_test.go`（21:2x）、`release.go` / `history.go` /
+`release_test.go`（22:1x）、`uiapi.go` / `internal/ui/deploy.go` /
+`web/src/features/deploy/`（23:0x）已落；🔴 `rollback.go` **仍不存在**，
+§5 文件树里只剩 P4 那一段是计划，不是现状。
 - ✅ **结论 8（20:3x 拍板）**：范围维持 **CLI-first**，P3b 就按上表的
   **P3b-1 / P3b-2 / P3b-3** 三批走，界面步骤进度 / 实时日志 / 第 8 个导航项 /
   `/api/deploy/*` 全部归 P3b-3；P3b-3 之前正式发布按钮恒禁用。
+  ✅ **23:0x P3b-3 落地后**：按钮由「恒禁用」改成「**默认不可用 + 门禁齐全才解锁**」
+  （§9.13），恒禁用只描述 23:0x 之前的状态；正式发布仍要当次明确授权。
 - ✅ **结论 9（20:3x 拍板）**：**默认每轮构建**（阶段 ③ 是主链路的一环），
   显式 `--no-build` 才复用现成镜像（§9.8 的实证快路径）；
   构建失败停在 `构建` 阶段、不碰远端。🔴 这是 9 条里**唯一无真机证据**的一条：
@@ -1251,7 +1452,9 @@ P3b-2 台账 / P3b-3 界面 / P4 回滚；**正式发布未授权**，界面按�
 | 真实业务栈（6 业务镜像） | §9.11：全测试值 50 键 `.env` + 现成业务镜像在 k3 rc=0，backend / ai / web 三健康门各连续 2 次 200 | 生产 52 键凭证未核对（结论 B） | 首次真实发布前人工确认 |
 | 失败停点 / 断点续跑 / 健康门四判据 | §9.9：门 3 点名缺项、ssh 255 停在配置同步；单测锁死按大小跳过与 200/404/超时/先好后坏 | 真机断点续跑未造（成功后按清单清理） | ✅ 单测已闭环 |
 | 空机首次部署前置 | §9.10：k3 无 Docker / 无 `/opt/passup`，经代理装引擎 + 人备前置后工具发布 rc=0 | 首次 dpkg 锁竞争（unattended-upgrade）已人工处理 | ✅ P3b-1 已验 |
-| 回滚 / 台账 / 只读历史 | 无 | 整段 | P4 / P3b-2 |
+| 台账追加 / 只读投影 / 空数组红线 | §9.12：单测 + CLI 冒烟（空台账 / 筛选 / 坏行 / 参数拒绝） | 真机上随一次正式发布 append 未跑（正式发布未授权） | ✅ P3b-2 本地已验 |
+| 界面四接口 / 六阶段进度 / 实时日志 | §9.13：Go 11 包 + 前端 108 例全绿；7799 隔离实例冒烟（401/403/400/404/409、空数组、六阶段、SPA 产物） | 真机上从界面点一次正式发布未跑（未授权）；本机固定配置目录与远端前置待人备 | ✅ P3b-3 本地已验 |
+| 回滚 / `kind=rollback` 留痕 | 无 | 整段 | P4 |
 | 生产凭证 52 键核对 | 无（没同步 / 没打印 / 地址未核对） | 人工核对 | 首次真实发布前 |
 | k2 失联取证 | 无 dmesg / OOM | 时间点与因果均未证实 | 不阻塞，但别写成结论 |
 
@@ -1259,7 +1462,8 @@ P3b-2 台账 / P3b-3 界面 / P4 回滚；**正式发布未授权**，界面按�
   不发请求、不读文件、不执行任何动作；「正式发布 / 上传」按钮仍恒禁用。
 - 🔴 **确认可落地 ≠ 授权发布**（§9.8 结论 4）：本节不产生任何发布权限。
 - 🔴 **拍板 ≠ 开工**（20:3x 当时）：9 条结论只定判据；P3b-1 已于 21:2x 获测试环境
-  授权并落地（§9.9），P3b-2 / P3b-3 / P4 仍需按 §11.8 单独授权。
+  授权并落地（§9.9），P3b-2 已于 22:1x 落地（§9.12），
+  P3b-3 / P4 仍需按 §11.8 单独授权。
 
 ### 11.10 拍板结论（2026-11-11 20:3x，9 条按推荐定稿）
 
@@ -1283,3 +1487,7 @@ P3b-2 台账 / P3b-3 界面 / P4 回滚；**正式发布未授权**，界面按�
 > 正式发布仍要一次当次有效的明确授权（§11.1），**未授权**。
 > ✅ **21:2x 状态更新**：P3b-1 已在测试环境落地并真机验收（§9.9）；上面
 > 「另需单独授权」指当时未授权，现已由用户明确授权测试环境开工。
+> ✅ **22:1x 状态更新**：用户「那就继续 p3」→ P3b-2 台账与只读历史 CLI 已落地
+> 并完成本地验收（§9.12）。
+> ✅ **23:0x 状态更新**：用户「继续 P3b-3 界面」→ P3b-3 界面 + 四接口已落地并
+> 完成本地验收（§9.13）；P4 回滚 / 正式发布仍未授权，按钮仍是默认不可用。

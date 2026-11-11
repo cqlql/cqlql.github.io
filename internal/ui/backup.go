@@ -57,6 +57,10 @@ const (
 	backupRestore BackupMode = "restore"
 	// backupRestoreDry 是恢复页的只读预演：不写生产端、不需要 confirm、不进写模式。
 	backupRestoreDry BackupMode = "restore-dry"
+	// deployReleaseMode 是 P3b-3 应用部署正式发布：只用来占用界面唯一后台任务锁
+	// 与复用增量日志，**不**进 parseBackupMode / isBackupWriteMode，
+	// 免得被 POST /api/backup/run 当成可调用的备份模式。
+	deployReleaseMode BackupMode = "deploy-release"
 )
 
 // 日志留在内存里给页面轮询；上限只是防止一个跑飞的子进程把界面进程撑爆。
@@ -537,6 +541,8 @@ func modeLabel(m BackupMode) string {
 		return "备份恢复"
 	case backupRestoreDry:
 		return "备份恢复预演"
+	case deployReleaseMode:
+		return "应用部署正式发布"
 	case componentInstallMode:
 		return "安装环境组件"
 	case componentUpdateMode:

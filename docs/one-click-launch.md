@@ -106,10 +106,12 @@
 「创建桌面快捷方式」按钮都调它。理由和 [backup-deploy.md](backup-deploy.md) 的
 「一份 cron 逻辑」相同：界面自己再拼一遍路径，就会出现「命令行建出来能用、界面建出来指向别处」。
 
-🔴 **界面侧靠注入拿到它**：`ui.CmdUI(args, static, createShortcut, runner)` 的第三参由
+🔴 **界面侧靠注入拿到它**：`ui.CmdUI(args, static, createShortcut, runner, deployAPI)` 的第三参由
 `main.go` 传 `launcher.CreateShortcutOnDesktop`；第四参 `runner` 是备份部署执行器
-（根包 `backuprun.go`，见 [backup-deploy.md](backup-deploy.md) §10）。
-不能改成 `ui` 直接 import `launcher` / `backup` —— `launcher` 已经 import `ui`（图标字节），
+（根包 `backuprun.go`，见 [backup-deploy.md](backup-deploy.md) §10）；第五参 `deployAPI`
+是 2026-11-11 P3b-3 新增的应用部署适配层（根包 `deployrun.go`，`ui` 不 import `deploy`，
+判据见 [ui.md](ui.md) §17）。
+不能改成 `ui` 直接 import `launcher` / `backup` / `deploy` —— `launcher` 已经 import `ui`（图标字节），
 反过来就成环。这与菜单的 `launcher.CmdMenu(args, exec, probe)` 是同一套注入风格。
 
 配套函数，签名固定：

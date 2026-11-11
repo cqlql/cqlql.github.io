@@ -8,7 +8,8 @@ package deploy
 //    本地单例 + 远端 flock -n 双锁 / ValidateRelease / 配置备份与 :previous。
 // 🔴 失败一律停在当前阶段、不跨阶段自动修复、不写「部署成功 / 服务已恢复正常」；
 //    健康门失败**不自动回滚**（结论 C），保留现场供排障。
-// 🔴 不发版台账、不写 state.env、不改 web/、不读 §8 的 12 个方案键（结论 F）。
+// 🔴 执行器自己不碰台账（入账在 CLI 层、由 P3b-2 的 release.go 落盘）；
+//    不写 state.env、不改 web/、不读 §8 的 12 个方案键（结论 F）。
 // 🔴 本机没有 rsync：配置同步用 Go 内建 tar 流实现等价的分目录语义
 //    （www 先清后传 = --delete；secrets 不清、权限 600；.env / compose / Caddyfile 覆盖）。
 // 🔴 单测不真构建、不真 compose up、不真造故障：所有外部动作走可注入的 Runner。
@@ -97,6 +98,9 @@ type ReleaseReport struct {
 	ImageTag       string        `json:"image_tag"`
 	ReleaseVersion string        `json:"release_version"`
 	ReleaseNote    string        `json:"release_note"`
+	OnlineVersion  string        `json:"online_version"`
+	LedgerRecorded bool          `json:"ledger_recorded"`
+	LedgerError    string        `json:"ledger_error"`
 	Gates          []GateResult  `json:"gates"`
 	Stages         []StageResult `json:"stages"`
 	FailedStage    string        `json:"failed_stage"`
@@ -109,6 +113,10 @@ type ReleaseReport struct {
 	EnvLineEnding  string        `json:"env_line_ending"`
 	PreviousTag    string        `json:"previous_tag"`
 	DurationMS     int64         `json:"duration_ms"`
+
+	// emit 是 P3b-3 界面进度钩子：CLI 路径恒 nil，未导出字段不进 JSON。
+	// 报告仍是唯一事实源，事件只是把「报告里的行」实时推给界面，不另算一套指标。
+	emit ProgressFunc
 }
 
 func newReleaseReport(cfg ReleaseConfig) ReleaseReport {
@@ -116,26 +124,45 @@ func newReleaseReport(cfg ReleaseConfig) ReleaseReport {
 		Server: cfg.Server, Host: cfg.Host, Scope: cfg.Scope,
 		ImagePrefix: cfg.ImagePrefix, ImageTag: cfg.ImageTag,
 		ReleaseVersion: cfg.ReleaseVersion, ReleaseNote: cfg.ReleaseNote,
-		Gates: []GateResult{}, Stages: []StageResult{},
+		OnlineVersion: "未采集",
+		Gates:         []GateResult{}, Stages: []StageResult{},
 		Log: []string{}, Warnings: []string{}, Images: []string{},
 		EnvLineEnding: "unknown", PreviousTag: "—",
 		Note: "报告只报脚本结果；失败停在当前阶段、只报脚本结果，不宣称发布成功。",
 	}
 }
 
+// emitEvent 把界面日志当成旁路：回调 panic / 写日志失败都不许拖垮发布主链路。
+func (rep *ReleaseReport) emitEvent(ev ProgressEvent) {
+	if rep.emit == nil {
+		return
+	}
+	defer func() { _ = recover() }()
+	rep.emit(ev)
+}
+
+// logf 是报告日志的唯一追加点：CLI 只进 rep.Log，界面同时收到一条实时 log 事件。
+func (rep *ReleaseReport) logf(s string) {
+	rep.Log = append(rep.Log, s)
+	rep.emitEvent(ProgressEvent{Kind: ProgressLog, Detail: s})
+}
+
 func (rep *ReleaseReport) gateOK(name, detail string) {
 	rep.Gates = append(rep.Gates, GateResult{Name: name, OK: true, Detail: detail})
-	rep.Log = append(rep.Log, "[门禁通过] "+name+"："+detail)
+	rep.logf("[门禁通过] " + name + "：" + detail)
+	rep.emitEvent(ProgressEvent{Kind: ProgressGate, Name: name, Detail: detail})
 }
 
 func (rep *ReleaseReport) stageOK(name, detail string) {
 	rep.Stages = append(rep.Stages, StageResult{Name: name, OK: true, Detail: detail})
-	rep.Log = append(rep.Log, "[阶段完成] "+name+"："+detail)
+	rep.logf("[阶段完成] " + name + "：" + detail)
+	rep.emitEvent(ProgressEvent{Kind: ProgressStage, Stage: name, Detail: detail})
 }
 
 func (rep *ReleaseReport) stageSkip(name, detail string) {
 	rep.Stages = append(rep.Stages, StageResult{Name: name, OK: true, Skipped: true, Detail: detail})
-	rep.Log = append(rep.Log, "[阶段跳过] "+name+"："+detail)
+	rep.logf("[阶段跳过] " + name + "：" + detail)
+	rep.emitEvent(ProgressEvent{Kind: ProgressStageSkip, Stage: name, Detail: detail})
 }
 
 func (rep *ReleaseReport) failAt(stage, gate string, err error) {
@@ -145,26 +172,12 @@ func (rep *ReleaseReport) failAt(stage, gate string, err error) {
 	rep.Stages = append(rep.Stages, StageResult{Name: stage, OK: false, Detail: err.Error()})
 	rep.FailedStage = stage
 	rep.Error = err.Error()
-	rep.Log = append(rep.Log, "[失败] 停在「"+stage+"」阶段："+err.Error())
+	rep.logf("[失败] 停在「" + stage + "」阶段：" + err.Error())
 	rep.Note = "发布链路停在失败阶段；现场保留，不自动回滚、不自动修复、只报脚本结果。"
+	rep.emitEvent(ProgressEvent{Kind: ProgressFail, Stage: stage, Name: gate, Detail: err.Error()})
 }
 
-// ---- 门 5：ValidateRelease（纯函数，不发请求、不落台账、不拼命令） ----
-
-var releaseVersionRe = regexp.MustCompile(`^v?[0-9]+\.[0-9]+\.[0-9]+$`)
-
-func ValidateRelease(version, note string) error {
-	if version == "" || !releaseVersionRe.MatchString(version) {
-		return errors.New("发版号必须是三段式（如 1.16.1），不猜、不自动推算、不当镜像 tag")
-	}
-	if strings.ContainsAny(note, "\r\n") {
-		return errors.New("项目备注必须单行（不写远端、不拼进任何命令）")
-	}
-	if len([]rune(note)) > 200 {
-		return errors.New("项目备注最长 200 字")
-	}
-	return nil
-}
+// 门 5 的 ValidateRelease 已随 P3b-2 移到 release.go（判据未放宽、调用点不变）。
 
 // ---- 命令拼装（纯函数，单测锁死；不含任何真实凭证） ----
 
@@ -327,10 +340,13 @@ echo "SEC compose_files=$n/3"
 command -v docker >/dev/null 2>&1 && echo "SEC docker=yes" || echo "SEC docker=no"
 docker compose version >/dev/null 2>&1 && echo "SEC compose=yes" || echo "SEC compose=no"
 if [ -f "$D/.deploy/state.env" ]; then
-  t=$(sed -n 's/^IMAGE_TAG=//p' "$D/.deploy/state.env" 2>/dev/null | head -n 1)
+  t=$(sed -n 's/^IMAGE_TAG=//p' "$D/.deploy/state.env" 2>/dev/null | head -n 1 | tr -d '\r\n')
   echo "SEC previous=${t:-—}"
+  v=$(sed -n 's/^RELEASE_VERSION=//p' "$D/.deploy/state.env" 2>/dev/null | head -n 1 | tr -d '\r\n')
+  echo "SEC online_version=${v:-—}"
 else
   echo "SEC previous=—"
+  echo "SEC online_version=—"
 fi
 if [ -f "$D/docker/.env" ]; then
   c=$(tr -cd '\r' < "$D/docker/.env" 2>/dev/null | wc -c | tr -d '[:space:]')
@@ -347,6 +363,7 @@ type GateSnapshot struct {
 	Warnings      []string
 	EnvLineEnding string
 	PreviousTag   string
+	OnlineVersion string
 	DockerOK      bool
 }
 
@@ -362,7 +379,7 @@ func parseReleasePreflight(text string) GateSnapshot {
 			kv[parts[0]] = strings.TrimSpace(parts[1])
 		}
 	}
-	g := GateSnapshot{Blockers: []string{}, Warnings: []string{}, EnvLineEnding: "unknown", PreviousTag: "—"}
+	g := GateSnapshot{Blockers: []string{}, Warnings: []string{}, EnvLineEnding: "unknown", PreviousTag: "—", OnlineVersion: "未采集"}
 	if kv["gate_proto"] == "" {
 		g.Blockers = append(g.Blockers, "发布前只读预检没返回分节数据（脚本没跑起来）")
 		return g
@@ -398,6 +415,11 @@ func parseReleasePreflight(text string) GateSnapshot {
 	}
 	if v := kv["previous"]; v != "" && v != "—" {
 		g.PreviousTag = v
+	}
+	// 线上版本号只读采集（§10.1）：文件不存在 / 没写 RELEASE_VERSION 就如实「未采集」，
+	// 不猜 0 / 1.0.0。P3b-2 不写远端 state.env，写入属后续批次。
+	if v := kv["online_version"]; v != "" && v != "—" {
+		g.OnlineVersion = v
 	}
 	if g.EnvLineEnding == "unknown" {
 		g.Warnings = append(g.Warnings, "远端 .env 换行未采集，不猜 LF；只在检出 CR 时归一化")
@@ -638,7 +660,7 @@ func transferImages(ctx context.Context, cfg ReleaseConfig, r Runner, rep *Relea
 			return err
 		}
 		if shouldSkipUpload(size, rs) {
-			rep.Log = append(rep.Log, "断点续跑：远端 "+name+" 大小一致（"+strconv.FormatInt(size, 10)+" B），跳过上传")
+			rep.logf("断点续跑：远端 " + name + " 大小一致（" + strconv.FormatInt(size, 10) + " B），跳过上传")
 			continue
 		}
 		f, err := os.Open(lp)
@@ -650,16 +672,16 @@ func transferImages(ctx context.Context, cfg ReleaseConfig, r Runner, rep *Relea
 		if uploadErr != nil {
 			return fmt.Errorf("传输 %s 失败（已落盘文件保留供续跑）：%w", name, uploadErr)
 		}
-		rep.Log = append(rep.Log, "已落盘 "+name+"（"+strconv.FormatInt(size, 10)+" B）")
+		rep.logf("已落盘 " + name + "（" + strconv.FormatInt(size, 10) + " B）")
 	}
 	for i, rp := range remotePaths {
 		out, err := r.Remote(ctx, withLock(cfg.RemoteDir, "gunzip -c "+shared.ShQuote(rp)+" | docker load"))
 		if err != nil {
 			return fmt.Errorf("加载镜像 %s 失败：%w", refs[i], err)
 		}
-		rep.Log = append(rep.Log, "load "+refs[i]+"："+tailText(out, 120))
+		rep.logf("load " + refs[i] + "：" + tailText(out, 120))
 		usage, _ := r.Remote(ctx, "free -m | head -n 2; df -Pk "+shared.ShQuote(cfg.RemoteDir)+" | tail -n 1")
-		rep.Log = append(rep.Log, "load 后资源余量："+tailText(usage, 160))
+		rep.logf("load 后资源余量：" + tailText(usage, 160))
 	}
 	// 结论 A：成功后按本次清单逐个删，不 rm -rf 暂存目录。
 	quoted := make([]string, 0, len(remotePaths))
@@ -681,44 +703,60 @@ func transferImages(ctx context.Context, cfg ReleaseConfig, r Runner, rep *Relea
 // ---- 六阶段编排 ----
 
 // 命名返回值是必需的：defer 里写 DurationMS，值返回 + 局部 rep 会让报告恒为 0。
-func RunRelease(ctx context.Context, cfg ReleaseConfig, r Runner) (rep ReleaseReport) {
+// RunRelease 是 CLI 的入口：不带进度钩子，行为与 P3b-1 验收时逐字一致。
+func RunRelease(ctx context.Context, cfg ReleaseConfig, r Runner) ReleaseReport {
+	return RunReleaseWith(ctx, cfg, r, nil)
+}
+
+// RunReleaseWith 给 P3b-3 界面用：emit 只推「报告里本来就有的行 / 阶段 / 门禁」，
+// 不改判据、不改远端动作顺序；钩子是旁路（emitEvent 里 recover，界面写日志失败
+// 不许拖垮发布主链路）。报告仍是唯一事实源，界面不另算指标。
+func RunReleaseWith(ctx context.Context, cfg ReleaseConfig, r Runner, emit ProgressFunc) (rep ReleaseReport) {
 	start := time.Now()
 	rep = newReleaseReport(cfg)
-	defer func() { rep.DurationMS = time.Since(start).Milliseconds() }()
+	rep.emit = emit
+	defer func() {
+		rep.DurationMS = time.Since(start).Milliseconds()
+		rep.emitEvent(ProgressEvent{
+			Kind: ProgressDone, Completed: rep.Completed,
+			Detail: fmt.Sprintf("任务结束：completed=%v，失败阶段=%q", rep.Completed, rep.FailedStage),
+		})
+	}()
 
 	// 门 3：只读预检（缺哪项就点名，不开始构建 / 不同步）
 	out, err := r.Remote(ctx, releasePreflightScript(cfg.RemoteDir))
 	if err != nil {
-		rep.failAt(StagePreflight, "只读预检门", err)
+		rep.failAt(StagePreflight, GateReleasePreflight, err)
 		return rep
 	}
 	gate := parseReleasePreflight(out)
 	if len(gate.Blockers) > 0 {
-		rep.failAt(StagePreflight, "只读预检门", errors.New(strings.Join(gate.Blockers, "；")))
+		rep.failAt(StagePreflight, GateReleasePreflight, errors.New(strings.Join(gate.Blockers, "；")))
 		return rep
 	}
 	rep.EnvLineEnding = gate.EnvLineEnding
 	rep.PreviousTag = gate.PreviousTag
+	rep.OnlineVersion = gate.OnlineVersion
 	rep.Warnings = append(rep.Warnings, gate.Warnings...)
-	rep.gateOK("只读预检门", "九项前置齐全；.env 换行="+EnvEndingText(gate.EnvLineEnding))
-	rep.Log = append(rep.Log, "发布前当前镜像 tag（:previous）="+gate.PreviousTag)
+	rep.gateOK(GateReleasePreflight, "九项前置齐全；.env 换行="+EnvEndingText(gate.EnvLineEnding))
+	rep.logf("发布前当前镜像 tag（:previous）=" + gate.PreviousTag)
 
 	// 门 4：远端锁（本地单例由 CLI 层持有）
 	if _, err := r.Remote(ctx, lockProbeCmd(cfg.RemoteDir)); err != nil {
-		rep.failAt(StagePreflight, "双锁", fmt.Errorf("撞锁或拿不到远端锁，立刻失败不排队：%w", err))
+		rep.failAt(StagePreflight, GateDualLock, fmt.Errorf("撞锁或拿不到远端锁，立刻失败不排队：%w", err))
 		return rep
 	}
-	rep.gateOK("双锁", "本地单例 + 远端 flock -n 均可用；撞锁不排队")
+	rep.gateOK(GateDualLock, "本地单例 + 远端 flock -n 均可用；撞锁不排队")
 	rep.stageOK(StagePreflight, "只读预检与双锁通过，预检阶段不写业务文件")
 
 	// 阶段 ② + 门 6：配置备份 + 同步
 	for _, c := range backupCommands(cfg.RemoteDir, cfg.Timestamp) {
 		if _, err := r.Remote(ctx, withLock(cfg.RemoteDir, c)); err != nil {
-			rep.failAt(StageConfigSync, "发布前留退路", fmt.Errorf("配置备份没成功就不往下走：%w", err))
+			rep.failAt(StageConfigSync, GateBackup, fmt.Errorf("配置备份没成功就不往下走：%w", err))
 			return rep
 		}
 	}
-	rep.gateOK("发布前留退路", "配置已备份到 .deploy/backup/"+cfg.Timestamp+"/，:previous="+gate.PreviousTag)
+	rep.gateOK(GateBackup, "配置已备份到 .deploy/backup/"+cfg.Timestamp+"/，:previous="+gate.PreviousTag)
 	crOut, err := r.Remote(ctx, crlfProbeCmd(cfg.RemoteDir))
 	if err != nil {
 		rep.failAt(StageConfigSync, "", err)
@@ -734,9 +772,9 @@ func RunRelease(ctx context.Context, cfg ReleaseConfig, r Runner) (rep ReleaseRe
 			rep.failAt(StageConfigSync, "", fmt.Errorf("检出 CR 但归一化失败：%w", err))
 			return rep
 		}
-		rep.Log = append(rep.Log, "远端 .env 检出 CR，已归一化；本机 LF 不作判据")
+		rep.logf("远端 .env 检出 CR，已归一化；本机 LF 不作判据")
 	} else {
-		rep.Log = append(rep.Log, "远端 .env 换行探测="+cr+"（未检出 CR，不归一化）")
+		rep.logf("远端 .env 换行探测=" + cr + "（未检出 CR，不归一化）")
 	}
 	rep.stageOK(StageConfigSync, "分目录同步：www 先清后传、secrets 不清且 600、不打印内容")
 
@@ -749,7 +787,7 @@ func RunRelease(ctx context.Context, cfg ReleaseConfig, r Runner) (rep ReleaseRe
 			if err != nil {
 				// §11.2：失败报告要带日志尾部，不能只给一句「docker 失败」。
 				if s := strings.TrimSpace(out); s != "" {
-					rep.Log = append(rep.Log, "[构建输出尾部] "+tailText(s, 400))
+					rep.logf("[构建输出尾部] " + tailText(s, 400))
 				}
 				detail := err.Error()
 				if s := strings.TrimSpace(out); s != "" {
@@ -798,7 +836,7 @@ func RunRelease(ctx context.Context, cfg ReleaseConfig, r Runner) (rep ReleaseRe
 		if healthVerdict(samples) {
 			rep.stageOK(StageHealth, "三个 URL 各连续 2 次 200（窗口 150 s 内）")
 			rep.Completed = true
-			rep.Note = "发布链路执行完成（六阶段全部通过）；本次未落发版台账、未写 state.env、未启用任何配置键。"
+			rep.Note = "发布链路执行完成（六阶段全部通过）；未写 state.env、未启用任何配置键；台账由 CLI 层在任务结束时追加。"
 			return rep
 		}
 		if time.Now().After(deadline) || round == maxHealthRound-1 {

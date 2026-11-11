@@ -821,3 +821,22 @@ pre {
 .restore-row-selected > td {
   background: #eef4ff !important;
 }
+
+/* 应用部署（第 8 个导航项 · P3b-3）：发版信息表单。
+   阶段条、日志、历史表格都用 antd 组件与既有 .backup-log / .once-* 样式。 */
+.deploy-release-form {
+  display: grid;
+  gap: 10px;
+  max-width: 820px;
+}
+
+.deploy-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.deploy-field > span:first-child {
+  color: var(--ops-muted);
+  font-size: 12px;
+}

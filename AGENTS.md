@@ -4,6 +4,19 @@
 > P1 备份能力部署已实现并真机验证；一键启动与桌面快捷方式（S2/S3/S5 + 图标同源）已实现，
 > **双击 `启动运维.cmd` 直接开网页面板**（隐藏守护 / 单实例 / 自动开浏览器 / 关闭界面），
 > S4 真机人工验收待做；✅ **P2a 备份监控 CLI 与 P2+ 界面已实现，2026-11-10 完成真机验收**；
+> ✅ **23:0x 用户「继续 P3b-3 界面」→ P3b-3 落地并本地验收**（`docs/deploy.md` §9.13 /
+> `docs/ui.md` §17）：第 8 个导航项「应用部署」+ 四个 `/api/deploy/*`
+> （只读预演 / 只读发版历史 / 正式发布任务 / 增量日志与六阶段）+ 发版信息表单 +
+> 六阶段步骤条 + 实时日志 + 如实报告 + 只读历史折叠区；新增 `internal/deploy/uiapi.go` /
+> `uiapi_test.go`、仓根 `deployrun.go`（`ui.DeployAPI` 注入）、`internal/ui/deploy.go` /
+> `deploy_test.go`、`web/src/features/deploy/**`、`web/test/deploy.test.ts`；
+> 与 CLI 共用 `buildDryRunPlan` / `RunReleaseWith` / `ReadReleaseHistory`，
+> CLI 的人读报告与 `--json` 逐字不变。`go vet` 无告警、`go test ./...` 11 包全绿、
+> 前端 `npm test` 108 例 / `typecheck` / `build` 全绿、7799 隔离实例四接口冒烟通过、
+> `ops.exe` 已重建。🔴 **本刀没连真机、没在界面点过正式发布、没做正式发布、
+> 没写远端 `state.env`、0 新键、没碰生产 `.env` 52 键、没实现 P4、没提交**；
+> 发布按钮**默认不可用**（门禁齐全才解锁），正式发布仍要一次当次有效的明确授权；
+> 界面发布前置（本机固定配置目录的 `.env`）由人备好，工具不擅自读 / 同步凭证。
 > ✅ **2026-11-11 19:5x 用户选「P3b 实现方案先评审」→ 新增 §11 评审稿（只改文档 + 原型）**：
 > `docs/deploy.md` 新增 §11（六道门禁 / 六阶段状态机 / 落盘 + 断点续传 / 配置备份 /
 > 拉起与健康门启动窗口 / 台账入账点 / 0 新键建议 / 分批文件计划 / 9 条待拍板），
@@ -35,7 +48,8 @@
 > 单元 / 150 s 健康门）；`go test ./...` 11 包全绿。k4 测试环境（全测试值最小栈）
 > rc=0 跑通，三 URL 各连续 2 次 200、两次复跑幂等；门 3 缺 `.env` 能点名挡住，
 > 一次 ssh 255 瞬时超时如实停在配置同步（§9.9）。🔴 生产 `.env` 52 键一字未动、
-> 没碰 `prod`、没做正式发布；P3b-2 台账 / P3b-3 界面 / P4 回滚仍未实现、未授权。
+> 没碰 `prod`、没做正式发布；P3b-2 台账 / P3b-3 界面 / P4 回滚**在 21:2x 当时**
+> 仍未实现、未授权（P3b-2 已于 22:1x 落地，见上）。
 > ✅ **21:5x 用户「继续」→ 构建链真跑 + 业务栈跑通 + 报告缺陷修复**（§9.11）：
 > 不带 `--no-build` 真跑三条本机构建链，均因 Docker Desktop mirror EOF /
 > corepack pnpm 版本失败，工具停在 `构建`、不碰远端；失败报告已补输出尾部并锁单测。
@@ -43,6 +57,19 @@
 > `WECHAT_VIRTUAL_PAY_ENV` 类型错误致 backend 重启 14 次，改 int 后通过），
 > 三真实健康门各连续 2 次 200、`duration_ms=90973`（命名返回值修复，新增单测）。
 > 🔴 生产凭证 / `prod` / 正式发布未碰；三条构建链仍待本机环境修复后复验。
+> ✅ **22:1x 用户「那就继续 p3」→ P3b-2 落地（只做台账 + 只读历史，§9.12）**：
+> 新增 `internal/deploy/release.go` / `history.go` / `release_test.go`，
+> `ops deploy releases [--server <name>] [--json]` 已注册；`ValidateRelease` 移到
+> `release.go` 并补控制字符判据；正式发布在任务结束时 append 一条
+> `deploy-releases.jsonl`（门 3 + 门 4 都过才写、撞锁不写、成功 / 失败都留痕、
+> 不加 `running`）。只读历史按 server 筛选 / ts 倒序、失败恒
+> `ok=true` + `data.error` + `items: []`；`go test ./...` 11 包全绿、
+> CLI 冒烟（空台账 / 筛选 / 坏行 / 参数拒绝）已过。
+> 🔴 **本刀不碰** P3b-3 界面 / 第 8 导航项 / `/api/deploy/*`、不写远端 `state.env`、
+> 不实现 `rollback`（P4）、0 新键、不连真机、不做正式发布；
+> P3b-3 / P4 每批单独授权，正式发布仍未授权。
+> 🔴 顺带校准口径：§11.2 定稿「撞锁不写」优先于 §10.2 早期设计稿「撞锁要写」；
+> §10.1 的宽白名单以落地的三段式为准（详见 `docs/deploy.md` §9.12 / §10.1 / §10.2）。
 > ✅ **21:3x 用户「可以部署到 ssh k3」→ k3 登记 + 空机首次部署跑通**（§9.10）：
 > 备份 `servers.json` 后只追加 `k3`(role=app)，`default` 仍 k4、k4/prod 原样；
 > `ops servers check k3` ssh/sudo ok。`component install docker --server k3
@@ -69,7 +96,7 @@
 > 🔴 **版本号不是镜像 tag**（`IMAGE_TAG` 仍是 git 短 commit）、备注不写远端不拼命令、
 > 线上版本未采集不猜 0、预演不落台账、校验失败挡住计划、上传恒禁用；
 > 小程序的「上传」只到平台还要审核，本工具点上传就是改现网，门禁更严。
-> 🔴 命令未注册、`internal/deploy/release.go` 不存在、未新增任何 `ops.env` 配置键
+> 🔴 **08:4x 当时**命令未注册、`internal/deploy/release.go` 不存在、未新增任何 `ops.env` 配置键
 > （§8 12 键原样、`opsenv_test.go` 数量断言不动）、未改 `web/`、未连真机、未真实发布。
 > ✅ **2026-11-11 10:0x 补齐「版本历史」（评审追问后按 B；仍只改文档 + 原型）**：
 > `docs/deploy.md` 新增 §10.4（保留策略 / 追溯字段 / 只读接口 / 空数组红线），台账改成
@@ -389,9 +416,16 @@
 - **P3a 已落地（2026-11-11）**：`ops deploy ... --dry-run` 是唯一可用的部署动词，
   只做真实 ssh 只读预检 + 打印将执行的远端命令，与 `deploy.sh` 人工步骤逐条对齐；
   不带 `--dry-run` 直接拒绝。设计见 `docs/deploy.md`。
-- **仍是方案、代码未实现**：`ops deploy` 的正式发布路径（P3b）/ `ops rollback`（P4）/
-  `ops ps` / `ops logs` / `ops deploy releases`。命令未注册，不要照抄执行；
-  真实发布要单独授权。
+- **P3b-1 / P3b-2 已落地（2026-11-11 21:2x / 22:1x）**：`ops deploy release ...
+  --confirm yes` 正式发布 CLI 主链路（测试环境真机验收）、`ops deploy releases`
+  只读发版历史；见 `docs/deploy.md` §9.9 / §9.12。
+- **P3b-3 已落地（2026-11-11 23:0x）**：第 8 个导航项「应用部署」+
+  `GET /api/deploy/plan` / `GET /api/deploy/releases` / `POST /api/deploy/release` /
+  `GET /api/deploy/task`，界面步骤进度与实时日志；见 `docs/deploy.md` §9.13 /
+  `docs/ui.md` §17 / 硬约束 34。**没新增 CLI 动词**。
+- **仍是方案、代码未实现**：`ops rollback`（P4）/ `ops ps` / `ops logs`，
+  `internal/deploy/rollback.go` 不存在；远端 `state.env` 写入仍是设计稿。
+  命令 / 接口未注册，不要照抄执行；真实环境的正式发布仍要一次当次有效的明确授权。
 - **手动备份已实现且真机验收已跑（2026-11-10，§8.1）**：`ops backup once` + 界面第 6 项，
   见 `docs/backup-once.md` / `docs/ui.md` §15；§7.1 补锁前置已闭环，七场景逐条结论见 §8.1，
   心跳已被手动备份刷新（**不代表定时任务正常**）。
@@ -747,6 +781,23 @@
     **以后改脚本仍必须重新 `ops backup deploy` 才生效**。
     §7.7 的 `psql` 吞错修复 21:4x 已重新部署并真机验证（§7.8）。
     详见 `docs/backup-restore.md` §5 / §7 与 `docs/ui.md` §16。
+34. 🔴 **界面应用部署（P3b-3）必须过六道门，发布按钮默认不可用**（2026-11-11 新增）：
+    ① `POST /api/deploy/release` 必须 `confirm=="yes"` + 三项勾选全 true，服务端逐字再验；
+    ② 服务端**自己再跑一遍**只读预检（`UIPrecheck`：本机固定配置目录 `.env` + P3a 只读预演），
+       前端点没点过预演都不算数，预演通过 ≠ 可以发布；
+    ③ `name` 只认 `servers.json`，scope / bump / 版本号 / 备注全走服务端白名单
+       （`ValidateRelease`）；`DisallowUnknownFields` 挡住**任意本机路径** /
+       `--no-build` / `--force`，配置目录由 `UIDefaultConfigDir()` 固定解析（只 `stat` `.env`，
+       不读值、不打印，结论 B）；
+    ④ 与备份 / 组件 / 恢复共用界面唯一后台任务锁（409），任务脱离 `r.Context()`；
+    ⑤ 进度只来自 `deploy.RunReleaseWith` 的报告行 / 阶段事件，界面**不算指标**；
+       `completed` / `failed_stage` 只认最终 `ReleaseReport`；报告不写「服务已恢复正常」、
+       健康门失败**不自动回滚**（P4）；
+    ⑥ 只读失败恒回 `ok=true` + `data.error` + 数组 `[]`（Go 侧 + 前端双层）；
+       台账仍由执行链路在任务结束时 append，界面按钮不写台账、不事后补记；
+       不写远端 `state.env`、**0 新键**。
+    `ui` **不 import `deploy`**：`ui.DeployAPI` 由 `main.go` 注入（实现在仓根 `deployrun.go`）。
+    详见 `docs/deploy.md` §9.13 / §10.4.2 / §11.8、`docs/ui.md` §17。
 
 ## 命令与验证
 
@@ -795,9 +846,13 @@ ops shortcut [--name <名字>] [--remove]
 ops menu --help
 ```
 
-上面只列**已实现**命令；`ops deploy ... --dry-run`（P3a 只读预演）已实现并注册在
-`commandHandler`，正式发布路径 / `ops rollback` / `ops ps` / `ops logs` /
-`ops deploy releases`（P3b–P4）尚未实现，不要照抄执行。
+上面只列**已实现**命令；`commandHandler` 里 deploy 已注册三条路径：
+`ops deploy ... --dry-run`（P3a 只读预演）、`ops deploy release ... --confirm yes`
+（P3b-1 正式发布 CLI，测试环境真机验收）、`ops deploy releases`（P3b-2 只读发版历史）。
+✅ **P3b-3 另加四个界面接口**（不新增 CLI 动词）：`GET /api/deploy/plan` /
+`GET /api/deploy/releases` / `POST /api/deploy/release` / `GET /api/deploy/task`
+（判据见 `docs/ui.md` §17 / 硬约束 34）。
+`ops rollback` / `ops ps` / `ops logs` 尚未实现，不要照抄执行。
 `ops restore run` 的 `--db` / `--candidate` / 门禁参数以 `ops restore help` 与
 `docs/backup-restore.md` §5 / §7 为准；正式执行会覆盖生产端，必须有人值守。
 `ops status` 与界面的「备份监控」页都用清单 `user/key`
@@ -850,7 +905,7 @@ ops menu --help
   `func(n string) bool { _, ok := commandHandler(n); return ok }`；不要再抄一份动词表。
 - 🔴 **前端在 `web/`，不在 `internal/ui/`**：`//go:embed` 的路径不能出现 `..`，
   所以嵌 `web/dist` 的文件只能是仓库根的 `webdist.go`（`package main`），
-  `ui.CmdUI(args, static fs.FS, createShortcut, runner)` **接收**它 —— `internal/ui/` 不再嵌页面。
+  `ui.CmdUI(args, static fs.FS, createShortcut, runner, deployAPI)` **接收**它 —— `internal/ui/` 不再嵌页面。
   别为了「放得整齐」把 `web/` 挪进 `internal/`：那样 `main.go` 就得反向依赖 `ui` 的私有目录。
 - 🔴 **备份脚本在 `deploy/backup/`，同样靠根包注入**：嵌入点是仓库根 `backupdist.go`
   （`//go:embed all:deploy/backup`），`backup.CmdBackup(args, scripts fs.FS)` 接收它。
@@ -864,15 +919,16 @@ ops menu --help
   图标字节经 `ui.IconBytes` 导出给 `launcher` 写快捷方式，两处同源。
   `/favicon.ico` 直接读内存，不走 `dist`。
   🔴 **后台调度放 `ui` 包、不放 `launcher`**：`launcher → ui` 已有依赖，反过来会成环。
-  🔴 **跨能力一律靠注入**：`ui.CmdUI(args, static, createShortcut, runner)` 的后两参由
-  `main.go` 传 `launcher.CreateShortcutOnDesktop` 与 `runBackupSubprocess`；
-  别让 ui 直接 import launcher / backup。执行器实现在根包 `backuprun.go`
-  （`exec.CommandContext(os.Executable(), "backup", ...)`，密码走 stdin、输出接任务日志）。
+  🔴 **跨能力一律靠注入**：`ui.CmdUI(args, static, createShortcut, runner, deployAPI)` 的后三参由
+  `main.go` 传 `launcher.CreateShortcutOnDesktop` / `runBackupSubprocess` / `newDeployAPI()`；
+  别让 ui 直接 import launcher / backup / deploy。执行器实现在根包 `backuprun.go`
+  （`exec.CommandContext(os.Executable(), "backup", ...)`，密码走 stdin、输出接任务日志），
+  部署适配层在根包 `deployrun.go`（P3b-3，`ui.DeployAPI` 接口见 `internal/ui/deploy.go`）。
 - `web/` 按母本 `cqlql-notes/docs/工程/目录结构规范.md` 与 `前端/前端目录结构规划.md` §二 排：
   `features/<能力>/`（`api.ts` / `service.ts` / `types.ts` / `utils/` / `components/` / `pages/` /
   `index.ts`）+ `shared/{api,ui,utils}`（`service.ts` 按编排复杂度决定，不是标配）。
-  现在五个 feature、六页（`backup/` 拆成「部署」与「手动备份」两页）：
-  `servers/` / `backup/` / `components/` / `config/` / `monitor/`，
+  现在七个 feature、八页（`backup/` 拆成「部署」与「手动备份」两页）：
+  `servers/` / `backup/` / `components/` / `config/` / `monitor/` / `restore/` / `deploy/`，
   另有全局工具栏 `system/`；用左侧 `Sider + Menu` 导航切换（窄窗口退化成顶部横向 Menu）。
   🔴 **没有 `router/`、顶层 `pages/`、`src/api/`、`src/lib/`**
   —— 五页仍不引路由：本机回环 + 地址栏带一次性 token，深链接没有意义，
@@ -886,9 +942,14 @@ ops menu --help
 - `docs/deploy.md` §5 的文件树里 `internal/deploy/{plan,preflight,cli}.go` 与
   `deploy_test.go` 是 P3a 已落；`deploy.go` / `deploy_release_test.go` 已于
   21:2x 随 P3b-1 落地（CLI 主链路，真机验收见 `docs/deploy.md` §9.9）；
-  `release.go` / `history.go` / `rollback.go` 仍是 P3b-2 / P4 的**计划**、不存在。
-  `docs/deploy.md` §11 已拍板定稿；P3b-2 / P3b-3 / P4 每批单独授权，
-  `ops.env` 键表仍一个键没动。
+  `release.go` / `history.go` / `release_test.go` 已于 22:1x 随 P3b-2 落地
+  （台账 + 只读历史 CLI，验收见 `docs/deploy.md` §9.12）；
+  `uiapi.go` / `uiapi_test.go`（进度钩子与界面同源入口）、仓根 `deployrun.go`
+  （`ui.DeployAPI` 适配）、`internal/ui/deploy.go` / `deploy_test.go`、
+  `web/src/features/deploy/**` 与 `web/test/deploy.test.ts` 已于 23:0x 随 P3b-3 落地
+  （验收见 `docs/deploy.md` §9.13 / `docs/ui.md` §17）；
+  `rollback.go` 仍是 P4 的**计划**、不存在。
+  `docs/deploy.md` §11 已拍板定稿；P4 每批单独授权，`ops.env` 键表仍一个键没动。
   P2a 的 `internal/monitor/{config,status,cli}.go` 已落地（见 `docs/backup-monitor.md` §7）。
   新增能力继续在 `internal/<能力>/` 下建包。
 
@@ -929,8 +990,8 @@ ops menu --help
 | 备份监控（P2a CLI ✅ / P2+ 界面 ✅；**2026-11-10 真机验收通过**，见 §13） | `docs/backup-monitor.md`（界面见 `docs/ui.md` §14） | 只读采集；时间差在远端算；`-` 不是 0；**单账号**（清单 `user/key`，采集不提权）；网页与 CLI 共用 `CollectForServer` / `Status`，前端不算指标；8 个键已进 `docs/config.md` §3 |
 | 手动备份（立即跑一次 · **已实现，2026-11-10 按 §8 七场景真机验收**） | `docs/backup-once.md` §8.1（界面见 `docs/ui.md` §15） | 独立子命令 + 独立页，复用已部署脚本与同一把任务锁；不提权 / 无 sudo 密码框、不查 crontab、不改监控采集判据；报告只报脚本结果且**不能当成定时任务正常**；§7.1 补锁前置已闭环；验收发现的三处 preflight 凭证口径问题已分别修复并部署验证：弱凭证回显（§8.2）、前 3 后 3 展示（§8.3）、`*123456*` 子串误报（§8.4） |
 | 手动备份界面原型（**交互回归基线** · 代码已实现） | `docs/backup-once-prototype.html`（分区见 `docs/backup-once-prototype-map.md`） | 七场景 = 验收用例集；定时状态恒「不采集」、预演不是执行凭证、弹窗无 sudo 密码框、报告固定带手动触发提示；静态速览不连远端、不执行动作，冲突时改原型 |
-| 单机一键 Docker 部署（**P3a 只读预演已落地、本地链路验收闭环** / P3b 真实发布 + P4 回滚仍是方案、未授权；2026-11-11 评审通过 + 分册事实修订，§9.1–§9.8） | `docs/deploy.md` | 远端 `.env` 换行**先探测、检出 CR 才转 LF**（本机 LF 不作判据）；镜像前缀必须逐字等于 compose；Flyway 单向；方案键表在 §8、不进 config.md、P3a 一个键都不启用；第一刀只 `ops deploy --dry-run` 与 `deploy.sh` 逐条对齐、不拿锁不写远端、不真实发布；§4 按真实脚本校正（没有 `docker tag`、Step 4 整目录 `rsync --delete`、root 登录差异）；§10 发版号只是元信息、不是镜像 tag；§10.4 台账 append-only（预演不入账、失败 / 回滚留痕）、历史只读、接口失败回 `items: []`；✅ 15:2x 拓扑确认：k1=备份服务器、k2=应用部署目标（§9.6，k2 `role=app`），旧推断「222 未登记」作废；✅ 13:5x 真机补验 §9.3（k1 零写入 diff 0）；14:1x 提议 → 15:2x 正式确认以 k2 为目标（§9.4 / §9.6，只读预演已通、零写入 diff 0）；✅ 14:4x 已装 Docker 29.9.3 / Compose 5.7.0（§9.5，带 `--proxy http://172.16.0.222:7897`，九项里两项转 ok）；🔴 P3b 未实现未授权、`.env` 52 键含生产凭证等前置仍待人确认；`172.16.0.222:5000/passup` 只是镜像仓库前缀不是部署目标；✅ 16:4x 手工端到端冒烟跑通（§9.8：6 容器 Running / 三个健康门 200），§3.4 默认改「落盘 + 断点续传」（原流转不落盘被 §9.7 证伪）、§3.5 拉起单位按真实 compose、§3.6 补启动窗口；🔴 全测试值配置，加锁 / 备份 rsync / 构建 / 回滚 / 台账仍未验证，P3b 未授权；`ops.exe` 15:24 已重建；✅ 19:5x 新增 §11 P3b 实现方案**评审稿**（六道门禁 / 六阶段状态机 / 落盘续传 / 配置备份 / 启动窗口 / 台账入账点 / 0 新键建议 / 分批文件计划 / 9 条待拍板）→ ✅ **20:3x 9 条按推荐结论拍板、转「已拍板定稿」**（授权当次有效 / 成功即删失败人工清 / 52 键人工核对 / 不自动回滚 / 150 s 内置 / 不加 `running` / 0 新键 / CLI-first 三批 / 默认构建，见 §11.10），仍只改文档与原型、代码零改动、正式发布未授权；§3.6 自动回滚与 §3.7 / §5 的矛盾已按结论 C 修掉；✅ **21:2x P3b-1 已在 k4 落地并真机验收**（§9.9；CLI `release` 动词 + 六道门 + 六阶段）；✅ **21:3x k3 空机首次部署 rc=0**（§9.10）；✅ **21:5x 全测试值 6 业务镜像业务栈 rc=0**（§9.11，三真实健康门 200）、构建链受本机 mirror/pnpm 限制未通、报告补日志尾部与 duration_ms，🔴 P3b-2 台账 / P3b-3 界面 / P4 回滚仍每批单独授权、正式发布未授权 |
-| 应用部署界面原型（**评审通过 · 交互回归基线**；界面视图仍未实现，P3a 是 CLI-only） | `docs/deploy-prototype.html`（分区见 `docs/deploy-prototype-map.md`） | 十场景 = 验收用例集；第一刀只有 `--dry-run`、**没有正式发布按钮**；预演不是执行凭证；撞锁 / 构建失败 / 健康门失败是运行期结果、不是预演阻塞；发版信息校验失败是全局阻塞、预演不落台账、上传恒禁用；只读「发版历史」折叠区按 server 筛选、成功 / 失败 / 回滚徽标、模拟接口失败回 `items: []`；静态速览不连远端、不发请求、不执行动作，冲突时改原型；✅ 19:5x 扩到十场景（28 锚点 / 1482 行）：第 10 个 `p3b-review` 是 §11 **已拍板定稿**的静态判据快照、`card-p3b` 列要点与 9 条拍板结论，不改门禁、按钮恒禁用；20:3x 同步改文案；✅ 21:2x P3b-1 CLI 主链路已落（§9.9），🔴 界面视图仍未实现、按钮恒禁用；按 §9.6 统一目标机为 `k2`，按 §3.4 / §3.5 修掉「流转不落盘 / 四段拉起」写死表述 |
+| 单机一键 Docker 部署（**P3a 只读预演已落地、本地链路验收闭环** / P3b 真实发布 + P4 回滚仍是方案、未授权；2026-11-11 评审通过 + 分册事实修订，§9.1–§9.8） | `docs/deploy.md` | 远端 `.env` 换行**先探测、检出 CR 才转 LF**（本机 LF 不作判据）；镜像前缀必须逐字等于 compose；Flyway 单向；方案键表在 §8、不进 config.md、P3a 一个键都不启用；第一刀只 `ops deploy --dry-run` 与 `deploy.sh` 逐条对齐、不拿锁不写远端、不真实发布；§4 按真实脚本校正（没有 `docker tag`、Step 4 整目录 `rsync --delete`、root 登录差异）；§10 发版号只是元信息、不是镜像 tag；§10.4 台账 append-only（预演不入账、失败 / 回滚留痕）、历史只读、接口失败回 `items: []`；✅ 15:2x 拓扑确认：k1=备份服务器、k2=应用部署目标（§9.6，k2 `role=app`），旧推断「222 未登记」作废；✅ 13:5x 真机补验 §9.3（k1 零写入 diff 0）；14:1x 提议 → 15:2x 正式确认以 k2 为目标（§9.4 / §9.6，只读预演已通、零写入 diff 0）；✅ 14:4x 已装 Docker 29.9.3 / Compose 5.7.0（§9.5，带 `--proxy http://172.16.0.222:7897`，九项里两项转 ok）；🔴 P3b 未实现未授权、`.env` 52 键含生产凭证等前置仍待人确认；`172.16.0.222:5000/passup` 只是镜像仓库前缀不是部署目标；✅ 16:4x 手工端到端冒烟跑通（§9.8：6 容器 Running / 三个健康门 200），§3.4 默认改「落盘 + 断点续传」（原流转不落盘被 §9.7 证伪）、§3.5 拉起单位按真实 compose、§3.6 补启动窗口；🔴 全测试值配置，加锁 / 备份 rsync / 构建 / 回滚 / 台账仍未验证，P3b 未授权；`ops.exe` 15:24 已重建；✅ 19:5x 新增 §11 P3b 实现方案**评审稿**（六道门禁 / 六阶段状态机 / 落盘续传 / 配置备份 / 启动窗口 / 台账入账点 / 0 新键建议 / 分批文件计划 / 9 条待拍板）→ ✅ **20:3x 9 条按推荐结论拍板、转「已拍板定稿」**（授权当次有效 / 成功即删失败人工清 / 52 键人工核对 / 不自动回滚 / 150 s 内置 / 不加 `running` / 0 新键 / CLI-first 三批 / 默认构建，见 §11.10），仍只改文档与原型、代码零改动、正式发布未授权；§3.6 自动回滚与 §3.7 / §5 的矛盾已按结论 C 修掉；✅ **21:2x P3b-1 已在 k4 落地并真机验收**（§9.9；CLI `release` 动词 + 六道门 + 六阶段）；✅ **21:3x k3 空机首次部署 rc=0**（§9.10）；✅ **21:5x 全测试值 6 业务镜像业务栈 rc=0**（§9.11，三真实健康门 200）、构建链受本机 mirror/pnpm 限制未通、报告补日志尾部与 duration_ms；✅ **22:1x P3b-2 台账 + 只读历史 CLI 已落**（§9.12）；✅ **23:0x P3b-3 界面 + 四个 `/api/deploy/*` 已落并本地验收**（§9.13 / `ui.md` §17：第 8 导航项、六阶段进度、实时日志、发版信息与只读历史；发布按钮**默认不可用**、门禁齐全才解锁）；🔴 P4 回滚仍单独授权、正式发布未授权、没连真机没点过界面发布、不写 `state.env`、0 新键 |
+| 应用部署界面原型（**评审通过 · 交互回归基线**；✅ 23:0x 界面已实现，本页仍是**静态**判据快照） | `docs/deploy-prototype.html`（分区见 `docs/deploy-prototype-map.md`） | 十场景 = 验收用例集；第一刀只有 `--dry-run`、**没有正式发布按钮**；预演不是执行凭证；撞锁 / 构建失败 / 健康门失败是运行期结果、不是预演阻塞；发版信息校验失败是全局阻塞、预演不落台账、上传恒禁用；只读「发版历史」折叠区按 server 筛选、成功 / 失败 / 回滚徽标、模拟接口失败回 `items: []`；静态速览不连远端、不发请求、不执行动作，冲突时改原型；✅ 19:5x 扩到十场景（28 锚点 / 1482 行）：第 10 个 `p3b-review` 是 §11 **已拍板定稿**的静态判据快照、`card-p3b` 列要点与 9 条拍板结论，不改门禁、按钮恒禁用；20:3x 同步改文案；✅ 21:2x P3b-1 CLI 主链路已落（§9.9）；✅ **23:0x P3b-3 界面已实现**（§9.13），本页**原型内**按钮仍恒禁用（静态速览不执行动作），实现里按钮改为「默认不可用 + 门禁齐全才解锁」；按 §9.6 统一目标机为 `k2`，按 §3.4 / §3.5 修掉「流转不落盘 / 四段拉起」写死表述 |
 | 一键启动与桌面快捷方式（S2/S3/S5 ✅，S4 人工验收待做） | `docs/one-click-launch.md` | 双击直达网页面板（隐藏守护 + 单实例）；`.lnk` 只指启动器；图标用独立 `.ico`；名字校验挡路径穿越；双击绝不触发写操作，页面写操作要显式确认 |
 | 配置（唯一维护处） | `docs/config.md` | `ops.env` 的键只在 `internal/shared/opsenv.go`（未知 `PASS_UP_OPS_*` 直接报错）；`backup.env` 的键只在 `internal/shared/env-schema.json`，模板 / 脚本兜底 / 白名单 / 键表都是生成物，漏跑生成器 `go test` 会红 |
 | 单文件原型（分区锚点约定 · 本仓实例） | `docs/prototype-conventions.md` | 改前先 grep 锚点定点读、不通读全文；锚点只能是注释、行号不写进 map；新增区块同步补锚点 + 更新 map 表 |
