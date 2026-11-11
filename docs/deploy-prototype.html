@@ -234,7 +234,7 @@ details.card[open] summary{margin-bottom:10px}
 </style>
 </head>
 <body>
-<!-- ==== @section html-shell ==== 导航（8 项，第 8 项为方案）/ 工具条 / 九个场景 chip / 说明 banner / 页头 -->
+<!-- ==== @section html-shell ==== 导航（8 项，第 8 项为方案）/ 工具条 / 十个场景 chip / 说明 banner / 页头 -->
 <div class="shell">
   <aside class="sider">
     <div class="brand">PassUp 运维</div>
@@ -264,13 +264,17 @@ details.card[open] summary{margin-bottom:10px}
         <button class="chip" data-scene="busy">已有任务在跑</button>
         <button class="chip" data-scene="release-invalid">发版信息校验失败</button>
         <button class="chip" data-scene="release-history">发版历史（只读）</button>
-        <span class="badge">P3 方案 · 待评审 · 2026-11-11 发版信息 + 版本历史 · 判据以 docs/deploy.md 为准</span>
+        <button class="chip" data-scene="p3b-review">P3b 方案（评审稿）</button>
+        <span class="badge">P3a 只读预演已落 · §11 P3b 评审稿 · 十场景 · 判据以 docs/deploy.md 为准</span>
       </div>
       <div class="banner info" style="margin-top:0;margin-bottom:16px">
         <span class="ico">i</span>
         <span><b>交互速览与验收用例集，不是运行中的界面</b>：静态数据、不连真实远端、不发网络请求、
-        不执行任何动作。<code>ops deploy</code> / <code>ops rollback</code> <b>均未注册</b>，
-        <code>internal/deploy/</code> 一个文件都不存在。本轮（第一刀）按 2026-11-07 拍板
+        不执行任何动作。<b>已注册</b>的只有 CLI 侧 <code>ops deploy --dry-run</code>
+        （P3a 只读预演，<code>internal/deploy/{plan,preflight,cli}.go</code> 与单测已落）；
+        <code>ops rollback</code> / <code>ps</code> / <code>logs</code> / <code>releases</code>
+        与正式发布路径<b>仍未注册</b>，界面第 8 个导航项仍是方案。
+        2026-11-11 12:3x 评审通过后第一刀按 2026-11-07 拍板
         <b>只做 <code>--dry-run</code> 与 <code>deploy.sh</code> 人工步骤逐条对齐，不真实发布</b>；
         所以本页<b>没有可用的正式发布按钮</b>（发版信息里的「上传 / 正式发布」恒禁用）。
         动作计划（能否执行 / 阻塞原因 / 影响清单 / 将执行的命令）
@@ -285,7 +289,15 @@ details.card[open] summary{margin-bottom:10px}
         <b>2026-11-11 10:0x 补齐「版本历史」</b>：新增只读折叠的「发版历史」区与第九个场景
         <code>release-history</code>。台账改成 <b>append-only 的正式发布尝试事件流</b> ——
         成功 / 失败 / 回滚都留痕，<b>预演与门禁阻塞不入账</b>；回滚另记一条、不改旧记录；
-        只读接口失败回 <code>items: []</code> 不白屏。判据见 <code>docs/deploy.md</code> §10.4。</span>
+        只读接口失败回 <code>items: []</code> 不白屏。判据见 <code>docs/deploy.md</code> §10.4。<br>
+        <b>2026-11-11 19:5x 用户选「P3b 实现方案先评审」</b>：分册新增 §11 评审稿
+        （六道门禁 / 六阶段状态机 / 落盘续传 / 配置备份 / 启动窗口 / 台账入账点 /
+        0 新键建议 / 9 条待拍板），本页加第十个场景 <code>p3b-review</code> 与
+        <code>card-p3b</code> 评审要点区。<b>仍只改文档与原型</b>：代码零改动、
+        正式发布按钮恒禁用、没连真机、没真实发布、一个配置键都没启用；
+        <b>确认可落地 ≠ 授权发布</b>。同时按 §9.6 把首版占位目标机名统一改为
+        <code>k2</code>（k1 是备份服务器、不是部署目标），并按 §3.4 / §3.5 修掉
+        命令基线里「流转不落盘 / 四段拉起」的写死表述。</span>
       </div>
       <div class="page-head">
         <div>
@@ -328,13 +340,13 @@ details.card[open] summary{margin-bottom:10px}
         <div class="select-row">
           <label class="field">目标服务器（servers.json 的 name）
             <select id="serverSelect">
-              <option value="k4">k4 · 应用主机（清单登记）</option>
-              <option value="prod">prod · 主服务器（清单登记）</option>
+              <option value="k2">k2 · 应用部署目标（§9.6 用户确认）</option>
+              <option value="prod">prod · 主服务器（清单登记 · 静态示例）</option>
             </select>
           </label>
           <label class="field">发布范围
             <select id="scopeSelect">
-              <option value="all">all（默认）· infra → ai → backend → web</option>
+              <option value="all">all（默认）· 合并 compose 视图 + ai 独立视图（§3.5）</option>
               <option value="infra">infra · postgres / redis / minio</option>
               <option value="ai">ai · passup/ai</option>
               <option value="backend">backend · backend-java</option>
@@ -348,6 +360,9 @@ details.card[open] summary{margin-bottom:10px}
         <div class="hintline" style="margin-top:10px">
           首次部署缺 <code>/data</code> / <code>.env</code> / <code>secrets/</code> 时，预检必须
           <b>明确指出缺哪一项</b>，不要开始构建；目标端口被非本栈容器占用、用户不在 docker 组同理。
+          🔴 <b>15:2x 拓扑已确认</b>：k1 = 备份服务器、k2 = 应用部署目标；
+          <code>172.16.0.222:5000/passup</code> 只是镜像仓库前缀，部署目标只由
+          <code>--server &lt;name&gt;</code> 决定，本页下拉只是静态演示。
         </div>
       </div>
 
@@ -412,7 +427,7 @@ details.card[open] summary{margin-bottom:10px}
           <label class="field">目标机（默认跟随当前 --server）
             <select id="historyServer">
               <option value="all">全部</option>
-              <option value="k4">k4</option>
+              <option value="k2">k2</option>
               <option value="prod">prod</option>
             </select>
           </label>
@@ -466,7 +481,8 @@ details.card[open] summary{margin-bottom:10px}
           <b>第一刀没有正式发布按钮</b>：上面的「正式发布」恒禁用；P3b 才开放，届时必须
           输 <code>yes</code> + 勾选确认 + 过服务端预检门。预演通过不等于可以发布。
           发版信息校验失败（第 8 个场景）同样挡住计划；发版历史（第 9 个场景）只读、
-          <b>不改变计划</b>；预演报告只回显发版信息、不落台账。
+          <b>不改变计划</b>；P3b 评审稿（第 10 个场景）只是静态判据快照，
+          同样<b>不改变计划、按钮恒禁用</b>；预演报告只回显发版信息、不落台账。
         </div>
       </div>
 
@@ -479,17 +495,74 @@ details.card[open] summary{margin-bottom:10px}
         <div id="reportBox"></div>
       </div>
 
+      <!-- ==== @section card-p3b ==== P3b 评审稿：六道门禁 / 六阶段 / 真机证据缺口 / 待拍板（静态，不发请求） -->
+      <div class="card">
+        <h2>P3b 实现方案（评审稿） <small>docs/deploy.md §11 · 2026-11-11 19:5x · 仍只改文档与原型</small></h2>
+        <div class="banner info">
+          <span class="ico">i</span>
+          <span><b>这一区不是功能，是一份待评审的稿子</b>：输入是 §9.7 / §9.8 的手工冒烟实证
+          （k2 上 6 容器 Running、三个健康门 200）与四条限制，不是照抄 §3 旧稿。
+          🔴 <b>代码零改动</b>：<code>ops deploy</code> 仍只有 <code>--dry-run</code>、
+          不带它仍 rc=2；没连真机、没真实发布、没启用任何配置键、没写台账文件。
+          🔴 <b>确认可落地 ≠ 授权发布</b>：一句「继续」不算授权，正式发布要一次明确授权
+          且只对当次任务有效。判据权威是 <code>docs/deploy.md</code> §11，冲突时改原型。</span>
+        </div>
+        <div class="plan-grid">
+          <div class="box">
+            <div class="t">六道门禁（§11.1）</div>
+            <ol class="cmdlist">
+              <li>显式发布动词；只带 <code>--dry-run</code> 一律只读</li>
+              <li><code>yes</code> + 勾选确认，服务端逐字再验</li>
+              <li>只读预检门：缺前置要明确指出缺哪一项</li>
+              <li>界面唯一任务锁 + 远端 <code>flock -n</code>，拿不到立刻失败</li>
+              <li><code>ValidateRelease</code> 白名单；备注不拼命令</li>
+              <li>配置备份 + 记 <code>:previous</code>，失败就不往下走</li>
+            </ol>
+          </div>
+          <div class="box">
+            <div class="t">六阶段状态机（§11.2）</div>
+            <ul>
+              <li>① 预检（只读）→ ② 配置备份 / 同步 → ③ 本机构建</li>
+              <li>④ 落盘流转 → ⑤ 两个 compose 单元拉起 → ⑥ 健康门</li>
+              <li>失败<b>停在当前阶段</b>，不跨阶段自动修复、不写「部署成功」</li>
+              <li>预演 / 校验 / 预检 / 撞锁 / 409 <b>不入台账</b>；界线是「有没有真正开始执行」</li>
+              <li>默认逐镜像 gzip 落盘 → 按远端大小跳过 → 一次只 load 一个 → 每步看余量</li>
+              <li>健康门：启动窗口内每 5 s 轮询、必须<b>连续 2 次 200</b></li>
+            </ul>
+          </div>
+          <div class="box">
+            <div class="t">真机证据缺口（§11.9）</div>
+            <ul>
+              <li>✅ 只读预演零写入（k1 / k2 diff 0）、主链路手工冒烟跑通</li>
+              <li>🔴 加锁、配置备份 / rsync / CRLF 归一化：整段没验证</li>
+              <li>🔴 构建（用现成镜像）、回滚、台账 / 只读历史：没验证</li>
+              <li>🔴 生产 <code>.env</code> 52 键没同步 / 没打印 / 地址未核对</li>
+              <li>🔴 k2 失联没拿到 dmesg / OOM 证据，不断言因果</li>
+              <li>🔴 全链路用的是<b>全测试值配置</b>，不是现网凭证</li>
+            </ul>
+          </div>
+        </div>
+        <div class="hintline" style="margin-top:10px">
+          <b>待评审拍板 9 条（§11.10）</b>：授权形态 / 暂存 tar.gz 清理 / 52 键由谁核对 /
+          健康门失败<b>不自动回滚</b>（建议）/ 150 s 窗口统一 / append-only 接受「崩溃丢一次尝试」/
+          P3b 首刀仍 <b>0 新键</b>（推荐）/ CLI-first 与界面单独一刀 / 构建来源默认值。
+          未拍板前不得据本节写代码；本区不发请求、不读文件、不执行任何动作。
+        </div>
+      </div>
+
       <!-- ==== @section card-notes ==== 设计注记 / 与分册对照 / 本轮落地记录 -->
       <details class="card">
         <summary>设计注记与分册对照（判据权威：docs/deploy.md）</summary>
         <ul>
-          <li>九场景 = 验收用例集：<code>ready</code> / <code>blocked</code> / <code>offline</code> /
+          <li>十场景 = 验收用例集：<code>ready</code> / <code>blocked</code> / <code>offline</code> /
             <code>locked</code> / <code>build-failed</code> / <code>health-fail</code> /
-            <code>busy</code> / <code>release-invalid</code> / <code>release-history</code>
-            （后两个 2026-11-11 新增）。前三个与 <code>release-invalid</code> 属于第一刀可见范围；
+            <code>busy</code> / <code>release-invalid</code> / <code>release-history</code> /
+            <code>p3b-review</code>（后三个 2026-11-11 新增）。前三个与
+            <code>release-invalid</code> 属于第一刀可见范围；
             <code>locked</code> / <code>build-failed</code> / <code>health-fail</code> 是
-            P3b / P4 的运行期判据预置；<code>release-history</code> 是 P3b 只读历史视图判据，
-            计划仍 <code>available=true</code>。</li>
+            P3b / P4 的运行期判据预置；<code>release-history</code> 是 P3b 只读历史视图判据；
+            <code>p3b-review</code> 是 §11 评审稿的静态判据快照，
+            三者计划都仍是 <code>available=true</code>、<b>不改变门禁</b>。</li>
           <li><b>计划 available 的口径</b>：<code>locked</code> / <code>build-failed</code> /
             <code>health-fail</code> 三者的计划仍是 <code>available=true</code> —— 撞锁、构建失败、
             健康门失败都是<b>运行期结果</b>，预演挡不住，不能写成全局阻塞；
@@ -527,13 +600,22 @@ details.card[open] summary{margin-bottom:10px}
             Step 4 是整目录 <code>rsync --delete</code>）。
             <b>P3a 是 CLI-only</b>：本页仍是界面视图的评审基线，没加导航项、没加接口、
             没改 <code>web/</code>、没启用 <code>ops.env</code> 方案键、没连生产写远端。</li>
+          <li><b>2026-11-11 19:5x 用户选「P3b 实现方案先评审」</b>：分册新增 §11 评审稿
+            （六道门禁 / 六阶段状态机 / 落盘续传 / 配置备份 / 启动窗口 / 台账入账点 /
+            0 新键建议 / 分批文件计划 / 9 条待拍板），本页加 <code>card-p3b</code> 评审要点区
+            与第十个场景 <code>p3b-review</code>；原型同时按 §9.6 把占位目标机名统一成
+            <code>k2</code>，按 §3.4 / §3.5 修掉「流转不落盘 / 四段拉起」的写死表述，
+            并把首屏「<code>internal/deploy/</code> 一个文件都不存在」改成 P3a 已落的事实。
+            <b>仍只改文档与原型</b>：没写 Go / 前端、没注册新命令、没启用配置键、
+            没连真机、没真实发布、正式发布按钮恒禁用。</li>
         </ul>
       </details>
       <div class="footnote" style="margin-top:12px">
         原型是静态交互速览：不连远端、不发网络请求、不执行任何动作，表单填写只改内存里的静态数据、
         不写任何文件。切换场景只改内存里的静态数据；
         URL 可用 <code>?scene=health-fail</code> / <code>?scene=release-invalid</code> /
-        <code>?scene=release-history</code> 直达某个场景，便于评审逐条对照。
+        <code>?scene=release-history</code> / <code>?scene=p3b-review</code>
+        直达某个场景，便于评审逐条对照。
       </div>
     </div>
   </main>
@@ -620,10 +702,10 @@ function renderReport(report){
   html += '</div>';
   $('reportBox').innerHTML = html;
 }
-// ==== @section data-scenes ==== 九个场景的静态数据（上下文 / banner / 预检 / 计划门禁 / 判据日志与报告）
+// ==== @section data-scenes ==== 十个场景的静态数据（上下文 / banner / 预检 / 计划门禁 / 判据日志与报告）
 function baseCtx(over){
   var c = {
-    server:'k4（servers.json）',
+    server:'k2（servers.json）',
     identity:'清单 user/key · 免密 sudo -n',
     lock:'空闲',
     image:'172.16.0.222:5000/passup',
@@ -661,7 +743,7 @@ var SCENES = {
     phases:['done','wait','wait','wait','wait','wait'],
     log:[
       {t:'sec',s:'[判据快照] 场景 ready · 第一刀主场景'},
-      {t:'',s:'$ ops deploy all --server k4 --dry-run'},
+      {t:'',s:'$ ops deploy all --server k2 --dry-run'},
       {t:'ok',s:'预检 6/6 通过 · 目标机来自 servers.json'},
       {t:'',s:'计划：7 条命令，与 deploy.sh 人工步骤逐条对齐'},
       {t:'warn',s:'本次仅预演，未改动远端任何文件'},
@@ -706,7 +788,7 @@ var SCENES = {
   offline: {
     title:'目标机连不上',
     banner:{k:'err', s:'<b>连不上也要回完整快照</b>：不白屏、不猜 0、不把「未采到」写成 0。目标机名仍来自清单，不允许临时填任意 host。'},
-    ctx:baseCtx({server:'k4（servers.json）', identity:'SSH 未建立', lock:'未知', tag:'未采集',
+    ctx:baseCtx({server:'k2（servers.json）', identity:'SSH 未建立', lock:'未知', tag:'未采集',
       health:'未采集', lint:'未采集'}),
     pre:[
       {k:'Docker + compose 插件',v:'未采集',s:'bad'},
@@ -718,7 +800,7 @@ var SCENES = {
     ],
     available:false,
     blockers:[
-      {t:'bad',s:'SSH 连接失败：k4 不可达（认证 / 网络 / 端口，按真实错误给一句人话）'},
+      {t:'bad',s:'SSH 连接失败：k2 不可达（认证 / 网络 / 端口，按真实错误给一句人话）'},
       {t:'care',s:'本页仍展示完整上下文快照，只是每个值都是「未采集」'},
       {t:'care',s:'不重试风暴、不自动切换到别的机器'}
     ],
@@ -726,7 +808,7 @@ var SCENES = {
     phases:['fail','wait','wait','wait','wait','wait'],
     log:[
       {t:'sec',s:'[判据快照] 场景 offline · 目标机不可达'},
-      {t:'err',s:'ssh: connect to host k4 port 22: 连接失败'},
+      {t:'err',s:'ssh: connect to host k2 port 22: 连接失败'},
       {t:'warn',s:'collected=false：所有远端字段标「未采集」，不用 0 兜底'},
       {t:'warn',s:'未开始构建；远端零写入'}
     ],
@@ -877,7 +959,7 @@ var SCENES = {
     phases:['done','wait','wait','wait','wait','wait'],
     log:[
       {t:'sec',s:'[判据快照] 场景 release-history · 版本历史（只读）'},
-      {t:'ok',s:'GET /api/deploy/releases?server=k4 → items 5 条（成功 2 / 失败 2 / 回滚 1）'},
+      {t:'ok',s:'GET /api/deploy/releases?server=k2 → items 5 条（成功 2 / 失败 2 / 回滚 1）'},
       {t:'',s:'最近一条：2026-11-10 22:07 rollback 1.16.1 → 1.16.0（不改旧记录）'},
       {t:'warn',s:'2026-11-10 22:05 release 1.16.1 failed @ 健康门：失败也留痕，报告停在失败阶段'},
       {t:'warn',s:'预演 / 校验失败 / 预检 / 409 各 0 条：没有真正开始执行，不入账'},
@@ -889,9 +971,55 @@ var SCENES = {
         '远端 <code>state.env</code> 只留当前版本号；历史只在本机，换机会丢，不假装已备份。',
         '只读视图不改变计划，也不写「服务已恢复正常」。'],
       manual:'历史只读，没有编辑 / 删除 / 重发；接口失败回 items: [] 不白屏。'}
+  },
+  'p3b-review': {
+    title:'P3b 方案（评审稿）',
+    banner:{k:'info', s:'<b>§11 是评审稿，不是已批准的实现计划</b>：本刀只写分册与原型，'
+      + '输入是 §9.7 / §9.8 的手工冒烟实证（k2 上 6 容器 Running、三个健康门 200）与四条限制。'
+      + '<b>确认可落地 ≠ 授权发布</b>：<code>ops deploy</code> 仍只有 <code>--dry-run</code>、'
+      + '不带它仍 rc=2，正式发布要一次明确授权且只对当次任务有效。'
+      + '本场景是静态判据快照，<b>不改门禁、不发请求、不执行动作</b>；正式发布按钮恒禁用。'},
+    ctx:baseCtx({server:'k2（servers.json · §9.6）',
+      lint:'P3b 评审稿 · 代码零改动 · 0 新键',
+      health:'8009 / 8006 / 80 · 启动窗口内连续 2 次 200'}),
+    pre:[
+      {k:'P3a 只读预演 / 零写入',v:'k1 / k2 已验 diff 0',s:'ok'},
+      {k:'落盘 + 断点续传主链路',v:'§9.8 手工跑通（全测试值）',s:'ok'},
+      {k:'远端加锁 / 配置备份 / rsync',v:'无真机证据',s:'care'},
+      {k:'本机构建（backend / ai / web）',v:'没构建，用现成镜像',s:'care'},
+      {k:'回滚 / 台账 / 只读历史',v:'未实现（P4 / P3b-2）',s:'care'},
+      {k:'生产 .env 52 键核对',v:'没同步 / 没打印 / 地址未核对',s:'care'}
+    ],
+    available:true,
+    blockers:[],
+    warnings:[
+      {t:'care',s:'六道门禁：显式动词 / <code>yes</code> + 服务端预检门 / 九项预检 / 双锁 / <code>ValidateRelease</code> / 备份与 <code>:previous</code>（§11.1）'},
+      {t:'care',s:'默认逐镜像 gzip 落盘 → 按远端大小跳过 → 一次只 load 一个 → 每步看内存 / 磁盘；成功只删本次 6 个文件，不 <code>rm -rf</code> 暂存目录（§11.3）'},
+      {t:'care',s:'拉起按两个 compose 单元（合并视图 + ai 独立），旧「四段顺序」已作废；健康门 ai 约 30 s 才就绪，必须给启动窗口（§11.5）'},
+      {t:'care',s:'健康门失败建议<b>不自动回滚</b>、只停在当前阶段 + 如实报告；§3.6 与 §3.7 / §5 的矛盾列为待拍板 C（§11.5）'},
+      {t:'good',s:'建议 P3b 首刀仍 <b>0 新键</b>：参数来自 <code>--server</code> / 真实 compose / 内置默认（§11.7）'},
+      {t:'good',s:'台账入账界线仍是「有没有真正开始执行」：预演 / 校验 / 预检 / 撞锁 / 409 不入账（§10.4 / §11.6）'}
+    ],
+    phases:['wait','wait','wait','wait','wait','wait'],
+    log:[
+      {t:'sec',s:'[判据快照] 场景 p3b-review · §11 评审稿（静态数据，不是执行结果）'},
+      {t:'ok',s:'只读预演：P3a 已落 CLI，k1 / k2 前后快照 diff 0（§9.3 / §9.6）'},
+      {t:'ok',s:'主链路：逐镜像 gzip 落盘 651.7 MB → 逐个 load → 两个 compose up → 6 容器 Running'},
+      {t:'ok',s:'健康门：8009 / 8006 / 80 各 200；启动窗口内连续 2 次 200 才算过'},
+      {t:'warn',s:'未验证：加锁 / 配置备份 / rsync / CRLF 归一化 / 构建 / 回滚 / 台账'},
+      {t:'warn',s:'生产 .env 52 键没同步、没打印、地址未核对；全链路用的是测试值'},
+      {t:'warn',s:'k2 失联没拿到 dmesg / OOM 证据，不断言因果'},
+      {t:'warn',s:'9 条待拍板未决：未拍板前不得写代码；一句「继续」不算发布授权'},
+      {t:'warn',s:'本页静态数据：不发请求、不读文件、不写台账、不执行任何动作'}
+    ],
+    report:{k:'info', title:'P3b 评审稿报告（静态快照）',
+      lines:['主链路可落地，但<b>文档不能原样照抄进代码</b>：§3.4 默认流转被证伪、§3.5 四段顺序作废、§3.6 缺启动窗口（§9.8）。',
+        '一半流程仍无真机证据；<b>确认可落地 ≠ 授权发布</b>，P3b 实现与真实发布都要单独授权。',
+        '本场景不改变预演计划，也不写「服务已恢复正常 / 部署成功」。'],
+      manual:'评审稿只改文档与原型；代码零改动、不带 --dry-run 仍 rc=2、正式发布按钮恒禁用。'}
   }
 };
-// ==== @section data-release ==== 发版信息静态数据：基线 / 台账 / 九场景覆盖值（scenes 与范围正交）
+// ==== @section data-release ==== 发版信息静态数据：基线 / 台账 / 十场景覆盖值（scenes 与范围正交）
 var RELEASE_BASE = {
   online:'1.16.0',
   source:'来源：远端 .deploy/state.env 的 RELEASE_VERSION · 只读快照',
@@ -919,19 +1047,19 @@ function sceneRelease(scene){
 // 字段名与 deploy.md §10.2 逐字一致；这里只是内存里的静态对象，不读文件、不发请求。
 // 时间倒序：线上 1.16.0 来自最后一次成功的 release；1.16.1 那次失败并已回滚，所以不在远端当前值里。
 var HISTORY_BASE = [
-  {ts:'2026-11-10 22:07', server:'k4', scope:'all', kind:'rollback',
+  {ts:'2026-11-10 22:07', server:'k2', scope:'all', kind:'rollback',
    online_version:'1.16.1', release_version:'1.16.0', bump:'—', note:'回滚到 :previous（不回滚数据库）',
    image_tag:'a1b2c3d', result:'success', failed_stage:'', task_id:'task-2207'},
-  {ts:'2026-11-10 22:05', server:'k4', scope:'all', kind:'release',
+  {ts:'2026-11-10 22:05', server:'k2', scope:'all', kind:'release',
    online_version:'1.16.0', release_version:'1.16.1', bump:'修订补丁', note:'readiness 第二次 404',
    image_tag:'e4f5g6h', result:'failed', failed_stage:'健康门', task_id:'task-2205'},
-  {ts:'2026-11-08 21:40', server:'k4', scope:'all', kind:'release',
+  {ts:'2026-11-08 21:40', server:'k2', scope:'all', kind:'release',
    online_version:'1.15.3', release_version:'1.16.0', bump:'特性更新', note:'修复若干问题',
    image_tag:'a1b2c3d', result:'success', failed_stage:'', task_id:'task-2140'},
-  {ts:'2026-11-08 20:03', server:'k4', scope:'all', kind:'release',
+  {ts:'2026-11-08 20:03', server:'k2', scope:'all', kind:'release',
    online_version:'1.15.3', release_version:'1.16.0', bump:'特性更新', note:'docker build exit 1',
    image_tag:'c3d4e5f', result:'failed', failed_stage:'构建', task_id:'task-2003'},
-  {ts:'2026-11-07 11:26', server:'k4', scope:'backend', kind:'release',
+  {ts:'2026-11-07 11:26', server:'k2', scope:'backend', kind:'release',
    online_version:'1.15.2', release_version:'1.15.3', bump:'修订补丁', note:'修复若干问题',
    image_tag:'b2c3d4e', result:'success', failed_stage:'', task_id:'task-1126'},
   {ts:'2026-11-06 15:45', server:'prod', scope:'all', kind:'release',
@@ -954,16 +1082,16 @@ function historyRows(server){
 }
 // ==== @section data-runtime ==== 计划基线 / 影响清单常量 / 范围映射 / 运行时状态
 var PLAN_BASE = [
-  {c:"ssh k4 'docker info && test -w /data/postgres && test -r docker/secrets/'", k:'只读预检'},
-  {c:"ssh k4 'flock -n /opt/passup/.deploy/lock -c true'", k:'拿锁'},
-  {c:"ssh k4 'grep -c $'\\r' docker/.env' 只读探测；检出 CR 才 rsync 后 sed -i 's/\\r$//'", k:'配置同步 · CRLF 按远端探测归一化'},
+  {c:"ssh k2 'docker info && test -w /data/postgres && test -r docker/secrets/'", k:'只读预检'},
+  {c:"ssh k2 'flock -n /opt/passup/.deploy/lock -c true'", k:'拿锁'},
+  {c:"ssh k2 'grep -c $'\\r' docker/.env' 只读探测；检出 CR 才 rsync 后 sed -i 's/\\r$//'", k:'配置同步 · CRLF 按远端探测归一化'},
   {c:"docker build -f docker/Dockerfile -t <prefix>/{backend-java,ai}:<tag> .", k:'本机构建'},
-  {c:"docker save <prefix>/backend-java:<tag> | ssh k4 'docker load'", k:'流转（不落盘）'},
-  {c:"IMAGE_TAG=<tag> docker compose -f base.yml -f docker-compose.yml up -d", k:'拉起 · 不 down -v'},
-  {c:"ssh k4 'curl -fsS 127.0.0.1:8009/actuator/health/readiness' × 2", k:'只读健康门'}
+  {c:"逐镜像 docker save | gzip -1 > <name>.tar.gz → 传 /opt/passup/.images（按远端大小跳过）→ gunzip -c | docker load（一次一个、每步看余量）", k:'流转 · 落盘 + 断点续传（默认，§3.4）'},
+  {c:"IMAGE_TAG=<tag> docker compose -f base.yml -f docker-compose.yml up -d；ai 独立 compose 再 up -d", k:'拉起 · 两个 compose 单元，不 down -v（§3.5）'},
+  {c:"ssh k2 'curl -fsS 127.0.0.1:8009/actuator/health/readiness / 8006 / 80' · 启动窗口内每 5 s 轮询、连续 2 次 200", k:'只读健康门 · 带启动窗口（§3.6）'}
 ];
 var SCOPES = {
-  all:     {keep:[0,1,2,3,4,5,6], note:'infra → ai → backend → web；backend/infra 合并 compose，ai 单独 compose'},
+  all:     {keep:[0,1,2,3,4,5,6], note:'两个 compose 单元：backend/infra/web 合并视图先 up，ai 独立视图后 up（§3.5，旧四段顺序作废）'},
   infra:   {keep:[0,1,5,6],       note:'只拉起 postgres / redis / minio；不构建应用镜像'},
   ai:      {keep:[0,1,2,3,4,5,6], note:'ai 单独 compose（passup-network 为 external），健康门走 8006'},
   backend: {keep:[0,1,2,3,4,5,6], note:'backend + infra 合并 compose；健康门走 8009 readiness'},
@@ -980,11 +1108,13 @@ var IMPACT = [
 var WARN_BASE = [
   {t:'care',s:'远端 <code>docker/.env</code> 换行先只读探测；检出 CR 才归一化，结论写进报告（§3.2）'},
   {t:'care',s:'镜像前缀逐字等于 compose 的 <code>image:</code>；远端注入 <code>IMAGE_TAG</code>'},
-  {t:'care',s:'首期不删 <code>deploy.sh</code>；对齐完成后也不在本轮停用'}
+  {t:'care',s:'首期不删 <code>deploy.sh</code>；对齐完成后也不在本轮停用'},
+  {t:'care',s:'默认逐镜像 gzip <b>落盘 + 断点续传</b>、一次只 load 一个、每步看内存 / 磁盘；'
+    + '「流转不落盘」只是可选快路径（§3.4 / §9.7 / §9.8）'}
 ];
 var PREVIEW_PHASES = ['done','wait','wait','wait','wait','wait'];
-var state = { scene:'ready', scope:'all', server:'k4', previewed:false,
-  release:sceneRelease('ready'), historyServer:'k4', historyError:false };
+var state = { scene:'ready', scope:'all', server:'k2', previewed:false,
+  release:sceneRelease('ready'), historyServer:'k2', historyError:false };
 // ==== @section fn-plan ==== 查表投影（场景 + 范围 → 一份计划）/ 能否执行 / 预演命令
 function planFor(){
   // 场景与范围是两个正交维度：场景只管门禁与判据，范围只管命令子集。
@@ -1219,9 +1349,11 @@ function render(){
     cell('线上发版号', esc(state.release.online), state.release.online === '未采集' ? 'care' : '') +
     cell('健康门端口', esc(c.health)) +
     cell('配置校验', esc(c.lint));
-  $('ctxChain').innerHTML = '数据方向：<code>本机三个仓库</code> → <code>rsync / docker save | ssh docker load</code> → '
+  $('ctxChain').innerHTML = '数据方向：<code>本机三个仓库</code> → '
+    + '<code>rsync（分目录）/ 逐镜像 gzip 落盘 → 逐个 docker load</code> → '
     + '<code>目标机 '+esc(state.server)+'</code>（只认 servers.json 的 name，不接受任意 host）；'
-    + '<b>备份机与部署目标可同可不同</b>；本页不连远端、不发请求。';
+    + '<b>§9.6 确认 k1 = 备份服务器、k2 = 应用部署目标</b>；镜像仓库前缀不是部署目标。'
+    + '本页不连远端、不发请求。';
 
   $('prelist').innerHTML = s.pre.map(function(x){
     var cls = x.s === 'bad' ? 'bad' : x.s === 'care' ? 'care' : 'ok';
@@ -1339,7 +1471,7 @@ function bind(){
 }
 // ==== @section fn-init ==== URL 参数直达场景 + 首屏 render()（评审便利）
 (function init(){
-  var m = /[?&]scene=([a-z-]+)/.exec(window.location.search || '');
+  var m = /[?&]scene=([a-z0-9-]+)/.exec(window.location.search || '');
   if (m && SCENES[m[1]]) state.scene = m[1];
   state.release = sceneRelease(state.scene);   // ?scene=release-invalid 直达时也要拿到该场景基线
   bind();
