@@ -16,6 +16,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 // ---------- 门 1 / 2 / 5：参数与服务端逐字再验 ----------
@@ -244,10 +245,14 @@ type fakeRunner struct {
 	healthCodes  []int
 	healthRound  int
 	gateText     string
+	delay        time.Duration
 }
 
 func (f *fakeRunner) Remote(_ context.Context, cmd string) (string, error) {
 	f.remoteCalls = append(f.remoteCalls, cmd)
+	if f.delay > 0 && len(f.remoteCalls) == 1 {
+		time.Sleep(f.delay) // 让 RunRelease 的耗时统计有可观测的非零值
+	}
 	if f.failContains != "" && strings.Contains(cmd, f.failContains) {
 		return "", errors.New("注入失败：" + f.failContains)
 	}
@@ -320,7 +325,7 @@ func (f *fakeRunner) SaveImage(_ context.Context, ref, localPath string) (int64,
 func (f *fakeRunner) Local(_ context.Context, argv []string, dir string) (string, error) {
 	f.localCalls = append(f.localCalls, argv)
 	if f.failContains != "" && strings.Contains(strings.Join(argv, " "), f.failContains) {
-		return "", errors.New("注入失败：" + f.failContains)
+		return "DOCKER_BUILD_TAIL: registry mirror EOF", errors.New("注入失败：" + f.failContains)
 	}
 	return "ok", nil
 }
@@ -434,6 +439,15 @@ func TestRunReleaseHealthTimeout(t *testing.T) {
 	assertReleaseArrays(t, rep)
 }
 
+// 值类型返回 + defer 会让 DurationMS 恒为 0；命名返回值修好后必须能记录耗时。
+func TestRunReleaseReportsDuration(t *testing.T) {
+	f := &fakeRunner{remoteSize: -1, delay: 3 * time.Millisecond}
+	rep := RunRelease(context.Background(), testReleaseConfig(t), f)
+	if !rep.Completed || rep.DurationMS < 1 {
+		t.Errorf("报告要记录真实耗时：completed=%v duration_ms=%d", rep.Completed, rep.DurationMS)
+	}
+}
+
 func TestRunReleaseResumeBySize(t *testing.T) {
 	f := &fakeRunner{remoteSize: 100} // 远端大小 == SaveImage 的 100 B
 	rep := RunRelease(context.Background(), testReleaseConfig(t), f)
@@ -459,6 +473,10 @@ func TestRunReleaseBuildFailureDoesNotTouchRemote(t *testing.T) {
 	rep := RunRelease(context.Background(), cfg, f)
 	if rep.Completed || rep.FailedStage != StageBuild {
 		t.Fatalf("构建失败应停在构建：%+v", rep)
+	}
+	if !strings.Contains(rep.Error, "DOCKER_BUILD_TAIL") ||
+		!strings.Contains(strings.Join(rep.Log, "\n"), "构建输出尾部") {
+		t.Errorf("构建失败报告必须带日志尾部，不能只给一句「docker 失败」：%s / %v", rep.Error, rep.Log)
 	}
 	for _, c := range f.remoteCalls {
 		if strings.Contains(c, " up -d") || strings.Contains(c, "gunzip -c") {

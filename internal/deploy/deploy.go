@@ -680,9 +680,10 @@ func transferImages(ctx context.Context, cfg ReleaseConfig, r Runner, rep *Relea
 
 // ---- 六阶段编排 ----
 
-func RunRelease(ctx context.Context, cfg ReleaseConfig, r Runner) ReleaseReport {
+// 命名返回值是必需的：defer 里写 DurationMS，值返回 + 局部 rep 会让报告恒为 0。
+func RunRelease(ctx context.Context, cfg ReleaseConfig, r Runner) (rep ReleaseReport) {
 	start := time.Now()
-	rep := newReleaseReport(cfg)
+	rep = newReleaseReport(cfg)
 	defer func() { rep.DurationMS = time.Since(start).Milliseconds() }()
 
 	// 门 3：只读预检（缺哪项就点名，不开始构建 / 不同步）
@@ -744,8 +745,17 @@ func RunRelease(ctx context.Context, cfg ReleaseConfig, r Runner) ReleaseReport 
 		rep.stageSkip(StageBuild, "显式 --no-build：复用现成镜像（§9.8 实证快路径），三条构建链本次未验证")
 	} else {
 		for _, c := range buildCommands(cfg) {
-			if _, err := r.Local(ctx, c.Argv, c.Dir); err != nil {
-				rep.failAt(StageBuild, "", fmt.Errorf("%s 失败（本机动作，不碰远端）：%w", c.Desc, err))
+			out, err := r.Local(ctx, c.Argv, c.Dir)
+			if err != nil {
+				// §11.2：失败报告要带日志尾部，不能只给一句「docker 失败」。
+				if s := strings.TrimSpace(out); s != "" {
+					rep.Log = append(rep.Log, "[构建输出尾部] "+tailText(s, 400))
+				}
+				detail := err.Error()
+				if s := strings.TrimSpace(out); s != "" {
+					detail += "；输出尾部：" + tailText(s, 400)
+				}
+				rep.failAt(StageBuild, "", fmt.Errorf("%s 失败（本机动作，不碰远端）：%s", c.Desc, detail))
 				return rep
 			}
 		}

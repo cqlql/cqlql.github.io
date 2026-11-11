@@ -14,8 +14,11 @@
 > ✅ **21:3x 用户「可以部署到 ssh k3」→ k3 登记为可部署目标、空机首次部署跑通**
 > （§9.10）：备份清单后追加 `k3`(role=app)，经代理装好 Docker 29.9.3 /
 > compose 5.7.1，`ops deploy release --server k3 ...` rc=0、六阶段全过。
-> 🔴 两次都用全测试值最小冒烟栈；生产 `.env` 52 键一字未动、没碰 `prod`、
-> 没做正式发布；P3b-2 台账 / P3b-3 界面 / P4 回滚仍未实现、未授权。
+> ✅ **21:5x 构建链真跑 + 真实业务栈跑通 + 两处报告缺陷修复**（§9.11）：
+> 三条本机构建链受 mirror / pnpm 限制未通（工具如实停在 `构建`）；
+> 全测试值 6 业务镜像业务栈在 k3 复跑 rc=0、三真实健康门各连续 2 次 200。
+> 🔴 全程用全测试值；生产 `.env` 52 键一字未动、没碰 `prod`、没做正式发布；
+> P3b-2 台账 / P3b-3 界面 / P4 回滚仍未实现、未授权。
 > 现行判据见 §2 / §5 / §9.1–§9.8；
 > 🔴 第一刀不构建镜像、不 `compose up`、不写远端、不落台账、不改 `web/`、
 > 不启用 §8 的任何配置键。以下为演进记录（带时间戳的「命令未注册 / 代码零改动」
@@ -912,6 +915,49 @@ service active、`cql` 加入 docker 组。
 🔴 仍未验证：三条构建链（继续 `--no-build` 快路径）、真实 6 容器业务栈、
 生产 `.env` 52 键人工核对、P3b-2 台账 / P3b-3 界面 / P4 回滚；**正式发布未授权**。
 
+### 9.11 构建链真跑 + 真实业务栈跑通 + 报告缺陷修复（2026-11-11 21:5x）
+
+> 用户「继续」，按 §9.9 / §9.10 结尾列的缺口推进；仍是测试环境全测试值，
+> 生产 `.env` 52 键、`prod`、正式发布一律未碰。
+
+**构建链（本机）真跑**：不带 `--no-build` 跑 `ops deploy release --server k3 --image-tag p3b1build`
+→ rc=1，停在 `构建` 阶段、后面流转 / 拉起 / 健康门一个都没碰（失败停点真机实证）。
+三条链单独探测：
+
+| 链 | 结果 | 真实原因 |
+| :--- | :--- | :--- |
+| backend `docker build` | rc=1 | Docker Desktop 的 registry mirror `192.168.1.221:5001` 返回 EOF，拉不到 `maven:3.9-eclipse-temurin-25` / `eclipse-temurin:25-jre` |
+| ai `docker build` | rc=1 | 同一 mirror 拉不到 `python:3.12-slim`（Dockerfile 另依赖 ghcr 的 uv） |
+| web `pnpm build:user` | rc=1 | corepack 强制 pnpm@11.17.0、依赖自检要求交互确认（本机 pnpm 12.3.4） |
+
+🔴 三条链受**本机 / 网络条件**限制，不是工具逻辑缺陷；修好 mirror 与 pnpm 版本后需另刀复验。
+顺带修掉报告缺陷：构建失败原来只回「docker 失败：exit status 1」，现在把本机命令的
+输出尾部写进 `rep.Log` 与 `rep.Error`（§11.2「报告带日志尾部」），
+由 `TestRunReleaseBuildFailureDoesNotTouchRemote` 锁住；重跑能直接看到 mirror EOF。
+
+**真实业务栈（全测试值）**：`.tmp-deploy-smoke/biz/` 造 50 键假 `.env`
+（只按 `.env.example` 的**键名**自造，真实 `.env` 一字未读）、假微信支付 PEM、
+真实 compose 结构（frontend-web 用 nginx 代替本机缺的 `caddy:2.11.1`），
+镜像前缀逐字对齐本机现成的 `192.168.1.221:5000/passup/*`。先 `docker compose down`
+停掉 §9.10 的最小栈（不删卷、释放 80 / 8006 / 8009），再把业务栈配置预置到 k3。
+
+第一次 `ops deploy release --server k3 ... --no-build --json` rc=1，**前五阶段全过**
+（含 6 个真实业务镜像落盘 → load → 两个 compose `up`），停在 `健康门`：
+web `80/` 与真实 ai `8006/resume/health` 都 200，backend `8009/readiness` 恒 000。
+诊断：`WECHAT_VIRTUAL_PAY_ENV=sandbox` 是**自造假值类型错误**（后端要 int），
+Spring Boot `ConfigurationPropertiesBindException`、容器重启 14 次。
+改成 `0` 后复跑 **rc=0**：六阶段全过、三个真实业务健康门各连续 2 次 200、
+`duration_ms=90973`。远端复核：6 容器 Running、backend `RestartCount=0`、
+`.images` 按清单清空、`secrets/*.pem` 权限 600、备份目录留存。
+🔴 这是**全测试值**业务栈，不等于生产配置可用：52 键凭证仍需人核对（结论 B）。
+
+**报告缺陷修复**：`RunRelease` 原来用值返回 + `defer` 写 `DurationMS`，
+命名返回值缺失导致 `duration_ms` 恒 0；改成命名返回值后真机回 90973，
+新增 `TestRunReleaseReportsDuration` 锁住。
+
+🔴 仍未验证：三条构建链（本机 mirror / pnpm 限制）、生产 `.env` 52 键人工核对、
+P3b-2 台账 / P3b-3 界面 / P4 回滚；**正式发布未授权**，界面按钮恒禁用。
+
 ## 10. 发版信息（借鉴小程序「上传代码」· 2026-11-11 新增方案）
 
 > 本节只是**设计稿**，截至 2026-11-11 代码为零。判据仍以 §2 / §3 / §6 / §9 为准；
@@ -1201,7 +1247,8 @@ service active、`cql` 加入 docker 组。
 | 主链路（落盘 → up → 健康门） | §9.8 手工 6 容器；§9.9 工具侧 k4 测试环境 rc=0 | 真实业务 6 容器栈未跑（用最小冒烟栈） | ✅ P3b-1 已验（测试值最小栈） |
 | 预检加锁 | §9.9：远端 `flock -n` + 本地单例均通过 | 并发撞锁未真造 | ✅ P3b-1 已验 |
 | 配置备份 / 分目录同步 / CRLF | §9.9：备份目录 4 文件、secrets 600、远端探测 LF 不归一化 | 本机无 rsync（改 Go tar 流）；检出 CR 的归一化路径未真跑 | ✅ P3b-1 部分已验 |
-| 构建 | 命令拼装 + 构建失败停点单测已锁 | 三条构建链无真机证据（本次 `--no-build` 快路径跳过） | 首次真实发布前人工确认 |
+| 构建 | §9.11：三条链已真跑，backend / ai 因 Docker mirror EOF、web 因 corepack 版本失败；工具停在 `构建` 且报告带输出尾部 | 本机 mirror / pnpm 版本修复后需复验 | 修本机环境后另刀 |
+| 真实业务栈（6 业务镜像） | §9.11：全测试值 50 键 `.env` + 现成业务镜像在 k3 rc=0，backend / ai / web 三健康门各连续 2 次 200 | 生产 52 键凭证未核对（结论 B） | 首次真实发布前人工确认 |
 | 失败停点 / 断点续跑 / 健康门四判据 | §9.9：门 3 点名缺项、ssh 255 停在配置同步；单测锁死按大小跳过与 200/404/超时/先好后坏 | 真机断点续跑未造（成功后按清单清理） | ✅ 单测已闭环 |
 | 空机首次部署前置 | §9.10：k3 无 Docker / 无 `/opt/passup`，经代理装引擎 + 人备前置后工具发布 rc=0 | 首次 dpkg 锁竞争（unattended-upgrade）已人工处理 | ✅ P3b-1 已验 |
 | 回滚 / 台账 / 只读历史 | 无 | 整段 | P4 / P3b-2 |
