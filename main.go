@@ -34,7 +34,7 @@ func commandHandler(name string) (func([]string) int, bool) {
 		// P2a 只读备份监控：脚本在 Go 常量里生成，经 ssh stdin 执行。
 		return monitor.CmdStatus, true
 	case "deploy":
-		// P3a 第一刀：只读预演。不带 --dry-run 由 deploy 包自己就地拒绝。
+		// P3a 只读预演 + P3b-1 显式 release 主链路；不带动词 / 不带 --dry-run 就地拒绝。
 		return deploy.CmdDeploy, true
 	case "restore":
 		// 备份恢复：只读候选 / 预演 + 显式执行；写动作仍要过界面二次确认或 CLI 门禁。
@@ -151,7 +151,9 @@ func usage() {
   ops component image-load minio --server <name> --image-tar <本机 .tar> [--dry-run]
                                          导入 MinIO 离线镜像（写操作；不 docker pull）
   ops deploy [all|infra|ai|backend|web] --server <name> --dry-run [--json]
-                                         应用部署只读预演（P3a 第一刀；不改远端、不真实发布）
+                                         应用部署只读预演（P3a；不改远端）
+  ops deploy release --server <name> --confirm yes --config-dir <dir> --release-version <v>
+                                         应用部署正式发布（P3b-1；六道门禁 + 六阶段，写远端）
 
 组件: pg | minio | all（默认 all）
 环境组件: docker | minio（minio 依赖 docker；镜像走离线 tar，凭证走 backup/minio.env）

@@ -24,8 +24,10 @@
 > **2026-11-11 20:3x §11 的 9 条待拍板按推荐结论拍板 → 定稿**：`deploy-prototype.html`
 > 的 `card-p3b` / `p3b-review` 改列拍板结论（授权当次有效 / 成功即删失败人工清 /
 > 52 键人工核对 / 不自动回滚 / 150 s 内置 / 不加 `running` / 0 新键 / CLI-first 三批 /
-> 默认构建），锚点数仍 28 / **1505 行**、十场景不变、正式发布按钮恒禁用；
-> 🔴 **只改文档与原型**：代码零改动、P3b-1 按 `deploy.md` §11.8 另需单独授权。
+> 默认构建），锚点数仍 28 / **1513 行**、十场景不变、正式发布按钮恒禁用；
+> 🔴 **只改文档与原型**：代码零改动、P3b-1 按 `deploy.md` §11.8 另需单独授权
+> （20:3x 当时状态；21:2x 用户已授权测试环境开工，P3b-1 CLI 主链路落地并真机验收，
+> 见 `deploy.md` §9.9；本页界面视图仍未实现）。
 
 # 本仓单文件原型约定（实例）
 
@@ -44,7 +46,7 @@
 | `components-prototype.html` | 1827 | 42 个 | `components-prototype-map.md` | `components.md` / `ui.md` §13 |
 | `backup-restore-prototype.html` | 759 | 19 个 | `backup-restore-prototype-map.md` | `backup-restore.md` §3–§5 / §7（代码已实现 · 交互回归基线；真机只读 §7.3 + 写演练 §7.4 + 工具侧 PG 正式恢复 §7.6 均已跑；`psql` 吞错修复 §7.7 已在 §7.8 部署并真机验证） |
 | `backup-once-prototype.html` | 706 | 19 个 | `backup-once-prototype-map.md` | `backup-once.md` §2–§4 / §8（代码已实现 · 交互回归基线；2026-11-10 按七场景完成真机验收，逐条见 §8.1） |
-| `deploy-prototype.html` | 1505 | 28 个 | `deploy-prototype-map.md` | `deploy.md` §3 / §5 / §6 / §9 含 §9.1 / §10 发版信息 / §10.4 版本历史 / **§11 P3b 已拍板定稿（9 条结论）**（**界面视图未实现** · P3a 已落 CLI 只读 `--dry-run`；十场景评审基线与验收用例集；第一刀只做 `--dry-run` 对齐、不真实发布、上传恒禁用；发版历史只读折叠区；`card-p3b` 9 条拍板结论区；CRLF 远端探测口径；落盘流转 / 两个 compose 单元；20:3x §11 定稿、P3b-1 未开工） |
+| `deploy-prototype.html` | 1513 | 28 个 | `deploy-prototype-map.md` | `deploy.md` §3 / §5 / §6 / §9 含 §9.1 / §10 发版信息 / §10.4 版本历史 / **§11 P3b 已拍板定稿（9 条结论）**（**界面视图未实现** · P3a 已落 CLI 只读 `--dry-run`；十场景评审基线与验收用例集；第一刀只做 `--dry-run` 对齐、不真实发布、上传恒禁用；发版历史只读折叠区；`card-p3b` 9 条拍板结论区；CRLF 远端探测口径；落盘流转 / 两个 compose 单元；20:3x §11 定稿、21:2x P3b-1 CLI 主链路已落（界面仍未实现） |
 | `config-compare.html` | 590 | 无 | 无 | `ui.md` §12.5 |
 
 行数为 2026-11-08 快照（`deploy` 行为 2026-11-11 20:3x §11 拍板定稿后的版本），以 `wc -l` 为准。
