@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RAG 链路入门 · notes-rag 实测讲义</title>
+<style>
+:root{
+  --bg:#ffffff; --fg:#1d1d1b; --muted:#66665f; --faint:#8a8a82;
+  --line:#e4e4df; --panel:#f7f7f4; --panel2:#f0f0ec;
+  --accent:#185fa5; --accent-bg:#e6f1fb; --accent-line:#b5d4f4;
+  --ok:#0f6e56; --ok-bg:#e1f5ee; --ok-line:#9fe1cb;
+  --warn:#a32d2d; --warn-bg:#fcebeb; --warn-line:#f7c1c1;
+  --amber:#854f0b; --amber-bg:#faeeda;
+  --mono:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+}
+html[data-theme="dark"]{
+  --bg:#1c1c1a; --fg:#ecece6; --muted:#a8a89f; --faint:#7e7e76;
+  --line:#383833; --panel:#262624; --panel2:#2e2e2a;
+  --accent:#85b7eb; --accent-bg:#12283f; --accent-line:#2a4a6b;
+  --ok:#5dcaa5; --ok-bg:#0d2c23; --ok-line:#1d5a45;
+  --warn:#f09595; --warn-bg:#3a1b1b; --warn-line:#6d3030;
+  --amber:#fac775; --amber-bg:#3a2c12;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:15px;line-height:1.75;-webkit-font-smoothing:antialiased}
+#progress{position:fixed;top:0;left:0;height:2px;width:0;background:var(--accent);z-index:50;transition:width .1s linear}
+.wrap{display:flex;max-width:1240px;margin:0 auto;gap:38px;padding:0 24px}
+aside{width:214px;flex:0 0 214px;position:sticky;top:0;height:100vh;overflow-y:auto;padding:30px 0 40px;border-right:1px solid var(--line)}
+main{flex:1;min-width:0;max-width:820px;padding:36px 0 100px}
+.brand{font-size:12px;color:var(--faint);letter-spacing:.06em;margin-bottom:14px}
+aside a{display:block;color:var(--muted);text-decoration:none;font-size:13px;padding:5px 10px;border-left:2px solid transparent;border-radius:0 5px 5px 0;transition:.15s}
+aside a:hover{color:var(--fg);background:var(--panel)}
+aside a.on{color:var(--accent);border-left-color:var(--accent);background:var(--accent-bg);font-weight:500}
+.toolrow{display:flex;gap:8px;margin-top:22px;flex-wrap:wrap}
+button{font-family:inherit;font-size:12px;color:var(--muted);background:transparent;border:0.5px solid var(--line);border-radius:7px;padding:5px 10px;cursor:pointer;transition:.15s}
+button:hover{color:var(--fg);border-color:var(--muted);background:var(--panel)}
+h1{font-size:29px;line-height:1.3;font-weight:600;margin:0 0 8px;letter-spacing:-.01em}
+h2{font-size:21px;font-weight:600;margin:52px 0 16px;padding-top:14px;border-top:1px solid var(--line);scroll-margin-top:20px}
+h3{font-size:16px;font-weight:600;margin:28px 0 10px}
+h4{font-size:14px;font-weight:600;margin:20px 0 8px}
+p{margin:0 0 14px}
+ul,ol{margin:0 0 14px;padding-left:22px}
+li{margin-bottom:6px}
+a{color:var(--accent)}
+code{font-family:var(--mono);font-size:.88em;background:var(--panel2);padding:1px 5px;border-radius:4px;word-break:break-word}
+pre{background:var(--panel);border:0.5px solid var(--line);border-radius:10px;padding:14px 16px;overflow-x:auto;font-family:var(--mono);font-size:12.5px;line-height:1.65;margin:0 0 16px;position:relative}
+pre code{background:none;padding:0;font-size:inherit}
+.lead{font-size:16px;color:var(--muted);margin:0 0 20px}
+.status{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:12.5px;background:var(--panel);border:0.5px solid var(--line);border-radius:9px;padding:10px 14px;margin:0 0 22px;color:var(--muted)}
+.tag{font-size:11px;padding:2px 8px;border-radius:5px;background:var(--ok-bg);color:var(--ok);border:0.5px solid var(--ok-line);white-space:nowrap}
+.tag.amber{background:var(--amber-bg);color:var(--amber);border-color:transparent}
+.tag.blue{background:var(--accent-bg);color:var(--accent);border-color:var(--accent-line)}
+.callout{border-left:3px solid var(--accent);background:var(--accent-bg);padding:12px 16px;border-radius:0 9px 9px 0;margin:0 0 20px;font-size:14px}
+.callout.warn{border-left-color:var(--warn);background:var(--warn-bg)}
+.callout.ok{border-left-color:var(--ok);background:var(--ok-bg)}
+.callout p:last-child{margin-bottom:0}
+table{width:100%;border-collapse:collapse;font-size:13.5px;margin:0 0 18px}
+th,td{text-align:left;padding:9px 11px;border-bottom:0.5px solid var(--line);vertical-align:top}
+th{color:var(--muted);font-weight:500;background:var(--panel)}
+td code{font-size:12px}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+details{background:var(--panel);border:0.5px solid var(--line);border-radius:9px;padding:10px 14px;margin:0 0 12px}
+summary{cursor:pointer;font-size:14px;font-weight:500;color:var(--fg)}
+details[open] summary{margin-bottom:10px}
+details > :last-child{margin-bottom:0}
+.copy{position:absolute;top:8px;right:8px;font-size:11px;padding:3px 8px;background:var(--bg);opacity:0;transition:.15s}
+pre:hover .copy{opacity:1}
+.stepbar{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 16px}
+.stepbar button{flex:1;min-width:92px;text-align:center;padding:9px 6px;font-size:12.5px}
+.stepbar button.on{background:var(--accent-bg);color:var(--accent);border-color:var(--accent-line);font-weight:500}
+.steppane{display:none;background:var(--panel);border:0.5px solid var(--line);border-radius:10px;padding:18px 20px;min-height:190px}
+.steppane.on{display:block}
+.steppane h4{margin:0 0 4px;font-size:15px}
+.steppane .where{font-family:var(--mono);font-size:12px;color:var(--accent);margin:0 0 12px;word-break:break-all}
+.steppane p:last-child,.steppane ul:last-child,.steppane pre:last-child{margin-bottom:0}
+.phase{display:inline-block;font-size:11px;padding:2px 9px;border-radius:999px;background:var(--accent-bg);color:var(--accent);border:0.5px solid var(--accent-line);margin-bottom:9px}
+.phase.q{background:var(--ok-bg);color:var(--ok);border-color:var(--ok-line)}
+.phase.e{background:var(--amber-bg);color:var(--amber);border-color:transparent}
+.io{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0}
+.iobox{background:var(--panel2);border-radius:8px;padding:10px 12px;min-width:0}
+.iobox .lbl{font-size:11px;color:var(--faint);margin-bottom:6px}
+.iobox pre{position:static;margin:0;padding:0;background:none;border:0;border-radius:0;font-size:11.5px;line-height:1.6;white-space:pre-wrap;word-break:break-word}
+.iobox pre code{background:none;padding:0;font-size:inherit}
+.steppane .note{font-size:12px;color:var(--muted);margin:10px 0 0;padding-top:9px;border-top:0.5px solid var(--line)}
+.steppane .note b{color:var(--fg)}
+.hit{border:0.5px solid var(--line);border-radius:10px;padding:12px 15px;margin:0 0 9px;background:var(--bg)}
+.hit.top{border:1px solid var(--accent);background:var(--accent-bg)}
+.hit.dim{background:var(--panel)}
+.hithead{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px}
+.rk{width:23px;height:23px;flex:0 0 23px;border-radius:50%;background:var(--accent-bg);color:var(--accent);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600}
+.hit.dim .rk{background:var(--panel2);color:var(--faint)}
+.sc{font-family:var(--mono);font-size:13px;font-variant-numeric:tabular-nums}
+.bar{flex:1;min-width:60px;height:5px;background:var(--panel2);border-radius:3px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--accent)}
+.hit.dim .bar i{background:var(--faint)}
+.badge{font-size:11px;padding:2px 7px;border-radius:5px;background:var(--ok-bg);color:var(--ok);white-space:nowrap}
+.badge.off{background:var(--panel2);color:var(--faint)}
+.src{font-family:var(--mono);font-size:12px;color:var(--muted);word-break:break-all}
+.raw{font-size:12.5px;color:var(--muted);margin-top:5px}
+.tldr{counter-reset:t;list-style:none;padding:0;margin:0 0 8px}
+.tldr li{counter-increment:t;position:relative;padding:0 0 0 32px;margin-bottom:10px;font-size:14.5px}
+.tldr li::before{content:counter(t);position:absolute;left:0;top:2px;width:21px;height:21px;border-radius:50%;background:var(--panel2);color:var(--muted);font-size:11px;display:flex;align-items:center;justify-content:center;font-family:var(--mono)}
+.kv{display:grid;grid-template-columns:150px 1fr;gap:7px 14px;font-size:13.5px;margin:0 0 16px}
+.kv dt{color:var(--muted)}
+.kv dd{margin:0}
+.miss{font-size:13px;background:var(--warn-bg);border:0.5px solid var(--warn-line);border-radius:8px;padding:9px 13px;margin:0 0 7px}
+.miss b{font-weight:600}
+.miss span{color:var(--muted);font-family:var(--mono);font-size:11.5px}
+footer{margin-top:56px;padding-top:18px;border-top:1px solid var(--line);font-size:12.5px;color:var(--faint)}
+#totop{position:fixed;right:22px;bottom:22px;background:var(--bg);border:0.5px solid var(--line);border-radius:8px;padding:7px 11px;font-size:12px;display:none;z-index:40}
+@media(max-width:860px){
+  .wrap{display:block;padding:0 18px}
+  aside{position:static;width:auto;height:auto;border-right:0;border-bottom:1px solid var(--line);padding:18px 0 12px}
+  aside nav{display:flex;flex-wrap:wrap;gap:2px}
+  aside a{display:inline-block;border-left:0;border-bottom:2px solid transparent;border-radius:5px;padding:4px 9px}
+  aside a.on{border-left:0;border-bottom-color:var(--accent)}
+  .brand{margin-bottom:8px}
+  .toolrow{margin-top:12px}
+  main{padding:24px 0 70px;max-width:none}
+  h1{font-size:24px}
+  h2{font-size:19px;margin-top:38px}
+  .kv{grid-template-columns:110px 1fr}
+  .io{grid-template-columns:1fr}
+}
+@media print{
+  aside,#progress,#totop,.copy,.toolrow{display:none!important}
+  .wrap{display:block;padding:0}
+  main{max-width:none;padding:0}
+  body{font-size:11pt}
+  h2{page-break-after:avoid}
+  pre,.hit,.callout,table{page-break-inside:avoid}
+  .steppane{display:block!important;min-height:0;margin-bottom:10px}
+  .stepbar{display:none}
+}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+<div class="wrap">
+<aside>
+  <div class="brand">notes-rag · 学习讲义</div>
+  <nav id="toc">
+    <a href="#s0">速览 · 3 分钟</a>
+    <a href="#s1">1 一句话理解 RAG</a>
+    <a href="#s2">2 三条命令 = 三条路</a>
+    <a href="#s3">3 六步数据流</a>
+    <a href="#s4">4 一次真实提问</a>
+    <a href="#s5">5 评估到底是什么</a>
+    <a href="#s6">6 四个静默的坑</a>
+    <a href="#s7">7 命令速查</a>
+    <a href="#s8">8 名词速查</a>
+    <a href="#s9">9 该按什么顺序学</a>
+  </nav>
+  <div class="toolrow">
+    <button id="themeBtn" type="button">切换深色</button>
+    <button id="jumpBtn" type="button" style="display:none">回到上次</button>
+  </div>
+</aside>
+
+<main>
+<header>
+  <h1>RAG 链路入门</h1>
+  <p class="lead">从「问一句话」到「翻出 5 张卡片」，用 notes-rag 的真实运行数据讲一遍。看不懂概念的时候，回来找具体那一行输出就行。</p>
+  <div class="status">
+    <span class="tag">状态 · 现行</span>
+    <span class="tag amber">2026-11-11 快照</span>
+    <span>本文数字只用于把概念讲具体；<b>唯一权威是 <code>learning/实验台账.md</code></b>，重跑后以台账为准。</span>
+  </div>
+</header>
+
+<section id="s0">
+  <h2>速览 · 3 分钟</h2>
+  <div class="callout">
+    <p><b>整个项目就是一场开卷考试。</b>637 篇笔记，大模型一次读不完也背不住，所以不让它背：每次提问先翻出最相关的几页，摊在它面前让它照着答。RAG = Retrieval（翻资料）→ Augmented（贴在问题前）→ Generation（写答案）。</p>
+  </div>
+  <ol class="tldr">
+    <li><b>准备一次</b>：<code>ingest.py</code> 把 637 篇笔记做成 6696 张卡片 + 一张索引表。改了切分或换模型才重跑。</li>
+    <li><b>每次提问</b>：<code>cli.py</code> 把问题也变成向量，跟 6696 张卡片比相似度，取前 5 张。</li>
+    <li><b>只有前 3 张</b>真正塞给大模型（<code>max_hits=3</code>），第 4、5 张只是打印给你看。</li>
+    <li><b>考试</b>：<code>evaluate.py</code> 跟「回答」无关，只是把 50 道题批量丢进检索，然后<b>对答案路径</b>。</li>
+    <li><b>最该先学会的不是写代码，是判断数字能不能信</b>：改一处，前后各量一次，看分数涨没涨。</li>
+  </ol>
+  <p style="font-size:13px;color:var(--muted)">左上是目录，点标题跳转；右上角可切深色；代码块右上角有复制按钮；手机上目录会自动横排。整份文件不联网、不依赖任何 CDN，双击就能开。</p>
+</section>
+
+<section id="s1">
+  <h2>1 一句话理解 RAG</h2>
+  <p>你有一柜子自己的笔记。现在问：「MySQL 建联合索引的时候，等值条件和范围条件谁该放前面」。</p>
+  <p>如果没有 RAG，模型只能凭训练时记住的通用知识答，答不出「你自己那篇笔记里怎么写的」。RAG 的做法笨但可靠：</p>
+  <ol>
+    <li>把每篇笔记切成小卡片，每张卡片算出一个「意思向量」（1024 个数字）。</li>
+    <li>把问题也算出同样格式的向量，跟所有卡片比方向，翻出最像的 5 张。</li>
+    <li>把这 5 张里的前 3 张原文，连同问题一起发给大模型，让它<b>只许照着资料答</b>。</li>
+  </ol>
+  <div class="callout ok">
+    <p>关键直觉：<b>检索层不产生答案，它只决定「让模型看哪几页」</b>。所以检索做对了，答案基本就有了；检索翻错页，模型再强也只能照着错资料编。</p>
+  </div>
+  <p>项目里 <code>generator.py</code> 的系统提示词就是这么写的：「只根据 &lt;资料&gt; 回答，资料里没有就直接说没找到，每句话标注来源编号」。</p>
+</section>
+
+<section id="s2">
+  <h2>2 三条命令 = 三条不同的路</h2>
+  <p>初学者最容易混的就是这个：<b>它们根本不是同一条流程，跑的时机也完全不同。</b></p>
+  <table>
+    <thead><tr><th>什么时候</th><th>命令</th><th>实际干什么</th><th>本机耗时</th></tr></thead>
+    <tbody>
+      <tr><td><b>准备一次</b><br><span style="color:var(--muted)">改切分 / 换模型才重跑</span></td><td><code>scripts/ingest.py</code></td><td>扫语料 → 切块 → 逐块向量化 → 写 <code>data/index/</code> 三个文件</td><td class="num">1h29m<br><span style="color:var(--muted);font-size:12px">CPU 8 线程</span></td></tr>
+      <tr><td><b>每次提问</b><br><span style="color:var(--muted)">问一句走一遍</span></td><td><code>python -m notes_rag.cli</code></td><td>加载索引 → 检索 5 张 → 拼 prompt → 调 LLM 生成</td><td class="num">2.0s + 355ms</td></tr>
+      <tr><td><b>考试</b><br><span style="color:var(--muted)">改完代码量一次</span></td><td><code>scripts/evaluate.py</code></td><td>50 道题批量跑检索，看前 5 张里有没有标准答案的路径</td><td class="num">约 20s</td></tr>
+    </tbody>
+  </table>
+  <div class="callout warn">
+    <p><b>别把 <code>evaluate.py</code> 当成「问 50 次」。</b>它完全不调大模型，只走检索和对答案这两步。所以即使 <code>LLM_API_KEY</code> 是空的，评测照样能跑出完整数字。</p>
+  </div>
+  <p>还有一条本地辅助命令 <code>scripts/serve_ui.py</code> + <code>web/index.html</code>：一个只读的可视化页面，用来肉眼看检索命中的卡片。<b>它不建索引、不调 LLM</b>，看的同样是检索层。</p>
+</section>
+
+<section id="s3">
+  <h2>3 六步数据流</h2>
+  <p>点下面的步骤，一次只看一步。<b>这六步根本不在同一条路上</b>：前两步是「准备一次」（<code>ingest.py</code>，建好就不动），中间三步是「每次提问」（<code>cli.py</code>，问一句走一遍），最后一步是「考试时」（<code>evaluate.py</code>，只跟检索对答案）。每步都给了输入 → 输出的真实数据和对应代码。</p>
+  <div class="stepbar" id="stepbar">
+    <button type="button" data-i="0" class="on">1 切分</button>
+    <button type="button" data-i="1">2 建索引</button>
+    <button type="button" data-i="2">3 问题变号</button>
+    <button type="button" data-i="3">4 找回 5 张</button>
+    <button type="button" data-i="4">5 生成回答</button>
+    <button type="button" data-i="5">6 考试</button>
+  </div>
+
+  <div class="steppane on" data-i="0">
+    <span class="phase">准备一次 · ingest.py</span>
+    <h4>1 · 把一篇笔记拆成小卡片</h4>
+    <p>大模型一次读不下 637 篇笔记，所以按标题把每篇切成不超过 512 字的小块。每块都带一张「我来自哪篇」的标签，叫 <code>source</code>，后面认亲全靠它。</p>
+    <div class="io">
+      <div class="iobox"><div class="lbl">输入</div><pre><code>note/docs/ 下 637 篇 md
+纯文本约 3 MB
+（目录 113 MB 里其余是图片，不参与检索）
+
+CORPUS_DIR =
+  D:/_work/cqlql-notes/docs</code></pre></div>
+      <div class="iobox"><div class="lbl">输出 · 实跑结果</div><pre><code>heading / size=512 / overlap=51
+637 篇 → 6696 块，平均 367 字/块
+碎片块（&lt;50 字）166 块 · 耗时 0.4s
+
+meta.jsonl 第一行：
+{ "id": "ai/AI实时语音.md#0-598186d4",
+  "source": "ai/AI实时语音.md",
+  "heading": "# WebRTC API",
+  "text": "# WebRTC API\n..." }</code></pre></div>
+    </div>
+    <p class="note"><b>对应代码</b>　src/notes_rag/chunker.py · chunk_file()；参数在 <code>.env</code>，改参数不改代码。<b>注意：</b>语料是 note 分支的 <code>note/docs/</code>，不是 rag 分支的 <code>docs/</code>；文档里的「632 篇」是旧数，笔记在长。<code>source</code> 是相对语料目录的路径，改切分别改这个格式。</p>
+  </div>
+
+  <div class="steppane" data-i="1">
+    <span class="phase">准备一次 · ingest.py</span>
+    <h4>2 · 给每张卡片编一组「意思数字」并存盘</h4>
+    <p>bge-m3 把每块文字变成 1024 个数字。意思相近的文字，数字也相近，所以后面能靠算距离找资料。数字连同原文一起存进 <code>data/index/</code>，这一步只跑一次。</p>
+    <div class="io">
+      <div class="iobox"><div class="lbl">输入</div><pre><code>6696 块文字
++ BAAI/bge-m3（本地缓存，离线加载）
+模型权重常驻约 2.2 GB</code></pre></div>
+      <div class="iobox"><div class="lbl">输出 · 磁盘上三个文件</div><pre><code>data/index/
+  vectors.npy    27 MB (6696,1024) float32
+  meta.jsonl     6696 行 {id,text,source,heading}
+  manifest.json  heading/512/51 · bge-m3 · dim 1024
+
+向量已归一化：第一行范数 = 1.0
+→ 点积就是余弦，不用再除模长</code></pre></div>
+    </div>
+    <div class="callout warn" style="margin:10px 0 0">
+      <p><b>为什么要有 manifest：</b>改了 <code>CHUNK_STRATEGY</code> / <code>CHUNK_SIZE</code> / 切分代码 / embedding 模型，<b>必须重跑 <code>ingest.py</code></b>。否则 <code>evaluate.py</code> 量的是旧索引 —— 数字照常打印、完全不报错，但结论全错。<code>cli.py</code> 只在 numpy 后端比对 <code>chunk_size</code> 和 <code>chunk_strategy</code> 两项，别指望它兜底。</p>
+    </div>
+    <p class="note"><b>对应代码</b>　embedder.py + scripts/ingest.py。<b>本机没有 GPU</b>，CPU 8 线程跑了 5361 秒（1h29m）；切分只要 0.4 秒，瓶颈全在向量化。bge-m3 不需要给 query 加指令前缀，换模型先看模型卡。</p>
+  </div>
+
+  <div class="steppane" data-i="2">
+    <span class="phase q">每次提问 · cli.py</span>
+    <h4>3 · 把问题也变成同一组「意思数字」</h4>
+    <p>问题过的是<b>同一个</b> bge-m3 模型，出来同样是 1024 维、同样归一化。只有格式一样，才能跟 6696 张卡片算相似度。加载模型 + 索引实测 2.0 秒。</p>
+    <div class="io">
+      <div class="iobox"><div class="lbl">输入</div><pre><code>MySQL 建联合索引的时候，
+等值条件和范围条件谁该放前面
+
+（一句自然语言，不加任何指令前缀）</code></pre></div>
+      <div class="iobox"><div class="lbl">输出</div><pre><code>query 向量 · shape (1024,) · float32
+范数 1.0，与库里的向量同一口径
+
+接下来只需一次矩阵点积</code></pre></div>
+    </div>
+    <p class="note"><b>对应代码</b>　retriever.search() → embedder.encode()。这一步是「每次提问」的起点，跟前两步的「准备一次」隔了整整一次建索引，别混成一条流水线。</p>
+  </div>
+
+  <div class="steppane" data-i="3">
+    <span class="phase q">每次提问 · cli.py</span>
+    <h4>4 · 跟 6696 张卡片比相似度，找回 5 张</h4>
+    <p>一次矩阵点积，从大到小排，取前 5 行，再回查 <code>meta.jsonl</code> 拼出带原文的结果。<b>「检索」这个词落到代码里，就是这个动作。</b></p>
+    <div class="io">
+      <div class="iobox"><div class="lbl">输入</div><pre><code>query 向量 (1024,)
+× vectors.npy (6696, 1024)
+TOP_K = 5</code></pre></div>
+      <div class="iobox"><div class="lbl">输出 · 实跑结果</div><pre><code>0.7000 / 0.6186 / 0.6095
+0.5868 / 0.5831
+检索 355ms（50 题平均 188ms）
+
+第 1 张原文就含：
+「等值在前，范围在后」</code></pre></div>
+    </div>
+    <p class="note"><b>对应代码</b>　retriever.py / store.py。5 张里 <b>4 张来自同一篇</b>（heading 按标题切，所以「5 条结果」≠「5 篇笔记」）；第 3~5 张分数只低一点却明显偏题 —— <b>分数高不等于内容对</b>。完整 5 张卡片见 §4。</p>
+  </div>
+
+  <div class="steppane" data-i="4">
+    <span class="phase q">每次提问 · cli.py</span>
+    <h4>5 · 把资料贴在问题前面，让模型照着答</h4>
+    <p><code>build_context()</code> 把命中卡片拼成带编号的资料块，连同问题发给大模型。系统提示词要求「只根据 &lt;资料&gt; 答、没找到就说没找到、每句标来源编号」。</p>
+    <div class="io">
+      <div class="iobox"><div class="lbl">输入</div><pre><code>前 3 张卡片（实测 555 字）
++ 问题 + system prompt
+
+格式：
+[1] 来源：路径（标题）
+    卡片原文</code></pre></div>
+      <div class="iobox"><div class="lbl">输出</div><pre><code>带 [1][2][3] 来源编号的中文回答
+先给结论，再给细节
+资料里没有就说「笔记里没找到」</code></pre></div>
+    </div>
+    <div class="callout" style="margin:10px 0 0">
+      <p><b>最容易记混的一点：</b><code>--top-k 5</code> 召回 5 条，但 <code>answer()</code> 写死 <code>max_hits=3</code>，<b>只有前 3 张进 prompt</b>。召回 10 条也一样只有前 3 条进去。第 4、5 张只打印给你看，模型没看到。</p>
+    </div>
+    <p class="note"><b>对应代码</b>　generator.py · build_context() / answer(max_hits=3)。<b>当前状态：</b>本机 <code>.env</code> 里 <code>LLM_API_KEY=</code> 为空，这一步会抛 <code>Missing credentials</code> —— 不是代码坏，填 key 即通；<b>前四步和评测都不依赖它</b>。</p>
+  </div>
+
+  <div class="steppane" data-i="5">
+    <span class="phase e">考试时 · evaluate.py</span>
+    <h4>6 · 50 道题批量丢进前四步，然后对答案</h4>
+    <p><b>这一步跟「回答」没关系</b>：完全不调大模型，只把每道题跑一次检索，看返回的 5 个 <code>source</code> 里有没有 <code>expected</code> 那个路径，有就算命中。判定核心只有 3 行代码。</p>
+    <div class="io">
+      <div class="iobox"><div class="lbl">输入 · 考卷</div><pre><code>data/eval/queries.jsonl · 50 行
+{ "query": "你会怎么问的一句话",
+  "expected": ["相对语料目录的路径"] }
+
+query 按口语写，避开标题术语</code></pre></div>
+      <div class="iobox"><div class="lbl">输出 · 2026-11-11 快照</div><pre><code>命中        45 / 50
+recall@5    0.900
+MRR         0.801
+检索耗时    平均 188ms · P95 230ms
+未命中      5 条（清单见 §5）
+
+全程约 20 秒，不调 LLM</code></pre></div>
+    </div>
+    <p class="note"><b>对应代码</b>　scripts/evaluate.py。<b>它没量什么：</b>答案对不对、有没有编、资料不足时该拒答有没有拒答 —— 生成层评测尚未实现，不许拿 <code>recall@5</code> 当「答案正确率」。完整拆解见 §5。</p>
+  </div>
+</section>
+
+<section id="s4">
+  <h2>4 一次真实提问</h2>
+  <p>问题：<b>「MySQL 建联合索引的时候，等值条件和范围条件谁该放前面」</b>。下面 5 张卡片是终端里打印的原值，不是示意图。</p>
+
+  <div class="hit top">
+    <div class="hithead"><span class="rk">1</span><span class="sc">0.7000</span><span class="bar"><i style="width:70%"></i></span><span class="badge">进 prompt</span></div>
+    <div class="src">后端/数据库/mysql/04_索引设计.md · ## 5. 组合索引核心规则</div>
+    <div class="raw">原文：最左前缀原则 · <b>等值在前，范围在后</b> · ORDER BY 顺序要和索引一致</div>
+  </div>
+  <div class="hit">
+    <div class="hithead"><span class="rk">2</span><span class="sc">0.6186</span><span class="bar"><i style="width:61.9%"></i></span><span class="badge">进 prompt</span></div>
+    <div class="src">后端/数据库/mysql/04_索引设计.md · ## 7. 建索引的方式 / ### 组合索引</div>
+    <div class="raw">原文：KEY idx_user_status (user_id, status) · 最左前缀 (a,b,c)</div>
+  </div>
+  <div class="hit">
+    <div class="hithead"><span class="rk">3</span><span class="sc">0.6095</span><span class="bar"><i style="width:61%"></i></span><span class="badge">进 prompt</span></div>
+    <div class="src">后端/数据库/mysql/06_面试与踩坑.md · ## 索引 ≠ 约束</div>
+    <div class="raw">原文：PRIMARY / UNIQUE 索引+约束 · FOREIGN KEY 不自动建索引</div>
+  </div>
+  <div class="hit dim">
+    <div class="hithead"><span class="rk">4</span><span class="sc">0.5868</span><span class="bar"><i style="width:58.7%"></i></span><span class="badge off">不进 prompt</span></div>
+    <div class="src">后端/数据库/mysql/04_索引设计.md · ## 3. 什么时候该建索引</div>
+    <div class="raw">原文：WHERE / JOIN / ORDER BY 出现的字段 · 区分度高的字段</div>
+  </div>
+  <div class="hit dim">
+    <div class="hithead"><span class="rk">5</span><span class="sc">0.5831</span><span class="bar"><i style="width:58.3%"></i></span><span class="badge off">不进 prompt</span></div>
+    <div class="src">后端/数据库/mysql/04_索引设计.md · ## 2. 索引 ≠ 约束（必记）</div>
+    <div class="raw">原文：PRIMARY / UNIQUE 索引+约束 · 面试 &amp; 生产踩坑点</div>
+  </div>
+
+  <h3>指着卡片看四件事</h3>
+  <ol>
+    <li><b>第 1 张直接命中。</b>原文就写着「等值在前，范围在后」—— 答案第一张就翻到了。这就是检索的全部含义：不靠模型背书，靠翻到对的那一页。</li>
+    <li><code>0.7000</code> 是<b>相似度分数</b>，条长就是这个数。算法只是「问题向量 · 6696 个块向量，从大到小排」，没有玄学。</li>
+    <li>5 张里 <b>4 张来自同一篇笔记</b>。因为 <code>heading</code> 策略把一篇 md 按标题切成了多块，所以「5 条结果」≠「5 篇笔记」。</li>
+    <li>第 3、4、5 张分数只低一点（0.61 / 0.59 / 0.58），内容却明显偏题（索引≠约束、什么时候建索引）。<b>分数高不等于内容对</b> —— 这句以后会反复用到。</li>
+  </ol>
+  <div class="callout ok">
+    <p>最短的冒烟测试就是 <code>cli.py "问题" --show-chunks</code>：<b>肉眼看一眼命中是不是真笔记</b>，别是 front matter 碎片或表格残片。这一步比读十篇教程管用。</p>
+  </div>
+</section>
+
+<section id="s5">
+  <h2>5 评估到底是什么</h2>
+  <p>把上一节的抽象话落到地上：<b>「评估」就是一份考卷 + 对答案。</b></p>
+
+  <h3>考卷长什么样</h3>
+  <p><code>data/eval/queries.jsonl</code> 一行一题，共 50 条：</p>
+  <pre><code>{"query": "实时音频为什么不用长连接那套，抖动和丢包靠什么兜",
+ "expected": ["ai/AI实时语音.md"]}</code></pre>
+  <p><code>query</code> 要按「<b>你会怎么问</b>」写，不要照抄文档标题；<code>expected</code> 是相对语料目录的路径，答案分散在多篇时可以写多个。</p>
+
+  <h3>对答案的核心只有三行</h3>
+  <pre><code>sources = [h["source"] for h in hits]        # 检索返回的 5 个路径
+rank = next((i+1 for i,s in enumerate(sources) if s in expected), None)
+hit_count += 1 if rank else 0                 # 有就算命中
+# recall@5 = 命中数 / 50      MRR = 各题 1/rank 的平均值</code></pre>
+  <p>就这么多。<b>它只查「有没有翻到那篇笔记」，完全没看最后那句回答对不对。</b></p>
+
+  <h3>本次 baseline（2026-11-11 快照）</h3>
+  <table>
+    <thead><tr><th>指标</th><th>值</th><th>人话</th></tr></thead>
+    <tbody>
+      <tr><td>命中</td><td class="num">45 / 50</td><td>50 道题里 45 道在前 5 张卡片中翻到了标准答案那篇</td></tr>
+      <tr><td>recall@5</td><td class="num">0.900</td><td>45 ÷ 50</td></tr>
+      <tr><td>MRR</td><td class="num">0.801</td><td>正确答案平均排第几；排第 1 得 1 分，第 2 得 0.5 分</td></tr>
+      <tr><td>检索耗时</td><td class="num">188ms / P95 230ms</td><td>平均 / 95% 的题比这快</td></tr>
+    </tbody>
+  </table>
+  <div class="callout warn">
+    <p><b>它没量什么：</b>答案对不对、有没有编、资料不足时该拒答有没有拒答 —— 生成层评测还没实现。<b>不许拿 recall@5 当「答案正确率」</b>写进简历或汇报。</p>
+  </div>
+
+  <h3>5 道没翻到的题，比分数更值得看</h3>
+  <div class="miss"><b>祖先组件要给很深的后代传值，又不想每层都写 props，Vue 里怎么办</b><br><span>期望 前端/vue/01_Vue3/Provide 和 Inject.md · 实际翻出 React 学习.md、Vue2 插槽.md</span></div>
+  <div class="miss"><b>跳详情页要带个手机号，但不希望它出现在地址栏里</b><br><span>期望 前端/vue/vue-router/路由传参.md · 实际翻出 dom-overview.md、jwt token.md、wechat/登录.md</span></div>
+  <div class="miss"><b>想把一个方法当变量传来传去，还要能声明「函数的类型」</b><br><span>期望 后端/dotnet/csharp/委托-函数类型.md · 实际翻出 TS 实战技巧.md、Vue3 typescript.md</span></div>
+  <div class="miss"><b>自己写的服务单元该放哪个目录，启动前还要先切到工作目录</b><br><span>期望 linux/进程与服务/systemctl.md · 实际翻出三篇「目录规范 / 部署布局」</span></div>
+  <div class="miss"><b>实时音频为什么不用长连接那套，抖动和丢包靠什么兜</b><br><span>期望 ai/AI实时语音.md · 实际翻出三篇面试助手的声纹 / 心跳方案</span></div>
+  <p>共同特征很清楚：<b>用口语提问，答案文件却叫术语名</b>。语义上「像」，但不是标准答案那篇。这正是「query 要按你会怎么问写」为什么值那一小时 —— 也是日后做混合检索 / rerank 的真实动机，不是凭感觉加模块。</p>
+
+  <h3>「改一处，前后各量一次」现在有具体含义了</h3>
+  <p>比如让 AI 只把那 166 个碎片块丢掉：改之前是 <code>0.900</code>，改完 <b>重跑 <code>ingest.py</code> 重建索引</b>，再跑一次 <code>evaluate.py</code>，看变成多少。<b>这个数字就是判断依据</b>，而不是「感觉好像更干净了」。</p>
+  <details>
+    <summary>四条对照纪律（做实验前默念一遍）</summary>
+    <ul>
+      <li>同一份 <code>queries.jsonl</code>、同后端、同 <code>CHUNK_SIZE</code>，中间不动别的代码。</li>
+      <li>改切分 / 换模型 → 必须重跑索引，否则量的是旧数据。</li>
+      <li>换评估集 = 换标准，两种策略都要用新集各量一次，旧数字作废。</li>
+      <li>numpy 和 pg 后端的 <code>recall@5</code> 必须用同一份考卷跑，否则比的是两套标准。</li>
+    </ul>
+  </details>
+</section>
+
+<section id="s6">
+  <h2>6 四个静默的坑</h2>
+  <p>这几个都不会抛异常、lint 照过、数字照样打印，但结论全错。<b>只有懂口径的人能抓出来</b> —— 这也是「先学验收」的真正原因。</p>
+
+  <h3>① 改了切分，没重建索引</h3>
+  <p><code>meta.jsonl</code> / <code>vectors.npy</code> 还是旧的，<code>evaluate.py</code> 读它算出来的分数看起来完全正常。<code>cli.py</code> 的告警只比对 <code>chunk_size</code> 和 <code>chunk_strategy</code> 两项，改了 <code>chunker.py</code> 本身不会提醒。</p>
+
+  <h3>② 考卷太小，天花板效应</h3>
+  <p>项目里真的发生过：12 条试水集上曾判定 <code>heading</code> 策略掉点，补齐到 50 条后结论<b>直接反转</b>，heading 反超并被拍板设为默认。差的就是那么一两条命中。<span style="color:var(--muted)">（具体数字与归因见 <code>learning/实验台账.md</code> §0.5）</span> <b>换评估集 = 换标准</b>，旧数字作废。</p>
+
+  <h3>③ 把 recall@5 当成答案正确率</h3>
+  <p>它只查路径命中。生成层的「对不对 / 有没有编 / 该拒答时拒答」尚未实现，<code>AGENTS.md</code> §3 明确禁止把 recall 写成答案正确率。</p>
+
+  <h3>④ 环境坑：这三个会让你以为「代码坏了」</h3>
+  <table>
+    <thead><tr><th>现象</th><th>真实原因</th><th>怎么办</th></tr></thead>
+    <tbody>
+      <tr><td><code>502 Bad Gateway</code> 卡在模型加载</td><td>本机设了 HTTP 代理，HuggingFace 版本校验被挡；<b>模型缓存其实是完整的</b></td><td>命令加 <code>HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1</code>，强制离线读缓存</td></tr>
+      <tr><td><code>Missing credentials</code></td><td><code>.env</code> 里 <code>LLM_API_KEY=</code> 为空</td><td>填 key；<b>检索与评测不需要它</b>，报错出现在卡片打印之后</td></tr>
+      <tr><td>GPU 莫名消失</td><td><code>uv sync</code> / <code>uv run</code> 会把 <code>.venv</code> 同步回 lock 里的 CPU 版 torch</td><td>跑实验一律 <code>uv run --no-sync</code>，或直接用 <code>.venv/Scripts/python.exe</code></td></tr>
+    </tbody>
+  </table>
+  <p style="font-size:13px;color:var(--muted)">本机当前实际是 CPU 版 torch，没有 NVIDIA GPU；<code>AGENTS.md</code> §4 记的 CUDA 加速不在这台环境里。CPU/GPU 向量逐块余弦 1.000000、recall/MRR 一致，所以跨设备建索引不破坏可比性 —— 但<b>耗时不可直接比</b>，看 P95，别把 CUDA 冷启动写进指标。</p>
+</section>
+
+<section id="s7">
+  <h2>7 命令速查</h2>
+  <p>先 <code>cd</code> 到 <code>D:/_work/cqlql-notes-branches/cqlql-notes.rag</code>。所有命令都带离线变量 —— 这台机器上不带就会挂在 HuggingFace 校验上。</p>
+
+  <h3>建索引（只在改切分 / 换模型后）</h3>
+  <pre><button class="copy" type="button">复制</button><code>HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 HF_HUB_DISABLE_TELEMETRY=1 \
+OMP_NUM_THREADS=8 MKL_NUM_THREADS=8 OPENBLAS_NUM_THREADS=8 \
+PYTHONIOENCODING=utf-8 \
+uv run --no-sync python scripts/ingest.py</code></pre>
+
+  <h3>问一句，看命中的卡片</h3>
+  <pre><button class="copy" type="button">复制</button><code>HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 OMP_NUM_THREADS=2 \
+PYTHONIOENCODING=utf-8 \
+uv run --no-sync python -m notes_rag.cli "你的问题" --show-chunks</code></pre>
+  <p style="font-size:13px;color:var(--muted)">没填 <code>LLM_API_KEY</code> 时，卡片会先打印出来，之后才报 <code>Missing credentials</code> —— <b>不影响看检索结果</b>。想看完整答案先填 key。</p>
+
+  <h3>考试（改完代码量一次）</h3>
+  <pre><button class="copy" type="button">复制</button><code>HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 OMP_NUM_THREADS=2 \
+PYTHONIOENCODING=utf-8 \
+uv run --no-sync python scripts/evaluate.py</code></pre>
+
+  <h3>每个变量为什么</h3>
+  <dl class="kv">
+    <dt><code>HF_HUB_OFFLINE=1</code><br><code>TRANSFORMERS_OFFLINE=1</code></dt><dd>强制离线读本地模型缓存，一次网络请求都不发。绕开代理导致的 502。</dd>
+    <dt><code>OMP_NUM_THREADS</code> 等</dt><dd>限制计算线程数。想一边跑一边干别的事就调小（2 = 很省但慢，8 = 约 1.5 小时）。</dd>
+    <dt><code>PYTHONIOENCODING=utf-8</code></dt><dd>Windows 下中文输出不乱码。</dd>
+    <dt><code>--no-sync</code></dt><dd>阻止 uv 把 <code>.venv</code> 同步回 lock 里的 CPU 版 torch。</dd>
+    <dt><code>--show-chunks</code></dt><dd>打印命中卡片的原文与分数，最短的冒烟测试。</dd>
+    <dt><code>--top-k 10</code></dt><dd>改召回条数。注意它和 <code>max_hits=3</code> 是两回事。</dd>
+  </dl>
+</section>
+
+<section id="s8">
+  <h2>8 名词速查</h2>
+  <table>
+    <thead><tr><th>词</th><th>人话</th><th>在项目里对应</th></tr></thead>
+    <tbody>
+      <tr><td>Chunk / 块</td><td>把一篇笔记切成的小卡片</td><td><code>meta.jsonl</code> 的一行；字段 id / source / heading / text</td></tr>
+      <tr><td>Embedding / 向量</td><td>把一段文字变成 1024 个数字</td><td><code>embedder.py</code> + <code>vectors.npy</code></td></tr>
+      <tr><td>余弦相似度</td><td>两个向量方向有多像，越接近 1 越像</td><td>向量已归一化，所以点积就是余弦</td></tr>
+      <tr><td>score</td><td>那张卡片和问题有多像</td><td>检索结果里的 <code>score</code>，如 0.7000</td></tr>
+      <tr><td>top-k</td><td>翻几张卡片</td><td><code>.env</code> 的 <code>TOP_K=5</code> / <code>--top-k</code></td></tr>
+      <tr><td>max_hits</td><td>真正塞进 prompt 几张</td><td><code>generator.answer()</code> 里写死 3</td></tr>
+      <tr><td>recall@5</td><td>50 题里前 5 张包含正确答案路径的比例</td><td><code>evaluate.py</code>；<b>检索层指标</b></td></tr>
+      <tr><td>MRR</td><td>正确答案平均排第几（取倒数）</td><td>排第 1 得 1 分，第 2 得 0.5 分</td></tr>
+      <tr><td>manifest.json</td><td>索引的出生证明：用什么参数建的</td><td>改切分 / 换模型后必须重建</td></tr>
+      <tr><td>CORPUS_DIR</td><td>笔记语料在哪</td><td><code>note/docs/</code>，<b>不是 rag 分支的 <code>docs/</code></b></td></tr>
+      <tr><td>queries.jsonl</td><td>考卷，一行一题</td><td><code>data/eval/</code>；schema 权威在 <code>evaluate.py</code> docstring</td></tr>
+      <tr><td>rerank</td><td>初筛后再精排一次</td><td>本项目尚未实现，属后续增量</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section id="s9">
+  <h2>9 该按什么顺序学</h2>
+  <div class="callout">
+    <p><b>结论：先弄懂「验收」，不是 Python 语法，也不是 transformer 原理。</b>全 AI 辅助下「写得出」不再是瓶颈，「验得出」才是 —— 实现可以外包，判断这个结论成立不成立没人替你签字。</p>
+  </div>
+
+  <h3>能落地的学习顺序</h3>
+  <ol>
+    <li><b>先能指出「这次回答用的是哪几张卡片」。</b>换 5 句自己的问题跑 <code>--show-chunks</code>，看答案在第几张、来自哪篇笔记、有没有翻错页。这一步不需要懂任何数学。</li>
+    <li><b>再能回答「这个数字量的是哪一层」。</b>跑一次 <code>evaluate.py</code>，能说出 <code>0.900</code> 是怎么算出来的、以及它<b>没量</b>什么。</li>
+    <li><b>然后能指挥 AI 干活。</b>把需求翻译成「只改一处、固定项不动、前后各量一次」，由你判断数字能不能信，再决定合不合。</li>
+    <li><b>最后才碰优化。</b>rerank、pgvector / HNSW、生成层评测、拒答率 —— 每一项都应该先有 baseline 数字再动。</li>
+  </ol>
+
+  <h3>明确不该先碰的</h3>
+  <p>transformer 内部结构、HNSW 数学推导、PagedAttention 细节、训练 / 微调。这些按需查就行；<code>learning/能力清单.md</code> 里「没做过也能答」那一类已经排过序了。</p>
+
+  <h3>只学到「能读懂 + 敢质疑」就停</h3>
+  <p>Python 基本语法、向量与余弦、top-k、<code>search()</code> 的返回形状。够 review diff、看懂报错、定位 AI 跑偏在哪一层即可，不用练到能默写。</p>
+
+  <details>
+    <summary>为什么「静默错误」是这套学习顺序的核心理由</summary>
+    <p>AI 写的代码里，最危险的不是抛异常的那类 —— 那种你一眼就能发现。是<b>不报错、lint 照过、数字照常打印、但结论全错</b>的那类：量了旧索引、考卷太小导致结论反转、把检索指标当答案正确率。第 6 节四个坑全是这种。它们没有 stack trace，只有懂口径的人能抓出来。</p>
+    <p>所以 <code>AGENTS.md</code> 通篇几乎不讲「怎么实现」，讲的全是评估集、指标口径、单变量对照、哪里会静默出错。最硬那条红线「每个改动都要有前后数字」就是这块能力的浓缩。</p>
+  </details>
+</section>
+
+<footer>
+  <p><b>权威指针</b>：数字与实验记录 → <code>learning/实验台账.md</code>；概念卡片 → <code>learning/cards/01-rag/</code>、<code>learning/cards/03-eval/</code>；能力清单 / 进度 → <code>learning/能力清单.md</code>、<code>learning/进度.md</code>；工程红线 → <code>rag/AGENTS.md</code>；链路实现 → <code>rag/docs/rag-pipeline.md</code>；评测纪律 → <code>rag/docs/evaluation.md</code>。</p>
+  <p>本文件是学习讲义，不是工程文档；不建索引、不调 LLM、不改动任何项目代码。生成于 2026-11-11，数据来自本机 numpy 后端 <code>heading / 512 / 51</code> 的一次完整运行。</p>
+</footer>
+</main>
+</div>
+
+<button id="totop" type="button">回到顶部</button>
+<script>
+(function(){
+  var root=document.documentElement;
+  var store={get:function(k){try{return localStorage.getItem(k)}catch(e){return null}},
+             set:function(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
+  var saved=store.get('rag-primer-theme');
+  if(saved==='dark'){root.setAttribute('data-theme','dark')}
+  var themeBtn=document.getElementById('themeBtn');
+  function syncTheme(){themeBtn.textContent=root.getAttribute('data-theme')==='dark'?'切换浅色':'切换深色'}
+  syncTheme();
+  themeBtn.addEventListener('click',function(){
+    var next=root.getAttribute('data-theme')==='dark'?'light':'dark';
+    root.setAttribute('data-theme',next);store.set('rag-primer-theme',next);syncTheme();
+  });
+
+  var links=[].slice.call(document.querySelectorAll('#toc a'));
+  var sections=links.map(function(a){return document.querySelector(a.getAttribute('href'))}).filter(Boolean);
+  function setActive(id){links.forEach(function(a){a.classList.toggle('on',a.getAttribute('href')==='#'+id)})}
+  if('IntersectionObserver' in window){
+    var io=new IntersectionObserver(function(entries){
+      entries.forEach(function(en){if(en.isIntersecting){setActive(en.target.id);store.set('rag-primer-last','#'+en.target.id)}});
+    },{rootMargin:'-10% 0px -70% 0px',threshold:0});
+    sections.forEach(function(s){io.observe(s)});
+  }
+  links.forEach(function(a){a.addEventListener('click',function(){setActive(a.getAttribute('href').slice(1))})});
+
+  var jumpBtn=document.getElementById('jumpBtn');
+  var last=store.get('rag-primer-last');
+  if(last&&document.querySelector(last)){
+    var target=document.querySelector('#toc a[href="'+last+'"]');
+    jumpBtn.style.display='inline-block';
+    jumpBtn.textContent='回到上次 · '+(target?target.textContent.replace(/^\d+\s*/,''):'');
+    jumpBtn.addEventListener('click',function(){document.querySelector(last).scrollIntoView({behavior:'smooth'})});
+  }
+
+  var bar=document.getElementById('stepbar');
+  var panes=[].slice.call(document.querySelectorAll('.steppane'));
+  bar.addEventListener('click',function(e){
+    var btn=e.target.closest('button[data-i]');if(!btn)return;
+    var i=btn.getAttribute('data-i');
+    [].slice.call(bar.querySelectorAll('button')).forEach(function(b){b.classList.toggle('on',b===btn)});
+    panes.forEach(function(p){p.classList.toggle('on',p.getAttribute('data-i')===i)});
+  });
+
+  document.querySelectorAll('.copy').forEach(function(b){
+    b.addEventListener('click',function(){
+      var code=b.parentNode.querySelector('code');if(!code)return;
+      var text=code.textContent;
+      function done(){var old=b.textContent;b.textContent='已复制';setTimeout(function(){b.textContent=old},1400)}
+      if(navigator.clipboard&&navigator.clipboard.writeText){
+        navigator.clipboard.writeText(text).then(done,function(){fallback()});
+      }else{fallback()}
+      function fallback(){
+        var ta=document.createElement('textarea');ta.value=text;ta.style.position='absolute';ta.style.left='-9999px';
+        document.body.appendChild(ta);ta.select();
+        try{document.execCommand('copy');done()}catch(e){b.textContent='请手动复制'}
+        document.body.removeChild(ta);
+      }
+    });
+  });
+
+  var prog=document.getElementById('progress');
+  var totop=document.getElementById('totop');
+  function onScroll(){
+    var h=document.documentElement.scrollHeight-window.innerHeight;
+    prog.style.width=(h>0?(window.scrollY/h*100):0)+'%';
+    totop.style.display=window.scrollY>500?'block':'none';
+  }
+  window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+  totop.addEventListener('click',function(){window.scrollTo({top:0,behavior:'smooth'})});
+})();
+</script>
+</body>
+</html>
