@@ -3,6 +3,7 @@ package main
 import (
 	"pass-up/ops/internal/backup"
 	"pass-up/ops/internal/component"
+	"pass-up/ops/internal/deploy"
 	"pass-up/ops/internal/launcher"
 	"pass-up/ops/internal/monitor"
 	"pass-up/ops/internal/restart"
@@ -32,6 +33,9 @@ func commandHandler(name string) (func([]string) int, bool) {
 	case "status":
 		// P2a 只读备份监控：脚本在 Go 常量里生成，经 ssh stdin 执行。
 		return monitor.CmdStatus, true
+	case "deploy":
+		// P3a 第一刀：只读预演。不带 --dry-run 由 deploy 包自己就地拒绝。
+		return deploy.CmdDeploy, true
 	case "restore":
 		// 备份恢复：只读候选 / 预演 + 显式执行；写动作仍要过界面二次确认或 CLI 门禁。
 		return restore.CmdRestore, true
@@ -146,11 +150,13 @@ func usage() {
                                          安装 Docker 引擎 / 拉起 MinIO 服务（代理仅 docker 生效）
   ops component image-load minio --server <name> --image-tar <本机 .tar> [--dry-run]
                                          导入 MinIO 离线镜像（写操作；不 docker pull）
+  ops deploy [all|infra|ai|backend|web] --server <name> --dry-run [--json]
+                                         应用部署只读预演（P3a 第一刀；不改远端、不真实发布）
 
 组件: pg | minio | all（默认 all）
 环境组件: docker | minio（minio 依赖 docker；镜像走离线 tar，凭证走 backup/minio.env）
 
-运行 ops servers --help / ops status --help / ops restore help /
+运行 ops servers --help / ops status --help / ops restore help / ops deploy help /
 ops backup deploy --help / ops component help 查看选项。
 ops status 的退出码：0 无 danger / 1 有 danger / 2 配置错。
 `)
