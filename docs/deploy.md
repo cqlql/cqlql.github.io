@@ -11,7 +11,10 @@
 > ✅ **21:2x 用户授权测试环境开工 → P3b-1 CLI 主链路已落地并真机验收**（§9.9）：
 > `ops deploy release ... --confirm yes` 六道门 + 六阶段状态机 + 落盘续传 +
 > 两个 compose 单元 + 150 s 健康门；k4 测试环境 rc=0 跑通（三 URL 各连续 2 次 200）。
-> 🔴 测试环境用全测试值最小冒烟栈；生产 `.env` 52 键一字未动、没碰 `prod`、
+> ✅ **21:3x 用户「可以部署到 ssh k3」→ k3 登记为可部署目标、空机首次部署跑通**
+> （§9.10）：备份清单后追加 `k3`(role=app)，经代理装好 Docker 29.9.3 /
+> compose 5.7.1，`ops deploy release --server k3 ...` rc=0、六阶段全过。
+> 🔴 两次都用全测试值最小冒烟栈；生产 `.env` 52 键一字未动、没碰 `prod`、
 > 没做正式发布；P3b-2 台账 / P3b-3 界面 / P4 回滚仍未实现、未授权。
 > 现行判据见 §2 / §5 / §9.1–§9.8；
 > 🔴 第一刀不构建镜像、不 `compose up`、不写远端、不落台账、不改 `web/`、
@@ -868,6 +871,47 @@ ops-p3b1.exe deploy release --server k4 --confirm yes \
 发版台账 / 只读历史（P3b-2）、界面步骤进度与 `/api/deploy/*`（P3b-3）、
 `rollback`（P4）。**正式发布仍未授权**，界面「上传 / 正式发布」按钮恒禁用。
 
+### 9.10 k3 登记为可部署目标 + 空机首次部署验收（2026-11-11 21:3x）
+
+> 用户「可以部署到 ssh k3 这台机器上，继续」。本节是**测试环境**的第二次真机，
+> 沿用 §9.9 那套全测试值最小冒烟栈；生产 `.env` 52 键、`prod`、正式发布一律未碰。
+
+**当前网络与 §9.6 的旧拓扑**：文档里的 k2（`172.16.0.212`）/ ssh 别名 k1、k2
+（`192.168.1.201/202`）仍超时不可达；清单里 `prod`（`192.168.1.221:2226`）跑着业务容器。
+用户指定的别名 `k3` = `192.168.1.203:22` / `cql`，Ubuntu 24.04.5、免密 sudo、
+38 GB 可用、应用端口全空闲，但**没装 Docker**、`/opt/passup` 不存在、**也不在清单里**。
+
+**清单登记**（本机配置目录，不进 Git）：先备份 `servers.json.bak-20261111-2134`，
+只追加一条 `k3`（`role=app` / `user=cql` / `port=22` / `sudo=nopasswd`，
+沿用默认 ssh 密钥、不写私钥路径）；`default` 仍 `k4`，k4 / prod 两条原样不动。
+`ops servers list` 复读为 `k4(backup) / prod(app) / k3(app)`，
+`ops servers check k3` 的 ssh / sudo 均 ok。
+🔴 目标机仍只由 `--server <name>` 决定；原型里 `k2` 只是界面视图的静态占位机名，
+与本次 CLI 目标机无关（界面视图未实现）。
+
+**首次部署前置（空机）**：`download.docker.com` 直连不通，阿里云 docker-ce 镜像 /
+archive.ubuntu.com 200，经 `http://192.168.1.221:7897` 代理访问官方 InRelease 200。
+第一次 `ops component install docker --server k3 --proxy ...` 因 k3 的
+`unattended-upgrade` 占着 dpkg 锁 **rc=100**（工具如实停住、没做任何回滚）；
+停掉自动升级并释放锁后重跑 **rc=0**：Docker **29.9.3** / compose **5.7.1**、
+service active、`cql` 加入 docker 组。
+🔴 安装计划里「apt 仓库可达：否」是**假阴性**：`deploy/component/docker/check.sh`
+的只读探测（`curl -I` 官方 gpg）**不带代理**，而安装脚本本身走代理；
+不影响安装结论，别据此改探测口径或写成「仓库不可达」。
+随后 sudo 建 `/opt/passup/{docker,ai,.deploy,.images}` 与 `/data`、chown 给清单 user，
+并用同一份全测试值配置 tar 流预置远端（门 3 会在同步前点名缺项，前置仍由人准备）。
+
+**工具发布**：`ops-p3b1.exe deploy release --server k3 --confirm yes ... --no-build --json`
+→ **rc=0**，三道运行期门禁 + 六阶段全过；`nginx:1.27-alpine` 落盘
+**21,129,659 B** → 上传 → `docker load` → 两个 compose `up -d` →
+3 容器 Running → 三个 URL 各**连续 2 次 200**。远端复核：`.images` 按本次清单清空、
+备份目录 `20261111-213829` 存在、`secrets/fake.pem` 权限 `600`、
+`www/client/index.html` 已同步。这是**空机首次部署**链路的实证：
+镜像不靠 registry、目标机不需要预装业务镜像，落盘流转在空机同样可用。
+
+🔴 仍未验证：三条构建链（继续 `--no-build` 快路径）、真实 6 容器业务栈、
+生产 `.env` 52 键人工核对、P3b-2 台账 / P3b-3 界面 / P4 回滚；**正式发布未授权**。
+
 ## 10. 发版信息（借鉴小程序「上传代码」· 2026-11-11 新增方案）
 
 > 本节只是**设计稿**，截至 2026-11-11 代码为零。判据仍以 §2 / §3 / §6 / §9 为准；
@@ -1159,6 +1203,7 @@ ops-p3b1.exe deploy release --server k4 --confirm yes \
 | 配置备份 / 分目录同步 / CRLF | §9.9：备份目录 4 文件、secrets 600、远端探测 LF 不归一化 | 本机无 rsync（改 Go tar 流）；检出 CR 的归一化路径未真跑 | ✅ P3b-1 部分已验 |
 | 构建 | 命令拼装 + 构建失败停点单测已锁 | 三条构建链无真机证据（本次 `--no-build` 快路径跳过） | 首次真实发布前人工确认 |
 | 失败停点 / 断点续跑 / 健康门四判据 | §9.9：门 3 点名缺项、ssh 255 停在配置同步；单测锁死按大小跳过与 200/404/超时/先好后坏 | 真机断点续跑未造（成功后按清单清理） | ✅ 单测已闭环 |
+| 空机首次部署前置 | §9.10：k3 无 Docker / 无 `/opt/passup`，经代理装引擎 + 人备前置后工具发布 rc=0 | 首次 dpkg 锁竞争（unattended-upgrade）已人工处理 | ✅ P3b-1 已验 |
 | 回滚 / 台账 / 只读历史 | 无 | 整段 | P4 / P3b-2 |
 | 生产凭证 52 键核对 | 无（没同步 / 没打印 / 地址未核对） | 人工核对 | 首次真实发布前 |
 | k2 失联取证 | 无 dmesg / OOM | 时间点与因果均未证实 | 不阻塞，但别写成结论 |
