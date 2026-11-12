@@ -21,6 +21,7 @@ sort: 94
 | 数据放哪 | 默认 `C:\ProgramData\Multipass`；**C 盘 <50G 时，安装前**设 `MULTIPASS_STORAGE` 指到 D 盘（§5.0），装完再改会踩 `waiting for daemon` |
 | 提权通道 | **AI 可用 Python `ShellExecuteW(runas)` 发起 Windows UAC**，用户点一次「是」就能自动装完（§5.0、`elevate-fix.py`）；工具只拦 `Start-Process` 写法，不拦解释器本身 |
 | 三条红线 | ① 不擅自关 Hyper-V / VBS（用户可能在用 VirtualBox） ② 不 `multipass delete --all`（会删掉别人的实例） ③ 不覆盖用户数据（kubeconfig / 数据目录 / 同名实例） |
+| 删除实例 | `multipass stop <名> ; multipass delete <名> --purge`。🔴 **1.17.0 没有 `--force`**（实测 `Unknown option 'force'`）；不带 `--purge` 只是标记删除、磁盘仍占、还能 `recover` |
 | 可选场景 | §9：A 临时干净 Ubuntu · B 3 节点 k3s 集群（内嵌完整脚本）· C cloud-init 定制开发机 · D 其它任意用途 |
 | 为什么不直接用 WSL2 多开 | WSL2 所有发行版共享同一台工具 VM 的**网络命名空间和同一个 IP**，不是多台机器；需要独立 IP 的场景得用 Multipass |
 
@@ -45,8 +46,12 @@ sort: 94
 | C 盘可用 | 单台 ≥ 30G；§9-B 集群 ≥ 60G。**30–50G 属贴线**：安装前把数据目录设到 D 盘（§5.0），别等装完再迁 | 见 §5.0 / §11 |
 | 网络 | Ubuntu 镜像源；`github.com`（MSI 与 winget 包都托管在 GitHub releases，**国内常不可直连**）；§9-B 还需 `rancher-mirror.rancher.cn` | 见 §5.1 代理下载 / §10 |
 | 提权 | MSI 安装必须管理员。**AI 进程常为 Medium 完整性级别、无法代点 UAC** | §5.0：把命令交给用户，不要反复重试 |
+| 局域网访问（**可选**，只有要别的机器连 VM 时才需要） | 必须有**现成的外部虚拟交换机**。Windows 上 `--network` 不能指向物理网卡（会 `Missing bridges`）；建交换机需要 `Microsoft-Hyper-V` + 管理工具（`New-VMSwitch`） | 见 §10「想从局域网其他机器访问」；启用 Hyper-V 要**重启**，且与 VirtualBox 争 VT-x |
 
 > 官方文档只要求「虚拟机平台」，**不要求完整 Hyper-V 管理器**；家庭版也能用（Multipass 1.17 起的 `hcs` 驱动不再限制专业版）。
+> ⚠️ 但「能起 VM」和「能建外部交换机」是两件事：2026-11-12 实测一台 Win11 专业版机器
+> `Microsoft-Hyper-V` 与 `Microsoft-Hyper-V-Management-PowerShell` 均为 `Disabled`、没有 `vmms` 服务，
+> `New-VMSwitch` / `Msvm_*` WMI 类都不存在 —— Multipass 照常能起 VM（走 HCS），但**建不了交换机**。
 
 ## 3. 第一步永远是只读诊断
 
@@ -205,7 +210,7 @@ multipass shell demo               # 交互式进入，确认终端可用后 exi
 ping <demo 的 IPv4>
 ```
 
-**验完按需处理这台 demo**：用户要留就留着当常用机；不要就 `multipass stop demo ; multipass delete demo --force`。**不要擅自删**——先问。
+**验完按需处理这台 demo**：用户要留就留着当常用机；不要就 `multipass stop demo ; multipass delete demo --purge`。**不要擅自删**——先问。
 
 ## 7. 常用能力速查
 
@@ -216,8 +221,8 @@ multipass list / multipass info dev               # 实例列表 / IP、内存�
 multipass shell dev / multipass exec dev -- uname -a
 multipass transfer .\file.tar dev:/home/ubuntu/  # 传文件
 multipass stop --all ; multipass start --all
-multipass stop dev ; multipass delete dev --force  # 删除（1.17.0 里 purge 仍在，但官方标注 deprecated）
-multipass find / multipass networks             # 可用镜像 / 可桥接的虚拟交换机
+multipass stop dev ; multipass delete dev --purge  # 永久删除（1.17.0 没有 --force）
+multipass find / multipass networks             # 可用镜像 / 网络（含物理网卡与虚拟交换机，见 §10）
 multipass set local.privileged-mounts=true        # Windows 默认 false，开了才能 mount
 multipass mount D:\_work dev:/home/ubuntu/work
 ```
@@ -244,7 +249,7 @@ multipass mount D:\_work dev:/home/ubuntu/work
 ```powershell
 multipass launch 24.04 --name scratch --cpus 2 --memory 2G --disk 10G
 multipass shell scratch
-multipass stop scratch ; multipass delete scratch --force
+multipass stop scratch ; multipass delete scratch --purge
 ```
 
 ### B. 3 节点 k3s 集群（1 server + 2 agent）
@@ -297,7 +302,7 @@ if ($existing.Count -gt 0) {
     Say "Deleting old cluster instances: $($existing -join ', ')"
     foreach ($n in $existing) {
         multipass stop $n
-        multipass delete $n --force
+        multipass delete $n --purge
         Check "delete $n"
     }
 }
@@ -415,7 +420,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "$env:USERPROFILE\k3s\Build-
 ```powershell
 multipass exec k3s-s -- sudo k3s kubectl get nodes
 multipass stop --all ; multipass start --all
-multipass stop k3s-a1 ; multipass delete k3s-a1 --force   # 删单台
+multipass stop k3s-a1 ; multipass delete k3s-a1 --purge   # 删单台（1.17.0 没有 --force）
 ```
 
 ### C. cloud-init 定制开发机
@@ -436,7 +441,7 @@ multipass launch 24.04 --name dev --cpus 2 --memory 4G --disk 20G --cloud-init i
 
 ### D. 其它用途
 
-不限定。任意 `multipass find` 里的镜像（Ubuntu / Debian / Fedora 等）或自定义镜像 URL 都行；需要多网卡用 `--network name=<switch>` / `--bridged`，需要定制启动行为用 `--cloud-init`。按用户当下需求自由组合即可。
+不限定。任意 `multipass find` 里的镜像（Ubuntu / Debian / Fedora 等）或自定义镜像 URL 都行；需要多网卡用 `--network name=<switch>` / `--bridged`（⚠️ 前提是**已有虚拟交换机**，物理网卡名不行，见 §10），需要定制启动行为用 `--cloud-init`。按用户当下需求自由组合即可。
 
 ## 10. 故障 → 处置
 
@@ -452,7 +457,10 @@ multipass launch 24.04 --name dev --cpus 2 --memory 4G --disk 20G --cloud-init i
 | §9-B 集群节点 `NotReady` / kubectl 连不上 | IP 漂移后 agent 记的 `K3S_URL` 与 kubeconfig 失效 | 首选 `-Recreate` 重建；要长期固定见 §11 |
 | §9-B 报 `x509: certificate is valid for ... not <IP>` | 装 server 时没把 IP 写进证书 | 保留 `--tls-san $SIP` 重新装 |
 | §9-B 拉镜像极慢 | 国内网络 | 默认已用 Rancher 国内镜像；仍慢时给 server 加 `--system-default-registry registry.cn-hangzhou.aliyuncs.com` |
-| 想从局域网其他机器访问 VM / 集群 | 默认 NAT 只有宿主机可达 | `multipass networks` 找外部虚拟交换机，`--network name=<switch>,mode=manual` 桥接；**Windows 下 Wi-Fi 网卡不出现在 networks 列表** |
+| 想从局域网其他机器访问 VM / 集群 | 默认 NAT 只有宿主机可达 | ① `multipass networks` 找**已存在的虚拟交换机**；② `--network name=<switch>,mode=manual`（或 `--bridged` + `local.bridged-network`）。🔴 **不能把物理网卡名直接给 `--network`**（见下两行）；没有外部交换机就先建：管理员 `New-VMSwitch -Name <名> -NetAdapterName <物理网卡> -AllowManagementOS $true`（会短暂断网，必须带 `-AllowManagementOS`，否则宿主机自己断网） |
+| `launch failed: Missing bridges` / `Invalid network options`（退出码 2） | `--network` 给的是物理网卡（`type=Ethernet`），或指向了不存在的交换机 | 2026-11-12 实测：`--network name=<物理网卡>,mode=auto` 必失败，**失败即回滚、不留实例**。先有外部交换机再用；`networks` 里 `type=Ethernet` 的项不能直接用于 `--network` |
+| `New-VMSwitch` 不存在 / `Get-VMSwitch` 报「术语不被识别」 | `Microsoft-Hyper-V` 与 `Microsoft-Hyper-V-Management-PowerShell` 是 `Disabled`，没有 `vmms` 服务，`Msvm_*` WMI 类也不存在 —— Multipass 走 HCS 能起 VM，但**建不了交换机** | 管理员 `Enable-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-V -All -NoRestart` 后**重启**（先确认 VirtualBox 那边没有在用的虚拟机）。这是系统功能开关，**不要静默做** |
+| 官方 GUI 的 `Bridged network` 一直灰 / `No networks found.` | 同一个原因：没有可用的外部交换机。实测设 `local.bridged-network=<网卡>` 后重启 GUI，**开关仍然灰** | 别指望 GUI 配桥接，走 CLI。另：`local.<实例>.bridged` 只能设 `true`、**不能设 `false`**，给已有实例加桥接是**单向不可逆**的 |
 | `winget install` 报 `InternetOpenUrl() failed. 0x80072efd` | GitHub releases 不可直连；winget 不读 `HTTPS_PROXY` 环境变量 | §5.1 走本地代理下载官方 MSI（实测直连 `github => 000`、走代理 200） |
 | `msiexec` 退出 5、stdout 为空、无安装日志 | AI 进程非管理员，启动安装进程被拒（不是 UAC 弹窗被拒） | §5.0：把命令交给用户在管理员终端执行，**别反复重试提权** |
 | `waiting for daemon` | 装完才改 `MULTIPASS_STORAGE`，multipassd（SYSTEM）无权访问手工建的目录 | 卸载 + 删环境变量重来；或给目录加 `NT AUTHORITY\SYSTEM` 完全控制，见 §11 |
@@ -521,7 +529,7 @@ multipass launch 24.04 --name dev --cpus 2 --memory 4G --disk 20G --cloud-init i
 - **用 `Start-Process` 启动任何 shell / 解释器 / 系统工具来提权**——工具会拦 `spawns a child process that bypasses PowerShell command validation`（不只是 cmd.exe，powershell.exe 同样被拦）。**正确通道是 Python `ShellExecuteW(runas)`（§5.0 / `elevate-fix.py`），用户点一次 UAC 即可。**
 - **用户没点名 §9 的任何场景，就擅自起 3 台 VM、装 k3s 或任何业务软件**。默认交付到 §8 为止。
 - 用 bash 语法跑 `.ps1`；一律 `powershell -NoProfile -ExecutionPolicy Bypass -File`。
-- `multipass delete --all --force`：会删掉用户其它实例。§9-B 只删 `k3s-s` / `k3s-a*`。
+- `multipass delete --all`（不论带不带 `--purge`）：会删掉用户其它实例。§9-B 只删 `k3s-s` / `k3s-a*`。
 - 静默覆盖 `~\.kube\config`、静默关闭 Hyper-V / VBS、静默迁移数据目录。
 - 把旧机器的 IP / token 写死进脚本；IP 必须从 guest 内 `ip -4 -br addr` 现取。
 - 在 `.ps1` 里写中文却不存 UTF-8 with BOM（PS 5.1 会按 GBK 解析导致乱码、语法报错）。§9-B 脚本刻意全 ASCII，照抄即可。
@@ -540,14 +548,15 @@ multipass launch 24.04 --name dev --cpus 2 --memory 4G --disk 20G --cloud-init i
 1. Multipass Windows 默认驱动是 **`hcs`**（Host Compute System API）；`hyperv` 驱动自 1.17 起废弃，**VirtualBox 驱动自 1.18 起移除**。网上大量旧教程里的 `multipass set local.driver=virtualbox` / `=hyperv` 已失效，别照抄。
 2. Windows 前置只需「虚拟机平台」，家庭版 / 专业版 / 企业版、≥1809 都支持；不要求 Hyper-V 管理器。
 3. `multipass launch` 默认 **1 CPU / 1G 内存 / 5G 磁盘**——几乎总要显式给资源；不写镜像 = 最新 LTS（写本文时为 26.04 resolute），要可复现就写 `24.04`。
-4. **2026-11-12 实测 1.17.0**：`multipass help` 里**仍有 `purge`**（官方标注 deprecated，但命令存在，别写成「command not found」）；删除仍推荐 `delete <name> --force`，实例需先 `stop`。**镜像列表命令是 `multipass find`，没有 `images`**——官方文档站展示的是更新版本，务必以本机 `multipass help` 为准。
-5. Windows 上 `local.privileged-mounts` 默认 `false`；数据目录默认 `C:\ProgramData\Multipass`；`multipass networks` 列的是虚拟交换机，Wi-Fi 网卡不显示。
-6. WSL2 多发行版共享同一网络命名空间与同一 IP（只有 PID / Mount / User 等命名空间隔离），不适合多节点集群——这是 §9-B 存在的前提。
-7. §9-B 走 `rancher-mirror.rancher.cn` + `INSTALL_K3S_MIRROR=cn` 只解决二进制；`--tls-san` 用于让 API 证书包含实例 IP。
-8. 官方镜像列表 / 驱动 / 命令参数可能变。若某条命令报错与本文不符，先查 <https://canonical.com/multipass/docs/> 再改脚本，别凭旧记忆改。
-9. **2026-11-12 实跑实测**：Win11 专业版 / 47.8G 内存 / C 盘 36.7G、D 盘 411.9G / `HyperVisorPresent=True` / winget v1.29.380。winget 源最新 `1.16.4`，官方 GitHub latest `v1.17.0`（MSI 74.6 MB）。本机 IE 代理为 `127.0.0.1:7897` 但 `ProxyEnable=0`，`github.com` 直连超时，winget 报 `0x80072efd`；`curl -x http://127.0.0.1:7897` 返回 200。当前进程 `Elevated=False`、`EnableLUA=1/consent=5`，`msiexec` 直接 exit 5 且无安装日志，申请提升后同样失败 → **AI 无法代装 MSI**。§6 起 VM 及之后步骤本次未验证，见 §15。
+4. **2026-11-12 实测 1.17.0**：`delete` 的选项只有 `--all` / `-p, --purge`，🔴 **没有 `--force`**（带它直接 `Unknown option 'force'`、退出码 1）；永久删除用 `delete <name> --purge`，实例需先 `stop`。`purge` 命令本身仍在（官方标注 deprecated）。**镜像列表命令是 `multipass find`，没有 `images`**——官方文档站展示的是更新版本，务必以本机 `multipass help` 为准。
+5. Windows 上 `local.privileged-mounts` 默认 `false`；数据目录默认 `C:\ProgramData\Multipass`；`multipass networks` **既列虚拟交换机（`type=switch`）也列物理网卡（`type=Ethernet`）**，但只有**已存在的交换机**能用于 `--network`；Wi-Fi 网卡通常不显示。
+6. **2026-11-12 实测（网络 / 桥接）**：`--network` 指向物理网卡 → `launch failed: Missing bridges`；设 `local.bridged-network` 不会让 GUI 的 `Bridged network` 变可用（重启后仍灰）；`local.<实例>.bridged` 只能设 `true`、不能设 `false`。这台机器 `Microsoft-Hyper-V` 与 `Microsoft-Hyper-V-Management-PowerShell` 均 `Disabled`、无 `vmms`、无 `New-VMSwitch`，所以**建不了外部交换机**——要建得先启用功能并重启。
+7. WSL2 多发行版共享同一网络命名空间与同一 IP（只有 PID / Mount / User 等命名空间隔离），不适合多节点集群——这是 §9-B 存在的前提。
+8. §9-B 走 `rancher-mirror.rancher.cn` + `INSTALL_K3S_MIRROR=cn` 只解决二进制；`--tls-san` 用于让 API 证书包含实例 IP。
+9. 官方镜像列表 / 驱动 / 命令参数可能变。若某条命令报错与本文不符，先查 <https://canonical.com/multipass/docs/> 再改脚本，别凭旧记忆改。
+10. **2026-11-12 实跑实测**：Win11 专业版 / 47.8G 内存 / C 盘 36.7G、D 盘 411.9G / `HyperVisorPresent=True` / winget v1.29.380。winget 源最新 `1.16.4`，官方 GitHub latest `v1.17.0`（MSI 74.6 MB）。本机 IE 代理为 `127.0.0.1:7897` 但 `ProxyEnable=0`，`github.com` 直连超时，winget 报 `0x80072efd`；`curl -x http://127.0.0.1:7897` 返回 200。当前进程 `Elevated=False`、`EnableLUA=1/consent=5`，`msiexec` 直接 exit 5 且无安装日志，申请提升后同样失败 → **AI 无法代装 MSI**。§6 起 VM 及之后步骤本次未验证，见 §15。
 
-10. **2026-11-12 端到端实测**：Python 3.12.10 用 `ShellExecuteW(runas)` 发起 UAC 成功（用户点允许），修复脚本返回 `OK`，junction 建成，`multipass version` = 1.17.0+win、`local.driver` = `hcs`；`multipass find` 列出 22.04/24.04/26.04/26.10；`launch 24.04 --name demo --cpus 2 --memory 4G --disk 10G` 成功，IP `10.97.0.30`，`lsb_release` = Ubuntu 24.04.5 LTS noble，`exec whoami` = `ubuntu`。
+11. **2026-11-12 端到端实测**：Python 3.12.10 用 `ShellExecuteW(runas)` 发起 UAC 成功（用户点允许），修复脚本返回 `OK`，junction 建成，`multipass version` = 1.17.0+win、`local.driver` = `hcs`；`multipass find` 列出 22.04/24.04/26.04/26.10；`launch 24.04 --name demo --cpus 2 --memory 4G --disk 10G` 成功，IP `10.97.0.30`，`lsb_release` = Ubuntu 24.04.5 LTS noble，`exec whoami` = `ubuntu`。
 
 ## 14. 路径速查
 
@@ -590,5 +599,15 @@ multipass launch 24.04 --name dev --cpus 2 --memory 4G --disk 20G --cloud-init i
 **最终结果（同日 12:19–12:40）**：用 `D:\_work\elevate-fix.py`（Python + `ShellExecuteW(runas)`）发起 UAC，用户点允许 → 修复返回 `OK` → `C:\ProgramData\Multipass` 变为 **Junction** → `multipass 1.17.0+win` / `hcs` 正常 → `multipass find` 列出 22.04/24.04/26.04/26.10 → `launch 24.04 --name demo --cpus 2 --memory 4G --disk 10G` 成功（IP `10.97.0.30`）→ `lsb_release` = Ubuntu 24.04.5 LTS noble → `exec whoami` = `ubuntu`。
 
 **仍未验证**：Windows 侧 `ping` 独立 IP、`multipass info`、交互式 `shell`（连续 `exec` 偶发挂起，见 §10）。**未验证的不要写成已验证。**
+
+**2026-11-12 下午补充实测（删除 / 网络 / 桥接）**：
+
+| 项 | 结果 |
+| --- | --- |
+| `multipass delete <名> --force` | **失败**：`Unknown option 'force'`、退出码 1 → 改 `--purge` 后成功，实例从 `list` 消失 |
+| `--network name=<物理网卡>,mode=auto` | **失败**：退出码 2，`launch failed: Missing bridges` / `Invalid network options`；**失败即回滚、不留实例** |
+| 设 `local.bridged-network=<物理网卡>` 后重启 GUI | `Bridged network` **仍然灰**（`No networks found.`）→ 它不是靠这个设置变可用的 |
+| 本机 Hyper-V 能力（管理员探测） | `Microsoft-Hyper-V` / `Microsoft-Hyper-V-Management-PowerShell` 均 `Disabled`；无 `vmms`；`New-VMSwitch` / `Msvm_*` 不存在；`hcsdiag list` 能看到实例 → Multipass 走 HCS |
+| 结论 | 要桥接必须先有**外部虚拟交换机**；建交换机要先启用 Hyper-V 并**重启**（会与 VirtualBox 争 VT-x） |
 
 > 下次换机若 §5.0 的 Python 提权通道能一次跑通、§8 全部通过，请把本表更新为「端到端通过」，并删掉已失效的临时结论。
