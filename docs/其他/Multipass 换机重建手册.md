@@ -24,6 +24,7 @@ sort: 94
 | 删除实例 | `multipass stop <名> ; multipass delete <名> --purge`。🔴 **1.17.0 没有 `--force`**（实测 `Unknown option 'force'`）；不带 `--purge` 只是标记删除、磁盘仍占、还能 `recover` |
 | 可选场景 | §9：A 临时干净 Ubuntu · B 3 节点 k3s 集群（内嵌完整脚本）· C cloud-init 定制开发机 · D 其它任意用途 |
 | 为什么不直接用 WSL2 多开 | WSL2 所有发行版共享同一台工具 VM 的**网络命名空间和同一个 IP**，不是多台机器；需要独立 IP 的场景得用 Multipass |
+| 2026-11-13 现状 | 本机已启用完整 Hyper-V，并决定**直接用原生 Hyper-V**；门户里已没有 Multipass 面板。桥接与断网实测见 §16，门户启动见 §17 |
 
 > **AI 执行提示**：首次 `multipass launch` 会下载 Ubuntu cloud image，可能跑几分钟。用后台任务执行并保留日志，**不要用默认短超时在前台等**。安装 Multipass 会弹 UAC，提示用户点确认。
 
@@ -611,3 +612,117 @@ multipass launch 24.04 --name dev --cpus 2 --memory 4G --disk 20G --cloud-init i
 | 结论 | 要桥接必须先有**外部虚拟交换机**；建交换机要先启用 Hyper-V 并**重启**（会与 VirtualBox 争 VT-x） |
 
 > 下次换机若 §5.0 的 Python 提权通道能一次跑通、§8 全部通过，请把本表更新为「端到端通过」，并删掉已失效的临时结论。
+
+
+---
+
+---
+
+## 16. 2026-11-13 补充：Windows 11 专业版 + Hyper-V
+
+> 本节只写「2026-11-12 之后新知道的事」，安装 / 桥接 / 验收仍以 §5 / §10 / §11 为准。
+> 背景：本机换成**专业版**后，用户决定**直接用 Windows 原生 Hyper-V**；wsl-manager 门户里的 Multipass 模块已整体删除
+> （完整设计记录可在该仓库 git 历史里找回，删除前路径 `docs/multipass-panel.md`）。
+
+### 16.1 专业版才有：完整 Hyper-V 角色
+
+| 项 | 家庭版（§15 那轮） | 专业版（2026-11-13） |
+| --- | --- | --- |
+| `Microsoft-Hyper-V-*` 功能名 | `0x800f080c`（不存在） | 可枚举、可启用 |
+| `vmms` / `New-VMSwitch` / Hyper-V 模块 | 全缺 | 启用并重启后全部就位 |
+| 建 External 交换机 | 做不到 | 能建；代价见 §16.2 |
+
+- 🔴 **「关机再开机」不等于「重启」**：本机开了快速启动（`HiberbootEnabled=1`），关机+开机不会处理挂起的 CBS 包，
+  `vmms` 不会出现。判据：`LastBootUpTime` / uptime 没变、`CBS_PackagesPending=True`。必须用开始菜单的「重启」
+  或 `shutdown /r /t 0`。
+- 启用完整 Hyper-V 后 `HyperVisorPresent=True`；VBox 7.x 只能走 WHPX（判据 `HypervisorPlatform InstallState=1`）。
+  本机 WHPX 仍 `Disabled` → VBox 不可用（未实测，机制推断）。
+
+### 16.2 External 交换机：能认出来，但建它要断网
+
+- `New-VMSwitch -Name <名> -NetAdapterName <有线物理网卡> -AllowManagementOS $true` → `multipass networks`
+  **能列出**它：`type=switch`，描述 `Hyper-V vSwitch(Transparent)`。✅ 此前「External 能否被认出」未验证，现在有答案。
+- 🔴 **建交换机 = 宿主机断网约 70 秒**：宿主机地址从物理网卡搬到新建的 `vEthernet`，物理网卡先 pause/unbind，
+  直到 `media connected`。事件日志时间线：`NetworkProfile` 10001「已断开」→ `Hyper-V-VmSwitch` 270/265/233/19（解绑）
+  → `232/17`（绑定新端口）→ `21/23`（media connected）。
+- 把实例挂到该交换机时**又完整重绑一次**，再断约 **4 秒**。
+- 日志里**没有驱动错误**；`Id=298` 明确该网卡**不支持 NIC 交换机 / VMQ 卸载**，vSwitch 上卸载被完全禁用；
+  驱动是 2022 年的版本。**这是嫌疑，不是已证实的根因**（没有换驱动 / 换网卡的对照组）。
+- 带 `--network` 的 `launch` 可能 `timed out waiting for response`（实例建出来、地址不可达）：
+  先查交换机有没有上行，别只怪镜像或 SSH。
+- 恢复：取消物理网卡上的「Hyper-V 可扩展的虚拟交换机」绑定（`NetEventPause` + `STATUS_SUCCESS`），
+  约 7 秒后网络重新识别、NCSI 探测成功；残留 `vEthernet` 随交换机删除消失。
+
+### 16.3 五条路径与寿命（k3s 判据）
+
+| 路径 | 多节点 | 局域网可达 | 实测状态 | 寿命 |
+| --- | --- | --- | --- | --- |
+| `hcs` + 家庭版 | ✅ | ❌ 只有内部 NAT（ICS） | 已实测（§15） | 长期，但不可达 |
+| `hcs` + 专业版 + External 交换机 | ✅ | ⚠️ 未验证 | 交换机可建、`multipass networks` 能认出（`Transparent`）；但本机建交换机断网约 70 秒，未走到实例拿到局域网地址 | 官方正路；本机需换网卡 / 驱动后再试 |
+| `virtualbox` 驱动（1.17） | ✅ | ✅ 已实测（2026-11-12 深夜：`eth1` 拿到局域网地址，SSH banner 通过） | 实例有 NAT + 桥接两张网卡，`list` 的 `IPv4` 为空 | ⚠️ **1.18 移除** |
+| HNS Transparent（L2Bridge） | — | — | ❌ 结构上封死：无创建 API 面 | 不成立 |
+| WSL2 `mirrored` + k3s | ❌ 只能单节点 | ✅ 原生 | 未验证（本机仍是 `networkingMode=nat`） | 长期 |
+
+🔴 四条红线：
+
+1. **VBox 驱动「技术上可行、寿命上不行」**：桥接实测通过，但官方 1.18 起移除；可临时锁 1.17，**不许写进换机步骤**。
+2. **WSL `mirrored` 只解决单节点**：所有发行版镜像同一份物理网卡、拿同一个宿主机地址，多节点会撞车。
+3. **`hcs` 下 `--network` 只认已存在的虚拟交换机**，物理网卡名必然 `Missing bridges`。
+4. **VBox 桥接实例跑 k3s 必须显式指节点地址**：`eth0` 是 NAT、`eth1` 才是桥接，
+   必须 `--node-ip <桥接地址>` + `--flannel-iface=eth1`。
+
+🔴 **本机结论（2026-11-13）**：这块 Realtek 网卡上「建 External 交换机 = 断网约 70 秒」，最终没走到「实例拿到局域网地址」；
+用户据此决定改用原生 Hyper-V。**不能据此说 Hyper-V 或专业版不行**，只能说是这块网卡 / 这个驱动上的代价。
+
+### 16.4 卸载 Multipass 后的清理（2026-11-13）
+
+MSI 卸载（`msiexec /x {产品码} /passive /norestart`）只移除程序、服务与安装目录；
+数据目录、Machine 级变量和 **HNS 网络**都要手工清（全部需要管理员）：
+
+1. **数据目录**：`C:\ProgramData\Multipass` 可能是指向 `MULTIPASS_STORAGE` 的联接
+   （`Get-Item -LiteralPath 'C:\ProgramData\Multipass' -Force | Select-Object LinkType,Target`）。
+   先删联接（只删链接、不碰目标）：`(Get-Item -LiteralPath 'C:\ProgramData\Multipass' -Force).Delete()`；
+   再删目标目录（如 `D:\MultipassData`）。修复流程留下的 `Multipass.bak*` 也要一起清。
+2. **变量**：`[Environment]::SetEnvironmentVariable('MULTIPASS_STORAGE', $null, 'Machine')`；User 级同样检查一次。
+3. 🔴 **HNS 网络会残留**：每个 zone 一个 `Multipass vNetwork (zoneN)`，表现为
+   `vEthernet (Multipass vNetwork (zoneN))`，卸载后仍然是「已启用」。
+   ⚠️ 这个版本的 `Remove-HnsNetwork` **没有 `-Name` 参数、只接受管道输入**：
+
+   ```powershell
+   Get-HNSNetwork | Where-Object { $_.Name -like '*Multipass*' } | Remove-HnsNetwork
+   ```
+
+   删掉后 vEthernet 立即消失，不需要重启；**保留** `WSL (Hyper-V firewall)` 与 `Default Switch`。
+4. **复核**：`Get-Command multipass` 无、`Get-Service Multipass` 无、`C:\ProgramData` 下无 `*Multipass*`、
+   `Get-NetAdapter` 里无 Multipass 条目。
+
+## 17. 门户启动（wsl-manager 自己，与 Multipass 无关）
+
+> 2026-11-13 起门户里已没有 Multipass 页面与 7 个 Multipass 写放行名；下面只服务 WSL / console / 备份这些既有页面。
+
+### 17.1 构建
+
+```powershell
+cd web
+npm install
+npm run build          # 🔴 必须在前：前端产物被 go:embed 进 exe
+cd ..
+go build -o wsl-manager.exe .
+```
+
+### 17.2 配置 `launch.env`
+
+- 没有这个文件时，双击 `wsl-manager.cmd` 会弹启动面板；或 `wsl-manager.exe launch-panel`。
+- 至少要有：`TOKEN`（**新生成**）、`ALLOW_WRITE`、`ADDR`（留空 = `127.0.0.1:8788`）。
+- `ALLOW_WRITE` 只填当前存在的写操作名（见仓库 `README.md` 接口表）；**不可再写 `multipass/*`**。
+- ⚠️ 放行写操作**必须同时配 TOKEN**，否则服务拒绝启动。
+
+### 17.3 启动与判据
+
+- 双击 `wsl-manager.cmd`（后台化，输出在 `%LOCALAPPDATA%\wsl-manager\wsl-manager.log`），或 `.\wsl-manager.exe`。
+- 判据：`http://127.0.0.1:8788/` 返回 200，WSL 管理页能列出发行版。
+- 🔴 **AI 用后台任务 / 终端托管起来的服务，会随任务结束被回收**（实测：任务一结束，8788 立刻没有监听）。
+  「200 了」不等于「交付后还活着」——收尾时必须让**人在 Windows 会话里自己双击 `wsl-manager.cmd`**，再回读一次 200。
+
+> 归档说明：原 `docs/migration.md` 的其余部分（Multipass 安装、桥接三态、验收、已知坑）与 §5 / §8 / §10 重复，整理时删除；
+> 原文与完整的面板设计记录都可以在 wsl-manager 仓库的 git 历史里找回（删除前路径：`docs/migration.md`、`docs/multipass-panel.md`）。
