@@ -696,6 +696,29 @@ MSI 卸载（`msiexec /x {产品码} /passive /norestart`）只移除程序、�
 4. **复核**：`Get-Command multipass` 无、`Get-Service Multipass` 无、`C:\ProgramData` 下无 `*Multipass*`、
    `Get-NetAdapter` 里无 Multipass 条目。
 
+#### 16.4.1 本次实测（2026-11-13 21:06，本机已彻底卸载）
+
+| 步骤 | 结果 |
+| --- | --- |
+| 卸载前状态 | 1.17.0、服务 Running、驱动 **`virtualbox`**、实例 `bridge-test` Running、数据在 **`E:\MultipassData`**（不是 D 盘） |
+| `multipass stop` + `delete bridge-test --purge` | 成功，`list` → `No instances found.` |
+| `msiexec /x {DB545ADA-67FA-49AE-ADF7-D64B92B6A645} /passive /norestart` | **exit 0**，服务与 `C:\Program Files\Multipass` 同时消失 |
+| Junction 删除 | 用 `$it.Delete()` 只删链接，未跟随到 `E:\MultipassData` |
+| 数据目录 | `E:\MultipassData`、`C:\ProgramData\Multipass.bak` 均已删；E 盘 84.1G → **94.3G（回收约 10.2G）** |
+| 变量 | Machine 级 `MULTIPASS_STORAGE` 清空（User 级本来就没有） |
+| HNS 网络 | 3 个 `Multipass vNetwork (zone1/2/3)` 全部删除，`vEthernet (Multipass ...)` 立即消失，**无需重启** |
+| 复核 | 命令 / 服务 / 安装目录 / ProgramData / E 盘目录 / 网卡 / 注册表卸载项 **全部 gone** |
+
+> ⚠️ **提权通道的重要修正**：§5.0 里 `ShellExecuteW` + 立即返回的写法，在本机**行不通**——
+> 它会返回 42（UAC 已通过），但 AI 的 shell 任务一结束，沙箱就把这个提权子进程**一起回收**，
+> 脚本连第一行日志都写不出来（表象：无日志、服务还在跑）。
+> 正确写法是用 **`ShellExecuteExW` + `SEE_MASK_NOCLOSEPROCESS`** 拿到 `hProcess`，
+> 再 `WaitForSingleObject(INFINITE)` 阻塞等它跑完（Python 侧同步等，任务就不会提前结束）。
+> 可直接复用 `D:\_work\run-uninstall-elevated.py`（已按此改写）+ `D:\_work\uninstall-multipass.ps1`（全 ASCII）。
+>
+> 另外：提权窗口在屏幕上时，AI 自己的 PowerShell 工具会短暂报
+> `LsSDK_CreateSandbox(ConPTY) 失败 (5): ERROR_ACCESS_DENIED` —— 那是 UAC 安全桌面挡住了进程创建，不是权限配置坏了，等提示关掉就恢复。
+
 ## 17. 门户启动（wsl-manager 自己，与 Multipass 无关）
 
 > 2026-11-13 起门户里已没有 Multipass 页面与 7 个 Multipass 写放行名；下面只服务 WSL / console / 备份这些既有页面。
