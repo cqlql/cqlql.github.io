@@ -40,8 +40,12 @@ docs/                      # 主内容目录（被 config.ts 加载）
   项目/                     # 具体项目沉淀
   其他/                     # 杂项（终端、vscode、数学、调试、git 等）
 docs-other/                # 另一内容源（theme.ts 中 docsDir 指向此处）
+skills/                    # 可移植的 AI skill（每目录一个 SKILL.md；不进站点构建）
 docker-compose.yml
 ```
+
+> `skills/` 是给 AI 会话用的执行版，与 `docs/工程/` 的母本一一对应：母本保留判据、
+> 机制选型与决策理由，skill 保留施工步骤与验收。改通用条款时两边同步。
 
 ## 笔记目录结构（docs/）
 

@@ -8,6 +8,9 @@ sort: 2
 
 > 状态：**母本 · 现行**（2026-10-30 从 `pass-up.frontend-mp` 的实战版提炼）
 >
+> **AI 执行版**：`skills/repo-bootstrap/`（本模板是其 `assets/AGENTS-template.md`）；
+> 本文件仍是母本。
+>
 > `AGENTS.md` 是**给 AI 编码助手读的项目指引**，不是给人看的 README。
 > 它只有一个考核指标：**AI 读完这一份，动代码时不会踩你已经踩过的坑。**
 
