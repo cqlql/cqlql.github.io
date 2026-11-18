@@ -14,6 +14,7 @@ description: 新仓第一天建立 AGENTS.md、文档约定、代码设计规范
 3. **每份文档第一行写状态**，并在 AGENTS 那张表里给它一行。
 4. **实例化文档约定**：把通用条款复制成该仓 `docs/doc-conventions.md`，顶部写明母本路径，只追加本仓特有的文档表。
 5. **实例化代码设计规范**：把 `references/code-design.md` 全文复制成 `docs/code-design.md`，删掉与本栈不符的章节；「本仓现状」节先留空，第一个功能落地后补（见 §2.6）。
+6. **实例化 SQL / ORM 规范（仅后端仓）**：把 `references/sql-orm.md` 全文复制成 `docs/sql-orm.md`，删掉与本仓数据库不符的条款（非 PostgreSQL 换成本库方言）。查询形态、金额/时间字段类型、迁移工具都是定形项，等写了 50 个查询再改要动数据。
 
 ## 1. `AGENTS.md`
 
@@ -193,6 +194,7 @@ features/<能力>/
 - [ ] 跨仓契约只在一处，另一处是指针；
 - [ ] `docs/doc-conventions.md` 顶部写明母本，且只追加了本仓内容；
 - [ ] `docs/code-design.md` 存在、状态行是「实例 · 现行（母本：…）」、不适用章节已删；「本仓现状」可留空但不得编造。
+- [ ] 后端仓：`docs/sql-orm.md` 存在、不适用条款已删；`AGENTS.md` 只放了该规范第零节的原则 + 3~5 条指针。
 
 ## 5. 附件
 
@@ -200,5 +202,6 @@ features/<能力>/
 - `references/doc-conventions.md` —— 文档治理全文（四问、命名、状态、索引、母本实例）。
 - `references/code-design.md` —— 代码设计全文（职责边界、状态机、事务幂等、抽象时机、交付自检）。
 - `references/directory.md` —— 目录判据全文（依赖、feature 职责、后端阈值、各栈指针）。
+- `references/sql-orm.md` —— SQL / ORM 全文（结果导向原则、MUST/SHOULD/MAY、查询与索引、并发与批量、软删除、迁移、验证闭环）。
 
-母本在 cqlql-notes 仓 `docs/工程/`：`AGENTS模板.md`、`文档约定.md`、`代码设计规范.md`、`目录结构规范.md`。目标仓读不到时，以本 skill 为准。
+母本在 cqlql-notes 仓 `docs/工程/`：`AGENTS模板.md`、`文档约定.md`、`代码设计规范.md`、`目录结构规范.md`、`SQL与ORM规范.md`。目标仓读不到时，以本 skill 为准。
