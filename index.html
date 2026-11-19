@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>学习训练场 · 导航</title>
+<style>
+:root{
+  --bg:#ffffff; --fg:#1d1d1b; --muted:#66665f; --faint:#8a8a82;
+  --line:#e4e4df; --panel:#f7f7f4; --panel2:#f0f0ec;
+  --accent:#185fa5; --accent-bg:#e6f1fb; --accent-line:#b5d4f4;
+  --ok:#0f6e56; --ok-bg:#e1f5ee; --ok-line:#9fe1cb;
+  --amber:#854f0b; --amber-bg:#faeeda;
+  --mono:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+}
+html[data-theme="dark"]{
+  --bg:#1c1c1a; --fg:#ecece6; --muted:#a8a89f; --faint:#7e7e76;
+  --line:#383833; --panel:#262624; --panel2:#2e2e2a;
+  --accent:#85b7eb; --accent-bg:#12283f; --accent-line:#2a4a6b;
+  --ok:#5dcaa5; --ok-bg:#0d2c23; --ok-line:#1d5a45;
+  --amber:#fac775; --amber-bg:#3a2c12;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:15px;line-height:1.75;-webkit-font-smoothing:antialiased}
+a{color:var(--accent);text-decoration:none}
+.page{max-width:860px;margin:0 auto;padding:44px 24px 90px}
+.head{margin-bottom:36px}
+.topline{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:26px}
+.brand{font-size:12px;color:var(--faint);letter-spacing:.08em}
+button{font-family:inherit;font-size:12px;color:var(--muted);background:transparent;border:0.5px solid var(--line);border-radius:7px;padding:5px 11px;cursor:pointer;transition:.15s}
+button:hover{color:var(--fg);border-color:var(--muted);background:var(--panel)}
+h1{font-size:32px;line-height:1.25;font-weight:600;margin:0 0 10px;letter-spacing:-.02em}
+.lead{font-size:15.5px;color:var(--muted);margin:0;max-width:640px}
+h2{font-size:16px;font-weight:600;margin:0 0 4px}
+.section-note{font-size:13px;color:var(--faint);margin:0 0 16px}
+section{margin-bottom:42px}
+
+/* 今日复习：主入口 */
+.hero{display:block;border:1px solid var(--accent);background:var(--accent-bg);border-radius:14px;padding:22px 26px;transition:.16s;position:relative}
+.hero:hover{transform:translateY(-2px);box-shadow:0 6px 22px rgba(24,95,165,.12)}
+.hero:focus-visible,.card:focus-visible,.linkitem:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.hero .phase{display:inline-block;font-size:11px;padding:2px 9px;border-radius:999px;background:var(--bg);color:var(--accent);border:0.5px solid var(--accent-line);margin-bottom:10px}
+.hero-title{display:block;font-size:26px;font-weight:600;color:var(--accent);line-height:1.35;margin-bottom:5px}
+.hero-sub{display:block;font-size:14px;color:var(--fg);margin-bottom:10px}
+.hero-file{display:block;font-family:var(--mono);font-size:11.5px;color:var(--muted)}
+
+/* 手册卡片 */
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.card{display:block;background:var(--panel);border:0.5px solid var(--line);border-radius:12px;padding:19px 20px;transition:.16s;min-width:0}
+.card:hover{border-color:var(--accent-line);background:var(--bg);transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,0,0,.05)}
+.card-tag{display:inline-block;font-size:11px;padding:2px 9px;border-radius:999px;background:var(--accent-bg);color:var(--accent);border:0.5px solid var(--accent-line);margin-bottom:11px}
+.card-tag.amber{background:var(--amber-bg);color:var(--amber);border-color:transparent}
+.card-title{display:block;font-size:17px;font-weight:600;color:var(--fg);line-height:1.4;margin-bottom:7px}
+.card-desc{display:block;font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:13px}
+.card-cta{display:block;font-size:12.5px;color:var(--accent);font-weight:500}
+
+/* 台账轻链接 */
+.links{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.linkitem{display:flex;align-items:baseline;gap:10px;background:var(--bg);border:0.5px solid var(--line);border-radius:9px;padding:10px 13px;transition:.15s;min-width:0}
+.linkitem:hover{border-color:var(--muted);background:var(--panel)}
+.linkitem b{font-size:13px;font-weight:500;color:var(--fg);font-family:var(--mono);white-space:nowrap}
+.linkitem span{font-size:12px;color:var(--faint);line-height:1.5}
+.callout{border-left:3px solid var(--line);background:var(--panel);padding:10px 14px;border-radius:0 8px 8px 0;font-size:12.5px;color:var(--muted);margin:14px 0 0}
+footer{margin-top:50px;padding-top:18px;border-top:1px solid var(--line);font-size:12px;color:var(--faint);line-height:1.9}
+@media(max-width:620px){
+  .page{padding:28px 18px 70px}
+  h1{font-size:26px}
+  .hero{padding:18px 20px}
+  .hero-title{font-size:22px}
+  .grid,.links{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="topline">
+    <div class="brand">learning · 学习训练场</div>
+    <button id="themeBtn" type="button">切换深色</button>
+  </div>
+
+  <header class="head">
+    <h1>今天练什么？</h1>
+    <p class="lead">不是笔记本，是训练场。笔记是副产品，能讲出来才是产物。</p>
+  </header>
+
+  <section>
+    <a class="hero" href="dist/index.html">
+      <span class="phase">每天先做这个</span>
+      <span class="hero-title">今日复习 →</span>
+      <span class="hero-sub">打开抽题页面，在心里答一遍，再翻面打分。含糊就给 2，别给 3。</span>
+      <span class="hero-file">dist/index.html · 由 rebuild.bat 生成，别手改</span>
+    </a>
+  </section>
+
+  <section>
+    <h2>系统过一遍 · 手册</h2>
+    <p class="section-note">想搞清楚一整条链路时看手册；碎片时间刷题用上面的复习页。</p>
+    <div class="grid">
+      <a class="card" href="手册/RAG链路入门.html">
+        <span class="card-tag">入门 · 约 15 分钟</span>
+        <span class="card-title">RAG 链路入门</span>
+        <span class="card-desc">从「问一句话」到「翻出 5 张卡片」，用 notes-rag 的真实运行数据走完六个步骤，顺带学会判断数字能不能信。</span>
+        <span class="card-cta">打开手册 →</span>
+      </a>
+      <a class="card" href="手册/AI-Agent-Skills-复习手册.html">
+        <span class="card-tag amber">面试前 · 抽题自测</span>
+        <span class="card-title">AI Agent Skills 复习手册</span>
+        <span class="card-desc">一页纸链路图 + 六组对比 + 12 道口播题。答案默认藏起来，先说再翻，打完分存本机。</span>
+        <span class="card-cta">打开手册 →</span>
+      </a>
+    </div>
+  </section>
+
+  <section>
+    <h2>台账 · 想查的时候来</h2>
+    <p class="section-note">这些是 md 文件，会用本机默认程序打开。</p>
+    <div class="links">
+      <a class="linkitem" href="进度.md"><b>进度.md</b><span>本周任务、验收线、卡点</span></a>
+      <a class="linkitem" href="实验台账.md"><b>实验台账.md</b><span>recall@5、耗时这些「我的数字」</span></a>
+      <a class="linkitem" href="能力清单.md"><b>能力清单.md</b><span>会什么、还差什么</span></a>
+      <a class="linkitem" href="疑问.md"><b>疑问.md</b><span>想不通的先扔这，解决后升级成卡片</span></a>
+      <a class="linkitem" href="README.md"><b>README.md</b><span>怎么加卡片、为什么这么设计</span></a>
+      <a class="linkitem" href="cards/_模板.md"><b>cards/_模板.md</b><span>写新卡片，复制它改名</span></a>
+    </div>
+    <p class="callout">改完卡片记得双击 <code>rebuild.bat</code> 重新生成复习页。想不开浏览器也能自测：<code>node tools/review.mjs</code>。</p>
+  </section>
+
+  <footer>
+    单文件、不联网、不依赖 CDN，双击就能开。主题偏好存在本机浏览器。<br>
+    手册与复习页各自独立存分，互不覆盖。
+  </footer>
+
+</div>
+<script>
+(function(){
+  var root=document.documentElement;
+  var KEY='llm-learning-nav-theme';
+  var store={get:function(k){try{return localStorage.getItem(k)}catch(e){return null}},
+             set:function(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
+  if(store.get(KEY)==='dark'){root.setAttribute('data-theme','dark')}
+  var btn=document.getElementById('themeBtn');
+  function sync(){btn.textContent=root.getAttribute('data-theme')==='dark'?'切换浅色':'切换深色'}
+  sync();
+  btn.addEventListener('click',function(){
+    var next=root.getAttribute('data-theme')==='dark'?'light':'dark';
+    root.setAttribute('data-theme',next);store.set(KEY,next);sync();
+  });
+})();
+</script>
+</body>
+</html>

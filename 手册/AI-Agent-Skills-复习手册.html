@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Agent Skills · 复习手册</title>
+<style>
+:root{
+  --bg:#ffffff; --fg:#1d1d1b; --muted:#66665f; --faint:#8a8a82;
+  --line:#e4e4df; --panel:#f7f7f4; --panel2:#f0f0ec;
+  --accent:#185fa5; --accent-bg:#e6f1fb; --accent-line:#b5d4f4;
+  --ok:#0f6e56; --ok-bg:#e1f5ee; --ok-line:#9fe1cb;
+  --warn:#a32d2d; --warn-bg:#fcebeb; --warn-line:#f7c1c1;
+  --amber:#854f0b; --amber-bg:#faeeda;
+  --mono:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+}
+html[data-theme="dark"]{
+  --bg:#1c1c1a; --fg:#ecece6; --muted:#a8a89f; --faint:#7e7e76;
+  --line:#383833; --panel:#262624; --panel2:#2e2e2a;
+  --accent:#85b7eb; --accent-bg:#12283f; --accent-line:#2a4a6b;
+  --ok:#5dcaa5; --ok-bg:#0d2c23; --ok-line:#1d5a45;
+  --warn:#f09595; --warn-bg:#3a1b1b; --warn-line:#6d3030;
+  --amber:#fac775; --amber-bg:#3a2c12;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:15px;line-height:1.75;-webkit-font-smoothing:antialiased}
+#progress{position:fixed;top:0;left:0;height:2px;width:0;background:var(--accent);z-index:50;transition:width .1s linear}
+.wrap{display:flex;max-width:1240px;margin:0 auto;gap:38px;padding:0 24px}
+aside{width:214px;flex:0 0 214px;position:sticky;top:0;height:100vh;overflow-y:auto;padding:30px 0 40px;border-right:1px solid var(--line)}
+main{flex:1;min-width:0;max-width:820px;padding:36px 0 100px}
+.brand{font-size:12px;color:var(--faint);letter-spacing:.06em;margin-bottom:14px}
+aside a{display:block;color:var(--muted);text-decoration:none;font-size:13px;padding:5px 10px;border-left:2px solid transparent;border-radius:0 5px 5px 0;transition:.15s}
+aside a:hover{color:var(--fg);background:var(--panel)}
+aside a.on{color:var(--accent);border-left-color:var(--accent);background:var(--accent-bg);font-weight:500}
+.toolrow{display:flex;gap:8px;margin-top:22px;flex-wrap:wrap}
+button{font-family:inherit;font-size:12px;color:var(--muted);background:transparent;border:0.5px solid var(--line);border-radius:7px;padding:5px 10px;cursor:pointer;transition:.15s}
+button:hover{color:var(--fg);border-color:var(--muted);background:var(--panel)}
+h1{font-size:29px;line-height:1.3;font-weight:600;margin:0 0 8px;letter-spacing:-.01em}
+h2{font-size:21px;font-weight:600;margin:52px 0 16px;padding-top:14px;border-top:1px solid var(--line);scroll-margin-top:20px}
+h3{font-size:16px;font-weight:600;margin:28px 0 10px}
+p{margin:0 0 14px}
+ul,ol{margin:0 0 14px;padding-left:22px}
+li{margin-bottom:6px}
+a{color:var(--accent)}
+code{font-family:var(--mono);font-size:.88em;background:var(--panel2);padding:1px 5px;border-radius:4px;word-break:break-word}
+pre{background:var(--panel);border:0.5px solid var(--line);border-radius:10px;padding:16px 18px;overflow-x:auto;font-family:var(--mono);font-size:12.5px;line-height:1.7;margin:0 0 16px}
+pre code{background:none;padding:0;font-size:inherit}
+.lead{font-size:16px;color:var(--muted);margin:0 0 20px}
+.status{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:12.5px;background:var(--panel);border:0.5px solid var(--line);border-radius:9px;padding:10px 14px;margin:0 0 22px;color:var(--muted)}
+.tag{font-size:11px;padding:2px 8px;border-radius:5px;background:var(--ok-bg);color:var(--ok);border:0.5px solid var(--ok-line);white-space:nowrap}
+.tag.amber{background:var(--amber-bg);color:var(--amber);border-color:transparent}
+.tag.blue{background:var(--accent-bg);color:var(--accent);border-color:var(--accent-line)}
+.callout{border-left:3px solid var(--accent);background:var(--accent-bg);padding:12px 16px;border-radius:0 9px 9px 0;margin:0 0 20px;font-size:14px}
+.callout.warn{border-left-color:var(--warn);background:var(--warn-bg)}
+.callout.ok{border-left-color:var(--ok);background:var(--ok-bg)}
+.callout p:last-child{margin-bottom:0}
+table{width:100%;border-collapse:collapse;font-size:13.5px;margin:0 0 18px}
+th,td{text-align:left;padding:9px 11px;border-bottom:0.5px solid var(--line);vertical-align:top}
+th{color:var(--muted);font-weight:500;background:var(--panel)}
+td code{font-size:12px}
+details{background:var(--panel);border:0.5px solid var(--line);border-radius:9px;padding:10px 14px;margin:0 0 12px}
+summary{cursor:pointer;font-size:14px;font-weight:500;color:var(--fg)}
+details[open] summary{margin-bottom:10px}
+details > :last-child{margin-bottom:0}
+.tldr{counter-reset:t;list-style:none;padding:0;margin:0 0 8px}
+.tldr li{counter-increment:t;position:relative;padding:0 0 0 32px;margin-bottom:10px;font-size:14.5px}
+.tldr li::before{content:counter(t);position:absolute;left:0;top:2px;width:21px;height:21px;border-radius:50%;background:var(--panel2);color:var(--muted);font-size:11px;display:flex;align-items:center;justify-content:center;font-family:var(--mono)}
+.kv{display:grid;grid-template-columns:120px 1fr;gap:7px 14px;font-size:13.5px;margin:0 0 16px}
+.kv dt{color:var(--muted)}
+.kv dd{margin:0}
+.map{font-size:12px;line-height:1.65}
+.qhead{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;margin:0 0 14px}
+.qhead .toolrow{margin:0}
+.quiz{border:0.5px solid var(--line);border-radius:10px;background:var(--bg);margin:0 0 9px;overflow:hidden}
+.quiz.open{border-color:var(--accent-line)}
+.qbtn{display:flex;width:100%;gap:11px;align-items:flex-start;text-align:left;border:0;border-radius:0;background:transparent;padding:12px 14px;color:var(--fg);font-size:14px;line-height:1.6}
+.qbtn:hover{background:var(--panel);border-color:transparent}
+.qnum{flex:0 0 auto;font-family:var(--mono);font-size:11px;color:var(--accent);background:var(--accent-bg);border-radius:5px;padding:2px 7px;margin-top:2px}
+.qtext{flex:1;min-width:0;font-weight:500}
+.hint{flex:0 0 auto;font-size:11px;color:var(--faint);margin-top:3px;white-space:nowrap}
+.quiz.open .hint{display:none}
+.myscore{font-size:11px;color:var(--ok);font-family:var(--mono);white-space:nowrap;margin-top:3px}
+.answer{display:none;border-top:0.5px solid var(--line);padding:14px 16px 15px;background:var(--panel)}
+.quiz.open .answer{display:block}
+.ans-label{font-size:11px;letter-spacing:.04em;color:var(--accent);font-weight:600;margin:0 0 7px}
+.answer p{font-size:14px;margin:0 0 10px}
+.keypoint{font-size:12.5px;color:var(--muted);border-left:2px solid var(--ok-line);padding-left:10px;margin:10px 0 0}
+.scorebar{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:13px;padding-top:11px;border-top:0.5px solid var(--line)}
+.scorebar .sc-label{font-size:11px;color:var(--faint);margin-right:2px}
+.sbtn{font-size:11.5px;padding:4px 9px}
+.sbtn.sel.s1{background:var(--warn-bg);color:var(--warn);border-color:var(--warn-line);font-weight:600}
+.sbtn.sel.s2{background:var(--amber-bg);color:var(--amber);border-color:transparent;font-weight:600}
+.sbtn.sel.s3{background:var(--ok-bg);color:var(--ok);border-color:var(--ok-line);font-weight:600}
+.arch{font-family:var(--mono);font-size:12px;line-height:1.6;color:var(--fg)}
+footer{margin-top:56px;padding-top:18px;border-top:1px solid var(--line);font-size:12.5px;color:var(--faint)}
+#totop{position:fixed;right:22px;bottom:22px;background:var(--bg);border:0.5px solid var(--line);border-radius:8px;padding:7px 11px;font-size:12px;display:none;z-index:40}
+@media(max-width:860px){
+  .wrap{display:block;padding:0 18px}
+  aside{position:static;width:auto;height:auto;border-right:0;border-bottom:1px solid var(--line);padding:18px 0 12px}
+  aside nav{display:flex;flex-wrap:wrap;gap:2px}
+  aside a{display:inline-block;border-left:0;border-bottom:2px solid transparent;border-radius:5px;padding:4px 9px}
+  aside a.on{border-left:0;border-bottom-color:var(--accent)}
+  .brand{margin-bottom:8px}
+  .toolrow{margin-top:12px}
+  main{padding:24px 0 70px;max-width:none}
+  h1{font-size:24px}
+  h2{font-size:19px;margin-top:38px}
+  .kv{grid-template-columns:110px 1fr}
+  .qhead{align-items:flex-start}
+}
+@media print{
+  aside,#progress,#totop,.toolrow,.hint,.scorebar{display:none!important}
+  .wrap{display:block;padding:0}
+  main{max-width:none;padding:0}
+  body{font-size:11pt}
+  h2{page-break-after:avoid}
+  table,.quiz,.callout{page-break-inside:avoid}
+  .answer{display:block!important;border:0;padding:8px 0 12px}
+}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+<div class="wrap">
+<aside>
+  <div class="brand">learning · 复习手册</div>
+  <nav id="toc">
+    <a href="#s0">怎么用 · 2 分钟</a>
+    <a href="#s1">1 一页纸核心</a>
+    <a href="#s2">2 六组对比速查</a>
+    <a href="#s3">3 十二道口播题自测</a>
+    <a href="#s4">4 综合架构题</a>
+    <a href="#s5">5 每遍怎么过</a>
+  </nav>
+  <div class="toolrow">
+    <button id="themeBtn" type="button">切换深色</button>
+    <button id="jumpBtn" type="button" style="display:none">回到上次</button>
+  </div>
+</aside>
+
+<main>
+<header>
+  <h1>AI Agent Skills · 复习手册</h1>
+  <p class="lead">这份手册不负责「讲全」，只负责「能反复过」。答案默认盖着——先合上屏幕自己说一遍，再翻面对照，别让眼睛假装成记忆。</p>
+  <div class="status">
+    <span class="tag">用途 · 反复自测</span>
+    <span class="tag blue">精炼版 · 一页纸核心</span>
+    <span>完整展开见《AI Agent Skills 学习与面试指南》；本手册是它的<b>抽题壳</b>，不是缩写版复读材料。</span>
+  </div>
+</header>
+
+<section id="s0">
+  <h2>怎么用 · 2 分钟</h2>
+  <div class="callout">
+    <p><b>一遍 = 不看答案把 12 道题说一遍。</b>说不清就翻面看要点，合上再讲一次。打分要狠：含糊给 2，卡壳给 1——自欺的代价是面试当场被问穿。</p>
+  </div>
+  <ol class="tldr">
+    <li><b>先看「一页纸核心」</b>：链路图 + 三个根本问题，这是所有答案的骨架，必须能默写。</li>
+    <li><b>过「六组对比」</b>：Skill 和 RAG / MCP / Tool / Rules / Hooks / Subagent 的区别，面试最容易混。</li>
+    <li><b>自测 12 题</b>：点题目翻面 → 对照 → 打 1 / 2 / 3。打分只记在本机，不排期。</li>
+    <li><b>再来一遍</b>：点「重置本遍」清掉自评，从卡壳的题重过。间隔复习的排期在抽题系统 <code>dist/index.html</code>，这里不重复造。</li>
+  </ol>
+  <p style="font-size:13px;color:var(--muted)">左上角目录跳转，右上角切深色；手机上目录横排。整份文件不联网、不依赖任何 CDN，双击就能开。</p>
+</section>
+
+<section id="s1">
+  <h2>1 一页纸核心</h2>
+  <p>先把这张图刻进脑子。后面所有问题，答到最后都要能回到这张图上——<b>Skill 不是孤立名词，是 Agent 这一层的一个部件</b>。</p>
+<pre class="map"><code>大语言模型（LLM）　　理解 · 推理 · 生成
+        │
+        ▼
+Agent　　　　　　　　任务理解 → 决策 → 编排
+        │
+        ├── Rules　　　　　遵守什么（常驻约束）
+        ├── Skills　　　　怎么做（按需加载的能力）
+        ├── RAG　　　　　　需要什么知识（检索事实）
+        ├── Tools　　　　 能做什么（read / write / exec）
+        ├── MCP　　　　　 怎么连外部能力（标准协议）
+        ├── Subagents　　 谁来做子任务（独立上下文）
+        └── Hooks　　　　 什么时候自动执行（事件触发）
+                 │
+                 ▼
+            执行 → 验证 → 交付</code></pre>
+  <h3>三个根本问题（答题时的落点）</h3>
+  <dl class="kv">
+    <dt>Agent 怎么知道<b>做什么</b>？</dt>
+    <dd>LLM 推理 + 任务规划 + 上下文。</dd>
+    <dt>Agent 怎么知道<b>怎么做</b>？</dt>
+    <dd>Rules（约束）+ Skills（方法）+ RAG（事实）。</dd>
+    <dt>Agent 怎么<b>真正完成</b>？</dt>
+    <dd>Tools + MCP + Subagents + Hooks + 执行环境。</dd>
+  </dl>
+  <div class="callout ok">
+    <p><b>三句话口诀：</b>做什么靠推理，怎么做靠知识与方法，做成靠工具和执行。讲任何概念前先定位它在这张图的哪一层——定位错了，答案一定绕。</p>
+  </div>
+  <h3>六种组件的分工</h3>
+  <table>
+    <thead><tr><th>组件</th><th>解决什么</th><th>类比</th></tr></thead>
+    <tbody>
+      <tr><td>Rules / AGENTS.md</td><td>应遵守什么</td><td>公司制度</td></tr>
+      <tr><td>Skills</td><td>某项工作怎么做</td><td>专业操作手册</td></tr>
+      <tr><td>Tools</td><td>能执行什么</td><td>工具箱</td></tr>
+      <tr><td>MCP</td><td>怎么连接外部工具和数据</td><td>标准化接口</td></tr>
+      <tr><td>Hooks</td><td>什么时候自动执行</td><td>自动化触发器</td></tr>
+      <tr><td>Subagents</td><td>谁负责某个子任务</td><td>专业岗位</td></tr>
+      <tr><td>Workflows</td><td>步骤怎么串成流程</td><td>流水线</td></tr>
+    </tbody>
+  </table>
+  <p style="font-size:13px;color:var(--muted)">Workflows 不一定是独立软件——Agent 提示、Skill、工作流引擎或代码都能承担。它的作用是<b>编排</b>，不是替代上面的能力。</p>
+</section>
+
+<section id="s2">
+  <h2>2 六组对比速查</h2>
+  <p>最容易混的就是这几组。记法：<b>先说对方解决什么，再说 Skill 解决什么，最后给一句区分</b>——三句话答完，不展开。</p>
+  <table>
+    <thead><tr><th style="width:15%">对比</th><th style="width:31%">对方负责</th><th style="width:31%">Skill 负责</th><th>一句话区分</th></tr></thead>
+    <tbody>
+      <tr><td><b>vs RAG</b></td><td>知识从哪来：检索文档，给事实依据</td><td>任务怎么做：给流程和判断标准</td><td>一个喂事实，一个给动作</td></tr>
+      <tr><td><b>vs MCP</b></td><td>怎么连接外部工具和数据：标准协议</td><td>拿到数据后按什么规则办事</td><td>协议 vs 说明书</td></tr>
+      <tr><td><b>vs Tools / FC</b></td><td>真正执行操作：<code>read_file</code>、<code>execute_command</code></td><td>该调什么、调完怎么验</td><td>能力 vs 使用说明</td></tr>
+      <tr><td><b>vs Rules</b></td><td>项目长期通用约束：架构、编码规范</td><td>特定任务的作业流程，按需加载</td><td>常驻制度 vs 按需手册</td></tr>
+      <tr><td><b>vs Hooks</b></td><td>事件触发时自动跑检查，不需 LLM 决策</td><td>告诉 AI 应该检查什么</td><td>自动执行 vs 提醒</td></tr>
+      <tr><td><b>vs Subagent</b></td><td>独立承担子任务，有自己的上下文和权限</td><td>可被主 Agent 或子 Agent 加载复用</td><td>谁干 vs 怎么干</td></tr>
+    </tbody>
+  </table>
+  <div class="callout warn">
+    <p><b>最容易答偏的一句：</b>别把 Skill 说成「一种工具」或「一段自动执行的代码」。它是<b>给 Agent 看的指令与资料</b>；真正执行的是 Tools / 运行环境。能带脚本，但脚本靠工具调用。</p>
+  </div>
+</section>
+
+<section id="s3">
+  <h2>3 十二道口播题自测</h2>
+  <p><b>点题目翻面</b>，先看自己的回答够不够 30 秒讲完，再对照要点。答完在题底打分——这是本遍唯一需要动脑的动作。</p>
+  <div class="qhead">
+    <div class="status" style="margin:0">本遍自评 <b id="quizcount">0 / 12</b> · 打分只记在本机</div>
+    <div class="toolrow">
+      <button type="button" id="openAll">展开全部</button>
+      <button type="button" id="closeAll">收起全部</button>
+      <button type="button" id="resetBtn">重置本遍</button>
+    </div>
+  </div>
+
+  <div class="quiz" id="q1">
+    <button type="button" class="qbtn"><span class="qnum">Q1</span><span class="qtext">什么是 Agent Skill？为什么需要它？</span><span class="myscore" hidden></span><span class="hint">点题目翻面 ▾</span></button>
+    <div class="answer">
+      <p class="ans-label">30 秒口播</p>
+      <p>Skill 是可复用的专业能力封装：结构化指令 + 参考资料 + 可选脚本。它让「这件事该怎么做」不靠每次重新交代，而是按需加载。传统提示词是一次性的，Skill 把经验沉淀下来，跨任务复用。</p>
+      <p class="keypoint">落点回第一张图：它是 Agent 的一个部件，不是模型参数，也不是可执行程序。</p>
+      <div class="scorebar"><span class="sc-label">本遍自评</span><button type="button" class="sbtn s1" data-s="1">1 没答上</button><button type="button" class="sbtn s2" data-s="2">2 说清了</button><button type="button" class="sbtn s3" data-s="3">3 能扛追问</button></div>
+    </div>
+  </div>
+
+  <div class="quiz" id="q2">
+    <button type="button" class="qbtn"><span class="qnum">Q2</span><span class="qtext">Skill 是怎么被 Agent 发现和加载的？</span><span class="myscore" hidden></span><span class="hint">点题目翻面 ▾</span></button>
+    <div class="answer">
+      <p class="ans-label">30 秒口播</p>
+      <p>三段。发现：Agent 读 name / description 元数据，判断任务是否匹配。加载：命中后读 SKILL.md 的具体指令。执行：LLM 按指引结合当前任务和工具干活。为省上下文，详细资料放 references、脚本放 scripts，需要时才读或跑。</p>
+      <p class="keypoint">收尾加一句「具体机制看平台」，别答成某一家的实现细节。</p>
+      <div class="scorebar"><span class="sc-label">本遍自评</span><button type="button" class="sbtn s1" data-s="1">1 没答上</button><button type="button" class="sbtn s2" data-s="2">2 说清了</button><button type="button" class="sbtn s3" data-s="3">3 能扛追问</button></div>
+    </div>
+  </div>
+
+  <div class="quiz" id="q3">
+    <button type="button" class="qbtn"><span class="qnum">Q3</span><span class="qtext">为什么要渐进式加载，不一次全塞进上下文？</span><span class="myscore" hidden></span><span class="hint">点题目翻面 ▾</span></button>
+    <div class="answer">
+      <p class="ans-label">30 秒口播</p>
+      <p>全塞进去有三个代价：token 按量线性涨；无关规则互相干扰；长上下文中间部分容易被忽略。渐进式加载分三层——元数据 → SKILL.md → references / scripts，只在本任务真正需要时才深入。</p>
+      <p class="keypoint">关键词是「按需」，目的既是省钱也是降噪——两个字：省、准。</p>
+      <div class="scorebar"><span class="sc-label">本遍自评</span><button type="button" class="sbtn s1" data-s="1">1 没答上</button><button type="button" class="sbtn s2" data-s="2">2 说清了</button><button type="button" class="sbtn s3" data-s="3">3 能扛追问</button></div>
+    </div>
+  </div>
+
+  <div class="quiz" id="q4">
+    <button type="button" class="qbtn"><span class="qnum">Q4</span><span class="qtext">Skill 和 RAG 有什么区别？</span><span class="myscore" hidden></span><span class="hint">点题目翻面 ▾</span></button>
+    <div class="answer">
+      <p class="ans-label">30 秒口播</p>
+      <p>RAG 解决知识从哪来：检索文档，给事实依据。Skill 解决任务怎么做：给流程和判断标准。两者能组合——Skill 定流程，流程里某一步让 RAG 喂资料，LLM 综合后调工具执行。</p>
+      <p class="keypoint">一个喂事实，一个给动作。可加例子：Skill 说「事务要检查边界」，RAG 找出项目里事务设计文档。</p>
+      <div class="scorebar"><span class="sc-label">本遍自评</span><button type="button" class="sbtn s1" data-s="1">1 没答上</button><button type="button" class="sbtn s2" data-s="2">2 说清了</button><button type="button" class="sbtn s3" data-s="3">3 能扛追问</button></div>
+    </div>
+  </div>
+
+  <div class="quiz" id="q5">
+    <button type="button" class="qbtn"><span class="qnum">Q5</span><span class="qtext">Skill 和 MCP 有什么区别？</span><span class="myscore" hidden></span><span class="hint">点题目翻面 ▾</span></button>
+    <div class="answer">
+      <p class="ans-label">30 秒口播</p>
+      <p>Skill 是能力与方法的封装，回答「怎么做」；MCP 是连接 AI 应用与外部工具、数据的开放协议，回答「怎么连、怎么调」。比如退款 Skill 讲业务规则，MCP Server 暴露查订单、查退款记录这些工具。</p>
+      <p class="keypoint">协议 vs 说明书。补一句：MCP 不是唯一的工具调用方式，宿主原生工具也算。</p>
+      <div class="scorebar"><span class="sc-label">本遍自评</span><button type="button" class="sbtn s1" data-s="1">1 没答上</button><button type="button" class="sbtn s2" data-s="2">2 说清了</button><button type="button" class="sbtn s3" data-s="3">3 能扛追问</button></div>
+    </div>
+  </div>
+
+  <div class="quiz" id="q6">
+    <button type="button" class="qbtn"><span class="qnum">Q6</span><span class="qtext">Skill 和 Tool / Function Calling 有什么关系？</span><span class="myscore" hidden></span><span class="hint">点题目翻面 ▾</span></button>
+    <div class="answer">
+      <p class="ans-label">30 秒口播</p>
+      <p>Tool 提供具体操作能力：读写文件、执行命令、查数据库。Skill 提供使用这些能力的指引：改完先编译、再跑相关测试、失败要分析原因。LLM 决定调不调，Agent 管理执行过程。</p>
+      <p class="keypoint">Skill 是说明，Tool 是能力。SKILL.md 自己不会执行，要靠工具跑脚本。</p>
+      <div class="scorebar"><span class="sc-label">本遍自评</span><button type="button" class="sbtn s1" data-s="1">1 没答上</button><button type="button" class="sbtn s2" data-s="2">2 说清了</button><button type="button" class="sbtn s3" data-s="3">3 能扛追问</button></div>
+    </div>
+  </div>
+
+  <div class="quiz" id="q7">
+    <button type="button" class="qbtn"><span class="qnum">Q7</span><span class="qtext">为什么不直接把所有规则写进 AGENTS.md？</span><span class="myscore" hidden></span><span class="hint">点题目翻面 ▾</span></button>
+    <div class="answer">
+      <p class="ans-label">30 秒口播</p>
+      <p>AGENTS.md 放长期通用约束：架构、编码规范、技术选型，常驻。Skill 放特定任务的知识与流程，按需加载。全堆进去会文件膨胀、上下文冗余、不同任务的规则互相混杂。</p>
+      <p class="keypoint">通用常驻 + 专业按需，分层管理。别答成「AGENTS.md 不好」——它只是职责不同。</p>
+      <div class="scorebar"><span class="sc-label">本遍自评</span><button type="button" class="sbtn s1" data-s="1">1 没答上</button><button type="button" class="sbtn s2" data-s="2">2 说清了</button><button type="button" class="sbtn s3" data-s="3">3 能扛追问</button></div>
+    </div>
+  </div>
+
+  <div class="quiz" id="q8">
+    <button type="button" class="qbtn"><span class="qnum">Q8</span><span class="qtext">Skill 能自动执行代码吗？</span><span class="myscore" hidden></span><span class="hint">点题目翻面 ▾</span></button>
+    <div class="answer">
+      <p class="ans-label">30 秒口播</p>
+      <p>SKILL.md 本身不会执行，它是指令。带 scripts/ 时，Agent 通过宿主的执行工具去调脚本——真正执行的是工具或运行环境。所以写「我跑过测试」之前，得确认真跑了。</p>
+      <p class="keypoint">这条对应你自己的规矩：不接受「已改完但没验证」。</p>
+      <div class="scorebar"><span class="sc-label">本遍自评</span><button type="button" class="sbtn s1" data-s="1">1 没答上</button><button type="button" class="sbtn s2" data-s="2">2 说清了</button><button type="button" class="sbtn s3" data-s="3">3 能扛追问</button></div>
+    </div>
+  </div>
+
+  <div class="quiz" id="q9">
+    <button type="button" class="qbtn"><span class="qnum">Q9</span><span class="qtext">怎么设计一个好的 Skill？</span><span class="myscore" hidden></span><span class="hint">点题目翻面 ▾</span></button>
+    <div class="answer">
+      <p class="ans-label">30 秒口播</p>
+      <p>五点：职责明确、场景清晰；description 准确便于发现；步骤具体可操作；复杂资料按需加载不撑爆上下文；带验证与异常处理，能判断任务是否真的完成。</p>
+      <p class="keypoint">description 写太宽会乱触发，写太窄该用时找不到——这一句最容易被追问。</p>
+      <div class="scorebar"><span class="sc-label">本遍自评</span><button type="button" class="sbtn s1" data-s="1">1 没答上</button><button type="button" class="sbtn s2" data-s="2">2 说清了</button><button type="button" class="sbtn s3" data-s="3">3 能扛追问</button></div>
+    </div>
+  </div>
+
+  <div class="quiz" id="q10">
+    <button type="button" class="qbtn"><span class="qnum">Q10</span><span class="qtext">多个 Skill 同时适用怎么办？</span><span class="myscore" hidden></span><span class="hint">点题目翻面 ▾</span></button>
+    <div class="answer">
+      <p class="ans-label">30 秒口播</p>
+      <p>先靠清晰的 description 和职责边界减少重叠；一个任务涉及多领域就编排组合——需求分析 → 开发 → 代码审查；执行顺序由 Agent 或显式 workflow 决定。</p>
+      <p class="keypoint">关键词是「组合」而不是「合并」——不要做一个包罗万象的大 Skill。</p>
+      <div class="scorebar"><span class="sc-label">本遍自评</span><button type="button" class="sbtn s1" data-s="1">1 没答上</button><button type="button" class="sbtn s2" data-s="2">2 说清了</button><button type="button" class="sbtn s3" data-s="3">3 能扛追问</button></div>
+    </div>
+  </div>
+
+  <div class="quiz" id="q11">
+    <button type="button" class="qbtn"><span class="qnum">Q11</span><span class="qtext">Skill 会过期吗？能替代微调吗？</span><span class="myscore" hidden></span><span class="hint">点题目翻面 ▾</span></button>
+    <div class="answer">
+      <p class="ans-label">30 秒口播</p>
+      <p>会过期。流程、技术栈、业务规则随代码变化而失效，所以要版本管理、定期审查，尽量引用项目里的权威规范而不是复制。不能替代微调：Skill 在推理期注入指令与知识，不改模型参数；微调改参数、改固有行为。</p>
+      <p class="keypoint">工作流程和项目规范优先用 Skill；要改模型固有行为才考虑微调。</p>
+      <div class="scorebar"><span class="sc-label">本遍自评</span><button type="button" class="sbtn s1" data-s="1">1 没答上</button><button type="button" class="sbtn s2" data-s="2">2 说清了</button><button type="button" class="sbtn s3" data-s="3">3 能扛追问</button></div>
+    </div>
+  </div>
+
+  <div class="quiz" id="q12">
+    <button type="button" class="qbtn"><span class="qnum">Q12</span><span class="qtext">怎么判断一个 Skill 到底有没有效？</span><span class="myscore" hidden></span><span class="hint">点题目翻面 ▾</span></button>
+    <div class="answer">
+      <p class="ans-label">30 秒口播</p>
+      <p>不能只看文档写得全不全，要看实际任务效果。用同一组测试任务对比使用前后：需求遗漏率、缺陷数、测试通过情况、返工次数、耗时、规则遵循度。建固定评测集持续回归。</p>
+      <p class="keypoint">跟你做 RAG 一个思路——没有数字，所有优化都是猜。</p>
+      <div class="scorebar"><span class="sc-label">本遍自评</span><button type="button" class="sbtn s1" data-s="1">1 没答上</button><button type="button" class="sbtn s2" data-s="2">2 说清了</button><button type="button" class="sbtn s3" data-s="3">3 能扛追问</button></div>
+    </div>
+  </div>
+</section>
+
+<section id="s4">
+  <h2>4 综合架构题</h2>
+  <p><b>「如果让你设计一套企业级 AI Coding 系统，你会怎么设计？」</b>——先自己画一遍，再展开对照。这题把前面 12 题串成一张图。</p>
+  <details>
+    <summary>展开参考答案（先别点，画完再说）</summary>
+<pre class="arch"><code>用户需求
+   │
+   ▼
+Agent / LLM　　理解需求 · 推理决策 · 任务编排
+   │
+   ├── Skills　　　 专业知识与执行方法
+   ├── Rules　　　　长期规则与约束
+   ├── Tools / MCP　外部操作能力
+   ├── Subagents　　专业任务分工
+   └── 执行与验证　 Hooks · 测试 · CI/CD · 代码审查
+   │
+   ▼
+交付结果</code></pre>
+    <p><b>强调各司其职：</b>Agent 是任务组织者与决策者，LLM 提供推理；Skill 给专业知识与方法；Tool / MCP 提供实际操作；Subagent 做任务分工；Hooks / CI 提供自动化质量保障。</p>
+    <p class="keypoint">别把 Skill 说成系统的核心——它是被 Agent 调用的一层能力。这句话最能暴露有没有真懂。</p>
+  </details>
+</section>
+
+<section id="s5">
+  <h2>5 每遍怎么过</h2>
+  <table>
+    <thead><tr><th style="width:20%">场合</th><th>动作</th></tr></thead>
+    <tbody>
+      <tr><td><b>第一遍</b></td><td>看完核心图和对比表，再逐题自测，允许翻面。目的是搭骨架。</td></tr>
+      <tr><td><b>第二遍起</b></td><td>只自测，不回看核心图。卡壳的题打 1，说清了打 2，能扛追问打 3。</td></tr>
+      <tr><td><b>每周日</b></td><td>把打 1 / 2 的题挑出来重过；连对三次的题才敢算「会了」。</td></tr>
+      <tr><td><b>阶段验收后</b></td><td>想长期留的整理进 <code>cqlql-notes/docs/ai/</code>；本手册和卡片是练习态，不进笔记站。</td></tr>
+    </tbody>
+  </table>
+  <div class="callout warn">
+    <p><b>边界要说清：</b>这里的打分只做本机自评，<b>不排复习日期</b>；真正按 1 / 2 / 3 排「明天 / 3 天后 / 7 天后」的是抽题系统 <code>dist/index.html</code>。另外别把学习手册直接塞进笔记站——<code>notes-rag</code> 拿笔记站当语料，练习材料混进去会让评估集 recall 虚高。</p>
+  </div>
+</section>
+
+<footer>
+  <p>来源：《AI Agent Skills 学习与面试指南》（learning 分支）。本手册为抽题式精炼版，答案按「30 秒口播」重写，非原文摘抄。主题与交互沿用 <code>RAG链路入门.html</code>。</p>
+</footer>
+</main>
+</div>
+<button id="totop" type="button">回到顶部</button>
+<script>
+(function(){
+  var root=document.documentElement;
+  var store={get:function(k){try{return localStorage.getItem(k)}catch(e){return null}},
+             set:function(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
+  var KEY='skills-handbook-';
+
+  var saved=store.get(KEY+'theme');
+  if(saved==='dark'){root.setAttribute('data-theme','dark')}
+  var themeBtn=document.getElementById('themeBtn');
+  function syncTheme(){themeBtn.textContent=root.getAttribute('data-theme')==='dark'?'切换浅色':'切换深色'}
+  syncTheme();
+  themeBtn.addEventListener('click',function(){
+    var next=root.getAttribute('data-theme')==='dark'?'light':'dark';
+    root.setAttribute('data-theme',next);store.set(KEY+'theme',next);syncTheme();
+  });
+
+  var links=[].slice.call(document.querySelectorAll('#toc a'));
+  var sections=links.map(function(a){return document.querySelector(a.getAttribute('href'))}).filter(Boolean);
+  function setActive(id){links.forEach(function(a){a.classList.toggle('on',a.getAttribute('href')==='#'+id)})}
+  if('IntersectionObserver' in window){
+    var io=new IntersectionObserver(function(entries){
+      entries.forEach(function(en){if(en.isIntersecting){setActive(en.target.id);store.set(KEY+'last','#'+en.target.id)}});
+    },{rootMargin:'-10% 0px -70% 0px',threshold:0});
+    sections.forEach(function(s){io.observe(s)});
+  }
+  links.forEach(function(a){a.addEventListener('click',function(){setActive(a.getAttribute('href').slice(1))})});
+
+  var jumpBtn=document.getElementById('jumpBtn');
+  var last=store.get(KEY+'last');
+  if(last&&document.querySelector(last)){
+    var target=document.querySelector('#toc a[href="'+last+'"]');
+    jumpBtn.style.display='inline-block';
+    jumpBtn.textContent='回到上次 · '+(target?target.textContent.replace(/^\d+\s*/,''):'');
+    jumpBtn.addEventListener('click',function(){document.querySelector(last).scrollIntoView({behavior:'smooth'})});
+  }
+
+  var quizzes=[].slice.call(document.querySelectorAll('.quiz'));
+  var counter=document.getElementById('quizcount');
+  var scores={};
+  try{scores=JSON.parse(store.get(KEY+'scores')||'{}')||{}}catch(e){scores={}}
+
+  function paint(){
+    var n=0;
+    quizzes.forEach(function(q){
+      var id=q.id,s=scores[id],lbl=q.querySelector('.myscore');
+      q.querySelectorAll('.sbtn').forEach(function(b){b.classList.toggle('sel',Number(b.getAttribute('data-s'))===Number(s))});
+      if(s){n++;lbl.textContent='已评 '+s;lbl.hidden=false}else{lbl.hidden=true;lbl.textContent=''}
+    });
+    counter.textContent=n+' / '+quizzes.length;
+    store.set(KEY+'scores',JSON.stringify(scores));
+  }
+  paint();
+
+  quizzes.forEach(function(q){
+    q.querySelector('.qbtn').addEventListener('click',function(){q.classList.toggle('open')});
+    q.querySelectorAll('.sbtn').forEach(function(b){
+      b.addEventListener('click',function(e){
+        e.stopPropagation();
+        var s=Number(b.getAttribute('data-s'));
+        scores[q.id]=(scores[q.id]===s)?null:s;
+        if(!scores[q.id])delete scores[q.id];
+        paint();
+      });
+    });
+  });
+
+  document.getElementById('openAll').addEventListener('click',function(){quizzes.forEach(function(q){q.classList.add('open')})});
+  document.getElementById('closeAll').addEventListener('click',function(){quizzes.forEach(function(q){q.classList.remove('open')})});
+  var reset=document.getElementById('resetBtn'),armed=false;
+  reset.addEventListener('click',function(){
+    if(!armed){armed=true;reset.textContent='再点一次确认';setTimeout(function(){armed=false;reset.textContent='重置本遍'},2600);return}
+    scores={};paint();armed=false;reset.textContent='重置本遍';
+  });
+
+  var prog=document.getElementById('progress');
+  var totop=document.getElementById('totop');
+  function onScroll(){
+    var h=document.documentElement.scrollHeight-window.innerHeight;
+    prog.style.width=(h>0?(window.scrollY/h*100):0)+'%';
+    totop.style.display=window.scrollY>500?'block':'none';
+  }
+  window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+  totop.addEventListener('click',function(){window.scrollTo({top:0,behavior:'smooth'})});
+})();
+</script>
+</body>
+</html>
