@@ -233,7 +233,12 @@ footer{margin-top:56px;padding-top:18px;border-top:1px solid var(--line);font-si
   <div class="steppane on" data-i="0">
     <span class="phase">准备一次 · ingest.py</span>
     <h4>1 · 把一篇笔记拆成小卡片</h4>
-    <p>大模型一次读不下 637 篇笔记，所以按标题把每篇切成不超过 512 字的小块。每块都带一张「我来自哪篇」的标签，叫 <code>source</code>，后面认亲全靠它。</p>
+    <p>大模型一次读不下 637 篇笔记，所以要切成小块。切分是<b>两层</b>，别理解成「只按标题切」：</p>
+    <ul>
+      <li><b>第一层 · 按标题切</b>：<code>#</code>~<code>######</code> 每个标题开一个新节，一节一块，同时记下标题路径（<code>## A / ### B</code>）。代码块里的 <code>#</code> 不算标题。</li>
+      <li><b>第二层 · 按长度兜底</b>：某一节超过 512 字，才<b>在这一节内部</b>再切 —— 优先在段落边界断开，相邻块重叠 51 字，断点避开代码块（宁可把块尾推到代码块之后，最多 2×512 字，也不产出一块几千字的巨型块）。</li>
+    </ul>
+    <p>实战里第二层很少触发：637 篇切成 6696 块、平均 367 字，说明大多数节本身就短于 512，边界基本都是标题给的。每块带两张「我来自哪」的凭证：<code>source</code>（相对语料目录的路径，认亲全靠它）和 <code>heading</code>（标题路径）；标题路径还会拼到正文最前面，让向量也吃得到「这块在讲哪一节」。代价是重叠只在节内生效，跨标题边界没有重叠 —— 答案正好横跨两个小节时，前后接不上。</p>
     <div class="io">
       <div class="iobox"><div class="lbl">输入</div><pre><code>note/docs/ 下 637 篇 md
 纯文本约 3 MB
@@ -251,7 +256,7 @@ meta.jsonl 第一行：
   "heading": "# WebRTC API",
   "text": "# WebRTC API\n..." }</code></pre></div>
     </div>
-    <p class="note"><b>对应代码</b>　src/notes_rag/chunker.py · chunk_file()；参数在 <code>.env</code>，改参数不改代码。<b>注意：</b>语料是 note 分支的 <code>note/docs/</code>，不是 rag 分支的 <code>docs/</code>；文档里的「632 篇」是旧数，笔记在长。<code>source</code> 是相对语料目录的路径，改切分别改这个格式。</p>
+    <p class="note"><b>对应代码</b>　src/notes_rag/chunker.py · chunk_file()（第一层 <code>_iter_sections()</code>、第二层 <code>split_text()</code>）；参数在 <code>.env</code>，改参数不改代码。<b>注意：</b>512 是对<b>正文</b>的上限，标题前缀是切完之后才拼上去的，所以最终一块可能略超 512。语料是 note 分支的 <code>note/docs/</code>，不是 rag 分支的 <code>docs/</code>；文档里的「632 篇」是旧数，笔记在长。<code>source</code> 是相对语料目录的路径，改切分别改这个格式。</p>
   </div>
 
   <div class="steppane" data-i="1">
