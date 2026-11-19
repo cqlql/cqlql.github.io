@@ -1,6 +1,10 @@
+> 状态：**现行**（2026-11-19）
+
 # 大模型应用 · 学习训练场
 
 > 不是笔记本，是训练场。笔记是副产品，能讲出来才是产物。
+
+> AI 编码助手：动手前先读 [`AGENTS.md`](AGENTS.md) —— 已有工具链清单 + 红线，别重写生成器、别手改生成物。
 
 配套计划：[`resume/学习计划-RAG与Agent.md`](../resume/学习计划-RAG与Agent.md)
 配套项目：[`notes-rag`](../notes-rag/README.md) —— 卡片里那些「我的数字」，全靠它跑出来
@@ -77,9 +81,12 @@ learning/
 ├── index.html          ← 双击这个：导航页（今日复习 / 手册 / 台账）
 ├── dist/index.html     ← 复习抽题页（rebuild.bat 生成，别手改）
 ├── rebuild.bat         ← 改完卡片双击这个
-├── 手册/                ← 交互式手册，单文件双击即开
+├── 手册/                ← 讲义与手册，单文件双击即开
 │   ├── RAG链路入门.html
-│   └── AI-Agent-Skills-复习手册.html
+│   ├── AI-Agent-Skills-复习手册.html   ← 抽题自测版
+│   └── AI-Agent-Skills-学习与面试指南.html  ← 完整讲义（由 md 生成）
+├── AI-Agent-Skills-学习与面试指南.md   ← 完整讲义的源文件
+├── rebuild-guide.bat   ← 改完讲义 md 双击这个，重新生成 HTML
 ├── cards/              ← 卡片在这里，一卡一问
 │   ├── 01-rag/         （7 张）
 │   ├── 02-agent/       （6 张）

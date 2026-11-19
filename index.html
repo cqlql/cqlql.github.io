@@ -39,7 +39,7 @@ section{margin-bottom:42px}
 /* 今日复习：主入口 */
 .hero{display:block;border:1px solid var(--accent);background:var(--accent-bg);border-radius:14px;padding:22px 26px;transition:.16s;position:relative}
 .hero:hover{transform:translateY(-2px);box-shadow:0 6px 22px rgba(24,95,165,.12)}
-.hero:focus-visible,.card:focus-visible,.linkitem:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.hero:focus-visible,.card:focus-visible,.linkitem:focus-visible,.sourcebar:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
 .hero .phase{display:inline-block;font-size:11px;padding:2px 9px;border-radius:999px;background:var(--bg);color:var(--accent);border:0.5px solid var(--accent-line);margin-bottom:10px}
 .hero-title{display:block;font-size:26px;font-weight:600;color:var(--accent);line-height:1.35;margin-bottom:5px}
 .hero-sub{display:block;font-size:14px;color:var(--fg);margin-bottom:10px}
@@ -54,6 +54,10 @@ section{margin-bottom:42px}
 .card-title{display:block;font-size:17px;font-weight:600;color:var(--fg);line-height:1.4;margin-bottom:7px}
 .card-desc{display:block;font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:13px}
 .card-cta{display:block;font-size:12.5px;color:var(--accent);font-weight:500}
+.sourcebar{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;margin-top:12px;padding:10px 14px;border:0.5px dashed var(--accent-line);border-radius:9px;background:var(--bg);font-size:12.5px;color:var(--muted)}
+.sourcebar:hover{border-color:var(--accent);color:var(--fg)}
+.sourcebar b{font-size:12px;color:var(--accent);font-weight:600;white-space:nowrap}
+.sourcebar code{font-family:var(--mono);font-size:11.5px;color:var(--fg)}
 
 /* 台账轻链接 */
 .links{display:grid;grid-template-columns:1fr 1fr;gap:8px}
@@ -96,7 +100,7 @@ footer{margin-top:50px;padding-top:18px;border-top:1px solid var(--line);font-si
 
   <section>
     <h2>系统过一遍 · 手册</h2>
-    <p class="section-note">想搞清楚一整条链路时看手册；碎片时间刷题用上面的复习页。</p>
+    <p class="section-note">按章细读看完整讲义；碎片时间刷题用复习页。</p>
     <div class="grid">
       <a class="card" href="手册/RAG链路入门.html">
         <span class="card-tag">入门 · 约 15 分钟</span>
@@ -110,7 +114,16 @@ footer{margin-top:50px;padding-top:18px;border-top:1px solid var(--line);font-si
         <span class="card-desc">一页纸链路图 + 六组对比 + 12 道口播题。答案默认藏起来，先说再翻，打完分存本机。</span>
         <span class="card-cta">打开手册 →</span>
       </a>
+      <a class="card" href="手册/AI-Agent-Skills-学习与面试指南.html">
+        <span class="card-tag">完整讲义 · 8 章</span>
+        <span class="card-title">Skills 学习与面试指南</span>
+        <span class="card-desc">原始讲义的阅读版：原理、加载机制、六组对比、面试题和七天计划，侧边目录按章跳。</span>
+        <span class="card-cta">打开讲义 →</span>
+      </a>
     </div>
+    <a class="sourcebar" href="AI-Agent-Skills-学习与面试指南.md">
+      <b>原件存档</b><code>AI-Agent-Skills-学习与面试指南.md</code><span>完整讲义的 markdown 源文件</span>
+    </a>
   </section>
 
   <section>
