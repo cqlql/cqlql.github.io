@@ -10,7 +10,9 @@ set -u
 ROOT="${1:-.}"
 A="$ROOT/AGENTS.md"
 MAX_LINES=220
-MAX_BYTES=16896   # 16.5KB
+# 13KB = 实测注入窗口（2026-11-23 两次会话观测截断点 ≈12.8~13.1KB，见 references/evidence.md #20）。
+# 旧值 16896（16.5KB）是估的，会让最后 3.5KB 静默不可见 —— 判 PASS 但红线读不到。
+MAX_BYTES=13312   # 13KB
 fails=0
 
 pass() { printf '  [PASS] %-24s %s\n' "$1" "$2"; }
@@ -77,9 +79,9 @@ kb=$(awk -v b="$bytes" 'BEGIN{printf "%.1f", b/1024}')
   || fail "行数" "$lines > $MAX_LINES（超 $((lines-MAX_LINES)) 行）"
 
 if [ "$bytes" -le "$MAX_BYTES" ]; then
-  pass "体积" "${kb}KB ≤ 16.5KB"
+  pass "体积" "${kb}KB ≤ 13KB"
 else
-  fail "体积" "${kb}KB > 16.5KB（超 $(awk -v b="$bytes" -v m="$MAX_BYTES" 'BEGIN{printf "%.1f", (b-m)/1024}')KB）"
+  fail "体积" "${kb}KB > 13KB（超 $(awk -v b="$bytes" -v m="$MAX_BYTES" 'BEGIN{printf "%.1f", (b-m)/1024}')KB）"
 fi
 
 # 注：git-bash 下 grep 对 emoji 匹配不可靠，用 awk 的 gsub 计数
@@ -183,7 +185,7 @@ else
   echo
   echo "下一步（按阶段，不要一次全补 —— 见 SKILL.md §0）："
   [ -f "$A" ] && [ "$bytes" -gt "$MAX_BYTES" ] && \
-    echo "  · 体积超限：压缩 §2 摘要列，别删红线；或把路由表压到 5 行"
+    echo "  · 体积超限：先把「查表用」的模块索引搬到 docs/index.md，别动红线；路由表压到 5 行"
   grep -qE '^#{2,3} .*任务路由' "$A" 2>/dev/null || \
     echo "  · 阶段 0：加任务路由表（骨架见 assets/AGENTS-template.md）"
   [ -f "$ROOT/docs/code-design.md" ] || \
