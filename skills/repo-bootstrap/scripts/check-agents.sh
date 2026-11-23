@@ -92,6 +92,12 @@ else
   warn "🔴 条数" "$reds（建议 10~20；满屏红点 = 没有红点）"
 fi
 
+# 从 stdin 提取本仓 docs/ 路径（排除 pass-up.xxx/docs/ 这类跨仓路径）
+doc_paths() {
+  grep -oE '(^|[^A-Za-z0-9_./-])docs/[A-Za-z0-9_./-]*\.md' \
+    | sed 's/^[^d]*//' | sort -u
+}
+
 # ── 任务路由表 ────────────────────────────────────────────────
 if grep -qE '^#{2,3} .*任务路由' "$A"; then
   rows=$(awk '/^#{2,3} .*任务路由/{f=1;next} /^## /{f=0} f' "$A" | grep -c '^|' || true)
@@ -103,8 +109,7 @@ if grep -qE '^#{2,3} .*任务路由' "$A"; then
   fi
   # 表内引用的 docs 文件是否真实存在
   missing=""
-  for f in $(awk '/^#{2,3} .*任务路由/{f=1;next} /^## /{f=0} f' "$A" \
-             | grep -o 'docs/[A-Za-z0-9_./-]*\.md' | sort -u); do
+  for f in $(awk '/^#{2,3} .*任务路由/{f=1;next} /^## /{f=0} f' "$A" | doc_paths); do
     [ -f "$ROOT/$f" ] || missing="$missing $f"
   done
   if [ -z "$missing" ]; then
@@ -114,6 +119,22 @@ if grep -qE '^#{2,3} .*任务路由' "$A"; then
   fi
 else
   fail "任务路由表" "未找到「## 任务路由」节"
+fi
+
+# ── 模块索引指针（docs/index.md）────────────────────────────────
+# 索引的真风险是「过期」：指针指向已删/改名的文件。每次跑都守，不依赖某次会话的运气。
+if [ -f "$ROOT/docs/index.md" ]; then
+  rows=$(grep -c '^| ' "$ROOT/docs/index.md" 2>/dev/null || echo 0)
+  rows=$((rows>2 ? rows-2 : 0))
+  missing=""
+  for f in $(doc_paths < "$ROOT/docs/index.md"); do
+    [ -f "$ROOT/$f" ] || missing="$missing $f"
+  done
+  if [ -z "$missing" ]; then
+    pass "模块索引指针" "$rows 行，全部存在"
+  else
+    fail "模块索引指针" "悬空:$missing"
+  fi
 fi
 
 # ── 实例文档 ─────────────────────────────────────────────────
