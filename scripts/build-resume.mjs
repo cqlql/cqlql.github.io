@@ -5,6 +5,9 @@
  *
  * 用法：node scripts/build-resume.mjs
  * 输出：dist/<原名>.html
+ *
+ * 自动发现根目录下所有 简历-*.md。日常只有全栈一份；
+ * 投 AI 岗时可临时放一份 简历-AI应用.md，构建后删掉即可。
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -13,13 +16,10 @@ import { fileURLToPath } from 'node:url';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = path.join(ROOT, 'dist');
 
-const FILES = [
-  '简历-前端开发.md',
-  '简历-Java后端.md',
-  '简历-全栈开发.md',
-  '简历-AI应用.md',
-  '简历-大模型应用.md',
-];
+const FILES = fs
+  .readdirSync(ROOT)
+  .filter((f) => f.startsWith('简历-') && f.endsWith('.md'))
+  .sort();
 
 /** 行内：粗体、代码、链接、尖括号链接 */
 function inline(text) {
