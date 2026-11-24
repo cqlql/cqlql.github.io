@@ -1,0 +1,2 @@
+# 远端脚本必须是 LF：CRLF 的 .sh 经 `sh -s` 在目标机上会报 `$'\r': command not found`
+scripts/*.sh text eol=lf

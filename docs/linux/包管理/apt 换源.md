@@ -4,6 +4,10 @@ sort: 2
 ---
 
 # Ubuntu 24.04 修改阿里云镜像源完整教程
+
+> **AI 执行版**：`skills/ubuntu-apt-mirror/`（先测速再换源、验签后才写、失败自动回退、可接进网页面板）。
+> 下面这篇是手工操作的母本：手工做得到，但不该在被管服务器上一台台这么敲。
+
 你当前系统是 Ubuntu 24.04，**源文件格式为 DEB822，路径 `/etc/apt/sources.list.d/ubuntu.sources`**，旧的 `/etc/apt/sources.list` 仅注释提示，修改无效。
 
 ## 一、先退出当前nano编辑器
