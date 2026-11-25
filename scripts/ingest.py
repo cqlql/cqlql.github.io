@@ -46,14 +46,22 @@ def main() -> None:
 
     print(
         f"语料：{len(files)} 篇　切分：strategy={cfg.chunk_strategy} "
-        f"size={cfg.chunk_size} overlap={cfg.chunk_overlap}"
+        f"size={cfg.chunk_size} overlap={cfg.chunk_overlap} "
+        f"merge_min_chars={cfg.merge_min_chars}"
     )
 
     t0 = time.perf_counter()
     chunks = []
     for f in tqdm(files, desc="切分", unit="篇"):
         chunks.extend(
-            chunk_file(f, cfg.corpus_dir, cfg.chunk_size, cfg.chunk_overlap, cfg.chunk_strategy)
+            chunk_file(
+                f,
+                cfg.corpus_dir,
+                cfg.chunk_size,
+                cfg.chunk_overlap,
+                cfg.chunk_strategy,
+                merge_min_chars=cfg.merge_min_chars,
+            )
         )
     t_chunk = time.perf_counter() - t0
 
@@ -82,6 +90,7 @@ def main() -> None:
         "fragments": fragments,
         "chunk_size": cfg.chunk_size,
         "chunk_overlap": cfg.chunk_overlap,
+        "merge_min_chars": cfg.merge_min_chars,
         "chunk_strategy": cfg.chunk_strategy,
         "embed_model": cfg.embed_model,
         "dim": embedder.dim,

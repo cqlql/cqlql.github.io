@@ -31,7 +31,7 @@
 | 链路实现 / 改造点 / 踩坑 | [`docs/rag-pipeline.md`](docs/rag-pipeline.md) | 改切分或换模型必须重建索引；技术选型决策在方案文档 §3 | 现行 |
 | 评估集契约 / 指标口径 / 实验命令 | [`docs/evaluation.md`](docs/evaluation.md) | schema 权威在 `evaluate.py` docstring；两种后端同一份评估集 | 现行 |
 | 施工清单（JD 覆盖 / 周节奏） | [`docs/roadmap.md`](docs/roadmap.md) | 会过期；第 3 周转 Agent 后标 🗄 已完结 | 进行中 |
-| 评估集数据 | `data/eval/queries.example.jsonl` → `queries.jsonl` | 已标 50 条（AI 代标待人工复核）；按「你会怎么问」写、避开标题术语，别让天花板毁掉对比 | 现行 |
+| 评估集数据 | `data/eval/queries.example.jsonl` → `queries.jsonl` | 已标 50 条（AI 代标待人工复核；2026-11-24 换掉 4 条随语料失效的项目题）；按「你会怎么问」写、避开标题术语，别让天花板毁掉对比 | 现行 |
 | 检索效果可视化（本地交互页面） | [`scripts/serve_ui.py`](scripts/serve_ui.py) + `web/index.html` | 只读 `data/index/`、索引按 manifest 热重载；不建索引、不调 LLM，未就绪时须显式提示；看的是检索层不是答案正确率 | 现行 |
 | 人视角 / 快速开始 | [`README.md`](README.md) | 不是索引；文档指针指向本表 | 现行 |
 | 实验台账（数字唯一落点） | `learning/实验台账.md` | 本仓不复制任何实测数字 | 现行 |
@@ -45,8 +45,11 @@
 
 ## 2. 数据与索引：最容易搞坏的一层
 
-- 🔴 **改了 `chunker.py` / `CHUNK_STRATEGY` / `CHUNK_SIZE` / `CHUNK_OVERLAP` / embedding 模型，必须重跑 `scripts/ingest.py`**。
-  否则 `evaluate.py` 量的是旧索引；`cli.py` 的 `manifest.json` 告警**只在 numpy 后端、且只比对 `chunk_size` / `chunk_strategy`**，别指望它兜底。
+- 🔴 **改了 `chunker.py` / `CHUNK_STRATEGY` / `CHUNK_SIZE` / `CHUNK_OVERLAP` / `MERGE_MIN_CHARS` / embedding 模型，必须重跑 `scripts/ingest.py`**。
+  否则 `evaluate.py` 量的是旧索引；`cli.py` 的 `manifest.json` 告警**只在 numpy 后端、且只比对 `chunk_size` / `chunk_strategy` / `merge_min_chars`**，别指望它兜底。
+- 🔴 **语料会变，索引不会自己跟上**：笔记搬迁/删除后 `manifest.files` 与 `data/index` 实际篇数对不上，
+  评估集里失效的 `expected` 会让 recall 天花板悄悄变成 (50−N)/50（`evaluate.py` 会打印这个上限）。
+  语料一变就重建索引；`expected` 失效的 query 必须人工重标或删掉，别拿原始 recall 和旧数字比。
 - **两种切分策略共用同一份代码**：`CHUNK_STRATEGY=fixed`（固定长度 baseline）/ `heading`（标题感知），改 `.env` 不改代码。
   `manifest.json` 记 `chunk_strategy`，`evaluate.py` 会打印它 —— 量之前先确认量的是哪个策略建的索引。
 - 🔴 **默认策略是 `heading`**：12 条试水集上曾误判它掉点，补齐 50 条评估集后反超
@@ -54,6 +57,10 @@
   `.env` / `.env.example` / `config.py` fallback / `chunker.py` 签名默认值四处必须一致；
   `fixed` 只作对照组，改回它要重跑 `ingest.py` 重建索引。
   ⚠️ 50 条样本只差 1 条命中、P95 +16ms，后续仍需扩样本复核这个决策。
+- **短 section 合并默认关**（`MERGE_MIN_CHARS=0`）：小于该值的 section 向前并进上一节，合并后不超过
+  `CHUNK_SIZE` 才并。实测 120 让碎片 166→41、块数 −15%，但检索零增益（recall 不变、MRR 微降），
+  数字与「救回 2 条 / 弄丢 2 条」的归因见 `learning/实验台账.md` §2.1。
+  `.env` / `.env.example` / `config.py` fallback / `chunk_file()` 签名默认值四处必须一致；改它同样要重建索引。
 - 🔴 **换 embedding 模型 = 维度变 = pg 表结构变**：`store_pg.reset()` 会 `DROP TABLE chunks`（不可撤销），
   `DATABASE_URL` 只许指向 `docker-compose.yml` 的本地实验库（5433），别指到任何真实库。
 - 🔴 **numpy 与 pg 的 `recall@5` 必须用同一份 `queries.jsonl` 跑**，否则比的是两套标准。
@@ -68,12 +75,17 @@
 - 切分前后对比的唯一变量是 `CHUNK_STRATEGY`：同一份 `queries.jsonl`、同后端、同 `CHUNK_SIZE`，中间不动代码。
 - 🔴 **换评估集 = 换标准**：12 条试水集曾因天花板效应误判 heading 掉点，补齐 50 条后结论反转；
   换集后两种策略必须用新集各量一次，旧数字作废（见 `learning/实验台账.md` §0.5）。
+  **替换 / 重标某几条 query 同样算换标准**：换完立刻重跑 baseline 并更新台账，
+  别拿替换前的 recall 和替换后比（分母一样、题目不一样，差出来的不是收益）。
 - 🔴 **先标评估集再优化**：从 `queries.example.jsonl` 复制成 `queries.jsonl`、**删掉两条占位示例**、
   `expected` 写相对 `CORPUS_DIR` 的路径。schema 的唯一权威是 `scripts/evaluate.py` 模块 docstring，文档不复制。
 - 🔴 **`recall@5` 是检索层指标，不是端到端指标**：生成层评测（对不对 / 有没有编 / 该拒答时拒答）尚未实现，
   不许拿 recall 当「答案正确率」写进简历。
+- **rerank 两段式已实现、未证明净收益，默认关**（`RERANK_ENABLED=false`）：粗召回 `RERANK_TOP_N` 条进
+  cross-encoder 精排、再取 `TOP_K`；50 条集上 recall@5 不升反降、耗时长了一个量级。复测只改这一行、**不重建索引**，
+  数字与失败归因见 `learning/实验台账.md` §2。`score` 仍是余弦，精排分单独放 `rerank_score`，别混标成「相似度」。
 - `cli.py` 的 `--top-k` 与 `generator.answer()` 的 `max_hits=3` 不是一回事：召回 10 条也只有前 3 条进 prompt。
-- 命令与四条对照纪律见 [`docs/evaluation.md`](docs/evaluation.md) §4。
+- 命令与五条对照纪律见 [`docs/evaluation.md`](docs/evaluation.md) §4。
 
 ## 4. 代码与依赖边界
 

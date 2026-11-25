@@ -25,14 +25,26 @@ def _int(key: str, default: int) -> int:
         return default
 
 
+def _bool(key: str, default: bool) -> bool:
+    """true/1/yes/on 为真；拼错不静默回退，直接报错 —— 和 CHUNK_STRATEGY 同一个理由。"""
+    raw = os.getenv(key, "true" if default else "false").strip().lower()
+    if raw in ("true", "1", "yes", "on"):
+        return True
+    if raw in ("false", "0", "no", "off"):
+        return False
+    raise SystemExit(f"{key} 只支持 true/false，当前是 {raw!r}")
+
+
 @dataclass(frozen=True)
 class Config:
     corpus_dir: Path
     index_dir: Path
     chunk_size: int
     chunk_overlap: int
+    merge_min_chars: int
     chunk_strategy: str
     top_k: int
+    rerank_enabled: bool
     rerank_top_n: int
     embed_model: str
     rerank_model: str
@@ -57,8 +69,10 @@ def load_config() -> Config:
         index_dir=ROOT / "data" / "index",
         chunk_size=_int("CHUNK_SIZE", 512),
         chunk_overlap=_int("CHUNK_OVERLAP", 51),
+        merge_min_chars=_int("MERGE_MIN_CHARS", 0),
         chunk_strategy=strategy,
         top_k=_int("TOP_K", 5),
+        rerank_enabled=_bool("RERANK_ENABLED", False),
         rerank_top_n=_int("RERANK_TOP_N", 20),
         embed_model=os.getenv("EMBED_MODEL", "BAAI/bge-m3"),
         rerank_model=os.getenv("RERANK_MODEL", "BAAI/bge-reranker-v2-m3"),

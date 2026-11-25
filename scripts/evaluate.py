@@ -27,7 +27,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from notes_rag.config import ROOT, load_config  # noqa: E402
 from notes_rag.embedder import Embedder  # noqa: E402
-from notes_rag.retriever import Retriever  # noqa: E402
+from notes_rag.retriever import build_retriever  # noqa: E402
 from notes_rag.store import open_store, read_manifest  # noqa: E402
 
 QUERIES_FILE = ROOT / "data" / "eval" / "queries.jsonl"
@@ -62,15 +62,42 @@ def main() -> None:
         print(
             f"索引：{manifest.get('chunks', '?')} 块　chunk_size={manifest.get('chunk_size', '?')}"
             f"　strategy={manifest.get('chunk_strategy', 'fixed')}"
+            f"　merge_min_chars={manifest.get('merge_min_chars', 0)}"
             f"　建于 {manifest.get('built_at', '?')}"
         )
     else:
         print("索引：PostgreSQL（pgvector）")
-    print(f"后端：{args.backend}　评估：{len(rows)} 条　top_k={k}\n")
+
+    # 语料会变（笔记搬迁 / 删除），评估集不会自动跟着变：expected 失效的必须显式报出来，
+    # 否则 recall 天花板悄悄变成 (50-N)/50，还以为是自己改坏了
+    expired = [
+        r
+        for r in rows
+        if not any((cfg.corpus_dir / e).exists() for e in (r.get("expected") or []))
+    ]
+    if expired:
+        print(
+            f"⚠️  {len(expired)} 条 query 的 expected 在语料里全部不存在（评估集没跟上语料变更）："
+        )
+        for r in expired[:5]:
+            print(f"    ✗ {r['query']}")
+        print(
+            f"   recall@{k} 的理论上限 = {(len(rows) - len(expired)) / len(rows):.3f}"
+            f"；这 {len(expired)} 条要人工重标或删除，别拿原始 recall 直接和历史数字比。\n"
+        )
+    print(f"后端：{args.backend}　评估：{len(rows)} 条　top_k={k}")
+    if cfg.rerank_enabled:
+        print(
+            f"rerank：开　粗召回 top-{cfg.rerank_top_n} → 精排取 top-{k}"
+            f"　模型 {cfg.rerank_model}"
+        )
+    else:
+        print("rerank：关　纯向量 top-k")
+    print()
 
     embedder = Embedder(cfg.embed_model)
     store = open_store(args.backend, cfg)
-    retriever = Retriever(embedder, store)
+    retriever = build_retriever(embedder, store, cfg)
 
     hit_count = 0
     mrr_sum = 0.0

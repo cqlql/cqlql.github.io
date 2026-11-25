@@ -13,7 +13,7 @@ import time
 from .config import load_config
 from .embedder import Embedder
 from .generator import answer
-from .retriever import Retriever
+from .retriever import build_retriever
 from .store import open_store, read_manifest
 
 
@@ -30,7 +30,7 @@ def main() -> None:
     t0 = time.perf_counter()
     embedder = Embedder(cfg.embed_model)
     store = open_store(args.backend, cfg)
-    retriever = Retriever(embedder, store)
+    retriever = build_retriever(embedder, store, cfg)
     t_load = time.perf_counter() - t0
 
     if args.backend == "numpy":
@@ -46,6 +46,12 @@ def main() -> None:
                 f"⚠️  索引是用 chunk_strategy={built_strategy} 建的，"
                 f"当前配置是 {cfg.chunk_strategy}。改了切分要重跑 ingest.py。\n"
             )
+        built_merge = manifest.get("merge_min_chars", 0)
+        if built_merge != cfg.merge_min_chars:
+            print(
+                f"⚠️  索引是用 merge_min_chars={built_merge} 建的，"
+                f"当前配置是 {cfg.merge_min_chars}。改了切分要重跑 ingest.py。\n"
+            )
 
     t1 = time.perf_counter()
     hits = retriever.search(args.question, top_k=args.top_k or cfg.top_k)
@@ -55,7 +61,8 @@ def main() -> None:
 
     if args.show_chunks:
         for i, h in enumerate(hits, 1):
-            print(f"[{i}] {h['score']:.4f}  {h['source']}")
+            extra = f"  精排 {h['rerank_score']:.4f}" if "rerank_score" in h else ""
+            print(f"[{i}] {h['score']:.4f}{extra}  {h['source']}")
             print(f"    {h['text'][:120].replace(chr(10), ' ')}...")
         print()
 
@@ -66,11 +73,13 @@ def main() -> None:
     print(reply)
     print("\n来源：")
     for i, h in enumerate(hits, 1):
-        print(f"  [{i}] {h['source']}  ·  相似度 {h['score']:.3f}")
+        extra = f"　精排 {h['rerank_score']:.3f}" if "rerank_score" in h else ""
+        print(f"  [{i}] {h['source']}  ·  相似度 {h['score']:.3f}{extra}")
 
     print(
         f"\n耗时：加载 {t_load:.1f}s · 检索 {t_search:.0f}ms · 生成 {t_gen / 1000:.2f}s"
-        f"　｜　索引 {len(store)} 块"
+        f"　｜　索引 {len(store)} 块　｜　rerank "
+        f"{'开（top-' + str(cfg.rerank_top_n) + ' 精排）' if retriever.rerank_enabled else '关'}"
     )
 
 

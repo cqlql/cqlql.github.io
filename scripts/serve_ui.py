@@ -29,7 +29,7 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from notes_rag.config import load_config  # noqa: E402
 from notes_rag.embedder import Embedder  # noqa: E402
-from notes_rag.retriever import Retriever  # noqa: E402
+from notes_rag.retriever import build_retriever  # noqa: E402
 from notes_rag.store import VectorStore, read_manifest  # noqa: E402
 
 HTML_FILE = ROOT / "web" / "index.html"
@@ -41,9 +41,11 @@ class SearchEngine:
 
     def __init__(self) -> None:
         self.cfg = load_config()
-        self._lock = threading.Lock()
+        # RLock：search() 持锁时 _get_retriever() 还要再进一次，普通 Lock 会自锁死
+        self._lock = threading.RLock()
         self._embedder: Embedder | None = None
         self._store: VectorStore | None = None
+        self._retriever = None
         self._manifest: dict = {}
         self._index_stamp: float | None = None
         self._queries_rows: list[dict] = []
@@ -101,10 +103,25 @@ class SearchEngine:
             "corpus_files": self.corpus_files,
             "strategy": self.cfg.chunk_strategy,
             "chunk_size": self.cfg.chunk_size,
+            "merge_min_chars": self.cfg.merge_min_chars,
             "embed_model": self.cfg.embed_model,
+            "rerank_enabled": self.cfg.rerank_enabled,
+            "rerank_top_n": self.cfg.rerank_top_n,
+            "rerank_model": self.cfg.rerank_model,
             "llm_enabled": bool(self.cfg.llm_api_key),
             "eval_count": len(self.queries()),
         }
+
+    def _get_retriever(self):
+        """embedding 模型和索引都就绪后组装一次；索引热重载时跟着换掉。"""
+        store = self._store
+        if self._embedder is None or self._retriever is None or self._retriever.store is not store:
+            with self._lock:
+                if self._embedder is None:
+                    self._embedder = Embedder(self.cfg.embed_model)
+                if self._retriever is None or self._retriever.store is not store:
+                    self._retriever = build_retriever(self._embedder, store, self.cfg)
+        return self._retriever
 
     def search(self, query: str, top_k: int) -> dict:
         err = self._ensure_index()
@@ -114,15 +131,10 @@ class SearchEngine:
         if not query:
             return {"ok": False, "error": "问题不能为空"}
 
-        if self._embedder is None:
-            with self._lock:
-                if self._embedder is None:
-                    self._embedder = Embedder(self.cfg.embed_model)
-
         top_k = max(1, min(50, top_k))
         t0 = time.perf_counter()
-        with self._lock:  # sentence-transformers 的 encode 不保证线程安全，串行化
-            hits = Retriever(self._embedder, self._store).search(query, top_k=top_k)
+        with self._lock:  # sentence-transformers 的 encode / predict 不保证线程安全，串行化
+            hits = self._get_retriever().search(query, top_k=top_k)
         elapsed_ms = (time.perf_counter() - t0) * 1000
 
         lookup = {r["query"].strip(): r["expected"] for r in self.queries()}
@@ -142,12 +154,19 @@ class SearchEngine:
                 {
                     "rank": i + 1,
                     "score": round(float(h["score"]), 4),
+                    "rerank_score": round(float(h["rerank_score"]), 4)
+                    if "rerank_score" in h
+                    else None,
                     "source": h["source"],
                     "heading": h.get("heading") or "",
                     "text": h["text"],
                 }
                 for i, h in enumerate(hits)
             ],
+            "rerank": {
+                "enabled": self.cfg.rerank_enabled,
+                "top_n": self.cfg.rerank_top_n,
+            },
             # 只有「问题正好在评估集里」才带 eval，避免把随手一问误标成未命中
             "eval": None
             if expected is None

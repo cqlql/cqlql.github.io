@@ -34,6 +34,15 @@ class Chunk:
     meta: dict = field(default_factory=dict)
 
 
+@dataclass
+class _Section:
+    """标题切分的中间产物：path 是完整标题路径，line 是自己那行标题，body 是正文。"""
+
+    path: str
+    line: str
+    body: str
+
+
 def _chunk_id(source: str, index: int, text: str) -> str:
     h = hashlib.md5(text.encode("utf-8")).hexdigest()[:8]
     return f"{source}#{index}-{h}"
@@ -143,18 +152,22 @@ def split_text(
     return chunks
 
 
-def _iter_sections(text: str, fallback: str) -> list[tuple[str, str]]:
-    """按标题层级切成 (标题路径, 正文)。代码块内的 `#` 不算标题。"""
-    sections: list[tuple[str, str]] = []
+def _iter_sections(text: str, fallback: str) -> list[_Section]:
+    """按标题层级切成 _Section（完整标题路径 / 本节标题行 / 正文）。
+
+    代码块内的 `#` 不算标题。文件开头、第一个标题之前的内容，path 用 fallback（文件名）兜底。
+    """
+    sections: list[_Section] = []
     stack: list[tuple[int, str]] = []
     buf: list[str] = []
     heading = ""
+    heading_line = ""
     in_fence = False
 
     def flush() -> None:
         body = "".join(buf).strip()
         if body:
-            sections.append((heading or fallback, body))
+            sections.append(_Section(path=heading or fallback, line=heading_line, body=body))
         buf.clear()
 
     for line in text.splitlines(keepends=True):
@@ -171,6 +184,7 @@ def _iter_sections(text: str, fallback: str) -> list[tuple[str, str]]:
             while stack and stack[-1][0] >= level:
                 stack.pop()
             stack.append((level, title))
+            heading_line = f"{'#' * level} {title}"
             heading = " / ".join(f"{'#' * lv} {t}" for lv, t in stack)
         else:
             buf.append(line)
@@ -179,20 +193,49 @@ def _iter_sections(text: str, fallback: str) -> list[tuple[str, str]]:
     return sections
 
 
+def _merge_short_sections(
+    sections: list[_Section], min_chars: int, max_chars: int
+) -> list[_Section]:
+    """短 section 向前合并：正文 < min_chars 才并，且并进前一块后不超过 max_chars。
+
+    规则写死三条，改之前先想清楚为什么：
+    1. **只向前并**：前一块是同一文件里上一节，语义上通常就是它的补充说明；
+       文件第一段没有前一块，保持原样（合并后顺序会乱，不值得为一个开头短节特判）。
+    2. **被并节的标题行保留在正文里**：embedding 仍能看到「这一小段讲的是哪个子标题」，
+       只是不再单独成一个块。
+    3. **合并后不超过 max_chars（= CHUNK_SIZE）**：超过就会在 split_text 里再被切开，
+       短块只是从「独立碎片」变成「下一块的开头碎片」，没解决问题。
+    """
+    if min_chars <= 0:
+        return sections
+
+    out: list[_Section] = []
+    for s in sections:
+        if out and len(s.body) < min_chars:
+            prev = out[-1]
+            merged_body = prev.body + "\n\n" + (f"{s.line}\n\n" if s.line else "") + s.body
+            if len(merged_body) <= max_chars:
+                out[-1] = _Section(path=prev.path, line=prev.line, body=merged_body)
+                continue
+        out.append(s)
+    return out
+
+
 def chunk_file(
     path: Path,
     corpus_dir: Path,
     size: int,
     overlap: int,
     strategy: str = "heading",
+    merge_min_chars: int = 0,
 ) -> list[Chunk]:
     """读一个 md 文件并切分。
 
     fixed   —— baseline，整篇当一个 section（heading 用文件名）。
     heading —— 按标题切 section，标题路径既进 heading 字段、也作为每块 text
                的前缀，让 embedding 吃到「这块在讲哪一节」。超长 section 仍由
-               split_text 按 size 兜底。碎片块（< 50 字）先不丢，是否丢弃由
-               evaluate.py 的前后数字决定。
+               split_text 按 size 兜底。短 section 按 `merge_min_chars` 向前合并
+               （0 = 不合并，baseline）；碎片块是否该丢由 evaluate.py 的前后数字决定。
     """
     try:
         text = path.read_text(encoding="utf-8")
@@ -213,11 +256,13 @@ def chunk_file(
         raise ValueError(f"未知切分策略：{strategy}")
 
     chunks: list[Chunk] = []
-    for heading, body in _iter_sections(text, path.stem):
+    sections = _iter_sections(text, path.stem)
+    sections = _merge_short_sections(sections, merge_min_chars, max_chars=size)
+    for section in sections:
         for c in split_text(
-            body, size, overlap, source=rel, heading=heading, respect_fences=True
+            section.body, size, overlap, source=rel, heading=section.path, respect_fences=True
         ):
-            c.text = f"{heading}\n\n{c.text}"
+            c.text = f"{section.path}\n\n{c.text}"
             chunks.append(c)
 
     # text 加过前缀，id 按最终内容重算，免得与另一策略撞 id

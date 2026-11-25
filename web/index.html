@@ -245,9 +245,15 @@ async function loadMeta() {
   const pills = [
     `<span class="pill">切分 <b>${esc(m.strategy)}</b></span>`,
     `<span class="pill">chunk_size <b>${esc(m.chunk_size)}</b></span>`,
+    m.merge_min_chars
+      ? `<span class="pill">短节合并 <b>&lt;${esc(m.merge_min_chars)} 字</b></span>`
+      : '',
     `<span class="pill">语料 <b>${esc(m.corpus_files)}</b> 篇</span>`,
     `<span class="pill">索引 <b>${esc(man.chunks || '—')}</b> 块</span>`,
     `<span class="pill">模型 <b>${esc(m.embed_model)}</b></span>`,
+    m.rerank_enabled
+      ? `<span class="pill">rerank <b>top-${esc(m.rerank_top_n)} 精排</b></span>`
+      : `<span class="pill">rerank <b>关</b></span>`,
     `<span class="pill">建于 <b>${esc(man.built_at || '—')}</b></span>`,
     `<span class="pill">评估集 <b>${esc(m.eval_count)}</b> 条</span>`
   ];
@@ -296,8 +302,9 @@ async function loadQueries() {
 }
 
 function renderHits(d) {
+  const rerank = d.rerank && d.rerank.enabled ? ` · rerank top-${d.rerank.top_n} 精排` : ' · rerank 关';
   $('#summary').textContent =
-    `返回 ${d.hits.length} 条 · top_k=${d.top_k} · 检索耗时 ${d.elapsed_ms} ms`;
+    `返回 ${d.hits.length} 条 · top_k=${d.top_k} · 检索耗时 ${d.elapsed_ms} ms${rerank}`;
 
   const badge = $('#eval-badge');
   if (!d.eval) {
@@ -323,7 +330,7 @@ function renderHits(d) {
           <div class="src">${esc(h.source)}${isExp ? '<span class="tag">期望文档</span>' : ''}</div>
           ${h.heading ? `<div class="heading">${esc(h.heading)}</div>` : ''}
         </div>
-        <span class="score">${h.score.toFixed(4)}</span>
+        <span class="score">${h.score.toFixed(4)}${h.rerank_score == null ? '' : `<br>精排 ${h.rerank_score.toFixed(4)}`}</span>
       </div>
       <div class="bar"><i style="width:${width}%"></i></div>
       <div class="text">${esc(h.text)}</div>

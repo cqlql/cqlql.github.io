@@ -67,6 +67,7 @@
 ```bash
 # 0. 评估集：复制 → 删占位 → 人工标 50 条
 cp data/eval/queries.example.jsonl data/eval/queries.jsonl
+# 0b. 重标 / 替换 query 后必须重跑一次 baseline：分母变了，旧数字作废（见纪律 5）
 
 # 1. numpy 基准（先量 baseline，再动代码）
 uv run python scripts/ingest.py
@@ -74,6 +75,12 @@ uv run python scripts/evaluate.py
 
 # 1b. 切分策略对比：.env 改 CHUNK_STRATEGY=heading → 重跑 1 的两条，评估集不动
 #     唯一变量是策略；确认 evaluate.py 打印的 strategy 已变，否则量的是旧索引
+
+# 1c. rerank 对比：不重建索引，.env 改 RERANK_ENABLED=false 量一次 → 改 true 再量一次
+#     唯一变量是这一行；evaluate.py 会打印「rerank 开/关 + 粗召回 top-N」
+
+# 1d. 短 section 合并对比：.env 改 MERGE_MIN_CHARS=0 → 重建索引 + 量一次 → 改 120 再重建再量
+#     合并动了切分，所以两侧都要 ingest.py；只改这一行，代码与评估集不动
 
 # 2. pgvector 对比（仅做对比实验时起容器，端口 5433）
 docker compose up -d
@@ -89,12 +96,16 @@ uv run python -m notes_rag.cli "rerank 为什么要对 top-20 做" --show-chunks
 > ⚠️ 本机按 `../AGENTS.md` §4 装了本地 CUDA torch 时，上面所有 `uv run` 都要写成 `uv run --no-sync`，
 > 否则 `uv sync` 会把 torch 还原成 CPU 版。判据与重装命令只写在 AGENTS，这里不复制。
 
-四条对照纪律：
+五条对照纪律：
 
 1. 🔴 **同一份 `queries.jsonl`**：numpy 与 pg、改前与改后都用它，否则比的是两套标准，数字没意义。
 2. 🔴 **每次只改一处**，前后各量一次；用到的参数（`.env` 或命令行 flag）要能复现，别只记结果数字。
 3. 🔴 **改切分 / 换模型先重建索引**，两个后端都要重建；详见 `rag-pipeline.md` §4、§5。
+   rerank 是例外：它只改排序、不动索引，所以两边都不重建。
 4. `ingest.py --backend pg` 与 `evaluate.py --backend pg` **成对跑**，只跑其中一个没有可比数字。
+5. 🔴 **语料变了就不是同一套标准**：`expected` 失效的 query 会让上限低于 1（`evaluate.py` 会打印），
+   这时先重建索引 + 重标那几条，再谈「涨了还是跌了」。**替换 query 也算换标准**：
+   换完先重跑一遍 baseline 并记台账，替换前的数字作废，不许拿来和替换后比。
 
 **再进一步（面试加分项）**：把 `hnsw.ef_search` 调到 40 / 100 / 200 三档，各量一次 recall 与延迟，
 用来回答「ef_search 调大有什么代价」。调用入口是 `PgVectorStore.set_ef_search()`，
