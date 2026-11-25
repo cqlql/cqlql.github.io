@@ -1,0 +1,60 @@
+{
+  "itv_20261118_01": {
+    "interview_id": "itv_20261118_01",
+    "company": "某电商中台",
+    "position": "Java 后端（3-5 年）",
+    "date": "2026-11-18",
+    "round": 2,
+    "duration_min": 45,
+    "result": "进下一轮",
+    "questions": [
+      {
+        "no": 1,
+        "question": "线程池核心线程数怎么定？队列满了之后呢？",
+        "quality": "good",
+        "note": "分得清 CPU 密集和 IO 密集，但没主动提队列容量与拒绝策略"
+      },
+      {
+        "no": 2,
+        "question": "同一个类里 A 方法调 B 方法，B 上标了 @Transactional，事务为什么失效？",
+        "quality": "weak",
+        "note": "只说了「走代理」，没讲清 self-invocation 绕不过 AOP 代理这一层"
+      },
+      {
+        "no": 3,
+        "question": "线上一条慢 SQL，你会按什么顺序查？",
+        "quality": "ok",
+        "note": "提了 explain，但没说 type / rows / extra 的判读先后"
+      },
+      {
+        "no": 4,
+        "question": "消息怎么保证不丢？",
+        "quality": "weak",
+        "note": "只讲了消费端 ack，没提生产端 confirm、持久化与幂等消费"
+      }
+    ]
+  },
+  "itv_20261106_01": {
+    "interview_id": "itv_20261106_01",
+    "company": "某 SaaS 创业公司",
+    "position": "Java 后端（3 年）",
+    "date": "2026-11-06",
+    "round": 1,
+    "duration_min": 35,
+    "result": "未通过",
+    "questions": [
+      {
+        "no": 1,
+        "question": "HashMap 扩容过程说一遍。",
+        "quality": "ok",
+        "note": "流程对，但没说清树化和退树化的阈值"
+      },
+      {
+        "no": 2,
+        "question": "索引为什么用 B+ 树不用 B 树？",
+        "quality": "weak",
+        "note": "只答了「矮」，没答范围扫描和叶子链表"
+      }
+    ]
+  }
+}

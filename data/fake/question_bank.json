@@ -1,0 +1,58 @@
+[
+  {
+    "id": "q_001",
+    "tags": ["spring", "事务"],
+    "difficulty": "hard",
+    "question": "同类里 A 方法调 B 方法，B 上的 @Transactional 为什么不生效？",
+    "focus": "AOP 代理边界 / self-invocation / 传播行为"
+  },
+  {
+    "id": "q_002",
+    "tags": ["spring", "事务"],
+    "difficulty": "medium",
+    "question": "@Transactional(readOnly = true) 到底优化了什么？",
+    "focus": "只读标记 / 数据库侧行为 / 驱动提示"
+  },
+  {
+    "id": "q_003",
+    "tags": ["消息队列"],
+    "difficulty": "medium",
+    "question": "生产端 confirm 和消费端 ack 分别解决什么问题？",
+    "focus": "可靠性三段 / 重复消费 / 顺序"
+  },
+  {
+    "id": "q_004",
+    "tags": ["消息队列", "幂等"],
+    "difficulty": "hard",
+    "question": "重复消费怎么保证幂等？",
+    "focus": "去重键 / 状态机 / 唯一索引"
+  },
+  {
+    "id": "q_005",
+    "tags": ["并发", "线程池"],
+    "difficulty": "medium",
+    "question": "线程池队列满了之后依次发生什么？",
+    "focus": "拒绝策略 / 阻塞队列 / 扩容顺序"
+  },
+  {
+    "id": "q_006",
+    "tags": ["mysql", "慢查询"],
+    "difficulty": "medium",
+    "question": "explain 里你最先看哪几列？为什么？",
+    "focus": "type / rows / extra 判读顺序"
+  },
+  {
+    "id": "q_007",
+    "tags": ["mysql", "索引"],
+    "difficulty": "easy",
+    "question": "什么情况下索引会失效？",
+    "focus": "函数 / 隐式转换 / 最左前缀"
+  },
+  {
+    "id": "q_008",
+    "tags": ["jvm"],
+    "difficulty": "hard",
+    "question": "Full GC 频繁，你怎么定位？",
+    "focus": "GC 日志 / 堆 dump / 对象年龄"
+  }
+]
