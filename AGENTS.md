@@ -2,15 +2,16 @@
 
 # AGENTS.md · pass-up.agent
 
-面向 AI 编码助手的红线。判据和数字的权威在 `learning/cards/02-agent/` 与 `learning/实验台账.md` §4，
-本文件只写「每次动代码都要遵守」的东西，不复述原理。
+面向 AI 编码助手的红线。判据和数字的权威在笔记仓 `cqlql-notes.learning`
+（`D:\_work\cqlql-notes-branches\cqlql-notes.learning`）的 `cards/02-agent/` 与 `实验台账.md` §4，
+本文件只写「每次动代码都要遵守」的东西，不复述原理。这两个路径不在本仓，也不在 `pass-up` 树下。
 
 | | |
 | :--- | :--- |
 | **这个域是什么** | PassUp 面试复盘 Agent：三工具 + ReAct 循环 + 失败处理，独立仓、独立部署 |
 | **不是什么** | 不重写面试 / 题库业务；不做 pass-up 后端；不接 RAG（notes-rag 在另一个仓） |
 | **最硬的一条约束** | **到上限永远降级返回部分答案，不抛异常、不给用户 500** |
-| **数字落点** | `learning/实验台账.md` §4（轮次分布 / 选对率 / 死循环次数 / 描述改动前后） |
+| **数字落点** | `cqlql-notes.learning/实验台账.md` §4（轮次分布 / 选对率 / 死循环次数 / 描述改动前后） |
 | **现在跑的是假的** | `LLM_PROVIDER=fake` 是脚本化 provider，证明循环通，不能证明模型选得对 |
 
 ## 1. 依赖方向
@@ -53,7 +54,7 @@ config（settings + container，唯一 import adapters 的地方）
 uv sync
 uv run python -m app                 # 离线 4 轮：查记录 -> 题库 -> 建议 -> 结论
 uv run python -m app --max-rounds 2  # 演示降级：部分答案 + 缺什么
-uv run pytest -q                     # 8 个离线用例
+uv run pytest -q                     # 11 个离线用例
 uv run ruff check .                  # E,F,I,UP,B / line-length 100
 ```
 

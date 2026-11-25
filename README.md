@@ -12,7 +12,7 @@ PassUp 的面试复盘 Agent：**Function Calling + 多工具编排 + 失败处�
 - 一轮完整的「查记录 -> 找同类题 -> 生成建议 -> 给结论」离线跑通，不联网、不要密钥
 - 四层硬约束：最大轮次、总超时、重复调用拦截、工具报错包装回填
 - 到上限**降级给部分答案**，不抛异常给用户
-- 8 个离线测试覆盖：正常链路、重复调用硬停、未知工具自纠、缺参数、轮次降级、空结果标注、序列化与坏 JSON
+- 11 个离线测试覆盖：正常链路、重复调用硬停、未知工具自纠、缺参数、轮次降级、空结果标注、序列化与坏 JSON、`.env` 读取与 shell 优先
 
 ```bash
 uv sync
@@ -52,7 +52,8 @@ provider=fake · max_rounds=5 · max_repeats=2 · timeout=60s
 `chat_template_kwargs`，豆包是 `thinking.type`），翻译收在 adapter 里，循环层不感知。
 
 > 换真模型后第一件事不是调 prompt，是**量工具选对率**：人工标 20~30 次调用，
-> 再把某条 description 改一句话、重跑同一批任务。数字记 `learning/实验台账.md` §4，本仓不存数字。
+> 再把某条 description 改一句话、重跑同一批任务。数字记 `cqlql-notes.learning/实验台账.md` §4（
+> `D:\_work\cqlql-notes-branches\cqlql-notes.learning`），本仓不存数字。
 
 ## 目录
 
@@ -71,7 +72,8 @@ app/
 │   └── openai_compat.py      # 豆包 / vLLM 共用，OpenAI 兼容
 └── features/review/prompt.py # 复盘助手的 system prompt
 data/fake/                    # interviews.json + question_bank.json
-tests/                        # 8 个离线测试
+data/eval/tool-routing-v1.md  # 工具选对率标注集（24 条，真模型才用得上）
+tests/                        # 11 个离线测试
 ```
 
 ## 下一步（第 3~4 周）
