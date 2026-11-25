@@ -28,6 +28,25 @@ class Settings:
     vllm_timeout: float
 
 
+def _load_env_file(path: Path) -> None:
+    """把 .env 读进 os.environ；已存在的变量不覆盖（shell / CLI 优先）。
+
+    仓库只有 httpx 一个运行依赖，不引 dotenv：格式只支持 `KEY=value` 与 `# 注释`。
+    """
+    if not path.is_file():
+        return
+    for raw in path.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        if line.startswith("export "):
+            line = line[len("export ") :].strip()
+        key, sep, value = line.partition("=")
+        if not sep or not key.strip():
+            continue
+        os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
+
+
 def _env_int(name: str, default: int) -> int:
     raw = os.getenv(name)
     return int(raw) if raw else default
@@ -39,6 +58,7 @@ def _env_float(name: str, default: float) -> float:
 
 
 def load_settings() -> Settings:
+    _load_env_file(ROOT / ".env")
     return Settings(
         provider=os.getenv("LLM_PROVIDER", "fake").strip().lower(),
         data_dir=Path(os.getenv("DATA_DIR") or ROOT / "data" / "fake"),
