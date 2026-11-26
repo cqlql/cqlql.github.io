@@ -75,6 +75,10 @@
     rag: { short: 'RAG', full: '阶段一 · RAG' },
     agent: { short: 'Agent', full: '阶段二 · Agent' },
     eval: { short: '评测', full: '阶段三 · 评测' },
+    fe: { short: '前端', full: '面试口播 · 前端' },
+    java: { short: 'Java', full: '面试口播 · Java 后端' },
+    ai: { short: 'AI 应用', full: '面试口播 · AI 应用' },
+    llm: { short: '大模型', full: '面试口播 · 大模型' },
   }
   function stageShort(s) {
     return (STAGE[s] && STAGE[s].short) || s
@@ -148,9 +152,9 @@
       '<div class="card-head">' +
       '<div class="tag"><em>' +
       stageShort(c.stage) +
-      '</em>第 ' +
-      esc(c.week || '-') +
-      ' 周</div>' +
+      '</em>' +
+      (c.week ? '第 ' + esc(c.week) + ' 周' : '') +
+      '</div>' +
       (total > 1 ? '<div class="counter">' + num + ' / ' + total + '</div>' : '') +
       '</div>'
 
