@@ -91,6 +91,21 @@ function mdToHtml(md) {
     const line = raw.trim();
 
     if (line === '') {
+      // 空行后若还是同类列表项，视为同一个列表（松散列表），不重新编号
+      if (listType) {
+        let j = i + 1;
+        while (j < lines.length && lines[j].trim() === '') j += 1;
+        const next = lines[j]?.trim() ?? '';
+        const nextType = /^[-*]\s+/.test(next)
+          ? 'ul'
+          : /^\d+\.\s+/.test(next)
+            ? 'ol'
+            : null;
+        if (nextType === listType) {
+          i = j;
+          continue;
+        }
+      }
       closeList();
       i += 1;
       continue;
@@ -180,8 +195,8 @@ const CSS = `
   body {
     margin: 0;
     font-family: "Microsoft YaHei", "PingFang SC", "Hiragino Sans GB", sans-serif;
-    font-size: 10.2pt;
-    line-height: 1.66;
+    font-size: 10pt;
+    line-height: 1.5;
     color: #1a1a1a;
   }
   h1 {
@@ -214,7 +229,7 @@ const CSS = `
     font-size: 12.5pt;
     font-weight: 700;
     color: #1f3a5f;
-    margin: 14px 0 8px;
+    margin: 10px 0 6px;
     padding-bottom: 3px;
     border-bottom: 1.2px solid #1f3a5f;
     break-after: avoid;
@@ -222,16 +237,16 @@ const CSS = `
   h3 {
     font-size: 11pt;
     font-weight: 700;
-    margin: 12px 0 4px;
+    margin: 9px 0 3px;
     color: #12314f;
     padding-left: 7px;
     border-left: 3px solid #1f3a5f;
     break-after: avoid;
   }
-  h4 { font-size: 10.2pt; margin: 8px 0 3px; break-after: avoid; }
-  p { margin: 0 0 4px; }
-  ul, ol { margin: 3px 0 6px; padding-left: 21px; }
-  li { margin: 0 0 3px; break-inside: avoid; }
+  h4 { font-size: 10pt; margin: 6px 0 2px; break-after: avoid; }
+  p { margin: 0 0 3px; }
+  ul, ol { margin: 2px 0 4px; padding-left: 21px; }
+  li { margin: 0 0 2px; break-inside: avoid; }
   li > strong:first-child { color: #111; }
   hr { display: none; }
   a { color: #1a4f8a; text-decoration: none; }
