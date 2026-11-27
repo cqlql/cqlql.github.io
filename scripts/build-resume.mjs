@@ -78,11 +78,20 @@ function mdToHtml(md) {
   const out = [];
   let i = 0;
   let listType = null; // 'ul' | 'ol'
+  let listItems = []; // 当前列表的条目（已转义好的 HTML）
 
   const closeList = () => {
     if (listType) {
-      out.push(`</${listType}>`);
+      if (listType === 'ol' && listItems.length === 1) {
+        // 只有一个条目的列表去掉编号，渲染成与列表文字同缩进的段落
+        out.push(`<p class="single">${listItems[0]}</p>`);
+      } else {
+        out.push(`<${listType}>`);
+        for (const item of listItems) out.push(`<li>${item}</li>`);
+        out.push(`</${listType}>`);
+      }
       listType = null;
+      listItems = [];
     }
   };
 
@@ -112,7 +121,7 @@ function mdToHtml(md) {
     }
 
     // 分隔线
-    if (/^---+$/.test(line)) {
+    if (/^(?:-{3,}|\*{3,}|_{3,})$/.test(line)) {
       closeList();
       out.push('<hr>');
       i += 1;
@@ -157,10 +166,10 @@ function mdToHtml(md) {
     if (ul) {
       if (listType !== 'ul') {
         closeList();
-        out.push('<ul>');
         listType = 'ul';
+        listItems = [];
       }
-      out.push(`<li>${inline(ul[1])}</li>`);
+      listItems.push(inline(ul[1]));
       i += 1;
       continue;
     }
@@ -170,10 +179,10 @@ function mdToHtml(md) {
     if (ol) {
       if (listType !== 'ol') {
         closeList();
-        out.push('<ol>');
         listType = 'ol';
+        listItems = [];
       }
-      out.push(`<li>${inline(ol[1])}</li>`);
+      listItems.push(inline(ol[1]));
       i += 1;
       continue;
     }
@@ -245,6 +254,7 @@ const CSS = `
   }
   h4 { font-size: 10pt; margin: 6px 0 2px; break-after: avoid; }
   p { margin: 0 0 3px; }
+  p.single { padding-left: 21px; margin: 0 0 2px; }
   ul, ol { margin: 2px 0 4px; padding-left: 21px; }
   li { margin: 0 0 2px; break-inside: avoid; }
   li > strong:first-child { color: #111; }
